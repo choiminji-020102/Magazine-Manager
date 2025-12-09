@@ -1,1 +1,0 @@
-export { subscriberAPI } from "./subscriber";
