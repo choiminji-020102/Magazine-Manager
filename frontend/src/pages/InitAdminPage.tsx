@@ -1,0 +1,230 @@
+import React, { useState } from "react";
+import {
+  Globe,
+  Lock,
+  Mail,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  User,
+} from "lucide-react";
+
+import { authAPI } from "../api/authApi";
+import { AdminRole } from "../api/adminApi";
+import { useAuth } from "../contexts/AuthContext";
+import Input from "../components/common/Input";
+import Button from "../components/common/Button";
+import Alert from "../components/common/Alert";
+import { getErrorMessage } from "../utils/errorHandler";
+
+interface InitAdminPageProps {
+  onBackToLogin?: () => void;
+}
+
+const InitAdminPage: React.FC<InitAdminPageProps> = ({ onBackToLogin }) => {
+  const { login } = useAuth();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    // 유효성 검사
+    if (!name || !email || !password || !confirmPassword) {
+      setError("모든 필드를 입력해주세요.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("비밀번호가 일치하지 않습니다.");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("비밀번호는 8자 이상이어야 합니다.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // 최초 관리자 생성
+      await authAPI.initFirstAdmin({
+        email: email,
+        plain_password: password,
+        name: name,
+        role: AdminRole.SUPER_ADMIN,
+        is_active: true,
+      });
+
+      // 생성 성공 후 자동 로그인
+      await login({ email, plain_password: password });
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 antialiased">
+      <div className="w-full max-w-lg">
+        {/* 로고 및 헤더 */}
+        <div className="text-center mb-8">
+          <button
+            onClick={onBackToLogin}
+            className="cursor-pointer hover:opacity-80 transition-opacity"
+            aria-label="로그인 페이지로 이동"
+          >
+            <h1 className="text-4xl font-extrabold text-blue-600 mb-2">
+              목자의 지혜
+            </h1>
+          </button>
+          <p className="text-gray-600 text-sm">최초 관리자 계정을 생성하세요</p>
+        </div>
+
+        {/* 초기화 카드 */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8">
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start space-x-3">
+              <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-700">
+                <p className="font-semibold text-blue-900 mb-1">
+                  최초 관리자 계정 생성
+                </p>
+                <p>
+                  시스템에 관리자가 없어 최초 관리자 계정을 생성합니다.
+                  <br />
+                  최초 관리자는 자동으로{" "}
+                  <strong>최고 관리자(SUPER_ADMIN)</strong> 권한이 부여됩니다.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {error && (
+            <div className="mb-6">
+              <Alert type="error">{error}</Alert>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <Input
+              id="name"
+              type="text"
+              label="이름"
+              icon={User}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="이름을 입력하세요"
+              required
+              disabled={loading}
+            />
+
+            <Input
+              id="email"
+              type="email"
+              label="이메일"
+              icon={Mail}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="이메일을 입력하세요"
+              required
+              disabled={loading}
+            />
+
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                label="비밀번호"
+                icon={Lock}
+                iconPosition="left"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="비밀번호를 입력하세요 (8자 이상)"
+                required
+                disabled={loading}
+                className="pr-12"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-[50px] text-gray-400 hover:text-gray-600 transition-colors z-10"
+                tabIndex={-1}
+                aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
+              >
+                {showPassword ? (
+                  <EyeOff className="w-5 h-5" />
+                ) : (
+                  <Eye className="w-5 h-5" />
+                )}
+              </button>
+            </div>
+
+            <div className="relative">
+              <Input
+                id="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                label="비밀번호 확인"
+                icon={Lock}
+                iconPosition="left"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="비밀번호를 다시 입력하세요"
+                required
+                disabled={loading}
+                className="pr-12"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-[50px] text-gray-400 hover:text-gray-600 transition-colors z-10"
+                tabIndex={-1}
+                aria-label={
+                  showConfirmPassword ? "비밀번호 숨기기" : "비밀번호 보기"
+                }
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="w-5 h-5" />
+                ) : (
+                  <Eye className="w-5 h-5" />
+                )}
+              </button>
+            </div>
+
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              loading={loading}
+              className="w-full"
+            >
+              최초 관리자 생성 및 로그인
+            </Button>
+          </form>
+        </div>
+
+        {/* 하단 정보 */}
+        <div className="mt-6 text-center space-y-3">
+          <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+            <Globe className="w-4 h-4" />
+            <span>한국어 (KOR)</span>
+          </div>
+          <div className="text-xs text-gray-400">
+            © 2025 목자의 지혜. All rights reserved.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default InitAdminPage;
