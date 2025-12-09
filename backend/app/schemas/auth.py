@@ -6,7 +6,7 @@ from typing import Optional
 from pydantic import BaseModel, EmailStr
 
 # 로컬 애플리케이션
-from app.models.model_admin import AdminRole
+from app.models import admin as admin_model
 
 
 # 로그인 요청용 (클라이언트 → 서버)
@@ -22,6 +22,7 @@ class TokenPairResponse(BaseModel):
 
 # 리프레시 요청
 class RefreshRequest(BaseModel):
+    access_token: str
     refresh_token: str
 
 
@@ -32,21 +33,8 @@ class LogoutRequest(BaseModel):
 
 # JWT payload 구조 (내부용)
 class TokenPayload(BaseModel):
-    sub: int  # admin id (정수로 저장)
+    sub: str  # admin id (JWT 표준에 따라 문자열로 저장)
     type: str  # "access" or "refresh"
-    exp: int   # 만료 시각 (epoch)
+    exp: int   # 만료 시각 - timestamp라서 int로 저장됨. datetime 아님
+    iat: int   # 발급 시각 - timestamp라서 int로 저장됨. datetime 아님
 
-
-# # 현재 로그인 관리자 응답 예시
-# class UserMeResponse(BaseModel):
-#     id: int
-#     email: EmailStr
-#     name: str   
-#     role: str
-#     is_active: bool
-#     last_login_at: Optional[datetime] = None
-#     created_at: datetime
-#     updated_at: datetime
-
-#     class Config:
-#         from_attributes = True

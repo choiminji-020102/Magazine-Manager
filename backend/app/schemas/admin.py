@@ -6,7 +6,7 @@ from typing import Optional
 from pydantic import BaseModel, EmailStr
 
 # 로컬 애플리케이션
-from app.models.model_admin import AdminRole
+from app.models import admin as admin_model
 
 
 # 생성 요청용 (클라이언트 → 서버)
@@ -14,15 +14,16 @@ class AdminCreate(BaseModel):
     email: EmailStr
     plain_password: str
     name: str
-    role: AdminRole
+    role: admin_model.AdminRole
     is_active: bool
     
 
 # 수정 요청용 - 부분 수정 가능 (클라이언트 → 서버)
 class AdminUpdate(BaseModel):
+    email: Optional[EmailStr] = None
     plain_password: Optional[str] = None
     name: Optional[str] = None
-    role: Optional[AdminRole] = None
+    role: Optional[admin_model.AdminRole] = None
     is_active: Optional[bool] = None
 
 
@@ -31,7 +32,7 @@ class AdminResponse(BaseModel):
     id: int
     email: EmailStr
     name: str
-    role: AdminRole
+    role: admin_model.AdminRole
     is_active: bool
     last_login_at: Optional[datetime] = None
     created_at: datetime
