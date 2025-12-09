@@ -2,8 +2,8 @@
 from fastapi import APIRouter
 
 # 로컬 애플리케이션
-from app.api.endpoints.api_admin import router as admin_router
-from app.api.endpoints.api_auth import router as auth_router
+from app.api.endpoints.admin import router as admin_router
+from app.api.endpoints.auth import router as auth_router
 
 
 api_router = APIRouter()
