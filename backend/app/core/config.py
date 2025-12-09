@@ -1,6 +1,3 @@
-# 표준 라이브러리
-from datetime import timedelta
-
 # 서드파티 라이브러리
 from pydantic_settings import BaseSettings
 
@@ -12,8 +9,8 @@ class Settings(BaseSettings):
     DB_PASSWORD: str
     DB_NAME: str
     
-     # JWT
-    JWT_SECRET_KEY: str
+    # JWT
+    JWT_ACCESS_SECRET_KEY: str
     JWT_REFRESH_SECRET_KEY: str
     JWT_ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
