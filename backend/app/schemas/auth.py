@@ -35,6 +35,6 @@ class LogoutRequest(BaseModel):
 class TokenPayload(BaseModel):
     sub: str  # admin id (JWT 표준에 따라 문자열로 저장)
     type: str  # "access" or "refresh"
-    exp: int   # 만료 시각 - timestamp라서 int로 저장됨. datetime 아님
-    iat: int   # 발급 시각 - timestamp라서 int로 저장됨. datetime 아님
+    exp: int   # 만료 시각 - UTC 기준 timestamp라서 int로 저장됨. datetime 아님
+    iat: int   # 발급 시각 - UTC 기준 timestamp라서 int로 저장됨. datetime 아님
 

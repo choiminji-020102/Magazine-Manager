@@ -13,7 +13,8 @@ from app.schemas import auth as auth_schema
 # 발급
 def encode_token(admin_id: int, expires_delta: timedelta, jwt_secret_key: str, token_type: str) -> str:
     # UTC 시간 사용 (JWT 표준)
-    now = datetime.utcnow()
+    # now = datetime.utcnow() # tzinfo가 없는 naive datetime
+    now = datetime.now(timezone.utc) # tzinfo가 있는 aware datetime
 
     payload: Dict[str, Any] = {
         "sub": str(admin_id),

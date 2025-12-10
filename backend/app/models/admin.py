@@ -23,10 +23,11 @@ class Admin(Base):
     role = Column(Enum(AdminRole), nullable=False, default=AdminRole.MANAGER)
     is_active = Column(Boolean, nullable=False, default=True)
 
-    last_login_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
-    deleted_at = Column(DateTime, nullable=True, index=True) # Soft delete용 컬럼
+    # timezone=True 사용 -> 이 필드는 타임존 정보를 포함한 aware datetime을 저장하도록 함.
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True, index=True) # Soft delete용 컬럼
 
     def __repr__(self):
         return (
