@@ -70,7 +70,7 @@ const AdminListPage: React.FC<AdminListPageProps> = ({
 
   const filteredAdmins = admins.filter(
     (admin) =>
-      admin.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      admin.admin_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       admin.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -159,14 +159,14 @@ const AdminListPage: React.FC<AdminListPageProps> = ({
               ) : (
                 filteredAdmins.map((admin) => (
                   <tr
-                    key={admin.id}
+                    key={admin.admin_id}
                     className="hover:bg-gray-50 transition-colors"
                   >
                     <td className="py-3 px-4 text-sm text-gray-700">
-                      {admin.id}
+                      {admin.admin_id}
                     </td>
                     <td className="py-3 px-4 text-sm font-medium text-gray-900">
-                      {admin.name}
+                      {admin.admin_name}
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-700">
                       {admin.email}
@@ -174,15 +174,15 @@ const AdminListPage: React.FC<AdminListPageProps> = ({
                     <td className="py-3 px-4">
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          getRoleInfo(admin.role).color
+                          getRoleInfo(admin.admin_role).color
                         }`}
                       >
-                        {getRoleInfo(admin.role).label}
+                        {getRoleInfo(admin.admin_role).label}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-center">
                       {admin.is_active ? (
-                        <span className="inline-flex items-center text-green-600">
+                        <span className="inline-flex items-center text-blue-600">
                           <CheckCircle className="w-4 h-4 mr-1" />
                           <span className="text-xs">활성</span>
                         </span>
@@ -204,7 +204,7 @@ const AdminListPage: React.FC<AdminListPageProps> = ({
                       <div className="flex items-center justify-center space-x-2">
                         <button
                           onClick={() =>
-                            onSelectAdmin && onSelectAdmin(admin.id)
+                            onSelectAdmin && onSelectAdmin(admin.admin_id)
                           }
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="수정"
@@ -212,13 +212,13 @@ const AdminListPage: React.FC<AdminListPageProps> = ({
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(admin.id)}
+                          onClick={() => handleDelete(admin.admin_id)}
                           className={`p-2 rounded-lg transition-colors ${
-                            deleteConfirm === admin.id
+                            deleteConfirm === admin.admin_id
                               ? "bg-red-600 text-white"
                               : "text-red-600 hover:bg-red-50"
                           }`}
-                          title={deleteConfirm === admin.id ? "확인" : "삭제"}
+                          title={deleteConfirm === admin.admin_id ? "확인" : "삭제"}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

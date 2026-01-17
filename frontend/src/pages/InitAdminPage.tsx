@@ -59,8 +59,8 @@ const InitAdminPage: React.FC<InitAdminPageProps> = ({ onBackToLogin }) => {
       await authAPI.initFirstAdmin({
         email: email,
         plain_password: password,
-        name: name,
-        role: AdminRole.SUPER_ADMIN,
+        admin_name: name,
+        admin_role: AdminRole.SUPER_ADMIN,
         is_active: true,
       });
 
@@ -74,7 +74,7 @@ const InitAdminPage: React.FC<InitAdminPageProps> = ({ onBackToLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 antialiased">
+    <div className="min-h-screen flex items-center justify-center p-4 antialiased">
       <div className="w-full max-w-lg">
         {/* 로고 및 헤더 */}
         <div className="text-center mb-8">
@@ -83,20 +83,34 @@ const InitAdminPage: React.FC<InitAdminPageProps> = ({ onBackToLogin }) => {
             className="cursor-pointer hover:opacity-80 transition-opacity"
             aria-label="로그인 페이지로 이동"
           >
-            <h1 className="text-4xl font-extrabold text-blue-600 mb-2">
+            <img
+              src="/logo.png"
+              alt="목자의 지혜"
+              className="h-20 w-auto object-contain mx-auto mb-2"
+              onError={(e) => {
+                // 이미지가 없을 경우 기본 텍스트 표시
+                const target = e.target as HTMLImageElement;
+                target.style.display = "none";
+                const parent = target.parentElement;
+                if (parent) {
+                  const fallback = parent.querySelector('.logo-fallback') as HTMLElement;
+                  if (fallback) fallback.style.display = "block";
+                }
+              }}
+            />
+            <h1 className="text-4xl font-extrabold text-accent mb-2 hidden logo-fallback">
               목자의 지혜
             </h1>
           </button>
-          <p className="text-gray-600 text-sm">최초 관리자 계정을 생성하세요</p>
         </div>
 
         {/* 초기화 카드 */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8">
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="bg-white rounded-lg shadow-sm border border-line p-8">
+          <div className="mb-6 p-4 bg-chip border border-line rounded-lg">
             <div className="flex items-start space-x-3">
-              <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-blue-700">
-                <p className="font-semibold text-blue-900 mb-1">
+              <AlertCircle className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-muted">
+                <p className="font-semibold text-ink mb-1">
                   최초 관리자 계정 생성
                 </p>
                 <p>
@@ -214,11 +228,11 @@ const InitAdminPage: React.FC<InitAdminPageProps> = ({ onBackToLogin }) => {
 
         {/* 하단 정보 */}
         <div className="mt-6 text-center space-y-3">
-          <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+          <div className="flex items-center justify-center space-x-2 text-sm text-muted">
             <Globe className="w-4 h-4" />
             <span>한국어 (KOR)</span>
           </div>
-          <div className="text-xs text-gray-400">
+          <div className="text-xs text-muted">
             © 2025 목자의 지혜. All rights reserved.
           </div>
         </div>

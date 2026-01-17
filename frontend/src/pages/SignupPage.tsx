@@ -63,8 +63,8 @@ const SignupPage: React.FC<SignupPageProps> = ({
       await authAPI.initFirstAdmin({
         email,
         plain_password: password,
-        name,
-        role: AdminRole.MANAGER,
+        admin_name: name,
+        admin_role: AdminRole.MANAGER,
         is_active: true,
       });
 
@@ -91,7 +91,22 @@ const SignupPage: React.FC<SignupPageProps> = ({
       <div className="w-full max-w-md">
         {/* 로고 및 헤더 */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-extrabold text-blue-600 mb-2">
+          <img
+            src="/logo.png"
+            alt="목자의 지혜"
+            className="h-20 w-auto object-contain mx-auto mb-2"
+            onError={(e) => {
+              // 이미지가 없을 경우 기본 텍스트 표시
+              const target = e.target as HTMLImageElement;
+              target.style.display = "none";
+              const parent = target.parentElement;
+              if (parent) {
+                const fallback = parent.querySelector('.logo-fallback') as HTMLElement;
+                if (fallback) fallback.style.display = "block";
+              }
+            }}
+          />
+          <h1 className="text-4xl font-extrabold text-blue-600 mb-2 hidden logo-fallback">
             목자의 지혜
           </h1>
           <p className="text-gray-600 text-sm">관리자 계정을 생성하세요</p>

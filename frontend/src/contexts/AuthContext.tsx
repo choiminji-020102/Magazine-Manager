@@ -8,8 +8,24 @@ import React, {
 } from "react";
 import { tokenUtils } from "../api/axios";
 import { authAPI, LoginRequest, LogoutRequest } from "../api/authApi";
-import { adminAPI, AdminResponse } from "../api/adminApi";
+import { adminAPI, AdminResponse, AdminRole } from "../api/adminApi";
 import { getErrorMessage } from "../utils/errorHandler";
+
+// 개발 모드에서 로그인 우회 (true로 설정하면 로그인 없이 사용 가능)
+const DEV_SKIP_AUTH = true;
+
+// 개발용 더미 관리자
+const DEV_ADMIN: AdminResponse = {
+  admin_id: 1,
+  email: "dev@test.com",
+  admin_name: "개발자",
+  admin_role: AdminRole.SUPER_ADMIN,
+  is_active: true,
+  last_login_at: null,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  deleted_at: null,
+};
 
 // AuthContext 타입 정의
 interface AuthContextType {
@@ -35,9 +51,16 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [currentAdmin, setCurrentAdmin] = useState<AdminResponse | null>(null);
+  // const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  // const [isLoading, setIsLoading] = useState<boolean>(true);
+  // const [currentAdmin, setCurrentAdmin] = useState<AdminResponse | null>(null);
+  // 개발 모드면 바로 인증된 상태로 시작
+  const [isAuthenticated, setIsAuthenticated] =
+    useState<boolean>(DEV_SKIP_AUTH);
+  const [isLoading, setIsLoading] = useState<boolean>(!DEV_SKIP_AUTH);
+  const [currentAdmin, setCurrentAdmin] = useState<AdminResponse | null>(
+    DEV_SKIP_AUTH ? DEV_ADMIN : null
+  );
   const [error, setError] = useState<string | null>(null);
 
   // 에러 초기화

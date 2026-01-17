@@ -10,10 +10,10 @@ import { getErrorMessage } from "../utils/errorHandler";
 import { ADMIN_ROLES } from "../utils/constants";
 
 interface FormData {
-  name: string;
+  admin_name: string;
   email: string;
   password: string;
-  role: AdminRole;
+  admin_role: AdminRole;
   is_active: boolean;
 }
 
@@ -22,6 +22,7 @@ interface AdminDetailPageProps {
   onBack?: () => void;
   onSave?: () => void;
   onRefresh?: () => void;
+  isMyPage?: boolean; // 마이페이지에서 사용하는지 여부
 }
 
 const AdminDetailPage: React.FC<AdminDetailPageProps> = ({
@@ -29,18 +30,19 @@ const AdminDetailPage: React.FC<AdminDetailPageProps> = ({
   onBack,
   onSave,
   onRefresh,
+  isMyPage = false,
 }) => {
-  const [admin, setAdmin] = useState<AdminResponse | null>(null);
+  const [_admin, setAdmin] = useState<AdminResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [isEditing, setIsEditing] = useState(!adminId); // 새로 만들 때는 편집 모드
+  const [isEditing, setIsEditing] = useState(!adminId && !isMyPage); // 새로 만들 때는 편집 모드, 마이페이지는 읽기 모드로 시작
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState<FormData>({
-    name: "",
+    admin_name: "",
     email: "",
     password: "",
-    role: AdminRole.MANAGER,
+    admin_role: AdminRole.MANAGER,
     is_active: true,
   });
 
@@ -66,10 +68,10 @@ const AdminDetailPage: React.FC<AdminDetailPageProps> = ({
       const data = await adminAPI.getById(numericId);
       setAdmin(data);
       setFormData({
-        name: data.name,
+        admin_name: data.admin_name,
         email: data.email,
         password: "",
-        role: data.role,
+        admin_role: data.admin_role,
         is_active: data.is_active,
       });
     } catch (err) {
@@ -87,7 +89,7 @@ const AdminDetailPage: React.FC<AdminDetailPageProps> = ({
     setSuccess("");
 
     // 유효성 검사
-    if (!formData.name || !formData.email) {
+    if (!formData.admin_name || !formData.email) {
       setError("이름과 이메일은 필수입니다.");
       return;
     }
@@ -110,10 +112,10 @@ const AdminDetailPage: React.FC<AdminDetailPageProps> = ({
         if (!numericId) return;
 
         await adminAPI.update(numericId, {
-          name: formData.name,
+          admin_name: formData.admin_name,
           email: formData.email,
           plain_password: formData.password || undefined,
-          role: formData.role,
+          admin_role: formData.admin_role,
           is_active: formData.is_active,
         });
         setSuccess("관리자 정보가 수정되었습니다.");
@@ -122,10 +124,10 @@ const AdminDetailPage: React.FC<AdminDetailPageProps> = ({
       } else {
         // 생성
         await adminAPI.create({
-          name: formData.name,
+          admin_name: formData.admin_name,
           email: formData.email,
           plain_password: formData.password,
-          role: formData.role,
+          admin_role: formData.admin_role,
           is_active: formData.is_active,
         });
         setSuccess("관리자가 생성되었습니다.");
@@ -159,7 +161,7 @@ const AdminDetailPage: React.FC<AdminDetailPageProps> = ({
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          {onBack && (
+          {onBack && !isMyPage && (
             <Button
               onClick={onBack}
               variant="ghost"
@@ -171,15 +173,17 @@ const AdminDetailPage: React.FC<AdminDetailPageProps> = ({
           )}
           <div>
             <h2 className="text-2xl font-bold text-gray-900">
-              {adminId && adminId !== "new"
+              {isMyPage
+                ? "내 정보"
+                : adminId && adminId !== "new"
                 ? "관리자 정보 수정"
                 : "새 관리자 추가"}
             </h2>
-            <p className="text-sm text-gray-600 mt-1">
-              {adminId && adminId !== "new"
-                ? "관리자 정보를 수정할 수 있습니다."
-                : "새로운 관리자 계정을 생성합니다."}
-            </p>
+            {adminId === "new" && !isMyPage && (
+              <p className="text-sm text-gray-600 mt-1">
+                새로운 관리자 계정을 생성합니다.
+              </p>
+            )}
           </div>
         </div>
         {adminId && adminId !== "new" && !isEditing && (
@@ -199,35 +203,50 @@ const AdminDetailPage: React.FC<AdminDetailPageProps> = ({
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* 이름 */}
-          <Input
-            id="name"
-            type="text"
-            label="이름"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            disabled={!isEditing}
-            required
-            placeholder="이름을 입력하세요"
-          />
+          <div>
+            <label className="block text-sm font-semibold text-gray-900 mb-2">
+              이름 <span className="text-red-500">*</span>
+            </label>
+            <Input
+              id="admin_name"
+              type="text"
+              value={formData.admin_name}
+              onChange={(e) => setFormData({ ...formData, admin_name: e.target.value })}
+              disabled={!isEditing}
+              required
+              placeholder="이름을 입력하세요"
+              className="text-base"
+            />
+          </div>
 
           {/* 이메일 */}
-          <Input
-            id="email"
-            type="email"
-            label="이메일"
-            value={formData.email}
-            onChange={(e) =>
-              setFormData({ ...formData, email: e.target.value })
-            }
-            disabled={!isEditing}
-            required
-            placeholder="이메일을 입력하세요"
-          />
+          <div>
+            <label className="block text-sm font-semibold text-gray-900 mb-2">
+              이메일 <span className="text-red-500">*</span>
+            </label>
+            <Input
+              id="email"
+              type="email"
+              value={formData.email}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
+              disabled={!isEditing || isMyPage}
+              required
+              placeholder="이메일을 입력하세요"
+              className="text-base"
+            />
+            {isMyPage && (
+              <p className="text-xs text-gray-500 mt-1">
+                이메일은 변경할 수 없습니다.
+              </p>
+            )}
+          </div>
 
           {/* 비밀번호 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              비밀번호 {(!adminId || adminId === "new") && "*"}
+            <label className="block text-sm font-semibold text-gray-900 mb-2">
+              비밀번호 {(!adminId || adminId === "new") && <span className="text-red-500">*</span>}
               {adminId && adminId !== "new" && (
                 <span className="text-xs text-gray-500 font-normal ml-2">
                   (변경하지 않으려면 비워두세요)
@@ -267,45 +286,49 @@ const AdminDetailPage: React.FC<AdminDetailPageProps> = ({
             </div>
           </div>
 
-          {/* 역할 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              역할 *
-            </label>
-            <select
-              value={formData.role}
-              onChange={(e) =>
-                setFormData({ ...formData, role: e.target.value as AdminRole })
-              }
-              disabled={!isEditing}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
-              required
-            >
-              {ADMIN_ROLES.map((role) => (
-                <option key={role.value} value={role.value}>
-                  {role.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* 활성 상태 */}
-          <div>
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.is_active}
+          {/* 역할 - 마이페이지에서는 숨김 */}
+          {!isMyPage && (
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                역할 <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.admin_role}
                 onChange={(e) =>
-                  setFormData({ ...formData, is_active: e.target.checked })
+                  setFormData({ ...formData, admin_role: e.target.value as AdminRole })
                 }
                 disabled={!isEditing}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer disabled:opacity-50"
-              />
-              <span className="text-sm font-medium text-gray-700">
-                계정 활성화
-              </span>
-            </label>
-          </div>
+                className="w-full px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 transition-all"
+                required
+              >
+                {ADMIN_ROLES.map((role) => (
+                  <option key={role.value} value={role.value}>
+                    {role.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* 활성 상태 - 마이페이지에서는 숨김 */}
+          {!isMyPage && (
+            <div className="flex items-center gap-3 pt-2">
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={formData.is_active}
+                  onChange={(e) =>
+                    setFormData({ ...formData, is_active: e.target.checked })
+                  }
+                  disabled={!isEditing}
+                  className="w-5 h-5 text-accent border-gray-300 rounded focus:ring-2 focus:ring-accent focus:ring-offset-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                />
+                <span className="text-base font-semibold text-gray-900 group-hover:text-gray-700">
+                  계정 활성화
+                </span>
+              </label>
+            </div>
+          )}
 
           {/* 버튼 */}
           {isEditing && (
