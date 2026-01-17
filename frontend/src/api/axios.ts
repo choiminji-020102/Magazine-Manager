@@ -4,6 +4,7 @@ import axios, {
   InternalAxiosRequestConfig,
 } from "axios";
 
+// 토큰을 localStorage에서 관리하는 tokenUtils 함수
 // 토큰 저장 키
 const ACCESS_TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
@@ -24,13 +25,14 @@ export const tokenUtils = {
   },
 
   hasTokens: (): boolean => {
+    // 로그인 여부 체크용
     return !!localStorage.getItem(ACCESS_TOKEN_KEY);
   },
 };
 
 // Axios 인스턴스 생성
 const api: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api",
+  baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },

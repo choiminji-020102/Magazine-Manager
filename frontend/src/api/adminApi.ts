@@ -9,29 +9,30 @@ export enum AdminRole {
 }
 
 export interface AdminResponse {
-  id: number;
+  admin_id: number;
   email: string;
-  name: string;
-  role: AdminRole;
+  admin_name: string;
+  admin_role: AdminRole;
   is_active: boolean;
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
 }
 
 export interface AdminCreate {
   email: string;
   plain_password: string;
-  name: string;
-  role: AdminRole;
+  admin_name: string;
+  admin_role: AdminRole;
   is_active: boolean;
 }
 
 export interface AdminUpdate {
   email?: string;
   plain_password?: string;
-  name?: string;
-  role?: AdminRole;
+  admin_name?: string;
+  admin_role?: AdminRole;
   is_active?: boolean;
 }
 
