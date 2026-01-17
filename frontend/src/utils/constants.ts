@@ -1,13 +1,14 @@
 // 메뉴 구조
 import {
-  Grid,
+  LayoutDashboard,
   Users,
-  ExternalLink,
   Package,
   ShoppingCart,
+  RefreshCw,
   Truck,
-  MessageSquare,
+  HeadphonesIcon,
   Settings,
+  BarChart3,
   LucideIcon,
 } from "lucide-react";
 import { AdminRole } from "../api/adminApi";
@@ -45,15 +46,10 @@ interface AdminRoleOption {
 
 export const MENU_STRUCTURE: MenuItem[] = [
   {
-    icon: Grid,
+    icon: LayoutDashboard,
     title: "대시보드",
     key: "dashboard",
-    subItems: [
-      { label: "오늘 주문 요약", key: "order-summary" },
-      { label: "발송 대기 / 배송 중", key: "shipping" },
-      { label: "신규 고객 수", key: "new-customers" },
-      { label: "오류/예외 주문 알림", key: "error-orders" },
-    ],
+    subItems: [],
   },
   {
     icon: Users,
@@ -61,15 +57,18 @@ export const MENU_STRUCTURE: MenuItem[] = [
     key: "customer",
     subItems: [
       { label: "고객 목록", key: "list" },
-      {
-        label: "고객 상세",
-        key: "detail",
-        subSubItems: [
-          { label: "기본 정보", key: "detail-info", isSubSub: true },
-          { label: "주문 이력", key: "detail-orders", isSubSub: true },
-          { label: "상담 이력", key: "detail-counseling", isSubSub: true },
-        ],
-      },
+      { label: "고객 등록", key: "register" },
+    ],
+  },
+  {
+    icon: RefreshCw,
+    title: "구독 관리",
+    key: "subscription",
+    subItems: [
+      { label: "구독 목록", key: "list" },
+      { label: "휴지 관리", key: "pause" },
+      { label: "중복 구독", key: "duplicate" },
+      { label: "구독 등록", key: "register" },
     ],
   },
   {
@@ -78,8 +77,7 @@ export const MENU_STRUCTURE: MenuItem[] = [
     key: "product",
     subItems: [
       { label: "상품 목록", key: "list" },
-      { label: "상품 등록/수정", key: "register" },
-      { label: "구성 상품 관리", key: "bundle" },
+      { label: "상품 등록", key: "register" },
     ],
   },
   {
@@ -88,45 +86,46 @@ export const MENU_STRUCTURE: MenuItem[] = [
     key: "order",
     subItems: [
       { label: "주문 목록", key: "list" },
-      { label: "예외 주문", key: "exception" },
+      { label: "주문 등록", key: "register" },
     ],
   },
   {
     icon: Truck,
-    title: "발송/배송 관리",
-    key: "delivery",
+    title: "발송 관리",
+    key: "shipping",
     subItems: [
-      { label: "발송 대기 목록", key: "pending" },
-      { label: "배송 현황", key: "status" },
+      { label: "오늘택배", key: "today-courier" },
+      { label: "택배발송현황", key: "courier-status" },
     ],
   },
   {
-    icon: MessageSquare,
-    title: "상담/채널톡",
-    key: "chat",
+    icon: HeadphonesIcon,
+    title: "고객 지원",
+    key: "support",
     subItems: [
-      { label: "상담 목록", key: "list" },
-      { label: "고객별 상담 내역", key: "history" },
-    ],
-  },
-  {
-    icon: ExternalLink,
-    title: "외부 연동 관리",
-    key: "integration",
-    subItems: [
-      { label: "CAFE24 설정", key: "cafe24" },
-      { label: "GPmall 설정", key: "gpmall" },
-      { label: "연동 상태 요약", key: "status" },
+      { label: "문의 목록", key: "list" },
+      { label: "문자 템플릿", key: "message-template" },
     ],
   },
   {
     icon: Settings,
-    title: "시스템 관리",
-    key: "system",
+    title: "설정",
+    key: "settings",
     subItems: [
-      { label: "관리자 계정 관리", key: "admin" },
-      { label: "권한 관리", key: "permission" },
-      { label: "기본 환경 설정", key: "settings" },
+      { label: "관리자 설정", key: "admin" },
+      { label: "Cafe24 연동", key: "cafe24" },
+      { label: "마이페이지", key: "profile" },
+    ],
+  },
+  {
+    icon: BarChart3,
+    title: "통계",
+    key: "statistics",
+    subItems: [
+      { label: "매출/주문 통계", key: "sales" },
+      { label: "상품별 통계", key: "product" },
+      { label: "구독 통계", key: "subscription" },
+      { label: "발송 통계", key: "shipping" },
     ],
   },
 ];
@@ -136,10 +135,11 @@ export const MENU_TITLES: Record<string, string> = {
   customer: "고객 관리",
   product: "상품 관리",
   order: "주문 관리",
-  delivery: "발송/배송 관리",
-  chat: "상담/채널톡",
-  integration: "외부 연동 관리",
-  system: "시스템 관리",
+  subscription: "구독 관리",
+  shipping: "발송 관리",
+  support: "고객 지원",
+  settings: "설정",
+  statistics: "통계",
 };
 
 export const ROLE_CONFIG: Record<string, RoleConfigItem> = {
@@ -153,3 +153,88 @@ export const ADMIN_ROLES: AdminRoleOption[] = [
   { value: AdminRole.ADMIN, label: "관리자" },
   { value: AdminRole.SUPER_ADMIN, label: "최고 관리자" },
 ];
+
+// Order Channel 상수
+export enum OrderChannel {
+  CAFE24 = "CAFE24",
+  GPMALL = "GPMALL",
+  OFFLINE = "OFFLINE",
+}
+
+export const ORDER_CHANNEL_LABELS: Record<OrderChannel, string> = {
+  [OrderChannel.CAFE24]: "Cafe24",
+  [OrderChannel.GPMALL]: "갓피플몰",
+  [OrderChannel.OFFLINE]: "오프라인",
+};
+
+// Order Status 상수
+export enum OrderStatus {
+  ORDERED = "ORDERED",
+  PAID = "PAID",
+  CANCELLED = "CANCELLED",
+  SHIPPING = "SHIPPING",
+  COMPLETED = "COMPLETED",
+}
+
+export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  [OrderStatus.ORDERED]: "주문됨",
+  [OrderStatus.PAID]: "결제완료",
+  [OrderStatus.CANCELLED]: "취소됨",
+  [OrderStatus.SHIPPING]: "배송중",
+  [OrderStatus.COMPLETED]: "완료",
+};
+
+// Product Kind 상수
+export enum ProductKind {
+  YEARLY = "YEARLY",
+  MONTHLY = "MONTHLY",
+  SINGLE = "SINGLE",
+}
+
+export const PRODUCT_KIND_LABELS: Record<ProductKind, string> = {
+  [ProductKind.YEARLY]: "연간 구독",
+  [ProductKind.MONTHLY]: "월간 구독",
+  [ProductKind.SINGLE]: "단품",
+};
+
+// Send Status 상수
+export enum SendStatus {
+  PREPARING = "PREPARING",
+  SHIPPED = "SHIPPED",
+  DELIVERED = "DELIVERED",
+  CANCELLED = "CANCELLED",
+}
+
+export const SEND_STATUS_LABELS: Record<SendStatus, string> = {
+  [SendStatus.PREPARING]: "발송 준비",
+  [SendStatus.SHIPPED]: "발송됨",
+  [SendStatus.DELIVERED]: "배송 완료",
+  [SendStatus.CANCELLED]: "취소됨",
+};
+
+// Courier Company 상수
+export enum CourierCompany {
+  CJ = "CJ대한통운",
+  LOGEN = "로젠택배",
+  POST = "우체국택배",
+  HANJIN = "한진택배",
+  LOTTE = "롯데택배",
+}
+
+export const COURIER_COMPANY_OPTIONS = [
+  CourierCompany.CJ,
+  CourierCompany.LOGEN,
+  CourierCompany.POST,
+  CourierCompany.HANJIN,
+  CourierCompany.LOTTE,
+];
+
+// Customer Channel 상수
+export const CUSTOMER_CHANNEL_OPTIONS = ["CAFE24", "GPMALL", "OFFLINE", "기타"];
+
+export const CUSTOMER_CHANNEL_LABELS: Record<string, string> = {
+  CAFE24: "Cafe24",
+  GPMALL: "갓피플몰",
+  OFFLINE: "오프라인",
+  기타: "기타",
+};
