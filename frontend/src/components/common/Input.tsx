@@ -37,7 +37,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={props.id}
-            className="block text-sm font-medium text-gray-700 mb-2"
+            className="block text-sm font-medium text-muted mb-2 uppercase tracking-wider text-xs"
           >
             {label}
             {props.required && <span className="text-red-500 ml-1">*</span>}
@@ -45,7 +45,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         )}
         <div className="relative">
           {Icon && iconPosition === "left" && (
-            <Icon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Icon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted" />
           )}
           <input
             ref={ref}
@@ -57,7 +57,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                 : type
             }
             className={cn(
-              "w-full border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-base py-3",
+              "unified-input w-full border focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-all",
               Icon && iconPosition === "left" ? "pl-11" : "",
               Icon && iconPosition === "right" ? "pr-11" : "",
               showPasswordToggle && isPasswordType ? "pr-12" : "",
@@ -65,20 +65,21 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
               Icon && iconPosition === "left" && !showPasswordToggle
                 ? "pr-4"
                 : "",
-              error ? "border-red-300 focus:ring-red-500" : "border-gray-200",
-              props.disabled && "bg-gray-50 text-gray-500",
+              error ? "border-red-300 focus:ring-red-500" : "border-line",
+              props.disabled &&
+                "bg-neutral-50 text-neutral-500 cursor-not-allowed",
               className
             )}
             {...props}
           />
           {Icon && iconPosition === "right" && (
-            <Icon className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Icon className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted" />
           )}
           {showPasswordToggle && isPasswordType && (
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors z-10"
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted hover:text-ink transition-colors z-10"
               tabIndex={-1}
               aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
             >

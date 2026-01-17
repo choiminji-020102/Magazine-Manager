@@ -3,7 +3,7 @@ import { LucideIcon } from "lucide-react";
 
 import { cn } from "../../utils/cn";
 
-type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
+type ButtonVariant = "primary" | "secondary" | "danger" | "ghost" | "outline";
 type ButtonSize = "sm" | "md" | "lg";
 type IconPosition = "left" | "right";
 
@@ -29,20 +29,31 @@ const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseStyles =
-    "inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+    "inline-flex items-center justify-center font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg";
 
   const variants: Record<ButtonVariant, string> = {
-    primary: "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500",
+    primary:
+      "bg-accent text-white hover:bg-accent-hover focus:ring-accent/30 shadow-sm hover:shadow-md",
     secondary:
-      "bg-gray-200 text-gray-700 hover:bg-gray-300 focus:ring-gray-500",
-    danger: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500",
-    ghost: "bg-transparent text-gray-700 hover:bg-gray-100 focus:ring-gray-500",
+      "bg-info-50 text-accent hover:bg-info-100 focus:ring-accent/20 border border-info-200",
+    danger:
+      "bg-danger-500 text-white hover:bg-danger-600 focus:ring-danger-500/30 shadow-sm",
+    ghost:
+      "bg-transparent text-muted hover:bg-paper hover:text-ink focus:ring-accent/20",
+    outline:
+      "bg-transparent text-ink border border-line hover:bg-paper hover:border-accent/30 focus:ring-accent/20",
   };
 
   const sizes: Record<ButtonSize, string> = {
-    sm: "px-3 py-1.5 text-sm",
-    md: "px-4 py-2 text-sm",
-    lg: "px-6 py-3 text-base",
+    sm: "px-3 py-1.5 text-sm gap-1.5",
+    md: "px-4 py-2 text-sm gap-2",
+    lg: "px-6 py-3 text-base gap-2",
+  };
+
+  const iconSizes: Record<ButtonSize, string> = {
+    sm: "w-3.5 h-3.5",
+    md: "w-4 h-4",
+    lg: "w-5 h-5",
   };
 
   return (
@@ -55,7 +66,7 @@ const Button: React.FC<ButtonProps> = ({
       {loading ? (
         <>
           <svg
-            className="animate-spin -ml-1 mr-2 h-4 w-4"
+            className={cn("animate-spin", iconSizes[size])}
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -74,15 +85,13 @@ const Button: React.FC<ButtonProps> = ({
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
             />
           </svg>
-          처리 중...
+          <span>처리 중...</span>
         </>
       ) : (
         <>
-          {Icon && iconPosition === "left" && <Icon className="w-4 h-4 mr-2" />}
+          {Icon && iconPosition === "left" && <Icon className={iconSizes[size]} />}
           {children}
-          {Icon && iconPosition === "right" && (
-            <Icon className="w-4 h-4 ml-2" />
-          )}
+          {Icon && iconPosition === "right" && <Icon className={iconSizes[size]} />}
         </>
       )}
     </button>

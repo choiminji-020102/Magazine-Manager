@@ -32,34 +32,35 @@ const Alert: React.FC<AlertProps> = ({
   className,
   onClose,
 }) => {
+  // Notion 스타일: 모두 통일된 회색
   const config: Record<AlertType, AlertConfig> = {
     error: {
       icon: AlertCircle,
-      bg: "bg-red-50",
-      border: "border-red-200",
-      text: "text-red-700",
-      iconColor: "text-red-500",
+      bg: "bg-paper",
+      border: "border-line",
+      text: "text-muted",
+      iconColor: "text-muted",
     },
     success: {
       icon: CheckCircle,
-      bg: "bg-green-50",
-      border: "border-green-200",
-      text: "text-green-700",
-      iconColor: "text-green-500",
+      bg: "bg-paper",
+      border: "border-line",
+      text: "text-ink",
+      iconColor: "text-ink",
     },
     info: {
       icon: Info,
-      bg: "bg-blue-50",
-      border: "border-blue-200",
-      text: "text-blue-700",
-      iconColor: "text-blue-500",
+      bg: "bg-paper",
+      border: "border-line",
+      text: "text-ink",
+      iconColor: "text-muted",
     },
     warning: {
       icon: XCircle,
-      bg: "bg-yellow-50",
-      border: "border-yellow-200",
-      text: "text-yellow-700",
-      iconColor: "text-yellow-500",
+      bg: "bg-paper",
+      border: "border-line",
+      text: "text-muted",
+      iconColor: "text-muted",
     },
   };
 
@@ -68,7 +69,7 @@ const Alert: React.FC<AlertProps> = ({
   return (
     <div
       className={cn(
-        "p-3 rounded-lg flex items-start space-x-2 border",
+        "p-3 rounded-[3px] flex items-start space-x-2 border",
         bg,
         border,
         text,
@@ -81,7 +82,7 @@ const Alert: React.FC<AlertProps> = ({
       {onClose && (
         <button
           onClick={onClose}
-          className="flex-shrink-0 text-gray-400 hover:text-gray-600"
+          className="flex-shrink-0 text-muted hover:text-ink"
           aria-label="닫기"
         >
           <XCircle className="w-4 h-4" />

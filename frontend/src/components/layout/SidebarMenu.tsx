@@ -48,11 +48,9 @@ const SidebarMenu: React.FC<SidebarMenuProps> = ({
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    // 서브메뉴가 있는 경우에만 토글
     if (subItems && subItems.length > 0) {
       onToggleMenu(menuKey);
     }
-    // 항상 메뉴 클릭 처리 (활성 메뉴 설정)
     onMenuClick(menuKey);
   };
 
@@ -65,44 +63,50 @@ const SidebarMenu: React.FC<SidebarMenuProps> = ({
       <button
         onClick={handleClick}
         className={cn(
-          "w-full text-left px-3 py-2 rounded flex items-center justify-between text-sm transition-colors duration-150",
+          "w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between text-sm transition-all duration-200",
           isActive && !activeSubMenu
-            ? "bg-blue-50 text-blue-600 font-semibold"
-            : "hover:bg-gray-100 text-gray-700"
+            ? "bg-gradient-to-r from-info-50 to-paper text-accent font-semibold shadow-sm"
+            : "hover:bg-paper text-muted hover:text-ink"
         )}
         aria-expanded={isExpanded}
         aria-current={isActive ? "page" : undefined}
       >
-        <div className="flex items-center space-x-2">
-          <Icon className="w-4 h-4" aria-hidden="true" />
+        <div className="flex items-center space-x-3">
+          <Icon
+            className={cn(
+              "w-[18px] h-[18px] transition-colors",
+              isActive && !activeSubMenu ? "text-accent" : "text-muted"
+            )}
+            aria-hidden="true"
+          />
           <span>{title}</span>
         </div>
         {subItems &&
+          subItems.length > 0 &&
           (isExpanded ? (
-            <ChevronDown className="w-4 h-4 transition-transform duration-150" />
+            <ChevronDown className="w-4 h-4 text-muted transition-transform duration-200" />
           ) : (
-            <ChevronRight className="w-4 h-4 transition-transform duration-150" />
+            <ChevronRight className="w-4 h-4 text-muted transition-transform duration-200" />
           ))}
       </button>
 
       {subItems && isExpanded && (
-        <div className="ml-4 mt-1 space-y-1 border-l border-gray-200 pl-2">
+        <div className="ml-4 mt-1 space-y-0.5 border-l-2 border-line pl-3">
           {subItems.map((item) => (
             <React.Fragment key={item.key}>
               <button
                 onClick={() => handleSubMenuClick(item.key)}
                 className={cn(
-                  "w-full text-left px-3 py-1.5 rounded text-xs transition-colors duration-150",
+                  "w-full text-left px-3 py-2 rounded-md text-[13px] transition-all duration-200",
                   activeSubMenu === item.key && isActive
-                    ? "bg-blue-100 text-blue-700 font-medium"
-                    : "hover:bg-gray-50 text-gray-600",
+                    ? "bg-info-50/80 text-accent font-medium"
+                    : "hover:bg-paper text-muted hover:text-ink",
                   item.isSubSub && "ml-4"
                 )}
                 aria-current={
                   activeSubMenu === item.key && isActive ? "page" : undefined
                 }
               >
-                {item.isSubSub ? "• " : ""}
                 {item.label}
               </button>
               {item.subSubItems?.map((subSub) => (
@@ -110,10 +114,10 @@ const SidebarMenu: React.FC<SidebarMenuProps> = ({
                   key={subSub.key}
                   onClick={() => handleSubMenuClick(subSub.key)}
                   className={cn(
-                    "w-full text-left px-3 py-1.5 rounded text-xs transition-colors duration-150 ml-4",
+                    "w-full text-left px-3 py-1.5 rounded-md text-xs transition-all duration-200 ml-4",
                     activeSubMenu === subSub.key && isActive
-                      ? "bg-blue-100 text-blue-700 font-medium"
-                      : "hover:bg-gray-50 text-gray-600"
+                      ? "bg-info-50/80 text-accent font-medium"
+                      : "hover:bg-paper text-muted hover:text-ink"
                   )}
                   aria-current={
                     activeSubMenu === subSub.key && isActive
