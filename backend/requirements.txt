@@ -1,6 +1,6 @@
 fastapi==0.121.0
 uvicorn[standard]==0.24.0
-sqlalchemy==2.0.44 # ORM 라이브러리
+SQLAlchemy==2.0.45 # ORM 라이브러리
 alembic==1.17.1
 pymysql==1.1.0
 cryptography==41.0.7
@@ -11,4 +11,5 @@ pydantic==2.5.0
 pydantic-settings==2.1.0
 openpyxl==3.1.2
 python-dotenv==1.2.1
-
+httpx==0.28.1
+itsdangerous==2.2.0
