@@ -1,0 +1,147 @@
+import json
+import secrets
+import time
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Request, status as http_status
+from fastapi.responses import JSONResponse
+from itsdangerous import BadSignature
+from sqlalchemy.orm import Session
+
+from app.core.config import settings
+from app.crud import cafe24_token as cafe24_token_crud
+from app.db.session import get_db
+from app.schemas import cafe24 as cafe24_schema
+from app.service import cafe24_oauth as cafe24_oauth_service
+
+router = APIRouter(prefix="/cafe24/oauth", tags=["카페24 OAuth"])
+
+STATE_TTL_MINUTES = 10
+
+def _resolve_mall_id(requested: Optional[str]) -> str:
+    configured = settings.CAFE24_MALL_ID
+    if requested and requested != configured:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="Invalid mall_id",
+        )
+    return configured
+
+
+@router.post("/start")
+def oauth_start(
+    start_in: cafe24_schema.Cafe24OAuthStartRequest
+):
+    mall_id = _resolve_mall_id(start_in.mall_id)
+    signed_state = cafe24_oauth_service.sign_state(
+        {"mall_id": mall_id, "nonce": secrets.token_urlsafe(32), "ts": int(time.time())}
+    )
+
+    authorize_url = cafe24_oauth_service.build_authorize_url(
+        mall_id=mall_id,
+        state=signed_state,
+        scopes=start_in.scopes,
+    )
+    return {"authorize_url": authorize_url}
+
+
+@router.get("/callback", response_model=cafe24_schema.Cafe24TokenStatusResponse)
+async def oauth_callback(
+    request: Request,
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    if not code or not state:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="Missing code/state",
+        )
+    try:
+        state_payload = cafe24_oauth_service.verify_state(state)
+    except BadSignature:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="Invalid state",
+        )
+
+    if not isinstance(state_payload, dict):
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="Invalid state",
+        )
+    issued_at = state_payload.get("ts")
+    if not isinstance(issued_at, int):
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="Invalid state",
+        )
+    if time.time() - issued_at > STATE_TTL_MINUTES * 60:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="Invalid state",
+        )
+
+    mall_id = _resolve_mall_id(state_payload.get("mall_id"))
+    token_payload = await cafe24_oauth_service.issue_access_token(
+        mall_id=mall_id,
+        code=code,
+        client=request.app.state.http_client,
+    )
+    row = cafe24_token_crud.upsert_from_token_payload(payload=token_payload, db=db)
+
+    scopes = json.loads(row.scopes or "[]")
+    return cafe24_schema.Cafe24TokenStatusResponse(
+        authorized=True,
+        expires_at=row.expires_at,
+        refresh_token_expires_at=row.refresh_token_expires_at,
+        mall_id=row.mall_id,
+        scopes=scopes,
+    )
+
+
+@router.get("/status/{mall_id}", response_model=cafe24_schema.Cafe24TokenStatusResponse)
+def status(
+    mall_id: str, 
+    db: Session = Depends(get_db)
+):
+    mall_id = _resolve_mall_id(mall_id)
+    row = cafe24_token_crud.get_by_mall_id(mall_id, db)
+    if not row:
+        return cafe24_schema.Cafe24TokenStatusResponse(mall_id=mall_id, authorized=False)
+
+    scopes = json.loads(row.scopes or "[]")
+    return cafe24_schema.Cafe24TokenStatusResponse(
+        authorized=True,
+        expires_at=row.expires_at,
+        refresh_token_expires_at=row.refresh_token_expires_at,
+        mall_id=mall_id,
+        scopes=scopes,
+    )
+
+
+@router.post("/refresh/{mall_id}")
+async def oauth_refresh(
+    mall_id: str, 
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    mall_id = _resolve_mall_id(mall_id)
+    row = cafe24_token_crud.get_by_mall_id(mall_id, db)
+    if not row or not row.refresh_token:
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="No refresh_token stored")
+
+    token_payload = await cafe24_oauth_service.reissue_access_token(
+        mall_id=mall_id,
+        refresh_token_value=row.refresh_token,
+        client=request.app.state.http_client,
+    )
+    row = cafe24_token_crud.upsert_from_token_payload(
+        payload=token_payload,
+        db=db,
+    )
+
+    return {
+        "mall_id": row.mall_id,
+        "expires_at": row.expires_at,
+        "refresh_token_expires_at": row.refresh_token_expires_at,
+    }
