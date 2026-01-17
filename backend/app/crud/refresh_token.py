@@ -1,6 +1,5 @@
 # 표준 라이브러리
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timezone
 
 # 서드파티 라이브러리
 from fastapi import HTTPException, status
@@ -13,7 +12,7 @@ from app.models import refresh_token as refresh_token_model
 
 def create_refresh_token(admin_id: int, token: str, exp: int, db: Session) -> refresh_token_model.RefreshToken:
     """리프레시 토큰 생성"""
-    expires_at = datetime.fromtimestamp(exp, tz=ZoneInfo("Asia/Seoul")) # timestamp를 datetime으로 변환
+    expires_at = datetime.fromtimestamp(exp, tz=timezone.utc) # timestamp를 datetime으로 변환
     try:
         new_refresh_token = refresh_token_model.RefreshToken(
             admin_id=admin_id,
@@ -49,7 +48,7 @@ def exists_refresh_token(admin_id: int, token: str, db: Session) -> bool:
 def revoke_refresh_token(token: str, db: Session) -> None:
     refresh_token = read_refresh_token_by_token(token, db)
     try:
-        refresh_token.revoked_at = datetime.now(ZoneInfo("Asia/Seoul"))
+        refresh_token.revoked_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(refresh_token)
     except Exception as e:
@@ -69,7 +68,7 @@ def revoke_all_tokens_by_admin_id(admin_id: int, db: Session) -> None:
                 refresh_token_model.RefreshToken.revoked_at.is_(None)
             )
         ).update(
-            {"revoked_at": datetime.now(ZoneInfo("Asia/Seoul"))},
+            {"revoked_at": datetime.now(timezone.utc)},
             synchronize_session=False  # 성능 향상을 위해 세션 동기화 비활성화
         )
         db.commit()

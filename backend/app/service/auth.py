@@ -1,6 +1,5 @@
 # 표준 라이브러리
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timezone
 
 # 서드파티 라이브러리
 from fastapi import HTTPException, status
@@ -56,7 +55,7 @@ def login(login_in: auth_schema.LoginRequest, db: Session) -> auth_schema.TokenP
         db=db
     )
     # 마지막 로그인 시간 업데이트
-    admin.last_login_at = datetime.now(ZoneInfo("Asia/Seoul"))
+    admin.last_login_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(admin)
 

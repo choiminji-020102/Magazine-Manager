@@ -1,5 +1,5 @@
 # 표준 라이브러리
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, Optional
 
 # 서드파티 라이브러리

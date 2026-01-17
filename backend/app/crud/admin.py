@@ -1,6 +1,5 @@
 # 표준 라이브러리
 from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
 from typing import List
 
 # 서드파티 라이브러리
@@ -113,8 +112,8 @@ def delete_admin(admin_id: int, db: Session) -> None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이미 삭제된 관리자입니다.")
     
     try:
-        now_kst = datetime.now(ZoneInfo("Asia/Seoul"))
-        admin.deleted_at = now_kst
+        now_utc = datetime.now(timezone.utc)
+        admin.deleted_at = now_utc
 
         admin.is_active = False
         db.commit()

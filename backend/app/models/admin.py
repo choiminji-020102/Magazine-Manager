@@ -1,36 +1,26 @@
-# 표준 라이브러리
-from enum import Enum as PyEnum
+from sqlalchemy import Column, BigInteger, String, Boolean, DateTime, Enum, text
+from sqlalchemy.sql import func
+from datetime import datetime
+from typing import Optional
 
-# 서드파티 라이브러리
-from sqlalchemy import Boolean, Column, DateTime, Enum, Integer, String, func
+from app.core.database import Base
 
-# 로컬 애플리케이션
-from app.db.base import Base
 
-class AdminRole(PyEnum):
-    SUPER_ADMIN = "SUPER_ADMIN"
-    ADMIN = "ADMIN"
-    MANAGER = "MANAGER"
-
-# Admin 클래스는 database의 admins_mj 테이블과 매핑된다.
 class Admin(Base):
-    __tablename__ = "admins_mj"
-
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String(255), unique=True, index=True, nullable=False)
-    hashed_password = Column(String(255), nullable=False)
-    name = Column(String(100), nullable=False)
-    role = Column(Enum(AdminRole), nullable=False, default=AdminRole.MANAGER)
-    is_active = Column(Boolean, nullable=False, default=True)
-
-    # timezone=True 사용 -> 이 필드는 타임존 정보를 포함한 aware datetime을 저장하도록 함.
-    last_login_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
-    deleted_at = Column(DateTime(timezone=True), nullable=True, index=True) # Soft delete용 컬럼
-
-    def __repr__(self):
-        return (
-            f"<Admin(id={self.id}, email={self.email}, "
-            f"role={self.role}, is_active={self.is_active}, deleted_at={self.deleted_at})>"
-        )
+    __tablename__ = "admins"
+    
+    admin_id = Column(BigInteger, primary_key=True, autoincrement=True, comment="관리자 ID")
+    email = Column(String(100), unique=True, nullable=False, comment="이메일(로그인 ID)")
+    hashed_password = Column(String(255), nullable=False, comment="암호화된 비밀번호")
+    admin_name = Column(String(50), nullable=False, comment="관리자 이름")
+    admin_role = Column(
+        Enum("SUPER_ADMIN", "ADMIN", "MANAGER", name="admin_role_enum"),
+        nullable=False,
+        default="MANAGER",
+        comment="권한 등급"
+    )
+    is_active = Column(Boolean, nullable=False, default=True, comment="계정 활성 여부")
+    last_login_at = Column(DateTime, nullable=True, comment="마지막 로그인 일시")
+    created_at = Column(DateTime, nullable=False, server_default=func.now(), comment="생성 일시")
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now(), comment="수정 일시")
+    deleted_at = Column(DateTime, nullable=True, comment="삭제 일시")
