@@ -10,24 +10,18 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    timeout = httpx.Timeout(connect=5.0, read=20.0, write=20.0, pool=5.0)
-    app.state.http_client = httpx.AsyncClient(timeout=timeout)
-    try:
-        yield
-    finally:
-        await app.state.http_client.aclose()
-
-# 데이터베이스 테이블 생성
-Base.metadata.create_all(bind=engine)
-
-app = FastAPI(lifespan=lifespan)
-
+app = FastAPI(
+    title=settings.APP_TITLE,
+    docs_url="/docs",
+)
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL],
+    allow_origins=[
+        settings.FRONTEND_URL,
+        settings.BACKEND_URL,
+        settings.PRODUCTION_BACKEND_URL,
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

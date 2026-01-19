@@ -1,18 +1,46 @@
-# 서드파티 라이브러리
 from fastapi import APIRouter
 
-# 로컬 애플리케이션
-from app.api.endpoints.health import router as health_router
-from app.api.endpoints.admin import router as admin_router
-from app.api.endpoints.auth import router as auth_router
-from app.api.endpoints.cafe24_products import router as cafe24_products_router
-from app.api.endpoints.cafe24_orders import router as cafe24_orders_router
-from app.api.endpoints.cafe24_oauth import router as cafe24_oauth_router
+from app.api.endpoints import (
+    activity_logs,
+    addresses,
+    admins,
+    auth,
+    cafe24_oauth,
+    cafe24_orders,
+    cafe24_products,
+    customers,
+    dispatch,
+    health,
+    inquiries,
+    order_items,
+    orders,
+    pauses,
+    products,
+    send_items,
+    sends,
+    stats,
+)
 
 api_router = APIRouter()
-api_router.include_router(health_router)
-api_router.include_router(admin_router)
-api_router.include_router(auth_router)
-api_router.include_router(cafe24_products_router)
-api_router.include_router(cafe24_orders_router)
-api_router.include_router(cafe24_oauth_router)
+
+# Auth (public)
+api_router.include_router(auth.router)
+
+# Protected routes
+api_router.include_router(activity_logs.router)
+api_router.include_router(addresses.router)
+api_router.include_router(admins.router)
+api_router.include_router(cafe24_oauth.router)
+api_router.include_router(cafe24_orders.router)
+api_router.include_router(cafe24_products.router)
+api_router.include_router(customers.router)
+api_router.include_router(dispatch.router)
+api_router.include_router(health.router)
+api_router.include_router(inquiries.router)
+api_router.include_router(order_items.router)
+api_router.include_router(orders.router)
+api_router.include_router(pauses.router)
+api_router.include_router(products.router)
+api_router.include_router(send_items.router)
+api_router.include_router(sends.router)
+api_router.include_router(stats.router)

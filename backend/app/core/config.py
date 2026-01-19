@@ -1,8 +1,12 @@
 # 서드파티 라이브러리
 from pydantic_settings import BaseSettings
 from pydantic import AnyHttpUrl
+from functools import lru_cache
 
 class Settings(BaseSettings):
+    # App
+    APP_TITLE: str
+    
     # Database
     DB_HOST: str
     DB_PORT: int
@@ -22,6 +26,7 @@ class Settings(BaseSettings):
 
     # 서버
     BACKEND_URL: str
+    PRODUCTION_BACKEND_URL: str
 
     # CAFE24
     CAFE24_MALL_ID: str
@@ -30,9 +35,19 @@ class Settings(BaseSettings):
     CAFE24_CLIENT_SECRET_KEY: str
     CAFE24_STATE_SECRET_KEY: str
     CAFE24_API_VERSION: str
+
+    @property
+    def DATABASE_URL(self) -> str:
+        return f"mysql+pymysql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}?charset=utf8mb4"
     
     class Config:
         env_file = ".env"         # .env 파일 자동 로드
         case_sensitive = True     # 환경변수 대소문자 구분
 
-settings = Settings()
+
+@lru_cache()
+def get_settings() -> Settings:
+    return Settings()
+
+
+settings = get_settings()

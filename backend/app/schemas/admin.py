@@ -1,44 +1,43 @@
-# 표준 라이브러리
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional, Literal
 from datetime import datetime
-from typing import Optional
-
-# 서드파티 라이브러리
-from pydantic import BaseModel, EmailStr
-
-# 로컬 애플리케이션
-from app.models import admin as admin_model
 
 
-# 생성 요청용 (클라이언트 → 서버)
-class AdminCreate(BaseModel):
+class AdminBase(BaseModel):
     email: EmailStr
-    plain_password: str
-    name: str
-    role: admin_model.AdminRole
-    is_active: bool
-    
+    admin_name: str = Field(..., max_length=50)
+    admin_role: Literal["SUPER_ADMIN", "ADMIN", "MANAGER"] = "MANAGER"
+    is_active: bool = True
 
-# 수정 요청용 - 부분 수정 가능 (클라이언트 → 서버)
+
+class AdminCreate(AdminBase):
+    password: str = Field(..., min_length=8)
+
+
 class AdminUpdate(BaseModel):
     email: Optional[EmailStr] = None
-    plain_password: Optional[str] = None
-    name: Optional[str] = None
-    role: Optional[admin_model.AdminRole] = None
+    admin_name: Optional[str] = Field(None, max_length=50)
+    admin_role: Optional[Literal["SUPER_ADMIN", "ADMIN", "MANAGER"]] = None
     is_active: Optional[bool] = None
 
 
-# 응답용 (서버 → 클라이언트)
 class AdminResponse(BaseModel):
-    id: int
-    email: EmailStr
-    name: str
-    role: admin_model.AdminRole
+    admin_id: int
+    email: str
+    admin_name: str
+    admin_role: str
     is_active: bool
     last_login_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
-    # deleted_at: datetime
-
+    
     class Config:
-        from_attributes = True  # ORM 객체를 바로 넣어도 변환되도록
-        # crud에서는 ORM 객체로 반환하고 router에서는 Pydantic 모델로 변환하도록 설정되어 있기 때문에 from_attributes = True 설정해줘야 함
+        from_attributes = True
+
+
+class AdminActivateRequest(BaseModel):
+    is_active: Optional[bool] = None
+
+
+class AdminPasswordChange(BaseModel):
+    new_password: str = Field(..., min_length=8)

@@ -13,10 +13,15 @@ from app.schemas import admin as admin_schema
 
 
 def read_all_admins(db: Session) -> List[admin_model.Admin]:
-    return db.query(admin_model.Admin).filter(admin_model.Admin.deleted_at.is_(None)).all()   # 삭제되지 않은 모든 관리자 조회
+    return db.query(admin_model.Admin).filter(
+        admin_model.Admin.deleted_at.is_(None),
+    ).all()   # 삭제되지 않은 모든 관리자 조회
     
 def read_admin_by_id(admin_id: int, db: Session) -> admin_model.Admin:
-    admin = db.query(admin_model.Admin).filter(admin_model.Admin.id == admin_id, admin_model.Admin.deleted_at.is_(None)).first()
+    admin = db.query(admin_model.Admin).filter(
+        admin_model.Admin.id == admin_id,
+        admin_model.Admin.deleted_at.is_(None),
+    ).first()
     if not admin:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, 
@@ -25,7 +30,10 @@ def read_admin_by_id(admin_id: int, db: Session) -> admin_model.Admin:
     return admin
 
 def read_admin_by_email(admin_email: str, db: Session) -> admin_model.Admin:
-    admin = db.query(admin_model.Admin).filter(admin_model.Admin.email == admin_email, admin_model.Admin.deleted_at.is_(None)).first()
+    admin = db.query(admin_model.Admin).filter(
+        admin_model.Admin.email == admin_email,
+        admin_model.Admin.deleted_at.is_(None),
+    ).first()
     if not admin:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, 
@@ -41,7 +49,9 @@ def check_email_duplicate(admin_email: str, db: Session, exclude_admin_id: int =
     
     # 업데이트 시 자기 자신 제외
     if exclude_admin_id is not None:
-        query = query.filter(admin_model.Admin.id != exclude_admin_id)
+        query = query.filter(
+            admin_model.Admin.id != exclude_admin_id,
+        )
     
     existing_admin = query.first()
     
