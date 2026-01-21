@@ -13,7 +13,7 @@ from app.schemas.customer import (
     CustomerResponse,
 )
 from app.schemas.order import OrderResponse
-from app.schemas.common import ResponseModel, PaginatedResponse, PaginationMeta
+from app.schemas.common import ResponseModel, PaginatedResponse, PaginationMeta, ResponseBase
 from app.services import customer_service, order_service, activity_log_service
 
 router = APIRouter(prefix="/customers", tags=["고객"])
@@ -32,6 +32,7 @@ def get_customers(
     )
     
     return PaginatedResponse(
+        message="고객 목록을 조회했습니다.",
         data=[CustomerResponse.model_validate(customer) for customer in customers],
         pagination=PaginationMeta(
             total=total,
@@ -50,7 +51,10 @@ def get_customer(
 ):
     """고객 상세 조회"""
     customer = customer_service.get_customer_by_id(db, customer_id)
-    return ResponseModel(data=CustomerResponse.model_validate(customer))
+    return ResponseModel(
+        message="고객 정보를 조회했습니다.",
+        data=CustomerResponse.model_validate(customer)
+    )
 
 
 @router.post("", response_model=ResponseModel[CustomerResponse], status_code=status.HTTP_201_CREATED)
@@ -118,7 +122,7 @@ def update_customer(
     )
 
 
-@router.delete("/{customer_id}", response_model=ResponseModel)
+@router.delete("/{customer_id}", response_model=ResponseBase)
 def delete_customer(
     customer_id: int,
     request: Request,
@@ -145,7 +149,7 @@ def delete_customer(
         user_agent=request.headers.get("user-agent")
     )
     
-    return ResponseModel(message="고객이 삭제되었습니다.")
+    return ResponseBase(message="고객이 삭제되었습니다.")
 
 
 @router.patch("/{customer_id}/restore", response_model=ResponseModel[CustomerResponse])
@@ -185,4 +189,7 @@ def get_customer_orders(
     """고객별 주문 이력 조회"""
     _ = customer_service.get_customer_by_id(db, customer_id)  # 고객 존재 여부 검증용
     orders = order_service.get_orders_by_customer(db, customer_id)
-    return ResponseModel(data=[OrderResponse.model_validate(order) for order in orders])
+    return ResponseModel(
+        message="고객 주문 이력을 조회했습니다.",
+        data=[OrderResponse.model_validate(order) for order in orders]
+    )
