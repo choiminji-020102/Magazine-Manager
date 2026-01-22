@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, String, DateTime, Integer, Text, Enum
+from sqlalchemy import Column, String, DateTime, Text, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.mysql import BIGINT, INTEGER
@@ -27,16 +27,8 @@ class Order(Base):
     customer_id = Column(BIGINT(unsigned=True), nullable=False, index=True)
     external_order_id = Column(String(50), nullable=True, unique=True)
 
-    order_channel = Column(
-        Enum(OrderChannel, native_enum=False),
-        nullable=False,
-        index=True,
-    )
-    order_status = Column(
-        Enum(OrderStatus, native_enum=False),
-        nullable=False,
-        default=OrderStatus.ORDERED,
-    )
+    order_channel = Column(Enum(OrderChannel, native_enum=False), nullable=False, index=True)
+    order_status = Column(Enum(OrderStatus, native_enum=False), nullable=False, default=OrderStatus.ORDERED)
 
     total_amount = Column(INTEGER(unsigned=True), nullable=False, default=0)
     discount_amount = Column(INTEGER(unsigned=True), nullable=True, default=0)
