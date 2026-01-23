@@ -26,7 +26,7 @@ import {
   AdminResponse,
   AdminRole,
   AdminCreate,
-} from "../api/adminApi";
+} from "../api/adminsApi";
 import { formatKst } from "../utils/date";
 
 type SettingsTab = "admin" | "cafe24" | "profile";
@@ -68,8 +68,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   const [adminForm, setAdminForm] = useState<AdminCreate>({
     email: "",
     plain_password: "",
-    name: "",
-    role: AdminRole.ADMIN,
+    admin_name: "",
+    admin_role: AdminRole.ADMIN,
     is_active: true,
   });
 
@@ -106,7 +106,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   const handleSaveAdmin = async () => {
     try {
       if (editingAdmin) {
-        await adminAPI.update(editingAdmin.id, adminForm);
+        await adminAPI.update(editingAdmin.admin_id, adminForm);
       } else {
         await adminAPI.create(adminForm);
       }
@@ -115,8 +115,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
       setAdminForm({
         email: "",
         plain_password: "",
-        name: "",
-        role: AdminRole.ADMIN,
+        admin_name: "",
+        admin_role: AdminRole.ADMIN,
         is_active: true,
       });
       fetchAdmins();
@@ -144,8 +144,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     setAdminForm({
       email: admin.email,
       plain_password: "",
-      name: admin.name,
-      role: admin.role,
+      admin_name: admin.admin_name,
+      admin_role: admin.admin_role,
       is_active: admin.is_active,
     });
     setShowAdminModal(true);
@@ -249,18 +249,18 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                 ) : (
                   admins.map((admin) => (
                     <div
-                      key={admin.id}
+                      key={admin.admin_id}
                       className="flex items-center justify-between p-4 bg-primary-50 border border-line rounded-md"
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center text-white font-semibold">
-                          {admin.name.charAt(0).toUpperCase()}
+                          {admin.admin_name.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-medium text-ink">{admin.name}</p>
+                          <p className="font-medium text-ink">{admin.admin_name}</p>
                           <p className="text-sm text-muted">{admin.email}</p>
                           <p className="text-xs text-muted mt-1">
-                            {admin.role} •{" "}
+                            {admin.admin_role} •{" "}
                             {admin.last_login_at
                               ? `마지막 로그인: ${new Date(
                                   admin.last_login_at
@@ -288,7 +288,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                           variant="ghost"
                           size="sm"
                           icon={Trash2}
-                          onClick={() => handleDeleteAdmin(admin.id)}
+                          onClick={() => handleDeleteAdmin(admin.admin_id)}
                           className="unified-btn-outline"
                         >
                           삭제
@@ -305,8 +305,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                     setAdminForm({
                       email: "",
                       plain_password: "",
-                      name: "",
-                      role: AdminRole.ADMIN,
+                      admin_name: "",
+                      admin_role: AdminRole.ADMIN,
                       is_active: true,
                     });
                     setShowAdminModal(true);
@@ -333,21 +333,21 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                     name: "최고 관리자",
                     key: AdminRole.SUPER_ADMIN,
                     count: admins.filter(
-                      (a) => a.role === AdminRole.SUPER_ADMIN
+                      (a) => a.admin_role === AdminRole.SUPER_ADMIN
                     ).length,
                     description: "모든 권한을 가진 관리자",
                   },
                   {
                     name: "일반 관리자",
                     key: AdminRole.ADMIN,
-                    count: admins.filter((a) => a.role === AdminRole.ADMIN)
+                    count: admins.filter((a) => a.admin_role === AdminRole.ADMIN)
                       .length,
                     description: "일반 관리 권한",
                   },
                   {
                     name: "매니저",
                     key: AdminRole.MANAGER,
-                    count: admins.filter((a) => a.role === AdminRole.MANAGER)
+                    count: admins.filter((a) => a.admin_role === AdminRole.MANAGER)
                       .length,
                     description: "제한된 관리 권한",
                   },
@@ -543,7 +543,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         {/* 마이페이지 */}
         {activeTab === "profile" && currentAdmin && (
           <AdminDetailPage
-            adminId={currentAdmin.id}
+            adminId={currentAdmin.admin_id}
             isMyPage={true}
             onSave={() => {
               // 저장 후 새로고침 또는 상태 업데이트
@@ -564,9 +564,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         <div className="space-y-4">
           <Input
             label="이름"
-            value={adminForm.name}
+            value={adminForm.admin_name}
             onChange={(e) =>
-              setAdminForm({ ...adminForm, name: e.target.value })
+              setAdminForm({ ...adminForm, admin_name: e.target.value })
             }
             className="unified-input"
             required
@@ -596,11 +596,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
               역할
             </label>
             <select
-              value={adminForm.role}
+              value={adminForm.admin_role}
               onChange={(e) =>
                 setAdminForm({
                   ...adminForm,
-                  role: e.target.value as AdminRole,
+                  admin_role: e.target.value as AdminRole,
                 })
               }
               className="unified-input w-full"

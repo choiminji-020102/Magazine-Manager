@@ -1,24 +1,26 @@
 import api from "./axios";
 import { logApiError } from "../utils/errorHandler";
+import type {
+  Cafe24OAuthStartRequest,
+  Cafe24OAuthStartResponse,
+  Cafe24TokenStatusResponse,
+  Cafe24OAuthRefreshResponse,
+} from "../types/cafe24";
 
-export interface Cafe24OAuthStartRequest {
-  mall_id: string;
-  scopes: string[];
-}
+// Re-export for backward compatibility
+export type {
+  Cafe24OAuthStartRequest,
+  Cafe24OAuthStartResponse,
+  Cafe24TokenStatusResponse,
+  Cafe24OAuthRefreshResponse,
+};
 
-export interface Cafe24OAuthStartResponse {
-  authorize_url: string;
-}
-
-export interface Cafe24TokenStatusResponse {
-  mall_id: string;
-  authorized: boolean;
-  expires_at?: string | null;
-  refresh_token_expires_at?: string | null;
-  scopes: string[];
-}
-
+// API 함수들
 export const cafe24API = {
+  /**
+   * OAuth 시작
+   * POST /cafe24/oauth/start
+   */
   startOAuth: async (
     data: Cafe24OAuthStartRequest
   ): Promise<Cafe24OAuthStartResponse> => {
@@ -34,6 +36,10 @@ export const cafe24API = {
     }
   },
 
+  /**
+   * OAuth 상태 조회
+   * GET /cafe24/oauth/status/{mall_id}
+   */
   getStatus: async (mallId: string): Promise<Cafe24TokenStatusResponse> => {
     try {
       const response = await api.get<Cafe24TokenStatusResponse>(
@@ -45,31 +51,60 @@ export const cafe24API = {
       throw err;
     }
   },
+
   /**
-   * Cafe24 Admin API 호출 (GET)
-   * GET /cafe24/admin/{mall_id}/{resource_path}
+   * OAuth 토큰 갱신
+   * POST /cafe24/oauth/refresh/{mall_id}
    */
-  getAdmin: async (mallId: string): Promise<any> => {
+  refreshToken: async (
+    mallId: string
+  ): Promise<Cafe24OAuthRefreshResponse> => {
     try {
-      const response = await api.get("/cafe24/admin/products", {
-        params: { mall_id: mallId },
-      });
-      console.log("Cafe24 Admin API Response:", response);
+      const response = await api.post<Cafe24OAuthRefreshResponse>(
+        `/cafe24/oauth/refresh/${encodeURIComponent(mallId)}`
+      );
       return response.data;
     } catch (err) {
-      logApiError(err as any, "CAFE24_ADMIN_GET");
+      logApiError(err as any, "CAFE24_REFRESH_TOKEN");
       throw err;
     }
   },
 
+  /**
+   * Cafe24 상품 목록 조회
+   * GET /cafe24/admin/products?mall_id=
+   */
+  getProducts: async (
+    mallId: string,
+    params?: Record<string, any>
+  ): Promise<any> => {
+    try {
+      const response = await api.get("/cafe24/admin/products", {
+        params: { mall_id: mallId, ...params },
+      });
+      return response.data;
+    } catch (err) {
+      logApiError(err as any, "CAFE24_GET_PRODUCTS");
+      throw err;
+    }
+  },
+
+  /**
+   * Cafe24 상품 생성
+   * POST /cafe24/admin/products?mall_id=
+   */
   createProduct: async (
     mallId: string,
     payload: Record<string, any>
   ): Promise<any> => {
     try {
-      const response = await api.post("/cafe24/admin/products", payload, {
-        params: { mall_id: mallId },
-      });
+      const response = await api.post(
+        "/cafe24/admin/products",
+        payload,
+        {
+          params: { mall_id: mallId },
+        }
+      );
       return response.data;
     } catch (err) {
       logApiError(err as any, "CAFE24_CREATE_PRODUCT");
@@ -77,9 +112,59 @@ export const cafe24API = {
     }
   },
 
+  /**
+   * Cafe24 상품 수정
+   * PUT /cafe24/admin/products/{product_no}?mall_id=
+   */
+  updateProduct: async (
+    mallId: string,
+    productNo: number,
+    payload: Record<string, any>
+  ): Promise<any> => {
+    try {
+      const response = await api.put(
+        `/cafe24/admin/products/${productNo}`,
+        payload,
+        {
+          params: { mall_id: mallId },
+        }
+      );
+      return response.data;
+    } catch (err) {
+      logApiError(err as any, "CAFE24_UPDATE_PRODUCT");
+      throw err;
+    }
+  },
+
+  /**
+   * Cafe24 상품 삭제
+   * DELETE /cafe24/admin/products/{product_no}?mall_id=
+   */
+  deleteProduct: async (
+    mallId: string,
+    productNo: number
+  ): Promise<any> => {
+    try {
+      const response = await api.delete(
+        `/cafe24/admin/products/${productNo}`,
+        {
+          params: { mall_id: mallId },
+        }
+      );
+      return response.data;
+    } catch (err) {
+      logApiError(err as any, "CAFE24_DELETE_PRODUCT");
+      throw err;
+    }
+  },
+
+  /**
+   * Cafe24 주문 목록 조회
+   * GET /cafe24/admin/orders?mall_id=
+   */
   listOrders: async (
     mallId: string,
-    params: Record<string, any>
+    params?: Record<string, any>
   ): Promise<any> => {
     try {
       const response = await api.get("/cafe24/admin/orders", {
@@ -92,10 +177,14 @@ export const cafe24API = {
     }
   },
 
+  /**
+   * Cafe24 주문 조회
+   * GET /cafe24/admin/orders/{order_id}?mall_id=
+   */
   getOrder: async (
     mallId: string,
     orderId: string,
-    params: Record<string, any>
+    params?: Record<string, any>
   ): Promise<any> => {
     try {
       const response = await api.get(
@@ -111,9 +200,13 @@ export const cafe24API = {
     }
   },
 
+  /**
+   * Cafe24 주문 개수 조회
+   * GET /cafe24/admin/orders/count?mall_id=
+   */
   getOrdersCount: async (
     mallId: string,
-    params: Record<string, any>
+    params?: Record<string, any>
   ): Promise<any> => {
     try {
       const response = await api.get("/cafe24/admin/orders/count", {
@@ -126,14 +219,22 @@ export const cafe24API = {
     }
   },
 
+  /**
+   * Cafe24 주문 상태 일괄 변경
+   * PUT /cafe24/admin/orders?mall_id=
+   */
   updateOrdersStatus: async (
     mallId: string,
     payload: Record<string, any>
   ): Promise<any> => {
     try {
-      const response = await api.put("/cafe24/admin/orders", payload, {
-        params: { mall_id: mallId },
-      });
+      const response = await api.put(
+        "/cafe24/admin/orders",
+        payload,
+        {
+          params: { mall_id: mallId },
+        }
+      );
       return response.data;
     } catch (err) {
       logApiError(err as any, "CAFE24_ORDERS_UPDATE_BULK");
@@ -141,6 +242,10 @@ export const cafe24API = {
     }
   },
 
+  /**
+   * Cafe24 주문 상태 변경
+   * PUT /cafe24/admin/orders/{order_id}?mall_id=
+   */
   updateOrderStatus: async (
     mallId: string,
     orderId: string,

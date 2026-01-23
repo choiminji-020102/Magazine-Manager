@@ -19,20 +19,31 @@ def get_addresses_by_customer(db: Session, customer_id: int) -> List[Address]:
 
 def find_address(
     db: Session,
-    customer_id: int,
+    customer_id: Optional[int],
     address_name: str,
     phone: str,
     address: str
 ) -> Optional[Address]:
-    """동일 주소 검색 (customer_id + 수령인 + 연락처 + 주소)"""
+    """
+    동일한 배송지가 이미 존재하는지 검색하는 함수
+    - 중복 배송지 생성을 방지하기 위해 사용
+    - [customer_id + 수령인 이름 + 연락처 + 주소]를 기준으로 동일 주소 판단
+    - find_or_create_address 함수에서 호출되어 기존 주소 재사용 시 활용
+    """
     formatted_phone, _ = format_phone_number(phone)
     
-    return db.query(Address).filter(
-        Address.customer_id == customer_id,
+    query = db.query(Address).filter(
         Address.address_name == address_name,
         Address.phone == formatted_phone,
         Address.address == address
-    ).first()
+    )
+    
+    if customer_id is not None:
+        query = query.filter(Address.customer_id == customer_id)
+    else:
+        query = query.filter(Address.customer_id.is_(None))
+    
+    return query.first()
 
 
 def create_address(db: Session, address_in: AddressCreate) -> Address:
@@ -52,12 +63,21 @@ def create_address(db: Session, address_in: AddressCreate) -> Address:
 def update_address(db: Session, address: Address, address_in: AddressUpdate) -> Address:
     update_data = address_in.model_dump(exclude_unset=True)
     
-    for field, value in update_data.items():
-        setattr(address, field, value)
+    # 변경사항이 없으면 그대로 반환
+    if not update_data:
+        return address
     
-    db.commit()
-    db.refresh(address)
-    return address
+    try:
+        # 변경사항 적용
+        for field, value in update_data.items():
+            setattr(address, field, value)
+        
+        db.commit()
+        db.refresh(address)
+        return address
+    except Exception as e:
+        db.rollback()
+        raise e
 
 
 def find_or_create_address(db: Session, address_in: AddressCreate) -> Address:

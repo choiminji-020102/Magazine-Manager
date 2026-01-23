@@ -11,7 +11,7 @@ import {
   BarChart3,
   LucideIcon,
 } from "lucide-react";
-import { AdminRole } from "../api/adminApi";
+import { AdminRole } from "../api/adminsApi";
 
 // 타입 정의
 interface SubSubItem {

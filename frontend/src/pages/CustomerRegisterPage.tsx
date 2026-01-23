@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowLeft, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Button from "../components/common/Button";
 import Card from "../components/common/Card";
@@ -7,9 +7,10 @@ import Input from "../components/common/Input";
 import Textarea from "../components/common/Textarea";
 import Alert from "../components/common/Alert";
 import Breadcrumb from "../components/common/Breadcrumb";
-import { customerAPI, CustomerCreate } from "../api/customerApi";
+import { customerAPI, type CustomerCreate } from "../api/customersApi";
+import type { CustomerChannel } from "../types/customer";
 
-const SOURCE_OPTIONS = ["CAFE24", "GPMALL", "OFFLINE", "기타"];
+const SOURCE_OPTIONS: CustomerChannel[] = ["CAFE24", "GPMALL", "OFFLINE"];
 
 interface CustomerRegisterPageProps {
   onBack?: () => void;
@@ -24,7 +25,7 @@ const CustomerRegisterPage: React.FC<CustomerRegisterPageProps> = ({
   const [formData, setFormData] = useState<CustomerCreate>({
     customer_name: "",
     customer_phone: "",
-    customer_email: "",
+    customer_email: null,
     create_channel: "CAFE24",
     admin_memo: null,
   });

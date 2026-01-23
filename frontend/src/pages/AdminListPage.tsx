@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Search, CheckCircle, XCircle } from "lucide-react";
 
-import { adminAPI, AdminResponse } from "../api/adminApi";
+import { adminAPI, AdminResponse } from "../api/adminsApi";
 import Button from "../components/common/Button";
 import Alert from "../components/common/Alert";
 import LoadingSpinner from "../components/common/LoadingSpinner";

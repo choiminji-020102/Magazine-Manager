@@ -5,8 +5,9 @@ import httpx
 
 from app.core.config import settings
 from app.db.session import get_db
-from app.service import cafe24_admin as cafe24_admin_service
+from app.services import cafe24_admin_service
 
+# 결제된 것만 가져오도록!!⚠️
 router = APIRouter(prefix="/cafe24/admin/orders", tags=["카페24 Admin - Orders"])
 
 

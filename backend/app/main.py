@@ -1,14 +1,10 @@
 # 서드파티 라이브러리
-from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import httpx
 
 # 로컬 애플리케이션
 from app.api.routers import api_router
 from app.core.config import settings
-from app.db.base import Base
-from app.db.session import engine
 
 app = FastAPI(
     title=settings.APP_TITLE,

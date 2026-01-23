@@ -5,7 +5,7 @@ from datetime import datetime
 
 from app.models.admin import Admin
 from app.schemas.admin import AdminCreate, AdminUpdate
-from app.core.security import get_password_hash
+from app.core.password import get_password_hash
 
 
 def get_admin_by_id(db: Session, admin_id: int) -> Optional[Admin]:

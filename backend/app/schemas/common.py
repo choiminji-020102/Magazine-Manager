@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 from typing import Generic, TypeVar, Optional, List
-from datetime import datetime
 
 T = TypeVar("T")
 
@@ -9,9 +8,9 @@ class ResponseBase(BaseModel):
     success: bool = True
     message: str = "Success"
 
-
 class ResponseModel(ResponseBase, Generic[T]):
     data: Optional[T] = None
+    # → 실제로는 success, message, data 3개 필드를 가짐
 
 
 class PaginationMeta(BaseModel):
@@ -20,10 +19,10 @@ class PaginationMeta(BaseModel):
     limit: int
     total_pages: int
 
-
 class PaginatedResponse(ResponseBase, Generic[T]):
     data: List[T]
     pagination: PaginationMeta
+    # → 실제로는 success, message, data, pagination 4개 필드를 가짐
 
 
 class ErrorResponse(BaseModel):

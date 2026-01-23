@@ -1,7 +1,7 @@
 import React from "react";
 import { User, LogOut } from "lucide-react";
 
-import { AdminResponse } from "../../api/adminApi";
+import { AdminResponse } from "../../api/adminsApi";
 
 interface ProfileMenuProps {
   currentUser: AdminResponse | null;

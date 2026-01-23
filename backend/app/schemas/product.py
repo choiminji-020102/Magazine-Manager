@@ -19,7 +19,7 @@ class ProductBase(BaseModel):
     is_active: bool = True
     external_product_code_cafe24: Optional[str] = None
     external_product_code_gpmall: Optional[str] = None
-
+    subscribe_start_issue: Optional[str] = None
 
 class ProductCreate(BaseModel):
     product_code: str

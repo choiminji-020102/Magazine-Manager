@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.crud import cafe24_token as cafe24_token_crud
 from app.db.session import get_db
 from app.schemas import cafe24 as cafe24_schema
-from app.service import cafe24_oauth as cafe24_oauth_service
+from app.services import cafe24_oauth_service
 
 router = APIRouter(prefix="/cafe24/oauth", tags=["카페24 OAuth"])
 

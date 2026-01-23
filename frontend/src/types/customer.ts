@@ -13,6 +13,7 @@ export interface CustomerResponse {
   last_order_at: string | null;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
 }
 
 export interface CustomerListQuery {
@@ -25,10 +26,10 @@ export interface CustomerListQuery {
 }
 
 export interface CustomerCreate {
-  customer_name?: string; // 기본값: ""
+  customer_name: string; // 필수 필드
   customer_phone: string;
   customer_email?: string | null;
-  create_channel?: CustomerChannel; // 기본값: "OFFLINE"
+  create_channel?: CustomerChannel; // 기본값: "CAFE24"
   admin_memo?: string | null;
 }
 

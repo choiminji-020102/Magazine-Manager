@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from typing import List
 
-from app.core.database import get_db
+from app.db.session import get_db
 from app.core.deps import require_roles
 from app.models.admin import Admin
 from app.schemas.send_item import SendItemCreate, SendItemUpdate, SendItemResponse

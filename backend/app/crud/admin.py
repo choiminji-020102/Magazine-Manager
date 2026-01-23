@@ -19,7 +19,7 @@ def read_all_admins(db: Session) -> List[admin_model.Admin]:
     
 def read_admin_by_id(admin_id: int, db: Session) -> admin_model.Admin:
     admin = db.query(admin_model.Admin).filter(
-        admin_model.Admin.id == admin_id,
+        admin_model.Admin.admin_id == admin_id,
         admin_model.Admin.deleted_at.is_(None),
     ).first()
     if not admin:
@@ -50,7 +50,7 @@ def check_email_duplicate(admin_email: str, db: Session, exclude_admin_id: int =
     # 업데이트 시 자기 자신 제외
     if exclude_admin_id is not None:
         query = query.filter(
-            admin_model.Admin.id != exclude_admin_id,
+            admin_model.Admin.admin_id != exclude_admin_id,
         )
     
     existing_admin = query.first()
@@ -71,8 +71,8 @@ def create_admin(admin_in: admin_schema.AdminCreate, db: Session) -> admin_model
         new_admin = admin_model.Admin(
             email=admin_in.email,
             hashed_password=hashed_password,
-            name=admin_in.name,
-            role=admin_in.role,
+            admin_name=admin_in.admin_name,
+            admin_role=admin_in.admin_role,
             is_active=admin_in.is_active,
         )
         
@@ -98,10 +98,10 @@ def update_admin(admin_id: int, admin_in: admin_schema.AdminUpdate, db: Session)
         validate_password_strength(plain_password=admin_in.plain_password)
         hashed_password = get_password_hash(admin_in.plain_password)
         existing_admin.hashed_password = hashed_password
-    if admin_in.name is not None:
-        existing_admin.name = admin_in.name
-    if admin_in.role is not None:
-        existing_admin.role = admin_in.role
+    if admin_in.admin_name is not None:
+        existing_admin.admin_name = admin_in.admin_name
+    if admin_in.admin_role is not None:
+        existing_admin.admin_role = admin_in.admin_role
     if admin_in.is_active is not None:
         existing_admin.is_active = admin_in.is_active
     

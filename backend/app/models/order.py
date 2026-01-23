@@ -23,21 +23,21 @@ class OrderStatus(str, enum.Enum):
 class Order(Base):
     __tablename__ = "orders"
 
-    order_id = Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
-    customer_id = Column(BIGINT(unsigned=True), nullable=False, index=True)
+    order_id = Column(BIGINT, primary_key=True, autoincrement=True)
+    customer_id = Column(BIGINT, nullable=False, index=True)
     external_order_id = Column(String(50), nullable=True, unique=True)
 
     order_channel = Column(Enum(OrderChannel, native_enum=False), nullable=False, index=True)
     order_status = Column(Enum(OrderStatus, native_enum=False), nullable=False, default=OrderStatus.ORDERED)
 
-    total_amount = Column(INTEGER(unsigned=True), nullable=False, default=0)
-    discount_amount = Column(INTEGER(unsigned=True), nullable=True, default=0)
-    refund_amount = Column(INTEGER(unsigned=True), nullable=True, default=0)
-    send_fee = Column(INTEGER(unsigned=True), nullable=True, default=0)
-    payment_amount = Column(INTEGER(unsigned=True), nullable=False, default=0)
+    total_amount = Column(INTEGER, nullable=False, default=0)
+    discount_amount = Column(INTEGER, nullable=True, default=0)
+    refund_amount = Column(INTEGER, nullable=True, default=0)
+    send_fee = Column(INTEGER, nullable=True, default=0)
+    payment_amount = Column(INTEGER, nullable=False, default=0)
     payment_method = Column(String(30), nullable=True)
 
-    address_id = Column(BIGINT(unsigned=True), nullable=True)
+    address_id = Column(BIGINT, nullable=True)
 
     request_memo = Column(Text, nullable=True)
     admin_memo = Column(Text, nullable=True)

@@ -8,11 +8,11 @@ import React, {
 } from "react";
 import { tokenUtils } from "../api/axios";
 import { authAPI, LoginRequest, LogoutRequest } from "../api/authApi";
-import { adminAPI, AdminResponse, AdminRole } from "../api/adminApi";
+import { AdminResponse, AdminRole } from "../api/adminsApi";
 import { getErrorMessage } from "../utils/errorHandler";
 
 // 개발 모드에서 로그인 우회 (true로 설정하면 로그인 없이 사용 가능)
-const DEV_SKIP_AUTH = true;
+const DEV_SKIP_AUTH = false;
 
 // 개발용 더미 관리자
 const DEV_ADMIN: AdminResponse = {
@@ -24,7 +24,6 @@ const DEV_ADMIN: AdminResponse = {
   last_login_at: null,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
-  deleted_at: null,
 };
 
 // AuthContext 타입 정의
@@ -71,7 +70,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // 현재 관리자 정보 조회
   const refreshCurrentAdmin = useCallback(async () => {
     try {
-      const admin = await adminAPI.getMe();
+      const admin = await authAPI.getMe();
       setCurrentAdmin(admin);
       setIsAuthenticated(true);
     } catch (err) {
@@ -99,7 +98,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       );
 
       // 현재 관리자 정보 조회
-      const admin = await adminAPI.getMe();
+      const admin = await authAPI.getMe();
       setCurrentAdmin(admin);
       setIsAuthenticated(true);
     } catch (err) {

@@ -35,11 +35,11 @@ class CustomerListQuery(BaseModel):
 
 class CustomerCreate(BaseModel):
     """고객 생성 요청"""
-    customer_name: str = Field("", max_length=50, description="고객 이름")
+    customer_name: str = Field(..., max_length=50, description="고객 이름")
     customer_phone: str = Field(..., max_length=20, description="연락처 (고유값)")
     customer_email: Optional[EmailStr] = Field(None, description="이메일")
     create_channel: Literal["CAFE24", "GPMALL", "OFFLINE"] = Field(
-        "OFFLINE", 
+        "CAFE24", 
         description="유입 경로"
     )
     admin_memo: Optional[str] = Field(None, description="관리자 메모(특이사항)")
@@ -64,6 +64,7 @@ class CustomerResponse(BaseModel):
     last_order_at: Optional[datetime] = Field(None, description="최근 주문 일시")
     created_at: datetime = Field(..., description="생성 일시")
     updated_at: datetime = Field(..., description="수정 일시")
+    deleted_at: Optional[datetime] = Field(None, description="삭제 일시(소프트 삭제용)")
     
     class Config:
         from_attributes = True 

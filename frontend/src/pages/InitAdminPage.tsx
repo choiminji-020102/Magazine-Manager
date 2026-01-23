@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 
 import { authAPI } from "../api/authApi";
-import { AdminRole } from "../api/adminApi";
+import { AdminRole } from "../api/adminsApi";
 import { useAuth } from "../contexts/AuthContext";
 import Input from "../components/common/Input";
 import Button from "../components/common/Button";

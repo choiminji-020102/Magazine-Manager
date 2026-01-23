@@ -6,7 +6,7 @@ import httpx
 from app.core.config import settings
 
 from app.db.session import get_db
-from app.service import cafe24_admin as cafe24_admin_service
+from app.services import cafe24_admin_service
 
 router = APIRouter(prefix="/cafe24/admin/products", tags=["카페24 Admin - Products"])
 

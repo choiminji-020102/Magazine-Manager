@@ -13,8 +13,10 @@ class OrderItemCreate(BaseModel):
     order_num: int = 1
     subscribe_start_issue: Optional[str] = None
     subscribe_end_issue: Optional[str] = None
+    subscribe_period: Optional[int] = 12
     address: Optional[AddressCreate] = None
     address_id: Optional[int] = None
+    memo: Optional[str] = None
 
 
 class OrderItemUpdate(BaseModel):
@@ -24,17 +26,20 @@ class OrderItemUpdate(BaseModel):
     order_num: Optional[int] = None
     subscribe_start_issue: Optional[str] = None
     subscribe_end_issue: Optional[str] = None
+    subscribe_period: Optional[int] = None
     last_send_issue: Optional[str] = None
     final_subscribe_end_issue: Optional[str] = None
     memo: Optional[str] = None
     address: Optional[AddressCreate] = None
     address_id: Optional[int] = None
+    sended_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None
 
 
 class SubscriptionUpdate(BaseModel):
-    subscribe_start_issue: str
-    subscribe_end_issue: str
-
+    subscribe_start_issue: Optional[str] = None
+    subscribe_end_issue: Optional[str] = None
+    subscribe_period: Optional[int] = None
 
 class OrderItemResponse(BaseModel):
     order_item_id: int
@@ -45,12 +50,15 @@ class OrderItemResponse(BaseModel):
     product_name: str
     price: int
     sale: int
+    refund: Optional[int] = None
     order_num: int
     subscribe_start_issue: Optional[str] = None
     subscribe_end_issue: Optional[str] = None
+    subscribe_period: Optional[int] = None
     last_send_issue: Optional[str] = None
     final_subscribe_end_issue: Optional[str] = None
     address_id: int
+    memo: Optional[str] = None
     created_at: datetime
     sended_at: Optional[datetime] = None
     cancelled_at: Optional[datetime] = None

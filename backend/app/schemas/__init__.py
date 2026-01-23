@@ -2,8 +2,8 @@ from app.schemas.common import (
 	ResponseModel, PaginatedResponse, PaginationMeta
 )
 from app.schemas.auth import (
-    LoginRequest, LoginResponse, RefreshRequest, TokenResponse,
-    PasswordChangeRequest, LogoutRequest, AdminInfo
+    LoginRequest, TokenPairResponse, RefreshRequest, LogoutRequest,
+    PasswordChangeRequest, TokenPayload
 )
 from app.schemas.admin import (
     AdminCreate, AdminUpdate, AdminResponse, AdminActivateRequest, AdminPasswordChange

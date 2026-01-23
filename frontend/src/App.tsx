@@ -26,7 +26,7 @@ import ProductRegisterPage from "./pages/ProductRegisterPage";
 import OrderListPage from "./pages/OrderListPage";
 import OrderRegisterPage from "./pages/OrderRegisterPage";
 import SubscriptionListPage from "./pages/SubscriptionListPage";
-import SubscriptionDetailPage from "./pages/SubscriptionDetailPage";
+// import SubscriptionDetailPage from "./pages/SubscriptionDetailPage";
 import DuplicateSubscriptionPage from "./pages/DuplicateSubscriptionPage";
 import PauseManagementPage from "./pages/PauseManagementPage";
 import ShippingPage from "./pages/ShippingPage";
@@ -220,7 +220,7 @@ const MainLayout: React.FC = () => {
 
   const handleNavigateToProfile = () => {
     if (currentAdmin) {
-      navigate(`/admin/${currentAdmin.id}`);
+      navigate(`/admin/${currentAdmin.admin_id}`);
     }
   };
 
@@ -312,7 +312,7 @@ const MainLayout: React.FC = () => {
             />
             <Route
               path="/subscription/detail/:orderItemId"
-              element={<SubscriptionDetailPage />}
+              // element={<SubscriptionDetailPage />}
             />
             <Route
               path="/subscription/pause"

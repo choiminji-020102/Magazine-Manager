@@ -4,7 +4,7 @@ from sqlalchemy import func, case, or_
 from typing import Optional
 from datetime import datetime, date, timedelta
 
-from app.core.database import get_db
+from app.db.session import get_db
 from app.core.deps import require_roles
 from app.models.admin import Admin
 from app.models.order import Order

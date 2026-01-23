@@ -16,11 +16,11 @@ class ProductKind(str, enum.Enum):
 class OrderItem(Base):
     __tablename__ = "order_items"
 
-    order_item_id = Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    order_item_id = Column(BIGINT, primary_key=True, autoincrement=True)
 
     external_order_item_id = Column(String(100), nullable=True)
 
-    order_id = Column(BIGINT(unsigned=True), nullable=False, index=True)
+    order_id = Column(BIGINT, nullable=False, index=True)
 
     product_code = Column(String(50), nullable=False, index=True)
 
@@ -32,20 +32,20 @@ class OrderItem(Base):
 
     product_name = Column(String(255), nullable=False)
 
-    price = Column(INTEGER(unsigned=True), nullable=True, default=0)
-    sale = Column(INTEGER(unsigned=True), nullable=True, default=0)
-    refund = Column(INTEGER(unsigned=True), nullable=True, default=0)
-    order_num = Column(INTEGER(unsigned=True), nullable=True, default=1)
+    price = Column(INTEGER, nullable=True, default=0)
+    sale = Column(INTEGER, nullable=True, default=0)
+    refund = Column(INTEGER, nullable=True, default=0)
+    order_num = Column(INTEGER, nullable=True, default=1)
 
     subscribe_start_issue = Column(String(10), nullable=True, index=True)
     subscribe_end_issue = Column(String(10), nullable=True)
 
-    subscribe_period = Column(INTEGER(unsigned=True), nullable=True, default=12)
+    subscribe_period = Column(INTEGER, nullable=True, default=12)
 
     last_send_issue = Column(String(10), nullable=True, index=True)
     final_subscribe_end_issue = Column(String(10), nullable=True, index=True)
 
-    address_id = Column(BIGINT(unsigned=True), nullable=False, index=True)
+    address_id = Column(BIGINT, nullable=False, index=True)
 
     memo = Column(Text, nullable=True)
 

@@ -9,9 +9,9 @@ from app.db.base import Base
 class Send(Base):
     __tablename__ = "sends"
     
-    send_id = Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True, comment="발송 ID")
-    order_id = Column(BIGINT(unsigned=True), nullable=False, index=True, comment="연결된 주문 ID")
-    address_id = Column(BIGINT(unsigned=True), nullable=True, comment="배송지 정보 원본 ID")
+    send_id = Column(BIGINT, primary_key=True, autoincrement=True, comment="발송 ID")
+    order_id = Column(BIGINT, nullable=False, index=True, comment="연결된 주문 ID")
+    address_id = Column(BIGINT, nullable=True, comment="배송지 정보 원본 ID")
     send_date = Column(Date, nullable=True, index=True, comment="발송 날짜")
     courier_company = Column(
         Enum("CJ대한통운", "로젠택배", "우체국택배", "한진택배", "롯데택배", name="courier_company_enum"),

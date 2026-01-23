@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, Save, Eye, EyeOff } from "lucide-react";
 
-import { adminAPI, AdminResponse, AdminRole } from "../api/adminApi";
+import { adminAPI, AdminResponse, AdminRole } from "../api/adminsApi";
 import Button from "../components/common/Button";
 import Alert from "../components/common/Alert";
 import Input from "../components/common/Input";

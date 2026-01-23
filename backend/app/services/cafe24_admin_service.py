@@ -5,10 +5,10 @@ import httpx
 from fastapi import HTTPException, status as http_status
 from sqlalchemy.orm import Session
 
-
 from app.core.config import settings
 from app.crud import cafe24_token as cafe24_token_crud
-from app.service import cafe24_oauth as cafe24_oauth_service
+from app.models.cafe24_token import Cafe24Token
+from app.services import cafe24_oauth_service
 
 _refresh_locks: dict[str, asyncio.Lock] = {}
 _RETRY_BACKOFFS = (0.2, 0.5)
@@ -22,7 +22,7 @@ def resolve_mall_id(requested: Optional[str]) -> str:
         )
     return configured
 
-def get_token_row(mall_id: str, db: Session):
+def get_token_row(mall_id: str, db: Session) -> Cafe24Token:
     row = cafe24_token_crud.get_by_mall_id(mall_id, db)
     if not row:
         raise HTTPException(

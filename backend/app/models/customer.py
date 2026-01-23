@@ -8,7 +8,7 @@ from app.db.base import Base
 class Customer(Base):
     __tablename__ = "customers"
 
-    customer_id = Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True, comment="내부 고객 고유 ID")
+    customer_id = Column(BIGINT, primary_key=True, autoincrement=True, comment="내부 고객 고유 ID")
     customer_name = Column(String(50), nullable=False, index=True, comment="고객 이름")
     customer_phone = Column(String(20), unique=True, nullable=False, comment="연락처")
     customer_phone_num4 = Column(CHAR(4), nullable=False, index=True, comment="연락처 뒷자리(고정길이)")

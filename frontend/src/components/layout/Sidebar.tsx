@@ -2,7 +2,7 @@ import React from "react";
 import { Globe, BookOpen } from "lucide-react";
 
 import { MENU_STRUCTURE, ROLE_CONFIG } from "../../utils/constants";
-import { AdminResponse } from "../../api/adminApi";
+import { AdminResponse } from "../../api/adminsApi";
 import SidebarMenu from "./SidebarMenu";
 
 interface ExpandedMenus {

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from typing import List
 
-from app.core.database import get_db
+from app.db.session import get_db
 from app.core.deps import require_roles
 from app.models.admin import Admin
 from app.schemas.address import AddressCreate, AddressUpdate, AddressResponse
@@ -21,17 +21,13 @@ def get_addresses_by_customer(
     current_admin: Admin = Depends(require_admin)
 ):
     """고객별 배송지 목록 조회"""
-    customer = customer_service.get_customer_by_id(db, customer_id)
-    
-    if customer is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="고객을 찾을 수 없습니다."
-        )
-    
+    _ = customer_service.get_customer_by_id(db, customer_id)
     addresses = address_service.get_addresses_by_customer(db, customer_id)
     
-    return ResponseModel(data=[AddressResponse.model_validate(a) for a in addresses])
+    return ResponseModel(
+        message="고객별 배송지 목록을 조회했습니다.",
+        data=[AddressResponse.model_validate(address) for address in addresses]
+    )
 
 
 @router.get("/{address_id}", response_model=ResponseModel[AddressResponse])
@@ -60,12 +56,13 @@ def create_address(
     current_admin: Admin = Depends(require_admin)
 ):
     """배송지 등록 (동일 주소 있으면 기존 반환)"""
-    customer = customer_service.get_customer_by_id(db, address_in.customer_id)
-    if customer is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="고객을 찾을 수 없습니다."
-        )
+    if address_in.customer_id is not None:
+        customer = customer_service.get_customer_by_id(db, address_in.customer_id)
+        if customer is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="고객을 찾을 수 없습니다."
+            )
     
     # 동일 주소 검색 또는 생성
     address = address_service.find_or_create_address(db, address_in)
@@ -100,7 +97,7 @@ def update_address(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin)
 ):
-    """배송지 수정 (nation, postal_code, address_memo만 수정 가능)"""
+    """배송지 수정 (address_memo만 수정 가능)"""
     address = address_service.get_address_by_id(db, address_id)
     
     if address is None:
@@ -110,8 +107,6 @@ def update_address(
         )
     
     old_data = {
-        "nation": address.nation,
-        "postal_code": address.postal_code,
         "address_memo": address.address_memo
     }
     

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { ChevronDown, ExternalLink, Bell, StickyNote, X } from "lucide-react";
 
 import { MENU_TITLES, MENU_STRUCTURE } from "../../utils/constants";
-import { AdminResponse } from "../../api/adminApi";
+import { AdminResponse } from "../../api/adminsApi";
 import ProfileMenu from "./ProfileMenu";
 
 interface HeaderProps {

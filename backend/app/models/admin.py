@@ -7,7 +7,7 @@ from app.db.base import Base
 
 class Admin(Base):
     __tablename__ = "admins"
-    admin_id = Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True, comment="관리자 ID")
+    admin_id = Column(BIGINT, primary_key=True, autoincrement=True, comment="관리자 ID")
     email = Column(String(100), nullable=False, unique=True, comment="이메일(로그인 ID)")
     hashed_password = Column(String(255), nullable=False, comment="암호화된 비밀번호")
     admin_name = Column(String(50), nullable=False, comment="관리자 이름")

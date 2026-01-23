@@ -77,7 +77,7 @@ def require_roles(allowed_roles: list[str]):
     async def checker(
         current_admin: admin_model.Admin = Depends(get_current_admin),
     ):
-        if current_admin.role not in allowed_roles:
+        if current_admin.admin_role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, 
                 detail="이 작업을 수행할 권한이 없습니다.",

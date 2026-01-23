@@ -8,8 +8,8 @@ from app.db.base import Base
 class Address(Base):
     __tablename__ = "addresses"
     
-    address_id = Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True, comment="배송지 ID")
-    customer_id = Column(BIGINT(unsigned=True), nullable=True, index=True, comment="고객 ID")
+    address_id = Column(BIGINT, primary_key=True, autoincrement=True, comment="배송지 ID")
+    customer_id = Column(BIGINT, nullable=True, index=True, comment="고객 ID")
     address_name = Column(String(50), nullable=False, index=True, comment="수령인 이름")
     phone = Column(String(20), nullable=False, index=True, comment="수령인 연락처")
     nation = Column(String(50), nullable=True, default="대한민국", comment="국가명")

@@ -4,7 +4,7 @@ from typing import Optional, List
 from datetime import date
 import math
 
-from app.core.database import get_db
+from app.db.session import get_db
 from app.core.deps import require_roles
 from app.models.admin import Admin
 from app.schemas.send import (

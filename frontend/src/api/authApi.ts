@@ -1,27 +1,23 @@
 import api from "./axios";
 import { logApiError } from "../utils/errorHandler";
-import { AdminCreate, AdminResponse } from "./adminApi";
+import type {
+  LoginRequest,
+  TokenPairResponse,
+  RefreshRequest,
+  LogoutRequest,
+  PasswordChangeRequest,
+  AdminCreate,
+  AdminResponse,
+} from "../types/auth";
 
-// 타입 정의
-export interface LoginRequest {
-  email: string;
-  plain_password: string;
-}
-
-export interface TokenPairResponse {
-  access_token: string;
-  refresh_token: string;
-  token_type: string; // 기본값 "bearer"
-}
-
-export interface RefreshRequest {
-  access_token: string;
-  refresh_token: string;
-}
-
-export interface LogoutRequest {
-  refresh_token: string;
-}
+// Re-export for backward compatibility
+export type {
+  LoginRequest,
+  TokenPairResponse,
+  RefreshRequest,
+  LogoutRequest,
+  PasswordChangeRequest,
+};
 
 // API 함수들
 export const authAPI = {
@@ -76,6 +72,33 @@ export const authAPI = {
       return response.data;
     } catch (err) {
       logApiError(err as any, "INIT_FIRST_ADMIN");
+      throw err;
+    }
+  },
+
+  /**
+   * 현재 로그인한 관리자 정보 조회
+   * GET /auth/me
+   */
+  getMe: async (): Promise<AdminResponse> => {
+    try {
+      const response = await api.get<AdminResponse>("/auth/me");
+      return response.data;
+    } catch (err) {
+      logApiError(err as any, "GET_CURRENT_ADMIN");
+      throw err;
+    }
+  },
+
+  /**
+   * 현재 로그인한 관리자 비밀번호 변경
+   * PUT /auth/password
+   */
+  changePassword: async (data: PasswordChangeRequest): Promise<void> => {
+    try {
+      await api.put("/auth/password", data);
+    } catch (err) {
+      logApiError(err as any, "CHANGE_PASSWORD");
       throw err;
     }
   },

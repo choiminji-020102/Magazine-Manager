@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 import math
 
-from app.core.database import get_db
+from app.db.session import get_db
 from app.core.deps import require_roles
 from app.models.admin import Admin
 from app.schemas.order import (
@@ -69,6 +69,7 @@ def get_orders(
     items, total = order_service.get_orders(db, page, limit, search, channel, order_status, start_date, end_date)
     
     return PaginatedResponse(
+        message="주문 목록을 조회했습니다.",
         data=[OrderListResponse(**item) for item in items],
         pagination=PaginationMeta(
             total=total,
@@ -98,6 +99,7 @@ def get_orders_by_channel(
     items, total = order_service.get_orders(db, page, limit, channel=channel, status=order_status)
     
     return PaginatedResponse(
+        message="채널별 주문 목록을 조회했습니다.",
         data=[OrderListResponse(**item) for item in items],
         pagination=PaginationMeta(
             total=total,
@@ -126,7 +128,10 @@ def get_order_by_external_id(
     items = list(order.items)
     customer = customer_service.get_customer_by_id(db, order.customer_id)
     
-    return ResponseModel(data=build_order_detail_response(order, customer, items))
+    return ResponseModel(
+        message="주문 정보를 조회했습니다.",
+        data=build_order_detail_response(order, customer, items)
+    )
 
 
 @router.get("/{order_id}", response_model=ResponseModel[OrderDetailResponse])
@@ -147,7 +152,10 @@ def get_order(
     items = list(order.items)
     customer = customer_service.get_customer_by_id(db, order.customer_id)
     
-    return ResponseModel(data=build_order_detail_response(order, customer, items))
+    return ResponseModel(
+        message="주문 정보를 조회했습니다.",
+        data=build_order_detail_response(order, customer, items)
+    )
 
 
 @router.post("", response_model=ResponseModel[OrderDetailResponse], status_code=status.HTTP_201_CREATED)
@@ -206,38 +214,7 @@ def create_order(
         
         return ResponseModel(
             message="주문이 등록되었습니다.",
-            data=OrderDetailResponse(
-                order_id=order.order_id,
-                customer_id=order.customer_id,
-                external_order_id=order.external_order_id,
-                order_channel=order.order_channel,
-                order_status=order.order_status,
-                total_amount=order.total_amount,
-                discount_amount=order.discount_amount,
-                send_fee=order.send_fee,
-                payment_amount=order.payment_amount,
-                payment_method=order.payment_method,
-                address_id=order.address_id,
-                request_memo=order.request_memo,
-                admin_memo=order.admin_memo,
-                order_at=order.order_at,
-                payment_at=order.payment_at,
-                cancelled_at=order.cancelled_at,
-                created_at=order.created_at,
-                updated_at=order.updated_at,
-                customer={
-                    "customer_id": customer.customer_id,
-                    "customer_name": customer.customer_name,
-                    "customer_phone": customer.customer_phone
-                } if customer else None,
-                address={
-                    "address_id": order.address.address_id,
-                    "address_name": order.address.address_name,
-                    "phone": order.address.phone,
-                    "address": order.address.address
-                } if order.address else None,
-                items=[OrderItemResponse.model_validate(item) for item in items]
-            )
+            data=build_order_detail_response(order, customer, items)
         )
     except ValueError as e:
         raise HTTPException(
@@ -392,4 +369,22 @@ def get_order_sends(
         item_count = send.items.filter_by(cancelled_at=None).count()
         result.append(SendListResponse(**send.__dict__, item_count=item_count))
     
-    return ResponseModel(data=result)
+    return ResponseModel(
+        message="주문별 발송 목록을 조회했습니다.",
+        data=result
+    )
+
+
+@router.get("/customer/{customer_id}", response_model=ResponseModel[List[OrderResponse]])
+def get_orders_by_customer(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_admin)
+):
+    """고객별 주문 이력 조회"""
+    _ = customer_service.get_customer_by_id(db, customer_id)  # 고객 존재 여부 검증용
+    orders = order_service.get_orders_by_customer(db, customer_id)
+    return ResponseModel(
+        message="고객별 주문 이력을 조회했습니다.",
+        data=[OrderResponse.model_validate(order) for order in orders]
+    )

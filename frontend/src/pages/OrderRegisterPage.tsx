@@ -15,7 +15,7 @@ import {
   ORDER_CHANNEL_LABELS,
   ORDER_STATUS_LABELS,
 } from "../utils/constants";
-import { Customer } from "../api/customerApi";
+import { Customer } from "../api/customersApi";
 
 interface Product {
   product_id: number;
