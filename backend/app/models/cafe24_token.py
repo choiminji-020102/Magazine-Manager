@@ -8,9 +8,9 @@ class Cafe24Token(Base):
     cafe24_token_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
     access_token: Mapped[str] = mapped_column(Text, nullable=False)
-    expires_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[DateTime] = mapped_column(DateTime, nullable=False)
     refresh_token: Mapped[str] = mapped_column(Text, nullable=True)
-    refresh_token_expires_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=True)
+    refresh_token_expires_at: Mapped[DateTime] = mapped_column(DateTime, nullable=True)
     
     client_id: Mapped[str] = mapped_column(String(100), nullable=True)
     mall_id: Mapped[str] = mapped_column(String(100), nullable=True)
@@ -18,9 +18,9 @@ class Cafe24Token(Base):
     
     scopes: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
     
-    issued_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=True)
+    issued_at: Mapped[DateTime] = mapped_column(DateTime, nullable=True)
     shop_no: Mapped[str] = mapped_column(String(30), nullable=True)
     token_type: Mapped[str] = mapped_column(String(30), nullable=True)
 
-    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    created_at: Mapped[DateTime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    updated_at: Mapped[DateTime] = mapped_column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())

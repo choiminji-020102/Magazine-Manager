@@ -10,6 +10,7 @@ from app.models.send import Send
 from app.models.send_item import SendItem
 from app.models.activity_log import ActivityLog
 from app.models.inquiry import Inquiry
+from app.models.cafe24_token import Cafe24Token
 
 __all__ = [
     "Admin",
@@ -24,4 +25,5 @@ __all__ = [
     "SendItem",
     "ActivityLog",
     "Inquiry",
+    "Cafe24Token",
 ]
