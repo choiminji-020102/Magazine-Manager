@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, case
 from typing import Optional, Tuple, List
 from datetime import datetime, date
 
@@ -25,9 +25,14 @@ def get_sends(
     send_date: Optional[str] = None,
     search: Optional[str] = None
 ) -> Tuple[List[dict], int]:
+    # MySQL 호환: FILTER 대신 CASE WHEN 사용
+    item_count_expr = func.sum(
+        case((SendItem.cancelled_at.is_(None), 1), else_=0)
+    ).label("item_count")
+    
     query = db.query(
         Send,
-        func.count(SendItem.send_item_id).filter(SendItem.cancelled_at.is_(None)).label("item_count")
+        item_count_expr
     ).outerjoin(SendItem, Send.send_id == SendItem.send_id)\
      .filter(Send.cancelled_at.is_(None))\
      .group_by(Send.send_id)

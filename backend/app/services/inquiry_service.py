@@ -148,7 +148,7 @@ def get_customer_inquiry_history(db: Session, customer_id: int) -> dict:
     # 최근 주문 5건
     recent_orders = db.query(Order).filter(
         Order.customer_id == customer_id
-    ).order_by(Order.ordered_at.desc()).limit(5).all()
+    ).order_by(Order.order_at.desc()).limit(5).all()
     
     # 최근 문의 5건
     recent_inquiries = db.query(Inquiry).filter(
@@ -164,8 +164,8 @@ def get_customer_inquiry_history(db: Session, customer_id: int) -> dict:
             "order_channel": o.order_channel,
             "order_status": o.order_status,
             "total_amount": o.total_amount,
-            "final_amount": o.final_amount,
-            "ordered_at": o.ordered_at.isoformat() if o.ordered_at else None
+            "payment_amount": o.payment_amount,
+            "order_at": o.order_at.isoformat() if o.order_at else None
         } for o in recent_orders],
         "recent_inquiries": recent_inquiries
     }

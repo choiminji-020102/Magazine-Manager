@@ -31,6 +31,8 @@ def get_orders(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None
 ) -> Tuple[List[dict], int]:
+    from app.core.utils import format_phone_number
+    
     query = db.query(
         Order,
         Customer.customer_name,
@@ -38,20 +40,38 @@ def get_orders(
     ).join(Customer, Order.customer_id == Customer.customer_id)
     
     if search:
-        query = query.filter(
-            or_(
-                Customer.customer_name.like(f"%{search}%"),
-                Customer.customer_phone.like(f"%{search}%"),
-                Order.external_order_id.like(f"%{search}%")
+        # 검색어가 숫자만 포함하면 전화번호로 간주
+        search_digits = ''.join(filter(str.isdigit, search))
+        
+        if len(search_digits) >= 4:
+            formatted_phone, phone_num4 = format_phone_number(search)
+            query = query.filter(
+                or_(
+                    Customer.customer_name.like(f"%{search}%"),
+                    Customer.customer_phone == formatted_phone,
+                    Customer.customer_phone.like(f"%{search}%"),
+                    Customer.customer_phone_num4 == phone_num4,
+                    Order.external_order_id.like(f"%{search}%")
+                )
             )
-        )
+        else:
+            query = query.filter(
+                or_(
+                    Customer.customer_name.like(f"%{search}%"),
+                    Customer.customer_phone.like(f"%{search}%"),
+                    Order.external_order_id.like(f"%{search}%")
+                )
+            )
     
     if channel:
         query = query.filter(Order.order_channel == channel)
+    
     if status:
         query = query.filter(Order.order_status == status)
+    
     if start_date:
         query = query.filter(Order.order_at >= start_date)
+    
     if end_date:
         query = query.filter(Order.order_at <= end_date + " 23:59:59")
     
@@ -75,8 +95,8 @@ def get_orders(
             "external_order_id": order.external_order_id,
             "order_channel": order.order_channel,
             "order_status": order.order_status,
+            "total_amount": order.total_amount,
             "payment_amount": order.payment_amount,
-            "payment_method": order.payment_method,
             "order_at": order.order_at,
             "item_count": item_count
         })
@@ -211,24 +231,8 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
 
 def update_order(db: Session, order: Order, order_in: OrderUpdate) -> Order:
     update_data = order_in.model_dump(exclude_unset=True)
-    
-    # 금액 관련 필드가 변경되면 payment_amount 재계산 필요 여부 확인
-    needs_recalculation = any(
-        field in update_data for field in ['discount_amount', 'send_fee', 'refund_amount']
-    )
-    
     for field, value in update_data.items():
         setattr(order, field, value)
-    
-    # 금액 관련 필드가 변경된 경우 payment_amount 재계산
-    if needs_recalculation:
-        order.payment_amount = (
-            order.total_amount 
-            - (order.discount_amount or 0) 
-            - (order.refund_amount or 0) 
-            + (order.send_fee or 0)
-        )
-    
     db.commit()
     db.refresh(order)
     return order

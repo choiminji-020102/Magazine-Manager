@@ -35,7 +35,6 @@ def get_customer_by_phone(
         Customer.deleted_at.is_(None)
     ).all()
 
-    # 표준화된 번호로 정확한 매칭
     formatted, _ = format_phone_number(phone)
     for customer in customers:
         if customer.customer_phone == formatted or customer.customer_phone == phone:
@@ -56,41 +55,65 @@ def get_customers(
     query = db.query(Customer).filter(Customer.deleted_at.is_(None))
 
     if search:
-        query = query.filter(
-            or_(
-                Customer.customer_name.like(f"%{search}%"),
-                Customer.customer_phone.like(f"%{search}%"),
-                Customer.customer_email.like(f"%{search}%"),
-                Customer.customer_phone_num4 == search
+        # 검색어가 숫자만 포함하면 전화번호로 간주
+        search_digits = ''.join(filter(str.isdigit, search))
+        
+        if len(search_digits) >= 4:
+            # 전화번호 검색: 표준화된 형식으로 변환하여 검색
+            formatted_phone, phone_num4 = format_phone_number(search)
+            query = query.filter(
+                or_(
+                    Customer.customer_name.like(f"%{search}%"),
+                    Customer.customer_phone == formatted_phone,
+                    Customer.customer_phone.like(f"%{search}%"),
+                    Customer.customer_phone_num4 == phone_num4
+                )
             )
-        )
-
+        else:
+            query = query.filter(
+                or_(
+                    Customer.customer_name.like(f"%{search}%"),
+                    Customer.customer_phone.like(f"%{search}%"),
+                    Customer.customer_email.like(f"%{search}%")
+                )
+            )
+    
     if channel:
         query = query.filter(Customer.create_channel == channel)
-
+    
     total = query.count()
-
+    
     sort_column = getattr(Customer, sort, Customer.created_at)
     if order.upper() == "DESC":
         sort_column = sort_column.desc()
-
+    
     offset = (page - 1) * limit
     items = query.order_by(sort_column).offset(offset).limit(limit).all()
-
+    
     return items, total
 
 
-def search_customers(
-    db: Session,
-    keyword: str,
-    limit: int = 20
-) -> List[Customer]:
+
+def search_customers(db: Session, keyword: str, limit: int = 20) -> List[Customer]:
+    # 검색어가 숫자만 포함하면 전화번호로 간주
+    search_digits = ''.join(filter(str.isdigit, keyword))
+    
+    if len(search_digits) >= 4:
+        formatted_phone, phone_num4 = format_phone_number(keyword)
+        return db.query(Customer).filter(
+            Customer.deleted_at == None,
+            or_(
+                Customer.customer_name.like(f"%{keyword}%"),
+                Customer.customer_phone == formatted_phone,
+                Customer.customer_phone_num4 == phone_num4
+            )
+        ).limit(limit).all()
+    
     return db.query(Customer).filter(
         Customer.deleted_at.is_(None),
         or_(
             Customer.customer_name.like(f"%{keyword}%"),
-            Customer.customer_phone.like(f"%{keyword}%"),
-            Customer.customer_phone_num4 == keyword
+            Customer.customer_phone.like(f"%{keyword}%")
         )
     ).limit(limit).all()
 
@@ -99,7 +122,6 @@ def create_customer(
     db: Session,
     customer_in: CustomerCreate
 ) -> Customer:
-    """고객 생성 (전화번호 중복 체크 포함)"""
     # 전화번호 중복 체크
     if get_customer_by_phone(db, customer_in.customer_phone):
         raise HTTPException(

@@ -17,23 +17,6 @@ def create_log(
     ip_address: Optional[str] = None,
     user_agent: Optional[str] = None
 ) -> ActivityLog:
-    """
-    활동 로그 생성
-    
-    Args:
-        db: 데이터베이스 세션
-        action: 액션 (최대 50자)
-        target_type: 대상 타입 (최대 50자)
-        target_id: 대상 ID
-        target_name: 대상 이름 (최대 255자)
-        details: 상세 정보 (JSON)
-        admin: 관리자 객체
-        ip_address: IP 주소 (최대 45자)
-        user_agent: User Agent (최대 500자)
-    
-    Returns:
-        생성된 ActivityLog 객체
-    """
     log = ActivityLog(
         admin_id=admin.admin_id if admin else None,
         admin_name=admin.admin_name if admin else "SYSTEM",
@@ -62,23 +45,6 @@ def get_logs(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None
 ) -> Tuple[List[ActivityLog], int]:
-    """
-    활동 로그 조회 (페이지네이션 지원)
-    
-    Args:
-        db: 데이터베이스 세션
-        page: 페이지 번호 (1부터 시작)
-        limit: 페이지당 항목 수
-        admin_id: 관리자 ID 필터
-        action: 액션 필터
-        target_type: 대상 타입 필터
-        target_id: 대상 ID 필터
-        start_date: 시작 날짜 (YYYY-MM-DD 형식)
-        end_date: 종료 날짜 (YYYY-MM-DD 형식)
-    
-    Returns:
-        (로그 리스트, 전체 개수) 튜플
-    """
     query = db.query(ActivityLog)
     
     if admin_id:

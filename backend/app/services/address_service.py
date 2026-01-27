@@ -24,12 +24,7 @@ def find_address(
     phone: str,
     address: str
 ) -> Optional[Address]:
-    """
-    동일한 배송지가 이미 존재하는지 검색하는 함수
-    - 중복 배송지 생성을 방지하기 위해 사용
-    - [customer_id + 수령인 이름 + 연락처 + 주소]를 기준으로 동일 주소 판단
-    - find_or_create_address 함수에서 호출되어 기존 주소 재사용 시 활용
-    """
+    """동일 주소 검색 (customer_id + 수령인 + 연락처 + 주소)"""
     formatted_phone, _ = format_phone_number(phone)
     
     query = db.query(Address).filter(
