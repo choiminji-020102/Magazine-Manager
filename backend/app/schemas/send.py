@@ -20,8 +20,7 @@ class SendAddressInput(BaseModel):
     phone: str
     nation: Optional[str] = "대한민국"
     postal_code: str
-    address1: str
-    address2: Optional[str] = ""
+    address: str
     address_memo: Optional[str] = None
 
 

@@ -13,22 +13,24 @@ class DispatchTarget(BaseModel):
     product_name: str
     customer_name: str
     customer_phone: str
+    address_id: Optional[int] = None
     address_name: Optional[str] = None
     phone: Optional[str] = None
     postal_code: Optional[str] = None
-    address1: Optional[str] = None
-    address2: Optional[str] = None
+    address: Optional[str] = None
     address_memo: Optional[str] = None
 
 
 class DispatchTargetsResponse(BaseModel):
     issue: str
+    product_code: Optional[str] = None
     count: int
     targets: List[DispatchTarget]
 
 
 class DispatchGenerateRequest(BaseModel):
     product_code: Optional[str] = None
+    base_code: Optional[str] = None
     send_date: Optional[date] = None
 
 
@@ -62,34 +64,33 @@ class SubscriptionStats(BaseModel):
 
 class DispatchSummaryResponse(BaseModel):
     issue: str
+    product_code: Optional[str] = None
     statistics: SubscriptionStats
     pending_count: int
-
-
-class DispatchTargetItem(BaseModel):
+    
+# SINGLE 상품용 스키마
+class SingleTarget(BaseModel):
     order_item_id: int
     order_id: int
     customer_id: int
+    order_channel: str
+    product_code: str
+    send_product_code: str
+    product_kind: str
+    product_name: str
+    order_num: int
     customer_name: str
     customer_phone: str
-    product_code: str
-    product_name: str
-    product_kind: str
-    order_num: int
-    subscribe_start_issue: Optional[str] = None
-    subscribe_end_issue: Optional[str] = None
-    final_subscribe_end_issue: Optional[str] = None
-    last_send_issue: Optional[str] = None
-    next_send_issue: str
-    address_id: int
-    address_name: str
-    phone: str
-    postal_code: str
-    address: str
+    address_id: Optional[int] = None
+    address_name: Optional[str] = None
+    phone: Optional[str] = None
+    postal_code: Optional[str] = None
+    address: Optional[str] = None
     address_memo: Optional[str] = None
 
 
-class DispatchTargetListResponse(BaseModel):
-    issue: str
-    total_count: int
-    items: List[DispatchTargetItem]
+class SingleTargetsResponse(BaseModel):
+    product_code: str
+    count: int
+    targets: List[SingleTarget]
+

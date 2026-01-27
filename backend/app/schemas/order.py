@@ -51,7 +51,7 @@ class OrderUpdate(BaseModel):
     address_id: Optional[int] = None
     order_status: Optional[str] = None
     discount_amount: Optional[int] = None
-    refund_amount: Optional[int] = None
+    refund_amount: Optional[int] = None     # 상의 필요함
     send_fee: Optional[int] = None
     payment_method: Optional[str] = None
     request_memo: Optional[str] = None
