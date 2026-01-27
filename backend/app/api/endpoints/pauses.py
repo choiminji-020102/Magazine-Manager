@@ -63,7 +63,13 @@ def create_pause(
             detail="해당 호에 이미 휴지가 등록되어 있습니다."
         )
     
+    # 휴지 전 final_subscribe_end_issue 저장
+    old_final_issue = item.final_subscribe_end_issue
+    
     pause = pause_service.create_pause(db, order_item_id, pause_in, current_admin.admin_id)
+    
+    # 변경된 order_item 정보 다시 조회
+    item = order_item_service.get_order_item_by_id(db, order_item_id)
     
     activity_log_service.create_log(
         db=db,
@@ -74,7 +80,9 @@ def create_pause(
         details={
             "order_item_id": order_item_id,
             "pause_issue": pause_in.pause_issue,
-            "reason": pause_in.reason
+            "reason": pause_in.reason,
+            "final_subscribe_end_issue_before": old_final_issue,
+            "final_subscribe_end_issue_after": item.final_subscribe_end_issue
         },
         admin=current_admin,
         ip_address=request.client.host if request.client else None,
@@ -172,7 +180,15 @@ def delete_pause(
     
     pause_issue = pause.pause_issue
     order_item_id = pause.order_item_id
+    
+    # 삭제 전 final_subscribe_end_issue 저장
+    item = order_item_service.get_order_item_by_id(db, order_item_id)
+    old_final_issue = item.final_subscribe_end_issue if item else None
+    
     pause_service.delete_pause(db, pause)
+    
+    # 변경된 order_item 정보 다시 조회
+    item = order_item_service.get_order_item_by_id(db, order_item_id)
     
     activity_log_service.create_log(
         db=db,
@@ -180,7 +196,12 @@ def delete_pause(
         target_type="PAUSE",
         target_id=pause_id,
         target_name=f"휴지#{pause_id}",
-        details={"pause_issue": pause_issue, "order_item_id": order_item_id},
+        details={
+            "pause_issue": pause_issue,
+            "order_item_id": order_item_id,
+            "final_subscribe_end_issue_before": old_final_issue,
+            "final_subscribe_end_issue_after": item.final_subscribe_end_issue if item else None
+        },
         admin=current_admin,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")

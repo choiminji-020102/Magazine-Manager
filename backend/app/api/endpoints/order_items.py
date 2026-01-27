@@ -5,23 +5,28 @@ from typing import List
 from app.db.session import get_db
 from app.core.deps import require_roles
 from app.models.admin import Admin
-from app.schemas.order_item import OrderItemCreate, OrderItemUpdate, OrderItemResponse, SubscriptionUpdate
+from app.schemas.order_item import (
+    OrderItemCreate, 
+    OrderItemUpdate, 
+    OrderItemResponse, 
+    OrderItemDetailResponse,
+    SubscriptionUpdate
+)
 from app.schemas.common import ResponseModel
 from app.services import order_service, order_item_service, activity_log_service
-from app.schemas.dispatch import DispatchTargetItem, DispatchTargetListResponse
 
 router = APIRouter(tags=["주문 품목"])
 
 require_admin = require_roles(["SUPER_ADMIN", "ADMIN"])
 
 
-@router.get("/orders/{order_id}/items", response_model=ResponseModel[List[OrderItemResponse]])
+@router.get("/orders/{order_id}/items", response_model=ResponseModel[List[OrderItemDetailResponse]])
 def get_order_items(
     order_id: int,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin)
 ):
-    """주문별 품목 목록"""
+    """주문별 품목 목록 (휴지 정보 포함)"""
     order = order_service.get_order_by_id(db, order_id)
     
     if order is None:
@@ -30,9 +35,27 @@ def get_order_items(
             detail="주문을 찾을 수 없습니다."
         )
     
-    items = order_item_service.get_order_items_by_order(db, order_id)
+    items = order_item_service.get_order_items_with_pauses(db, order_id)
     
-    return ResponseModel(data=[OrderItemResponse.model_validate(item) for item in items])
+    return ResponseModel(data=[OrderItemDetailResponse(**item) for item in items])
+
+
+@router.get("/order-items/{order_item_id}", response_model=ResponseModel[OrderItemDetailResponse])
+def get_order_item(
+    order_item_id: int,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_admin)
+):
+    """품목 상세 조회 (휴지 정보 포함)"""
+    item_data = order_item_service.get_order_item_with_pauses(db, order_item_id)
+    
+    if item_data is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="주문 품목을 찾을 수 없습니다."
+        )
+    
+    return ResponseModel(data=OrderItemDetailResponse(**item_data))
 
 
 @router.post("/orders/{order_id}/items", response_model=ResponseModel[OrderItemResponse], status_code=status.HTTP_201_CREATED)
@@ -82,24 +105,6 @@ def create_order_item(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
-
-
-@router.get("/order-items/{order_item_id}", response_model=ResponseModel[OrderItemResponse])
-def get_order_item(
-    order_item_id: int,
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin)
-):
-    """품목 상세 조회"""
-    item = order_item_service.get_order_item_by_id(db, order_item_id)
-    
-    if item is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문 품목을 찾을 수 없습니다."
-        )
-    
-    return ResponseModel(data=OrderItemResponse.model_validate(item))
 
 
 @router.put("/order-items/{order_item_id}", response_model=ResponseModel[OrderItemResponse])
@@ -250,28 +255,3 @@ def update_subscription(
         message="구독 정보가 수정되었습니다.",
         data=OrderItemResponse.model_validate(item)
     )
-
-
-@router.get("/dispatch-targets/{issue}", response_model=ResponseModel[DispatchTargetListResponse])
-def get_dispatch_targets(
-    issue: str,
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin)
-):
-    """
-    발송대상 목록 조회 (휴지 제외)
-    - issue: 발송할 호 (예: 202602)
-    """
-    if len(issue) != 6 or not issue.isdigit():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="호(issue) 형식이 올바르지 않습니다. (예: 202602)"
-        )
-    
-    items = order_item_service.get_dispatch_targets(db, issue)
-    
-    return ResponseModel(data=DispatchTargetListResponse(
-        issue=issue,
-        total_count=len(items),
-        items=[DispatchTargetItem(**item) for item in items]
-    ))

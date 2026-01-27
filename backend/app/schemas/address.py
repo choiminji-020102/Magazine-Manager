@@ -14,6 +14,8 @@ class AddressCreate(BaseModel):
 
 
 class AddressUpdate(BaseModel):
+    nation: Optional[str] = None
+    postal_code: Optional[str] = None
     address_memo: Optional[str] = None
 
 

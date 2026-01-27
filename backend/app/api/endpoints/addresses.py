@@ -97,7 +97,7 @@ def update_address(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin)
 ):
-    """배송지 수정 (address_memo만 수정 가능)"""
+    """배송지 수정 (nation, postal_code, address_memo만 수정 가능)"""
     address = address_service.get_address_by_id(db, address_id)
     
     if address is None:
@@ -107,6 +107,8 @@ def update_address(
         )
     
     old_data = {
+        "nation": address.nation,
+        "postal_code": address.postal_code,
         "address_memo": address.address_memo
     }
     
