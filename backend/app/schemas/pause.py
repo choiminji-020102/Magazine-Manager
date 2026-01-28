@@ -3,13 +3,9 @@ from typing import Optional
 from datetime import datetime
 
 
-class PauseBase(BaseModel):
+class PauseCreate(BaseModel):
     pause_issue: str = Field(..., max_length=20)
     reason: Optional[str] = None
-
-
-class PauseCreate(PauseBase):
-    pass
 
 
 class PauseUpdate(BaseModel):

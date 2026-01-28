@@ -6,59 +6,57 @@ export enum ProductKind {
   SINGLE = "SINGLE",
 }
 
-export interface Product {
-  product_id: number;
+export interface ProductCreate {
   product_code: string;
   product_kind: ProductKind;
   product_name: string;
-  unit_weight: number;
-  unit_width: number;
-  unit_length: number;
-  unit_height: number;
+  unit_weight?: number | null;
+  unit_width?: number | null;
+  unit_length?: number | null;
+  unit_height?: number | null;
   price: number;
   sale: number;
   purchase: number;
   stock_quantity: number;
   is_active: boolean;
-  external_product_code_cafe24: string | null;
-  external_product_code_gpmall: string | null;
-  subscribe_start_issue: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ProductCreate {
-  product_code: string;
-  product_kind: ProductKind;
-  product_name: string;
-  unit_weight?: number;
-  unit_width?: number;
-  unit_length?: number;
-  unit_height?: number;
-  price: number;
-  sale: number;
-  purchase?: number;
-  stock_quantity?: number;
-  is_active?: boolean;
   external_product_code_cafe24?: string | null;
   external_product_code_gpmall?: string | null;
   subscribe_start_issue?: string | null;
 }
 
 export interface ProductUpdate {
-  product_code?: string;
-  product_kind?: ProductKind;
-  product_name?: string;
-  unit_weight?: number;
-  unit_width?: number;
-  unit_length?: number;
-  unit_height?: number;
-  price?: number;
-  sale?: number;
-  purchase?: number;
-  stock_quantity?: number;
-  is_active?: boolean;
+  product_name?: string | null;
+  unit_weight?: number | null;
+  unit_width?: number | null;
+  unit_length?: number | null;
+  unit_height?: number | null;
+  price?: number | null;
+  sale?: number | null;
+  purchase?: number | null;
+  stock_quantity?: number | null;
+  is_active?: boolean | null;
   external_product_code_cafe24?: string | null;
   external_product_code_gpmall?: string | null;
   subscribe_start_issue?: string | null;
+}
+
+export interface ProductResponse {
+  product_id: number;
+  product_code: string;
+  product_kind: ProductKind;
+  product_name: string;
+  unit_weight?: number | null;
+  unit_width?: number | null;
+  unit_length?: number | null;
+  unit_height?: number | null;
+  price: number;
+  sale: number;
+  purchase: number;
+  stock_quantity: number;
+  is_active: boolean;
+  external_product_code_cafe24?: string | null;
+  external_product_code_gpmall?: string | null;
+  subscribe_start_issue?: string | null;
+  created_at: string;
+  updated_at: string;
 }
