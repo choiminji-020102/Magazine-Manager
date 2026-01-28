@@ -21,6 +21,7 @@ export interface DispatchTarget {
 export interface DispatchTargetsResponse {
   issue: string;
   product_code?: string | null;
+  base_code?: string | null;
   count: number;
   targets: DispatchTarget[];
 }
@@ -35,6 +36,7 @@ export interface DispatchCreatedItem {
   send_id: number;
   order_item_id: number;
   customer_name: string;
+  send_product_code: string;
 }
 
 export interface DispatchErrorItem {
@@ -62,6 +64,7 @@ export interface SubscriptionStats {
 export interface DispatchSummaryResponse {
   issue: string;
   product_code?: string | null;
+  base_code?: string | null;
   statistics: SubscriptionStats;
   pending_count: number;
 }

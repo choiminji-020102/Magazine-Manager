@@ -24,6 +24,7 @@ class DispatchTarget(BaseModel):
 class DispatchTargetsResponse(BaseModel):
     issue: str
     product_code: Optional[str] = None
+    base_code: Optional[str] = None
     count: int
     targets: List[DispatchTarget]
 
@@ -38,6 +39,7 @@ class DispatchCreatedItem(BaseModel):
     send_id: int
     order_item_id: int
     customer_name: str
+    send_product_code: str
 
 
 class DispatchErrorItem(BaseModel):
@@ -65,6 +67,7 @@ class SubscriptionStats(BaseModel):
 class DispatchSummaryResponse(BaseModel):
     issue: str
     product_code: Optional[str] = None
+    base_code: Optional[str] = None
     statistics: SubscriptionStats
     pending_count: int
     
