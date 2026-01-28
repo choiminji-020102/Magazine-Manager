@@ -10,10 +10,10 @@ export interface Cafe24OAuthStartResponse {
 }
 
 export interface Cafe24TokenStatusResponse {
-  mall_id: string;
   authorized: boolean;
   expires_at?: string | null;
   refresh_token_expires_at?: string | null;
+  mall_id: string;
   scopes: string[];
 }
 

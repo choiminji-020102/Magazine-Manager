@@ -6,7 +6,7 @@ export interface ResponseBase {
 }
 
 export interface ResponseModel<T> extends ResponseBase {
-  data: T | null;
+  data?: T | null;
 }
 
 export interface PaginationMeta {
@@ -19,4 +19,10 @@ export interface PaginationMeta {
 export interface PaginatedResponse<T> extends ResponseBase {
   data: T[];
   pagination: PaginationMeta;
+}
+
+export interface ErrorResponse {
+  success: boolean;
+  message: string;
+  errors?: Record<string, any> | null;
 }

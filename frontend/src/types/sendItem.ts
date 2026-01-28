@@ -1,5 +1,14 @@
 // SendItem 관련 타입
 
+export interface SendItemCreate {
+  order_item_id: number;
+  send_num: number;
+}
+
+export interface SendItemUpdate {
+  send_num?: number | null;
+}
+
 export interface SendItemResponse {
   send_item_id: number;
   send_id: number;
@@ -14,14 +23,12 @@ export interface SendItemResponse {
   unit_height: number;
   created_at: string;
   updated_at: string;
-  cancelled_at: string | null;
+  cancelled_at?: string | null;
 }
 
-export interface SendItemCreate {
-  order_item_id: number;
-  send_num?: number;
-}
-
-export interface SendItemUpdate {
-  send_num?: number;
+export interface SendItemDetailResponse extends SendItemResponse {
+  send_date?: string | null;
+  courier_company?: string | null;
+  tracking_no?: string | null;
+  send_status?: string | null;
 }

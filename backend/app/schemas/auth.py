@@ -5,9 +5,6 @@ from typing import Optional
 # 서드파티 라이브러리
 from pydantic import BaseModel, EmailStr
 
-# 로컬 애플리케이션
-from app.models import admin as admin_model
-
 
 # 로그인 요청용 (클라이언트 → 서버)
 class LoginRequest(BaseModel):

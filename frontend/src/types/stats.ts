@@ -10,7 +10,7 @@ export interface OrderSummary {
   completed_orders: number;
   cancelled_orders: number;
   total_revenue: number;
-  avg_order_value: number | null;
+  avg_order_value?: number | null;
 }
 
 export interface DailyTrend {

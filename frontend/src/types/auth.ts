@@ -1,7 +1,5 @@
 // Auth 관련 타입
 
-import { AdminCreate, AdminResponse } from "./admin";
-
 export interface LoginRequest {
   email: string;
   plain_password: string;
@@ -10,7 +8,7 @@ export interface LoginRequest {
 export interface TokenPairResponse {
   access_token: string;
   refresh_token: string;
-  token_type: string; // 기본값 "bearer"
+  token_type: string;
 }
 
 export interface RefreshRequest {
@@ -27,5 +25,9 @@ export interface PasswordChangeRequest {
   new_password: string;
 }
 
-// Re-export for convenience
-export type { AdminCreate, AdminResponse };
+export interface TokenPayload {
+  sub: string;
+  type: string;
+  exp: number;
+  iat: number;
+}
