@@ -1,121 +1,35 @@
 import api from "./axios";
-import { logApiError } from "../utils/errorHandler";
-import type {
-  PauseResponse,
-  PauseByIssueResponse,
-  PauseCreate,
-  PauseUpdate,
-} from "../types/pause";
 import type { ResponseModel } from "../types/api";
+import type { PauseCreate, PauseUpdate, PauseResponse, PauseByIssueResponse } from "../types/pause";
 
-// Re-export for backward compatibility
-export type {
-  PauseResponse,
-  PauseByIssueResponse,
-  PauseCreate,
-  PauseUpdate,
-};
-
-// API 함수들
-export const pauseAPI = {
-  /**
-   * 품목별 휴지 목록
-   * GET /order-items/{order_item_id}/pauses
-   */
-  getByOrderItem: async (orderItemId: number): Promise<PauseResponse[]> => {
-    try {
-      const response = await api.get<ResponseModel<PauseResponse[]>>(
-        `/order-items/${orderItemId}/pauses`
-      );
-      return response.data.data;
-    } catch (err) {
-      logApiError(err as any, "GET_PAUSES_BY_ORDER_ITEM");
-      throw err;
-    }
+export const pausesApi = {
+  // GET /order-items/{order_item_id}/pauses - 품목별 휴지 목록
+  getPausesByOrderItem: (orderItemId: number) => {
+    return api.get<ResponseModel<PauseResponse[]>>(`/order-items/${orderItemId}/pauses`);
   },
 
-  /**
-   * 휴지 등록
-   * POST /order-items/{order_item_id}/pauses
-   */
-  create: async (
-    orderItemId: number,
-    data: PauseCreate
-  ): Promise<PauseResponse> => {
-    try {
-      const response = await api.post<ResponseModel<PauseResponse>>(
-        `/order-items/${orderItemId}/pauses`,
-        data
-      );
-      return response.data.data;
-    } catch (err) {
-      logApiError(err as any, "CREATE_PAUSE");
-      throw err;
-    }
+  // POST /order-items/{order_item_id}/pauses - 휴지 등록
+  createPause: (orderItemId: number, data: PauseCreate) => {
+    return api.post<ResponseModel<PauseResponse>>(`/order-items/${orderItemId}/pauses`, data);
   },
 
-  /**
-   * 휴지 상세 조회
-   * GET /pauses/{pause_id}
-   */
-  getById: async (pauseId: number): Promise<PauseResponse> => {
-    try {
-      const response = await api.get<ResponseModel<PauseResponse>>(
-        `/pauses/${pauseId}`
-      );
-      return response.data.data;
-    } catch (err) {
-      logApiError(err as any, "GET_PAUSE_BY_ID");
-      throw err;
-    }
+  // GET /pauses/{pause_id} - 휴지 상세 조회
+  getPause: (pauseId: number) => {
+    return api.get<ResponseModel<PauseResponse>>(`/pauses/${pauseId}`);
   },
 
-  /**
-   * 휴지 수정
-   * PUT /pauses/{pause_id}
-   */
-  update: async (
-    pauseId: number,
-    data: PauseUpdate
-  ): Promise<PauseResponse> => {
-    try {
-      const response = await api.put<ResponseModel<PauseResponse>>(
-        `/pauses/${pauseId}`,
-        data
-      );
-      return response.data.data;
-    } catch (err) {
-      logApiError(err as any, "UPDATE_PAUSE");
-      throw err;
-    }
+  // PUT /pauses/{pause_id} - 휴지 수정
+  updatePause: (pauseId: number, data: PauseUpdate) => {
+    return api.put<ResponseModel<PauseResponse>>(`/pauses/${pauseId}`, data);
   },
 
-  /**
-   * 휴지 삭제
-   * DELETE /pauses/{pause_id}
-   */
-  delete: async (pauseId: number): Promise<void> => {
-    try {
-      await api.delete(`/pauses/${pauseId}`);
-    } catch (err) {
-      logApiError(err as any, "DELETE_PAUSE");
-      throw err;
-    }
+  // DELETE /pauses/{pause_id} - 휴지 삭제
+  deletePause: (pauseId: number) => {
+    return api.delete<ResponseModel<void>>(`/pauses/${pauseId}`);
   },
 
-  /**
-   * 호수별 휴지 목록
-   * GET /pauses/issue/{issue}
-   */
-  getByIssue: async (issue: string): Promise<PauseByIssueResponse[]> => {
-    try {
-      const response = await api.get<ResponseModel<PauseByIssueResponse[]>>(
-        `/pauses/issue/${issue}`
-      );
-      return response.data.data;
-    } catch (err) {
-      logApiError(err as any, "GET_PAUSES_BY_ISSUE");
-      throw err;
-    }
+  // GET /pauses/issue/{issue} - 호수별 휴지 목록
+  getPausesByIssue: (issue: string) => {
+    return api.get<ResponseModel<PauseByIssueResponse[]>>(`/pauses/issue/${issue}`);
   },
 };

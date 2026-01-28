@@ -1,152 +1,53 @@
 import api from "./axios";
-import { logApiError } from "../utils/errorHandler";
-import type {
-  ProductKind,
-  Product,
-  ProductCreate,
-  ProductUpdate,
-} from "../types/product";
-import type { PaginatedResponse, ResponseModel } from "../types/api";
+import type { ResponseModel, PaginatedResponse } from "../types/api";
+import type { ProductCreate, ProductUpdate, ProductResponse } from "../types/product";
 
-// Re-export for backward compatibility
-export type { ProductKind, Product, ProductCreate, ProductUpdate };
-
-// API 함수들
-export const productAPI = {
-  /**
-   * 상품 목록 조회 (페이지네이션)
-   * GET /products?page=1&limit=20&search=&kind=&is_active=
-   */
-  getAll: async (params?: {
+export const productsApi = {
+  // GET /products - 상품 목록 조회
+  getProducts: (params: {
     page?: number;
     limit?: number;
-    search?: string;
-    kind?: string;
-    is_active?: boolean;
-  }): Promise<PaginatedResponse<Product>> => {
-    try {
-      const response = await api.get<PaginatedResponse<Product>>("/products", {
-        params,
-      });
-      return response.data;
-    } catch (err) {
-      logApiError(err as any, "GET_ALL_PRODUCTS");
-      throw err;
-    }
+    search?: string | null;
+    kind?: string | null;
+    is_active?: boolean | null;
+  }) => {
+    return api.get<PaginatedResponse<ProductResponse>>("/products", { params });
   },
 
-  /**
-   * 상품종류별 조회
-   * GET /products/kind/{product_kind}?active_only=true
-   */
-  getByKind: async (
-    productKind: string,
-    activeOnly: boolean = true
-  ): Promise<Product[]> => {
-    try {
-      const response = await api.get<ResponseModel<Product[]>>(
-        `/products/kind/${productKind}`,
-        { params: { active_only: activeOnly } }
-      );
-      return response.data.data;
-    } catch (err) {
-      logApiError(err as any, "GET_PRODUCTS_BY_KIND");
-      throw err;
-    }
+  // GET /products/kind/{product_kind} - 상품종류별 조회
+  getProductsByKind: (productKind: string, activeOnly: boolean = true) => {
+    return api.get<ResponseModel<ProductResponse[]>>(`/products/kind/${productKind}`, {
+      params: { active_only: activeOnly },
+    });
   },
 
-  /**
-   * 상품코드로 조회
-   * GET /products/code/{product_code}
-   */
-  getByCode: async (productCode: string): Promise<Product> => {
-    try {
-      const response = await api.get<ResponseModel<Product>>(
-        `/products/code/${productCode}`
-      );
-      return response.data.data;
-    } catch (err) {
-      logApiError(err as any, "GET_PRODUCT_BY_CODE");
-      throw err;
-    }
+  // GET /products/code/{product_code} - 상품코드로 조회
+  getProductByCode: (productCode: string) => {
+    return api.get<ResponseModel<ProductResponse>>(`/products/code/${productCode}`);
   },
 
-  /**
-   * 특정 상품 조회
-   * GET /products/{product_id}
-   */
-  getById: async (productId: number): Promise<Product> => {
-    try {
-      const response = await api.get<ResponseModel<Product>>(
-        `/products/${productId}`
-      );
-      return response.data.data;
-    } catch (err) {
-      logApiError(err as any, "GET_PRODUCT_BY_ID");
-      throw err;
-    }
+  // GET /products/{product_id} - 상품 상세 조회
+  getProduct: (productId: number) => {
+    return api.get<ResponseModel<ProductResponse>>(`/products/${productId}`);
   },
 
-  /**
-   * 상품 생성
-   * POST /products
-   */
-  create: async (data: ProductCreate): Promise<Product> => {
-    try {
-      const response = await api.post<ResponseModel<Product>>("/products", data);
-      return response.data.data;
-    } catch (err) {
-      logApiError(err as any, "CREATE_PRODUCT");
-      throw err;
-    }
+  // POST /products - 상품 등록
+  createProduct: (data: ProductCreate) => {
+    return api.post<ResponseModel<ProductResponse>>("/products", data);
   },
 
-  /**
-   * 상품 수정
-   * PUT /products/{product_id}
-   */
-  update: async (
-    productId: number,
-    data: ProductUpdate
-  ): Promise<Product> => {
-    try {
-      const response = await api.put<ResponseModel<Product>>(
-        `/products/${productId}`,
-        data
-      );
-      return response.data.data;
-    } catch (err) {
-      logApiError(err as any, "UPDATE_PRODUCT");
-      throw err;
-    }
+  // PUT /products/{product_id} - 상품 수정
+  updateProduct: (productId: number, data: ProductUpdate) => {
+    return api.put<ResponseModel<ProductResponse>>(`/products/${productId}`, data);
   },
 
-  /**
-   * 상품 삭제
-   * DELETE /products/{product_id}
-   */
-  delete: async (productId: number): Promise<void> => {
-    try {
-      await api.delete(`/products/${productId}`);
-    } catch (err) {
-      logApiError(err as any, "DELETE_PRODUCT");
-      throw err;
-    }
+  // DELETE /products/{product_id} - 상품 삭제
+  deleteProduct: (productId: number) => {
+    return api.delete<ResponseModel<void>>(`/products/${productId}`);
   },
 
-  /**
-   * 상품 활성화/비활성화
-   * PATCH /products/{product_id}/activate
-   */
-  activate: async (productId: number): Promise<{ is_active: boolean }> => {
-    try {
-      const response = await api.patch<ResponseModel<{ is_active: boolean }>>(
-        `/products/${productId}/activate`
-      );
-      return response.data.data;
-    } catch (err) {
-      logApiError(err as any, "ACTIVATE_PRODUCT");
-      throw err;
-    }
+  // PATCH /products/{product_id}/activate - 상품 활성화/비활성화
+  activateProduct: (productId: number) => {
+    return api.patch<ResponseModel<{ is_active: boolean }>>(`/products/${productId}/activate`);
   },
 };
