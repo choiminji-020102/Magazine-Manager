@@ -1,80 +1,54 @@
 import api from "./axios";
-import { logApiError } from "../utils/errorHandler";
-import type {
-  DispatchTarget,
-  DispatchTargetsResponse,
-  DispatchGenerateRequest,
-  DispatchCreatedItem,
-  DispatchErrorItem,
-  DispatchGenerateResponse,
-  SubscriptionStats,
-  DispatchSummaryResponse,
-} from "../types/dispatch";
 import type { ResponseModel } from "../types/api";
-
-// Re-export for backward compatibility
-export type {
-  DispatchTarget,
+import type {
   DispatchTargetsResponse,
   DispatchGenerateRequest,
-  DispatchCreatedItem,
-  DispatchErrorItem,
   DispatchGenerateResponse,
-  SubscriptionStats,
   DispatchSummaryResponse,
-};
+  SingleTargetsResponse,
+} from "../types/dispatch";
 
-// API 함수들
-export const dispatchAPI = {
-  /**
-   * 호수별 발송 대상 조회
-   * GET /dispatch/issue/{issue}/targets
-   */
-  getTargets: async (issue: string): Promise<DispatchTargetsResponse> => {
-    try {
-      const response = await api.get<ResponseModel<DispatchTargetsResponse>>(
-        `/dispatch/issue/${issue}/targets`
-      );
-      return response.data.data;
-    } catch (err) {
-      logApiError(err as any, "GET_DISPATCH_TARGETS");
-      throw err;
-    }
-  },
-
-  /**
-   * 호수별 발송 일괄 생성
-   * POST /dispatch/issue/{issue}/generate
-   */
-  generate: async (
+export const dispatchApi = {
+  // GET /dispatch/issue/{issue}/targets - 호수별 발송 대상 조회 (YEARLY/MONTHLY)
+  getDispatchTargets: (
     issue: string,
-    data: DispatchGenerateRequest
-  ): Promise<DispatchGenerateResponse> => {
-    try {
-      const response = await api.post<ResponseModel<DispatchGenerateResponse>>(
-        `/dispatch/issue/${issue}/generate`,
-        data
-      );
-      return response.data.data;
-    } catch (err) {
-      logApiError(err as any, "GENERATE_DISPATCH");
-      throw err;
-    }
+    params?: { product_code?: string | null; base_code?: string | null }
+  ) => {
+    return api.get<ResponseModel<DispatchTargetsResponse>>(`/dispatch/issue/${issue}/targets`, {
+      params,
+    });
   },
 
-  /**
-   * 호수별 발송 현황 요약
-   * GET /dispatch/issue/{issue}/summary
-   */
-  getSummary: async (issue: string): Promise<DispatchSummaryResponse> => {
-    try {
-      const response = await api.get<ResponseModel<DispatchSummaryResponse>>(
-        `/dispatch/issue/${issue}/summary`
-      );
-      return response.data.data;
-    } catch (err) {
-      logApiError(err as any, "GET_DISPATCH_SUMMARY");
-      throw err;
-    }
+  // POST /dispatch/issue/{issue}/generate - 호수별 발송 일괄 생성 (YEARLY/MONTHLY)
+  generateDispatch: (issue: string, data: DispatchGenerateRequest) => {
+    return api.post<ResponseModel<DispatchGenerateResponse>>(
+      `/dispatch/issue/${issue}/generate`,
+      data
+    );
+  },
+
+  // GET /dispatch/issue/{issue}/summary - 호수별 발송 현황 요약 (YEARLY/MONTHLY)
+  getDispatchSummary: (
+    issue: string,
+    params?: { product_code?: string | null; base_code?: string | null }
+  ) => {
+    return api.get<ResponseModel<DispatchSummaryResponse>>(`/dispatch/issue/${issue}/summary`, {
+      params,
+    });
+  },
+
+  // GET /dispatch/single/{product_code}/targets - SINGLE 상품 발송 대상 조회
+  getSingleTargets: (productCode: string) => {
+    return api.get<ResponseModel<SingleTargetsResponse>>(
+      `/dispatch/single/${productCode}/targets`
+    );
+  },
+
+  // POST /dispatch/single/{product_code}/generate - SINGLE 상품 발송 일괄 생성
+  generateSingleDispatch: (productCode: string, data: DispatchGenerateRequest) => {
+    return api.post<ResponseModel<DispatchGenerateResponse>>(
+      `/dispatch/single/${productCode}/generate`,
+      data
+    );
   },
 };
