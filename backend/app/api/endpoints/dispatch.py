@@ -14,6 +14,7 @@ from app.schemas.dispatch import (
     DispatchErrorItem, SubscriptionStats, SingleTarget, SingleTargetsResponse
 )
 from app.schemas.common import ResponseModel
+from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.services import order_item_service, product_service, activity_log_service
 
 router = APIRouter(prefix="/dispatch", tags=["발송대상"])
@@ -140,8 +141,9 @@ def generate_dispatch(
     
     activity_log_service.create_log(
         db=db,
-        action="GENERATE_DISPATCH",
-        target_type="DISPATCH",
+        admin=current_admin,
+        action=ActivityAction.CREATE,
+        target_type=ActivityTargetType.DISPATCH,
         target_name=f"{issue}호 일괄발송",
         details={
             "issue": issue,
@@ -152,7 +154,6 @@ def generate_dispatch(
             "error_count": len(errors),
             "send_date": str(req.send_date) if req.send_date else None
         },
-        admin=current_admin,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -313,8 +314,9 @@ def generate_single_dispatch(
     
     activity_log_service.create_log(
         db=db,
-        action="GENERATE_SINGLE_DISPATCH",
-        target_type="DISPATCH",
+        admin=current_admin,
+        action=ActivityAction.CREATE,
+        target_type=ActivityTargetType.DISPATCH,
         target_name=f"단행본 발송: {product_code}",
         details={
             "product_code": product_code,
@@ -323,7 +325,6 @@ def generate_single_dispatch(
             "error_count": len(errors),
             "send_date": str(req.send_date) if req.send_date else None
         },
-        admin=current_admin,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )

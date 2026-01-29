@@ -12,6 +12,7 @@ from app.schemas.inquiry import (
     CustomerQuickSearchResponse, CustomerInquiryHistoryResponse
 )
 from app.schemas.common import ResponseModel, PaginatedResponse, PaginationMeta
+from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.services import inquiry_service, customer_service, activity_log_service
 
 router = APIRouter(prefix="/inquiries", tags=["문의"])
@@ -150,17 +151,17 @@ def create_inquiry(
     
     activity_log_service.create_log(
         db=db,
-        action="CREATE",
-        target_type="INQUIRY",
+        admin=current_admin,
+        action=ActivityAction.CREATE,
+        target_type=ActivityTargetType.INQUIRY,
         target_id=inquiry.inquiry_id,
-        target_name=f"문의#{inquiry.inquiry_id}",
         details={
+            "reason": "문의 등록 성공",
             "customer_id": inquiry.customer_id,
             "customer_name": customer.customer_name,
             "inquiry_type": inquiry.inquiry_type,
             "inquiry_category": inquiry.inquiry_category
         },
-        admin=current_admin,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -199,12 +200,11 @@ def update_inquiry(
     
     activity_log_service.create_log(
         db=db,
-        action="UPDATE",
-        target_type="INQUIRY",
-        target_id=inquiry.inquiry_id,
-        target_name=f"문의#{inquiry.inquiry_id}",
-        details={"before": old_data, "after": inquiry_in.model_dump(exclude_unset=True)},
         admin=current_admin,
+        action=ActivityAction.UPDATE,
+        target_type=ActivityTargetType.INQUIRY,
+        target_id=inquiry_id,
+        details={"reason": "문의 수정 성공", "before": old_data, "after": inquiry_in.model_dump(exclude_unset=True)},
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -239,12 +239,11 @@ def answer_inquiry(
     
     activity_log_service.create_log(
         db=db,
-        action="ANSWER",
-        target_type="INQUIRY",
-        target_id=inquiry.inquiry_id,
-        target_name=f"문의#{inquiry.inquiry_id}",
-        details={"status": answer_in.inquiry_status},
         admin=current_admin,
+        action=ActivityAction.ANSWER,
+        target_type=ActivityTargetType.INQUIRY,
+        target_id=inquiry_id,
+        details={"reason": "문의 답변 성공", "status": answer_in.inquiry_status},
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -277,12 +276,11 @@ def delete_inquiry(
     
     activity_log_service.create_log(
         db=db,
-        action="DELETE",
-        target_type="INQUIRY",
-        target_id=inquiry_id,
-        target_name=f"문의#{inquiry_id}",
-        details={"customer_id": customer_id},
         admin=current_admin,
+        action=ActivityAction.DELETE,
+        target_type=ActivityTargetType.INQUIRY,
+        target_id=inquiry_id,
+        details={"reason": "문의 삭제 성공", "customer_id": customer_id},
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )

@@ -6,6 +6,7 @@ from app.db.session import get_db
 from app.core.deps import require_roles
 from app.models.admin import Admin
 from app.schemas.address import AddressCreate, AddressUpdate, AddressResponse
+from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.schemas.common import ResponseModel
 from app.services import address_service, customer_service, activity_log_service
 
@@ -69,8 +70,9 @@ def create_address(
     
     activity_log_service.create_log(
         db=db,
-        action="CREATE",
-        target_type="ADDRESS",
+        admin=current_admin,
+        action=ActivityAction.CREATE,
+        target_type=ActivityTargetType.ADDRESS,
         target_id=address.address_id,
         target_name=address.address_name,
         details={
@@ -78,7 +80,6 @@ def create_address(
             "phone": address.phone,
             "postal_code": address.postal_code
         },
-        admin=current_admin,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -116,12 +117,12 @@ def update_address(
     
     activity_log_service.create_log(
         db=db,
-        action="UPDATE",
-        target_type="ADDRESS",
+        admin=current_admin,
+        action=ActivityAction.UPDATE,
+        target_type=ActivityTargetType.ADDRESS,
         target_id=address.address_id,
         target_name=address.address_name,
         details={"before": old_data, "after": address_in.model_dump(exclude_unset=True)},
-        admin=current_admin,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )

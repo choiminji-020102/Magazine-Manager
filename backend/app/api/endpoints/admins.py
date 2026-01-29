@@ -8,6 +8,7 @@ from app.core.deps import require_roles
 from app.models.admin import Admin
 from app.schemas.admin import AdminCreate, AdminUpdate, AdminResponse, AdminActivateRequest, AdminPasswordChange
 from app.schemas.common import ResponseModel, PaginatedResponse, PaginationMeta
+from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.services import admin_service, activity_log_service
 
 router = APIRouter(prefix="/admins", tags=["관리자"])
@@ -74,12 +75,12 @@ def create_admin(
     
     activity_log_service.create_log(
         db=db,
-        action="CREATE",
-        target_type="ADMIN",
+        admin=current_admin,
+        action=ActivityAction.CREATE,
+        target_type=ActivityTargetType.ADMIN,
         target_id=admin.admin_id,
         target_name=admin.admin_name,
         details={"email": admin.email, "role": admin.admin_role},
-        admin=current_admin,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -125,12 +126,12 @@ def update_admin(
     
     activity_log_service.create_log(
         db=db,
-        action="UPDATE",
-        target_type="ADMIN",
+        admin=current_admin,
+        action=ActivityAction.UPDATE,
+        target_type=ActivityTargetType.ADMIN,
         target_id=admin.admin_id,
         target_name=admin.admin_name,
         details={"before": old_data, "after": admin_in.model_dump(exclude_unset=True)},
-        admin=current_admin,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -169,12 +170,12 @@ def delete_admin(
     
     activity_log_service.create_log(
         db=db,
-        action="DELETE",
-        target_type="ADMIN",
+        admin=current_admin,
+        action=ActivityAction.DELETE,
+        target_type=ActivityTargetType.ADMIN,
         target_id=admin_id,
         target_name=admin_name,
         details={"email": admin_email},
-        admin=current_admin,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -204,12 +205,12 @@ def activate_admin(
     
     activity_log_service.create_log(
         db=db,
-        action="ACTIVATE" if is_active else "DEACTIVATE",
-        target_type="ADMIN",
+        admin=current_admin,
+        action=ActivityAction.ACTIVATE if is_active else ActivityAction.DEACTIVATE,
+        target_type=ActivityTargetType.ADMIN,
         target_id=admin.admin_id,
         target_name=admin.admin_name,
         details={"is_active": is_active},
-        admin=current_admin,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -239,11 +240,12 @@ def change_admin_password(
     
     activity_log_service.create_log(
         db=db,
-        action="PASSWORD_RESET",
-        target_type="ADMIN",
+        admin=current_admin,
+        action=ActivityAction.UPDATE,
+        target_type=ActivityTargetType.ADMIN,
         target_id=admin.admin_id,
         target_name=admin.admin_name,
-        admin=current_admin,
+        details={"reason": "비밀번호 변경 성공"},
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )

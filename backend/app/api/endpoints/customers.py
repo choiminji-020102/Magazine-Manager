@@ -14,7 +14,8 @@ from app.schemas.customer import (
 )
 from app.schemas.order import OrderResponse
 from app.schemas.common import ResponseModel, PaginatedResponse, PaginationMeta, ResponseBase
-from app.services import customer_service, order_service, activity_log_service
+from app.schemas.activity_log import ActivityAction, ActivityTargetType
+from app.services import customer_service, activity_log_service
 
 router = APIRouter(prefix="/customers", tags=["고객"])
 
@@ -69,12 +70,12 @@ def create_customer(
     
     activity_log_service.create_log(
         db=db,
-        action="CUSTOMER_CREATE",
-        target_type="CUSTOMER",
+        admin=current_admin,
+        action=ActivityAction.CREATE,
+        target_type=ActivityTargetType.CUSTOMER,
         target_id=customer.customer_id,
         target_name=customer.customer_name,
-        details={"phone": customer.customer_phone, "channel": customer.create_channel},
-        admin=current_admin,
+        details={"reason": "고객 등록 성공", "phone": customer.customer_phone},
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -106,12 +107,12 @@ def update_customer(
     
     activity_log_service.create_log(
         db=db,
-        action="UPDATE",
-        target_type="CUSTOMER",
+        admin=current_admin,
+        action=ActivityAction.UPDATE,
+        target_type=ActivityTargetType.CUSTOMER,
         target_id=customer.customer_id,
         target_name=customer.customer_name,
-        details={"before": old_data, "after": customer_in.model_dump(exclude_unset=True)},
-        admin=current_admin,
+        details={"reason": "고객 수정 성공", "before": old_data, "after": customer_in.model_dump(exclude_unset=True)},
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -132,19 +133,17 @@ def delete_customer(
     """고객 삭제"""
     # 삭제 전 데이터 저장 (activity log용)
     customer = customer_service.get_customer_by_id(db, customer_id)
-    customer_name = customer.customer_name
-    customer_phone = customer.customer_phone
     
     customer_service.delete_customer(db, customer_id)
     
     activity_log_service.create_log(
         db=db,
-        action="DELETE",
-        target_type="CUSTOMER",
-        target_id=customer_id,
-        target_name=customer_name,
-        details={"phone": customer_phone},
         admin=current_admin,
+        action=ActivityAction.DELETE,
+        target_type=ActivityTargetType.CUSTOMER,
+        target_id=customer_id,
+        target_name=customer.customer_name,
+        details={"reason": "고객 삭제 성공", "phone": customer.customer_phone},
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -164,12 +163,12 @@ def restore_customer(
     
     activity_log_service.create_log(
         db=db,
-        action="RESTORE",
-        target_type="CUSTOMER",
+        admin=current_admin,
+        action=ActivityAction.RESTORE,
+        target_type=ActivityTargetType.CUSTOMER,
         target_id=customer.customer_id,
         target_name=customer.customer_name,
-        details={"phone": customer.customer_phone},
-        admin=current_admin,
+        details={"reason": "고객 복원 성공", "phone": customer.customer_phone},
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
