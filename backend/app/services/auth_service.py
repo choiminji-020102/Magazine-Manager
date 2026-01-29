@@ -16,7 +16,6 @@ from app.core.token import (
     extract_admin_id_from_payloads,
     is_token_valid,
 )
-from app.services import activity_log_service
 from app.crud import admin as admin_crud, refresh_token as refresh_token_crud
 from app.models import admin as admin_model
 from app.schemas import auth as auth_schema, admin as admin_schema
@@ -32,15 +31,6 @@ def login(
         admin = admin_crud.read_admin_by_email(admin_email=login_in.email, db=db)
     except HTTPException as e:
         if e.status_code == status.HTTP_404_NOT_FOUND:
-            activity_log_service.create_log(
-                db=db,
-                action="LOGIN_FAILED",
-                target_type="AUTH",
-                target_name=login_in.email,
-                details={"reason": "잘못된 이메일"},
-                ip_address=req.client.host if req.client else None,
-                user_agent=req.headers.get("user-agent")
-            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, 
                 detail="이메일 또는 비밀번호가 올바르지 않습니다."
@@ -48,31 +38,12 @@ def login(
         raise e
 
     if not admin.is_active:
-        activity_log_service.create_log(
-            db=db,
-            action="LOGIN_FAILED",
-            target_type="AUTH",
-            target_id=admin.admin_id,
-            target_name=admin.email,
-            details={"reason": "비활성화된 계정"},
-            ip_address=req.client.host if req.client else None,
-            user_agent=req.headers.get("user-agent")
-        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, 
             detail="비활성화된 계정입니다."
         )
 
     if not verify_password(login_in.plain_password, admin.hashed_password):
-        activity_log_service.create_log(
-            db=db,
-            action="LOGIN_FAILED",
-            target_type="AUTH",
-            target_name=login_in.email,
-            details={"reason": "잘못된 비밀번호"},
-            ip_address=req.client.host if req.client else None,
-            user_agent=req.headers.get("user-agent")
-        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, 
             detail="이메일 또는 비밀번호가 올바르지 않습니다."
@@ -97,18 +68,6 @@ def login(
     admin.last_login_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(admin)
-
-    # 로그인 성공 로그 기록
-    activity_log_service.create_log(
-        db=db,
-        action="LOGIN_SUCCESS",
-        target_type="AUTH",
-        target_id=admin.admin_id,
-        target_name=admin.email,
-        admin=admin,
-        ip_address=req.client.host if req.client else None,
-        user_agent=req.headers.get("user-agent")
-    )
 
     return auth_schema.TokenPairResponse(
         access_token=access_token,
@@ -166,17 +125,6 @@ def refresh(refresh_in: auth_schema.RefreshRequest, req: Request, db: Session) -
     if not access_valid and refresh_valid:
         new_access_token = encode_access_token(admin_id)
         
-        # Access 토큰 갱신 성공 로그 기록
-        activity_log_service.create_log(
-            db=db,
-            action="REFRESH_SUCCESS",
-            target_type="AUTH",
-            target_id=admin_id,
-            details={"token_type": "access_token", "reason": "access_token_expired"},
-            ip_address=req.client.host if req.client else None,
-            user_agent=req.headers.get("user-agent")
-        )
-        
         return auth_schema.TokenPairResponse(
             access_token=new_access_token,
             refresh_token=refresh_token,
@@ -200,17 +148,6 @@ def refresh(refresh_in: auth_schema.RefreshRequest, req: Request, db: Session) -
         new_refresh_payload = decode_refresh_token(new_refresh_token, verify_exp=True)
         refresh_token_obj = refresh_token_crud.create_refresh_token(
             admin_id, new_refresh_token, new_refresh_payload.exp, db
-        )
-        
-        # Refresh 토큰 갱신 성공 로그 기록 (Refresh Rotation)
-        activity_log_service.create_log(
-            db=db,
-            action="REFRESH_TOKEN_SUCCESS",
-            target_type="AUTH",
-            target_id=admin_id,
-            details={"token_type": "refresh_token", "reason": "refresh_token_rotation"},
-            ip_address=req.client.host if req.client else None,
-            user_agent=req.headers.get("user-agent")
         )
         
         return auth_schema.TokenPairResponse(
@@ -240,18 +177,6 @@ def logout(
         db=db
     )
     
-    # 로그아웃 성공 로그 기록
-    activity_log_service.create_log(
-        db=db,
-        action="LOGOUT_SUCCESS",
-        target_type="AUTH",
-        target_id=admin.admin_id,
-        target_name=admin.email,
-        admin=admin,
-        ip_address=req.client.host if req.client else None,
-        user_agent=req.headers.get("user-agent")
-    )
-
 def init_first_admin(admin_in: admin_schema.AdminCreate, req: Request, db: Session) -> admin_schema.AdminResponse:
     admin_count = db.query(admin_model.Admin).filter(admin_model.Admin.deleted_at.is_(None)).count()
     
@@ -263,19 +188,6 @@ def init_first_admin(admin_in: admin_schema.AdminCreate, req: Request, db: Sessi
     admin_in.is_active = True
     admin = admin_crud.create_admin(admin_in=admin_in, db=db)
     
-    # 최초 관리자 생성 성공 로그 기록
-    activity_log_service.create_log(
-        db=db,
-        action="SIGNUP_SUCCESS",
-        target_type="AUTH",
-        target_id=admin.admin_id,
-        target_name=admin.email,
-        details={"reason": "최초 관리자 생성"},
-        admin=admin,
-        ip_address=req.client.host if req.client else None,
-        user_agent=req.headers.get("user-agent")
-    )
-    
     return admin
 
 def change_password(
@@ -286,17 +198,6 @@ def change_password(
 ) -> None:
     # 현재 비밀번호 검증
     if not verify_password(password_change_in.current_password, admin.hashed_password):
-        activity_log_service.create_log(
-            db=db,
-            action="PASSWORD_CHANGE_FAILED",
-            target_type="AUTH",
-            target_id=admin.admin_id,
-            target_name=admin.email,
-            admin=admin,
-            details={"reason": "잘못된 현재 비밀번호"},
-            ip_address=req.client.host if req.client else None,
-            user_agent=req.headers.get("user-agent")
-        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="현재 비밀번호가 올바르지 않습니다."
@@ -313,14 +214,3 @@ def change_password(
     # 해당 관리자의 모든 리프레시 토큰 폐기 (보안 강화)
     refresh_token_crud.revoke_all_tokens_by_admin_id(admin_id=admin.admin_id, db=db)
     
-    # 비밀번호 변경 성공 로그 기록
-    activity_log_service.create_log(
-        db=db,
-        action="PASSWORD_CHANGE_SUCCESS",
-        target_type="AUTH",
-        target_id=admin.admin_id,
-        target_name=admin.email,
-        admin=admin,
-        ip_address=req.client.host if req.client else None,
-        user_agent=req.headers.get("user-agent")
-    )
