@@ -6,7 +6,7 @@ from app.db.session import get_db
 from app.core.deps import require_roles
 from app.models.admin import Admin
 from app.schemas.activity_log import ActivityLogResponse, ActivityLogListQuery
-from app.schemas.common import ResponseModel, PaginatedResponse, PaginationMeta
+from app.schemas.common import PaginatedResponse, PaginationMeta
 from app.services import activity_log_service
 
 router = APIRouter(prefix="/activity-logs", tags=["활동 로그"])
