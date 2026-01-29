@@ -8,18 +8,18 @@ from app.models.admin import Admin
 
 def create_log(
     db: Session,
+    admin: Admin,
     action: str,
     target_type: str,
     target_id: Optional[int] = None,
     target_name: Optional[str] = None,
     details: Optional[dict] = None,
-    admin: Optional[Admin] = None,
     ip_address: Optional[str] = None,
     user_agent: Optional[str] = None
 ) -> ActivityLog:
     log = ActivityLog(
-        admin_id=admin.admin_id if admin else None,
-        admin_name=admin.admin_name if admin else "SYSTEM",
+        admin_id=admin.admin_id,
+        admin_name=admin.admin_name,
         action=action,
         target_type=target_type,
         target_id=target_id,
