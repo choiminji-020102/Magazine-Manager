@@ -11,7 +11,7 @@ class AdminBase(BaseModel):
 
 
 class AdminCreate(AdminBase):
-    password: str = Field(..., min_length=8)
+    plain_password: str = Field(..., min_length=8)
 
 
 class AdminUpdate(BaseModel):
