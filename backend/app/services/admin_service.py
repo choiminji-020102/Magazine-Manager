@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from typing import Optional, Tuple, List
 from datetime import datetime
+from fastapi import HTTPException, status
 
 from app.models.admin import Admin
 from app.schemas.admin import AdminCreate, AdminUpdate
@@ -9,17 +10,29 @@ from app.core.password import get_password_hash
 
 
 def get_admin_by_id(db: Session, admin_id: int) -> Optional[Admin]:
-    return db.query(Admin).filter(
+    admin = db.query(Admin).filter(
         Admin.admin_id == admin_id,
         Admin.deleted_at.is_(None)
     ).first()
+    if admin is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="관리자를 찾을 수 없습니다."
+        )
+    return admin
 
 
 def get_admin_by_email(db: Session, email: str) -> Optional[Admin]:
-    return db.query(Admin).filter(
+    admin = db.query(Admin).filter(
         Admin.email == email,
         Admin.deleted_at.is_(None)
     ).first()
+    if admin is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="관리자를 찾을 수 없습니다."
+        )
+    return admin
 
 
 def get_admins(

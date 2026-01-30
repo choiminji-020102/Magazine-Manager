@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func, case
 from typing import Optional, List
 from datetime import datetime
+from fastapi import HTTPException, status
 
 from app.models.order_item import OrderItem
 from app.models.order import Order
@@ -11,23 +12,58 @@ from app.models.pause import Pause
 from app.models.customer import Customer
 from app.schemas.order_item import OrderItemCreate, OrderItemUpdate
 from app.services import address_service
+from app.services import pause_service
 
 
 def get_order_item_by_id(db: Session, order_item_id: int) -> Optional[OrderItem]:
-    return db.query(OrderItem).filter(OrderItem.order_item_id == order_item_id).first()
+    # cancelled_at 상관없이 모두 조회
+    order_item = db.query(OrderItem).filter(
+        OrderItem.order_item_id == order_item_id
+    ).first()
+    if order_item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="주문 품목을 찾을 수 없습니다."
+        )
+    return order_item
+
+
+def get_active_order_item_by_id(db: Session, order_item_id: int) -> Optional[OrderItem]:
+    order_item = db.query(OrderItem).filter(
+        OrderItem.order_item_id == order_item_id,
+        OrderItem.cancelled_at.is_(None)
+    ).first()
+    if order_item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="주문 품목을 찾을 수 없거나 취소되었습니다."
+        )
+    return order_item
 
 
 def get_order_items_by_order(db: Session, order_id: int) -> List[OrderItem]:
-    return db.query(OrderItem).filter(
+    order_items = db.query(OrderItem).filter(
         OrderItem.order_id == order_id
     ).order_by(OrderItem.order_item_id.asc()).all()
+    if len(order_items) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="주문 품목들을 찾을 수 없습니다."
+        )
+    return order_items
 
 
 def get_active_order_items_by_order(db: Session, order_id: int) -> List[OrderItem]:
-    return db.query(OrderItem).filter(
+    order_items = db.query(OrderItem).filter(
         OrderItem.order_id == order_id,
         OrderItem.cancelled_at.is_(None)
     ).order_by(OrderItem.order_item_id.asc()).all()
+    if len(order_items) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="주문 품목들을 찾을 수 없거나 취소되었습니다."
+        )
+    return order_items
 
 
 def create_order_item(db: Session, order: Order, item_in: OrderItemCreate) -> OrderItem:
@@ -383,19 +419,10 @@ def recalculate_final_subscribe_end_issue(db: Session, order_item: OrderItem) ->
 
 def get_order_item_with_pauses(db: Session, order_item_id: int) -> Optional[dict]:
     """주문품목 상세 조회 (휴지 정보 포함)"""
-    from app.models.pause import Pause
     
-    order_item = db.query(OrderItem).filter(
-        OrderItem.order_item_id == order_item_id
-    ).first()
+    order_item = get_active_order_item_by_id(db, order_item_id)
     
-    if not order_item:
-        return None
-    
-    pauses = db.query(Pause).filter(
-        Pause.order_item_id == order_item_id,
-        Pause.deleted_at == None
-    ).order_by(Pause.pause_issue).all()
+    pauses = pause_service.get_pauses_by_order_item(db, order_item_id)
     
     return {
         "order_item_id": order_item.order_item_id,

@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime
+from fastapi import HTTPException, status
 
 from app.models.pause import Pause
 from app.models.order_item import OrderItem
@@ -8,17 +9,29 @@ from app.schemas.pause import PauseCreate, PauseUpdate
 
 
 def get_pause_by_id(db: Session, pause_id: int) -> Optional[Pause]:
-    return db.query(Pause).filter(
+    pause = db.query(Pause).filter(
         Pause.pause_id == pause_id,
         Pause.deleted_at == None
     ).first()
+    if pause is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="휴지를 찾을 수 없습니다."
+        )
+    return pause
 
 
 def get_pauses_by_order_item(db: Session, order_item_id: int) -> List[Pause]:
-    return db.query(Pause).filter(
+    pauses = db.query(Pause).filter(
         Pause.order_item_id == order_item_id,
         Pause.deleted_at == None
     ).order_by(Pause.pause_issue).all()
+    if len(pauses) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="휴지들을 찾을 수 없습니다."
+        )
+    return pauses
 
 
 def exists_for_issue(db: Session, order_item_id: int, pause_issue: str) -> bool:

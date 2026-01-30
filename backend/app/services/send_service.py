@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, case
 from typing import Optional, Tuple, List
 from datetime import datetime, date
+from fastapi import HTTPException, status
 
 from app.models.send import Send
 from app.models.send_item import SendItem
@@ -13,7 +14,15 @@ from app.schemas.send import SendCreate, SendUpdate, SendItemInput
 
 
 def get_send_by_id(db: Session, send_id: int) -> Optional[Send]:
-    return db.query(Send).filter(Send.send_id == send_id).first()
+    send = db.query(Send).filter(
+        Send.send_id == send_id
+    ).first()
+    if send is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="발송 정보를 찾을 수 없습니다."
+        )
+    return send
 
 
 def get_sends(

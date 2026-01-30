@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from typing import Optional, List, Tuple
 from datetime import datetime
+from fastapi import HTTPException, status
 
 from app.models.order import Order
 from app.models.order_item import OrderItem
@@ -14,11 +15,39 @@ from app.services import customer_service, address_service
 from app.core.utils import format_phone_number, calculate_subscribe_end_issue
 
 def get_order_by_id(db: Session, order_id: int) -> Optional[Order]:
-    return db.query(Order).filter(Order.order_id == order_id).first()
+    order = db.query(Order).filter(
+        Order.order_id == order_id
+    ).first()
+    if order is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="주문을 찾을 수 없습니다."
+        )
+    return order
+
+def get_active_order_by_id(db: Session, order_id: int) -> Optional[Order]:
+    order = db.query(Order).filter(
+        Order.order_id == order_id,
+        Order.cancelled_at.is_(None)
+    ).first()
+    if order is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="주문을 찾을 수 없거나 취소되었습니다."
+        )
+    return order
 
 
 def get_order_by_external_id(db: Session, external_order_id: str) -> Optional[Order]:
-    return db.query(Order).filter(Order.external_order_id == external_order_id).first()
+    order = db.query(Order).filter(
+        Order.external_order_id == external_order_id
+    ).first()
+    if order is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="주문을 찾을 수 없습니다."
+        )
+    return order
 
 
 def get_orders(

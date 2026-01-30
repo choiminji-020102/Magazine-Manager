@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime
+from fastapi import HTTPException, status
 
 from app.models.send_item import SendItem
 from app.models.send import Send
@@ -10,14 +11,23 @@ from app.schemas.send_item import SendItemCreate, SendItemUpdate
 
 
 def get_send_item_by_id(db: Session, send_item_id: int) -> Optional[SendItem]:
-    return db.query(SendItem).filter(SendItem.send_item_id == send_item_id).first()
+    send_item = db.query(SendItem).filter(
+        SendItem.send_item_id == send_item_id
+    ).first()
+    if send_item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="발송 품목을 찾을 수 없습니다."
+        )
+    return send_item
 
 
 def get_send_items_by_send(db: Session, send_id: int) -> List[SendItem]:
-    return db.query(SendItem).filter(
+    send_items = db.query(SendItem).filter(
         SendItem.send_id == send_id,
         SendItem.cancelled_at.is_(None)
     ).order_by(SendItem.send_item_id.asc()).all()
+    return send_items
 
 
 def get_send_items_by_order_item(db: Session, order_item_id: int) -> List[dict]:

@@ -1,17 +1,34 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from typing import Optional, Tuple, List
+from fastapi import HTTPException, status
 
 from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductUpdate
 
 
 def get_product_by_id(db: Session, product_id: int) -> Optional[Product]:
-    return db.query(Product).filter(Product.product_id == product_id).first()
+    product = db.query(Product).filter(
+        Product.product_id == product_id
+    ).first()
+    if product is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="상품을 찾을 수 없습니다."
+        )
+    return product
 
 
 def get_product_by_code(db: Session, product_code: str) -> Optional[Product]:
-    return db.query(Product).filter(Product.product_code == product_code).first()
+    product = db.query(Product).filter(
+        Product.product_code == product_code
+    ).first()
+    if product is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="상품을 찾을 수 없습니다."
+        )
+    return product
 
 
 def get_product_by_external_code(db: Session, code: str, channel: str) -> Optional[Product]:
