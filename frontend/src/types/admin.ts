@@ -14,7 +14,7 @@ export interface AdminBase {
 }
 
 export interface AdminCreate extends AdminBase {
-  password: string;
+  plain_password: string;
 }
 
 export interface AdminUpdate {
