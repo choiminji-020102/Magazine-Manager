@@ -9,9 +9,11 @@ import {
   HeadphonesIcon,
   Settings,
   BarChart3,
+  FileText,
+  Shield,
   LucideIcon,
 } from "lucide-react";
-import { AdminRole } from "../api/adminsApi";
+import { AdminRole } from "../types/admin.ts";
 
 // 타입 정의
 interface SubSubItem {
@@ -128,6 +130,23 @@ export const MENU_STRUCTURE: MenuItem[] = [
       { label: "발송 통계", key: "shipping" },
     ],
   },
+  {
+    icon: Shield,
+    title: "관리자 관리",
+    key: "admin",
+    subItems: [
+      { label: "관리자 목록", key: "list" },
+      { label: "관리자 등록", key: "register" },
+    ],
+  },
+  {
+    icon: FileText,
+    title: "시스템",
+    key: "system",
+    subItems: [
+      { label: "활동 로그", key: "activity-log" },
+    ],
+  },
 ];
 
 export const MENU_TITLES: Record<string, string> = {
@@ -140,6 +159,7 @@ export const MENU_TITLES: Record<string, string> = {
   support: "고객 지원",
   settings: "설정",
   statistics: "통계",
+  system: "시스템",
 };
 
 export const ROLE_CONFIG: Record<string, RoleConfigItem> = {
