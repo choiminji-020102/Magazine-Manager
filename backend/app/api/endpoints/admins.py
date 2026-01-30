@@ -80,7 +80,11 @@ def create_admin(
         target_type=ActivityTargetType.ADMIN,
         target_id=admin.admin_id,
         target_name=admin.admin_name,
-        details={"email": admin.email, "role": admin.admin_role},
+        details={
+            "reason": "관리자 등록 성공", 
+            "email": admin.email, 
+            "role": admin.admin_role
+        },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -131,7 +135,11 @@ def update_admin(
         target_type=ActivityTargetType.ADMIN,
         target_id=admin.admin_id,
         target_name=admin.admin_name,
-        details={"before": old_data, "after": admin_in.model_dump(exclude_unset=True)},
+        details={
+            "reason": "관리자 수정 성공", 
+            "before": old_data, 
+            "after": admin_in.model_dump(exclude_unset=True)
+        },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -164,8 +172,7 @@ def delete_admin(
             detail="관리자를 찾을 수 없습니다."
         )
     
-    admin_name = admin.admin_name
-    admin_email = admin.email
+
     admin_service.delete_admin(db, admin)
     
     activity_log_service.create_log(
@@ -174,8 +181,11 @@ def delete_admin(
         action=ActivityAction.DELETE,
         target_type=ActivityTargetType.ADMIN,
         target_id=admin_id,
-        target_name=admin_name,
-        details={"email": admin_email},
+        target_name=admin.admin_name,
+        details={
+            "reason": "관리자 삭제 성공", 
+            "email": admin.email
+        },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -210,7 +220,10 @@ def activate_admin(
         target_type=ActivityTargetType.ADMIN,
         target_id=admin.admin_id,
         target_name=admin.admin_name,
-        details={"is_active": is_active},
+        details={
+            "reason": "관리자 활성화/비활성화 성공", 
+            "is_active": is_active
+        },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )

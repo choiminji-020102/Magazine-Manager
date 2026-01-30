@@ -146,6 +146,7 @@ def generate_dispatch(
         target_type=ActivityTargetType.DISPATCH,
         target_name=f"{issue}호 일괄발송",
         details={
+            "reason": "호수별 발송 일괄 생성 성공",
             "issue": issue,
             "product_code": req.product_code,
             "base_code": req.base_code,
@@ -319,6 +320,7 @@ def generate_single_dispatch(
         target_type=ActivityTargetType.DISPATCH,
         target_name=f"단행본 발송: {product_code}",
         details={
+            "reason": "단행본 발송 일괄 생성 성공",
             "product_code": product_code,
             "total_targets": len(targets),
             "created_count": len(created),

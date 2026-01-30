@@ -76,6 +76,7 @@ def create_address(
         target_id=address.address_id,
         target_name=address.address_name,
         details={
+            "reason": "배송지 등록 성공",
             "customer_id": address.customer_id,
             "phone": address.phone,
             "postal_code": address.postal_code
@@ -122,7 +123,11 @@ def update_address(
         target_type=ActivityTargetType.ADDRESS,
         target_id=address.address_id,
         target_name=address.address_name,
-        details={"before": old_data, "after": address_in.model_dump(exclude_unset=True)},
+        details={
+            "reason": "배송지 수정 성공", 
+            "before": old_data, 
+            "after": address_in.model_dump(exclude_unset=True)
+        },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
