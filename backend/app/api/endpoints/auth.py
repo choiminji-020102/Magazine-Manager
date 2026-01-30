@@ -24,6 +24,9 @@ def login(
         admin=admin,
         action=ActivityAction.LOGIN,
         target_type=ActivityTargetType.AUTH,
+        target_id=admin.admin_id,
+        target_name=admin.admin_name,
+        details={"reason": "로그인 성공"},
         ip_address=req.client.host if req.client else None,
         user_agent=req.headers.get("user-agent")
     )
@@ -49,6 +52,9 @@ def logout(
         admin=current_admin,
         action=ActivityAction.LOGOUT,
         target_type=ActivityTargetType.AUTH,
+        target_id=current_admin.admin_id,
+        target_name=current_admin.admin_name,
+        details={"reason": "로그아웃 성공"},
         ip_address=req.client.host if req.client else None,
         user_agent=req.headers.get("user-agent")
     )
@@ -67,6 +73,9 @@ def init_first_admin(
         admin=admin,
         action=ActivityAction.SIGNUP,
         target_type=ActivityTargetType.AUTH,
+        target_id=admin.admin_id,
+        target_name=admin.admin_name,
+        details={"reason": "최초 관리자 생성 성공"},
         ip_address=req.client.host if req.client else None,
         user_agent=req.headers.get("user-agent")
     )
