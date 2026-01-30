@@ -65,11 +65,20 @@ def create_admin(
     current_admin: Admin = Depends(require_super_admin)
 ):
     """관리자 등록"""
-    if admin_service.get_admin_by_email(db, admin_in.email):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 등록된 이메일입니다."
-        )
+    # 이메일 중복 체크 (get_admin_by_email은 관리자가 없으면 404를 발생시키므로 예외 처리)
+    try:
+        existing_admin = admin_service.get_admin_by_email(db, admin_in.email)
+        if existing_admin:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="이미 등록된 이메일입니다."
+            )
+    except HTTPException as e:
+        # 404 에러는 관리자가 없다는 의미이므로 정상적으로 진행
+        if e.status_code == status.HTTP_404_NOT_FOUND:
+            pass  # 관리자가 없으므로 계속 진행
+        else:
+            raise  # 다른 에러는 그대로 전달
     
     admin = admin_service.create_admin(db, admin_in)
     
