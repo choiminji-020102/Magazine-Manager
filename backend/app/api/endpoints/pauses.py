@@ -76,7 +76,7 @@ def create_pause(
             "reason": "휴지 등록 성공",
             "order_item_id": order_item_id,
             "pause_issue": pause_in.pause_issue,
-            "reason": pause_in.reason,
+            "pause_reason": pause_in.reason,
             "final_subscribe_end_issue_before": old_final_issue,
             "final_subscribe_end_issue_after": item.final_subscribe_end_issue
         },
