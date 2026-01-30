@@ -8,6 +8,7 @@ from app.core.deps import require_roles
 from app.models.admin import Admin
 from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
 from app.schemas.common import ResponseModel, PaginatedResponse, PaginationMeta
+from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.services import product_service, activity_log_service
 
 router = APIRouter(prefix="/products", tags=["상품"])
@@ -67,12 +68,6 @@ def get_product_by_code(
     """상품코드로 조회"""
     product = product_service.get_product_by_code(db, product_code)
     
-    if product is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="상품을 찾을 수 없습니다."
-        )
-    
     return ResponseModel(data=ProductResponse.model_validate(product))
 
 
@@ -84,12 +79,6 @@ def get_product(
 ):
     """상품 상세 조회"""
     product = product_service.get_product_by_id(db, product_id)
-    
-    if product is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="상품을 찾을 수 없습니다."
-        )
     
     return ResponseModel(data=ProductResponse.model_validate(product))
 
@@ -112,12 +101,17 @@ def create_product(
     
     activity_log_service.create_log(
         db=db,
-        action="CREATE",
-        target_type="PRODUCT",
+        admin=current_admin,
+        action=ActivityAction.CREATE,
+        target_type=ActivityTargetType.PRODUCT,
         target_id=product.product_id,
         target_name=product.product_name,
-        details={"code": product.product_code, "kind": product.product_kind, "price": product.price},
-        admin=current_admin,
+        details={
+            "reason": "상품 등록 성공",
+            "code": product.product_code, 
+            "kind": product.product_kind, 
+            "price": product.price
+        },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -139,12 +133,6 @@ def update_product(
     """상품 수정"""
     product = product_service.get_product_by_id(db, product_id)
     
-    if product is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="상품을 찾을 수 없습니다."
-        )
-    
     old_data = {
         "product_code": product.product_code,
         "product_name": product.product_name,
@@ -163,12 +151,16 @@ def update_product(
     
     activity_log_service.create_log(
         db=db,
-        action="UPDATE",
-        target_type="PRODUCT",
-        target_id=product.product_id,
-        target_name=product.product_name,
-        details={"before": old_data, "after": product_in.model_dump(exclude_unset=True)},
         admin=current_admin,
+        action=ActivityAction.UPDATE,
+        target_type=ActivityTargetType.PRODUCT,
+        target_id=product_id,
+        target_name=product.product_name,
+        details={
+            "reason": "상품 수정 성공",
+            "before": old_data, 
+            "after": product_in.model_dump(exclude_unset=True)
+        },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -189,24 +181,19 @@ def delete_product(
     """상품 삭제"""
     product = product_service.get_product_by_id(db, product_id)
     
-    if product is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="상품을 찾을 수 없습니다."
-        )
-    
-    product_name = product.product_name
-    product_code = product.product_code
     product_service.delete_product(db, product)
     
     activity_log_service.create_log(
         db=db,
-        action="DELETE",
-        target_type="PRODUCT",
-        target_id=product_id,
-        target_name=product_name,
-        details={"code": product_code},
         admin=current_admin,
+        action=ActivityAction.DELETE,
+        target_type=ActivityTargetType.PRODUCT,
+        target_id=product_id,
+        target_name=product.product_name,
+        details={
+            "reason": "상품 삭제 성공",
+            "code": product.product_code
+        },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -224,22 +211,19 @@ def activate_product(
     """상품 활성화/비활성화"""
     product = product_service.get_product_by_id(db, product_id)
     
-    if product is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="상품을 찾을 수 없습니다."
-        )
-    
     product = product_service.toggle_active(db, product)
     
     activity_log_service.create_log(
         db=db,
-        action="ACTIVATE" if product.is_active else "DEACTIVATE",
-        target_type="PRODUCT",
-        target_id=product.product_id,
-        target_name=product.product_name,
-        details={"is_active": product.is_active},
         admin=current_admin,
+        action=ActivityAction.ACTIVATE if product.is_active else ActivityAction.DEACTIVATE,
+        target_type=ActivityTargetType.PRODUCT,
+        target_id=product_id,
+        target_name=product.product_name,
+        details={
+            "reason": "상품 활성화/비활성화 성공",
+            "is_active": product.is_active
+        },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )

@@ -3,6 +3,7 @@ from typing import Optional
 from datetime import datetime
 from fastapi import Query
 from enum import Enum
+
 '''
     db: Session,
     admin: Admin,
@@ -14,6 +15,7 @@ from enum import Enum
     ip_address: Optional[str] = None,
     user_agent: Optional[str] = None
 '''
+
 class ActivityAction(str, Enum):
     """활동 로그 액션 타입"""
     CREATE = "CREATE"

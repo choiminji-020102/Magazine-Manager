@@ -13,6 +13,7 @@ from app.schemas.order_item import (
     SubscriptionUpdate
 )
 from app.schemas.common import ResponseModel
+from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.services import order_service, order_item_service, activity_log_service
 
 router = APIRouter(tags=["주문 품목"])
@@ -27,14 +28,7 @@ def get_order_items(
     current_admin: Admin = Depends(require_admin)
 ):
     """주문별 품목 목록 (휴지 정보 포함)"""
-    order = order_service.get_order_by_id(db, order_id)
-    
-    if order is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문을 찾을 수 없습니다."
-        )
-    
+    _ = order_service.get_order_by_id(db, order_id)
     items = order_item_service.get_order_items_with_pauses(db, order_id)
     
     return ResponseModel(data=[OrderItemDetailResponse(**item) for item in items])
@@ -48,12 +42,6 @@ def get_order_item(
 ):
     """품목 상세 조회 (휴지 정보 포함)"""
     item_data = order_item_service.get_order_item_with_pauses(db, order_item_id)
-    
-    if item_data is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문 품목을 찾을 수 없습니다."
-        )
     
     return ResponseModel(data=OrderItemDetailResponse(**item_data))
 
@@ -69,29 +57,23 @@ def create_order_item(
     """품목 추가"""
     order = order_service.get_order_by_id(db, order_id)
     
-    if order is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문을 찾을 수 없습니다."
-        )
-    
     try:
         item = order_item_service.create_order_item(db, order, item_in)
         order_service.recalculate_totals(db, order)
         
         activity_log_service.create_log(
             db=db,
-            action="CREATE",
-            target_type="ORDER_ITEM",
+            admin=current_admin,
+            action=ActivityAction.CREATE,
+            target_type=ActivityTargetType.ORDER_ITEM,
             target_id=item.order_item_id,
-            target_name=item.product_name,
             details={
+                "reason": "주문 품목 추가 성공",
                 "order_id": order_id,
                 "product_code": item.product_code,
                 "price": item.price,
                 "order_num": item.order_num
             },
-            admin=current_admin,
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent")
         )
@@ -116,13 +98,7 @@ def update_order_item(
     current_admin: Admin = Depends(require_admin)
 ):
     """품목 수정"""
-    item = order_item_service.get_order_item_by_id(db, order_item_id)
-    
-    if item is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문 품목을 찾을 수 없습니다."
-        )
+    item = order_item_service.get_active_order_item_by_id(db, order_item_id)
     
     old_data = {
         "price": item.price,
@@ -138,12 +114,14 @@ def update_order_item(
     
     activity_log_service.create_log(
         db=db,
-        action="UPDATE",
-        target_type="ORDER_ITEM",
-        target_id=item.order_item_id,
-        target_name=item.product_name,
-        details={"before": old_data, "after": item_in.model_dump(exclude_unset=True)},
         admin=current_admin,
+        action=ActivityAction.UPDATE,
+        target_type=ActivityTargetType.ORDER_ITEM,
+        target_id=order_item_id,
+        details={
+            "reason": "주문 품목 수정 성공", 
+            "before": old_data, 
+            "after": item_in.model_dump(exclude_unset=True)},
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -162,35 +140,21 @@ def cancel_order_item(
     current_admin: Admin = Depends(require_admin)
 ):
     """품목 취소"""
-    item = order_item_service.get_order_item_by_id(db, order_item_id)
+    item = order_item_service.get_active_order_item_by_id(db, order_item_id)
     
-    if item is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문 품목을 찾을 수 없습니다."
-        )
-    
-    if item.cancelled_at is not None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 취소된 품목입니다."
-        )
-    
-    product_name = item.product_name
     order_id = item.order_id
     item = order_item_service.cancel_order_item(db, item)
     
-    order = order_service.get_order_by_id(db, order_id)
+    order = order_service.get_active_order_by_id(db, order_id)
     order_service.recalculate_totals(db, order)
     
     activity_log_service.create_log(
         db=db,
-        action="CANCEL",
-        target_type="ORDER_ITEM",
-        target_id=order_item_id,
-        target_name=product_name,
-        details={"order_id": order_id},
         admin=current_admin,
+        action=ActivityAction.CANCEL,
+        target_type=ActivityTargetType.ORDER_ITEM,
+        target_id=order_item_id,
+        details={"reason": "주문 품목 취소 성공", "order_id": order_id},
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -210,13 +174,7 @@ def update_subscription(
     current_admin: Admin = Depends(require_admin)
 ):
     """구독 정보 수정"""
-    item = order_item_service.get_order_item_by_id(db, order_item_id)
-    
-    if item is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문 품목을 찾을 수 없습니다."
-        )
+    item = order_item_service.get_active_order_item_by_id(db, order_item_id)
     
     if item.product_kind not in ["YEARLY", "MONTHLY"]:
         raise HTTPException(
@@ -235,18 +193,18 @@ def update_subscription(
     
     activity_log_service.create_log(
         db=db,
-        action="UPDATE_SUBSCRIPTION",
-        target_type="ORDER_ITEM",
-        target_id=item.order_item_id,
-        target_name=item.product_name,
+        admin=current_admin,    
+        action=ActivityAction.UPDATE,
+        target_type=ActivityTargetType.ORDER_ITEM,
+        target_id=order_item_id,
         details={
+            "reason": "주문 품목 구독 정보 수정 성공",
             "before": old_data,
             "after": {
                 "subscribe_start_issue": sub_in.subscribe_start_issue,
                 "subscribe_end_issue": sub_in.subscribe_end_issue
             }
         },
-        admin=current_admin,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )

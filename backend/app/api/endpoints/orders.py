@@ -12,6 +12,7 @@ from app.schemas.order import (
 )
 from app.schemas.send import SendListResponse
 from app.schemas.common import ResponseModel, PaginatedResponse, PaginationMeta
+from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.services import order_service, customer_service, send_service, activity_log_service
 
 router = APIRouter(prefix="/orders", tags=["주문"])
@@ -196,18 +197,18 @@ def create_order(
         
         activity_log_service.create_log(
             db=db,
-            action="CREATE",
-            target_type="ORDER",
+            admin=current_admin,
+            action=ActivityAction.CREATE,
+            target_type=ActivityTargetType.ORDER,
             target_id=order.order_id,
-            target_name=f"주문#{order.order_id}",
             details={
+                "reason": "주문 등록 성공",
                 "customer_id": order.customer_id,
                 "customer_name": customer.customer_name if customer else None,
                 "channel": order.order_channel,
                 "total_amount": order.total_amount,
                 "item_count": len(items)
             },
-            admin=current_admin,
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent")
         )
@@ -250,12 +251,11 @@ def update_order(
     
     activity_log_service.create_log(
         db=db,
-        action="UPDATE",
-        target_type="ORDER",
-        target_id=order.order_id,
-        target_name=f"주문#{order.order_id}",
-        details={"before": old_data, "after": order_in.model_dump(exclude_unset=True)},
         admin=current_admin,
+        action=ActivityAction.UPDATE,
+        target_type=ActivityTargetType.ORDER,
+        target_id=order_id,
+        details={"reason": "주문 수정 성공", "before": old_data, "after": order_in.model_dump(exclude_unset=True)},
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -288,12 +288,11 @@ def update_order_status(
     
     activity_log_service.create_log(
         db=db,
-        action="STATUS_CHANGE",
-        target_type="ORDER",
-        target_id=order.order_id,
-        target_name=f"주문#{order.order_id}",
-        details={"before": old_status, "after": status_in.status},
         admin=current_admin,
+        action=ActivityAction.UPDATE,
+        target_type=ActivityTargetType.ORDER,
+        target_id=order_id,
+        details={"reason": "주문 상태 변경 성공", "before": old_status, "after": status_in.status},
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -331,12 +330,11 @@ def cancel_order(
     
     activity_log_service.create_log(
         db=db,
-        action="CANCEL",
-        target_type="ORDER",
-        target_id=order.order_id,
-        target_name=f"주문#{order.order_id}",
-        details={"before_status": old_status},
         admin=current_admin,
+        action=ActivityAction.CANCEL,
+        target_type=ActivityTargetType.ORDER,
+        target_id=order_id,
+        details={"reason": "주문 취소 성공", "before": old_status, "after": order.order_status},
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )

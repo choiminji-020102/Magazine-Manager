@@ -7,6 +7,7 @@ from app.core.deps import require_roles
 from app.models.admin import Admin
 from app.schemas.pause import PauseCreate, PauseUpdate, PauseResponse, PauseByIssueResponse
 from app.schemas.common import ResponseModel
+from app.schemas.activity_log import ActivityAction, ActivityTargetType 
 from app.services import pause_service, order_item_service, activity_log_service
 
 router = APIRouter(tags=["휴지"])
@@ -45,12 +46,6 @@ def create_pause(
     """휴지 등록"""
     item = order_item_service.get_order_item_by_id(db, order_item_id)
     
-    if item is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문 품목을 찾을 수 없습니다."
-        )
-    
     if item.product_kind not in ["YEARLY", "MONTHLY"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -73,18 +68,18 @@ def create_pause(
     
     activity_log_service.create_log(
         db=db,
-        action="CREATE",
-        target_type="PAUSE",
+        admin=current_admin,
+        action=ActivityAction.CREATE,
+        target_type=ActivityTargetType.PAUSE,
         target_id=pause.pause_id,
-        target_name=f"{item.product_name} - {pause_in.pause_issue}호",
         details={
+            "reason": "휴지 등록 성공",
             "order_item_id": order_item_id,
             "pause_issue": pause_in.pause_issue,
             "reason": pause_in.reason,
             "final_subscribe_end_issue_before": old_final_issue,
             "final_subscribe_end_issue_after": item.final_subscribe_end_issue
         },
-        admin=current_admin,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -124,12 +119,6 @@ def update_pause(
     """휴지 수정"""
     pause = pause_service.get_pause_by_id(db, pause_id)
     
-    if pause is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="휴지 정보를 찾을 수 없습니다."
-        )
-    
     old_data = {
         "pause_issue": pause.pause_issue,
         "reason": pause.reason
@@ -146,12 +135,15 @@ def update_pause(
     
     activity_log_service.create_log(
         db=db,
-        action="UPDATE",
-        target_type="PAUSE",
-        target_id=pause.pause_id,
-        target_name=f"휴지#{pause.pause_id}",
-        details={"before": old_data, "after": pause_in.model_dump(exclude_unset=True)},
         admin=current_admin,
+        action=ActivityAction.UPDATE,
+        target_type=ActivityTargetType.PAUSE,
+        target_id=pause_id,
+        details={
+            "reason": "휴지 수정 성공", 
+            "before": old_data, 
+            "after": pause_in.model_dump(exclude_unset=True)
+        },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -171,13 +163,7 @@ def delete_pause(
 ):
     """휴지 삭제"""
     pause = pause_service.get_pause_by_id(db, pause_id)
-    
-    if pause is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="휴지 정보를 찾을 수 없습니다."
-        )
-    
+ 
     pause_issue = pause.pause_issue
     order_item_id = pause.order_item_id
     
@@ -192,17 +178,17 @@ def delete_pause(
     
     activity_log_service.create_log(
         db=db,
-        action="DELETE",
-        target_type="PAUSE",
+        admin=current_admin,
+        action=ActivityAction.DELETE,
+        target_type=ActivityTargetType.PAUSE,
         target_id=pause_id,
-        target_name=f"휴지#{pause_id}",
         details={
-            "pause_issue": pause_issue,
+            "reason": "휴지 삭제 성공",
             "order_item_id": order_item_id,
+            "pause_issue": pause_issue,
             "final_subscribe_end_issue_before": old_final_issue,
             "final_subscribe_end_issue_after": item.final_subscribe_end_issue if item else None
         },
-        admin=current_admin,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )

@@ -16,6 +16,7 @@ from app.schemas.send import (
     SendListResponse, SendStatusUpdate, SendTrackingUpdate, SendItemResponse
 )
 from app.schemas.common import ResponseModel, PaginatedResponse, PaginationMeta
+from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.services import send_service, order_service, activity_log_service
 
 router = APIRouter(prefix="/sends", tags=["발송"])
@@ -89,8 +90,6 @@ def create_send(
 ):
     """발송 등록"""
     order = order_service.get_order_by_id(db, send_in.order_id)
-    if order is None:
-        raise HTTPException(status_code=400, detail="주문을 찾을 수 없습니다.")
     
     if not send_in.items:
         raise HTTPException(status_code=400, detail="발송 상품을 추가해주세요.")
@@ -101,16 +100,16 @@ def create_send(
         
         activity_log_service.create_log(
             db=db,
-            action="CREATE",
-            target_type="SEND",
+            admin=current_admin,
+            action=ActivityAction.CREATE,
+            target_type=ActivityTargetType.SEND,
             target_id=send.send_id,
-            target_name=f"발송#{send.send_id}",
             details={
+                "reason": "발송 등록 성공",
                 "order_id": send.order_id,
                 "address_name": send.address_name,
-                "item_count": len(items)
+                "item_count": len(items),
             },
-            admin=current_admin,
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent")
         )
@@ -133,8 +132,6 @@ def update_send(
 ):
     """발송 수정"""
     send = send_service.get_send_by_id(db, send_id)
-    if send is None:
-        raise HTTPException(status_code=404, detail="발송 정보를 찾을 수 없습니다.")
     
     old_data = {
         "send_date": str(send.send_date) if send.send_date else None,
@@ -146,12 +143,15 @@ def update_send(
     
     activity_log_service.create_log(
         db=db,
-        action="UPDATE",
-        target_type="SEND",
-        target_id=send.send_id,
-        target_name=f"발송#{send.send_id}",
-        details={"before": old_data, "after": send_in.model_dump(exclude_unset=True)},
         admin=current_admin,
+        action=ActivityAction.UPDATE,
+        target_type=ActivityTargetType.SEND,
+        target_id=send_id,
+        details={
+            "reason": "발송 수정 성공",
+            "before": old_data,
+            "after": send_in.model_dump(exclude_unset=True)
+        },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -169,20 +169,21 @@ def update_send_status(
 ):
     """발송 상태 변경"""
     send = send_service.get_send_by_id(db, send_id)
-    if send is None:
-        raise HTTPException(status_code=404, detail="발송 정보를 찾을 수 없습니다.")
     
     old_status = send.send_status
     send = send_service.update_send_status(db, send, status_in.status)
     
     activity_log_service.create_log(
         db=db,
-        action="STATUS_CHANGE",
-        target_type="SEND",
-        target_id=send.send_id,
-        target_name=f"발송#{send.send_id}",
-        details={"before": old_status, "after": status_in.status},
         admin=current_admin,
+        action=ActivityAction.UPDATE,
+        target_type=ActivityTargetType.SEND,
+        target_id=send_id,
+        details={
+            "reason": "발송 상태 변경 성공",
+            "before": old_status,
+            "after": status_in.status
+        },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -200,22 +201,20 @@ def update_tracking(
 ):
     """운송장 정보 등록"""
     send = send_service.get_send_by_id(db, send_id)
-    if send is None:
-        raise HTTPException(status_code=404, detail="발송 정보를 찾을 수 없습니다.")
     
     send = send_service.update_tracking(db, send, tracking_in.courier_company, tracking_in.tracking_no)
     
     activity_log_service.create_log(
         db=db,
-        action="UPDATE_TRACKING",
-        target_type="SEND",
-        target_id=send.send_id,
-        target_name=f"발송#{send.send_id}",
+        admin=current_admin,
+        action=ActivityAction.UPDATE,
+        target_type=ActivityTargetType.SEND,
+        target_id=send_id,
         details={
+            "reason": "운송장 정보 등록 성공",
             "courier_company": tracking_in.courier_company,
             "tracking_no": tracking_in.tracking_no
         },
-        admin=current_admin,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -232,8 +231,6 @@ def cancel_send(
 ):
     """발송 취소"""
     send = send_service.get_send_by_id(db, send_id)
-    if send is None:
-        raise HTTPException(status_code=404, detail="발송 정보를 찾을 수 없습니다.")
     
     if send.send_status == "CANCELLED":
         raise HTTPException(status_code=400, detail="이미 취소된 발송입니다.")
@@ -243,12 +240,15 @@ def cancel_send(
     
     activity_log_service.create_log(
         db=db,
-        action="CANCEL",
-        target_type="SEND",
-        target_id=send.send_id,
-        target_name=f"발송#{send.send_id}",
-        details={"before_status": old_status},
         admin=current_admin,
+        action=ActivityAction.CANCEL,
+        target_type=ActivityTargetType.SEND,
+        target_id=send_id,
+        details={
+            "reason": "발송 취소 성공",
+            "before_status": old_status,
+            "after_status": send.send_status
+        },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
@@ -375,7 +375,7 @@ def export_sends_to_excel(
     filename = f"sends_{date.today().strftime('%Y%m%d')}.xlsx"
     if send_date:
         filename = f"sends_{send_date.strftime('%Y%m%d')}.xlsx"
-    
+
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
