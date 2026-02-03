@@ -50,9 +50,18 @@ def get_customers(
     search: Optional[str] = None,
     channel: Optional[str] = None,
     sort: str = "created_at",
-    order: str = "DESC"
+    order: str = "DESC",
+    deleted_only: bool = False
 ) -> Tuple[List[Customer], int]:
-    query = db.query(Customer).filter(Customer.deleted_at.is_(None))
+    query = db.query(Customer)
+    
+    # 삭제 상태 필터링
+    if deleted_only:
+        # 삭제된 고객만 조회
+        query = query.filter(Customer.deleted_at.isnot(None))
+    else:
+        # 기본값: 삭제되지 않은 고객만 조회 (기존 동작 유지)
+        query = query.filter(Customer.deleted_at.is_(None))
 
     if search:
         # 검색어가 숫자만 포함하면 전화번호로 간주

@@ -9,6 +9,7 @@ export interface CustomerListQuery {
   channel?: string | null;
   sort: string;
   order: string;
+  deleted_only?: boolean | null;
 }
 
 export interface CustomerCreate {

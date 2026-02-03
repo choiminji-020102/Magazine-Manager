@@ -12,6 +12,7 @@ class CustomerListQuery(BaseModel):
     channel: Optional[str] = Field(None, description="유입 경로 필터 (CAFE24, GPMALL, OFFLINE)")
     sort: str = Field("created_at", description="정렬 기준")
     order: str = Field("DESC", description="정렬 순서 (ASC, DESC)")
+    deleted_only: Optional[bool] = Field(False, description="삭제된 고객만 조회")
 
     @classmethod
     def as_query_params(
@@ -22,6 +23,7 @@ class CustomerListQuery(BaseModel):
         channel: Optional[str] = Query(None, description="유입 경로 필터 (CAFE24, GPMALL, OFFLINE)"),
         sort: str = Query("created_at", description="정렬 기준"),
         order: str = Query("DESC", description="정렬 순서 (ASC, DESC)"),
+        deleted_only: bool = Query(False, description="삭제된 고객만 조회"),
     ):
         """쿼리 파라미터로 사용하기 위한 팩토리 메서드"""
         return cls(
@@ -30,7 +32,8 @@ class CustomerListQuery(BaseModel):
             search=search,
             channel=channel,
             sort=sort,
-            order=order
+            order=order,
+            deleted_only=deleted_only
         )
 
 class CustomerCreate(BaseModel):

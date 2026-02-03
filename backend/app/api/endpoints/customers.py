@@ -29,7 +29,7 @@ def get_customers(
 ):
     """고객 목록 조회"""
     customers, total = customer_service.get_customers(
-        db, query.page, query.limit, query.search, query.channel, query.sort, query.order
+        db, query.page, query.limit, query.search, query.channel, query.sort, query.order, query.deleted_only
     )
     
     return PaginatedResponse(
