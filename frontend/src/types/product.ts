@@ -6,6 +6,14 @@ export enum ProductKind {
   SINGLE = "SINGLE",
 }
 
+export interface ProductListQuery {
+  page: number;
+  limit: number;
+  search?: string | null;
+  kind?: string | null;
+  is_active?: boolean | null;
+}
+
 export interface ProductCreate {
   product_code: string;
   product_kind: ProductKind;

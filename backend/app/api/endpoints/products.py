@@ -6,7 +6,7 @@ import math
 from app.db.session import get_db
 from app.core.deps import require_roles
 from app.models.admin import Admin
-from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
+from app.schemas.product import ProductListQuery, ProductCreate, ProductUpdate, ProductResponse
 from app.schemas.common import ResponseModel, PaginatedResponse, PaginationMeta
 from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.services import product_service, activity_log_service
@@ -18,24 +18,22 @@ require_admin = require_roles(["SUPER_ADMIN", "ADMIN"])
 
 @router.get("", response_model=PaginatedResponse[ProductResponse])
 def get_products(
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
-    search: Optional[str] = None,
-    kind: Optional[str] = None,
-    is_active: Optional[bool] = None,
+    query: ProductListQuery = Depends(ProductListQuery.as_query_params),
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin)
 ):
     """상품 목록 조회"""
-    items, total = product_service.get_products(db, page, limit, search, kind, is_active)
+    items, total = product_service.get_products(
+        db, query.page, query.limit, query.search, query.kind, query.is_active
+    )
     
     return PaginatedResponse(
         data=[ProductResponse.model_validate(item) for item in items],
         pagination=PaginationMeta(
             total=total,
-            page=page,
-            limit=limit,
-            total_pages=math.ceil(total / limit) if total > 0 else 0
+            page=query.page,
+            limit=query.limit,
+            total_pages=math.ceil(total / query.limit) if total > 0 else 0
         )
     )
 

@@ -2,6 +2,34 @@ from pydantic import BaseModel, Field
 from typing import Optional, Literal
 from datetime import datetime
 from decimal import Decimal
+from fastapi import Query
+
+
+class ProductListQuery(BaseModel):
+    """상품 목록 조회 쿼리 파라미터"""
+    page: int = Field(1, ge=1, description="페이지 번호")
+    limit: int = Field(20, ge=1, le=100, description="페이지당 항목 수")
+    search: Optional[str] = Field(None, description="검색어 (상품명, 상품코드)")
+    kind: Optional[str] = Field(None, description="상품 종류 필터 (YEARLY, MONTHLY, SINGLE)")
+    is_active: Optional[bool] = Field(None, description="활성화 여부 필터")
+
+    @classmethod
+    def as_query_params(
+        cls,
+        page: int = Query(1, ge=1, description="페이지 번호"),
+        limit: int = Query(20, ge=1, le=100, description="페이지당 항목 수"),
+        search: Optional[str] = Query(None, description="검색어 (상품명, 상품코드)"),
+        kind: Optional[str] = Query(None, description="상품 종류 필터 (YEARLY, MONTHLY, SINGLE)"),
+        is_active: Optional[bool] = Query(None, description="활성화 여부 필터"),
+    ):
+        """쿼리 파라미터로 사용하기 위한 팩토리 메서드"""
+        return cls(
+            page=page,
+            limit=limit,
+            search=search,
+            kind=kind,
+            is_active=is_active
+        )
 
 
 class ProductBase(BaseModel):

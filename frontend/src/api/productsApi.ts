@@ -1,16 +1,15 @@
 import api from "./axios";
 import type { ResponseModel, PaginatedResponse } from "../types/api";
-import type { ProductCreate, ProductUpdate, ProductResponse } from "../types/product";
+import type {
+  ProductListQuery,
+  ProductCreate,
+  ProductUpdate,
+  ProductResponse,
+} from "../types/product";
 
 export const productsApi = {
   // GET /products - 상품 목록 조회
-  getProducts: (params: {
-    page?: number;
-    limit?: number;
-    search?: string | null;
-    kind?: string | null;
-    is_active?: boolean | null;
-  }) => {
+  getProducts: (params: ProductListQuery) => {
     return api.get<PaginatedResponse<ProductResponse>>("/products", { params });
   },
 
