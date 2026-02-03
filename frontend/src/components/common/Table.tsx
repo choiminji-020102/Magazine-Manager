@@ -82,7 +82,7 @@ const Table = <T extends Record<string, any>>({
         <thead>
           <tr className="border-b border-line bg-primary-50">
             {selectable && (
-              <th className="px-4 py-3 w-12">
+              <th className="px-2 py-3 w-12">
                 <input
                   type="checkbox"
                   checked={allSelected}
@@ -94,7 +94,7 @@ const Table = <T extends Record<string, any>>({
             {columns.map((column) => (
               <th
                 key={column.key}
-                className={`px-4 py-3 text-xs font-semibold text-muted uppercase tracking-wider ${
+                className={`px-2 py-3 text-xs font-semibold text-muted uppercase tracking-wider ${
                   column.align === "center"
                     ? "text-center"
                     : column.align === "right"
@@ -130,7 +130,7 @@ const Table = <T extends Record<string, any>>({
             <tr>
               <td
                 colSpan={columns.length + (selectable ? 1 : 0)}
-                className="px-4 py-8 text-center text-sm text-muted"
+                className="px-2 py-8 text-center text-sm text-muted"
               >
                 {emptyMessage}
               </td>
@@ -167,7 +167,7 @@ const Table = <T extends Record<string, any>>({
                   }
                 >
                   {selectable && (
-                    <td className="px-4 py-3 w-12">
+                    <td className="px-2 py-3 w-12">
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -185,7 +185,7 @@ const Table = <T extends Record<string, any>>({
                     return (
                       <td
                         key={column.key}
-                        className={`px-4 py-3 text-sm text-ink ${
+                        className={`px-2 py-3 text-sm text-ink ${
                           column.align === "center"
                             ? "text-center"
                             : column.align === "right"
