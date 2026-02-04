@@ -38,25 +38,6 @@ def get_products(
     )
 
 
-@router.get("/kind/{product_kind}", response_model=ResponseModel[List[ProductResponse]])
-def get_products_by_kind(
-    product_kind: str,
-    active_only: bool = Query(True),
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin)
-):
-    """상품종류별 조회"""
-    if product_kind not in ["YEARLY", "MONTHLY", "SINGLE"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="유효하지 않은 상품 종류입니다."
-        )
-    
-    products = product_service.get_products_by_kind(db, product_kind, active_only)
-    
-    return ResponseModel(data=[ProductResponse.model_validate(p) for p in products])
-
-
 @router.get("/code/{product_code}", response_model=ResponseModel[ProductResponse])
 def get_product_by_code(
     product_code: str,
@@ -138,13 +119,7 @@ def update_product(
         "is_active": product.is_active
     }
     
-    if product_in.product_code and product_in.product_code != product.product_code:
-        if product_service.get_product_by_code(db, product_in.product_code):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="이미 등록된 상품 코드입니다."
-            )
-    
+    # product_code는 수정 불가능하므로 체크하지 않음
     product = product_service.update_product(db, product, product_in)
     
     activity_log_service.create_log(
