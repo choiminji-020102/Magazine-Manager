@@ -1,410 +1,52 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Package,
-  Filter,
   Download,
   RefreshCw,
-  Search,
-  ChevronDown,
   Plus,
-  ArrowUpDown,
-  RotateCcw,
-  X,
   Edit,
   Save,
+  CheckCircle,
+  XCircle,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
-import Card from "../components/common/Card";
 import Button from "../components/common/Button";
 import Badge from "../components/common/Badge";
-import Table, { Column } from "../components/common/Table";
-import Pagination from "../components/common/Pagination";
+import { Column } from "../components/common/Table";
+import ListPage from "../components/common/ListPage";
 import Breadcrumb from "../components/common/Breadcrumb";
 import Modal from "../components/common/Modal";
 import Input from "../components/common/Input";
-import Textarea from "../components/common/Textarea";
 import Select from "../components/common/Select";
+import Tabs from "../components/common/Tabs";
+import StatCard from "../components/common/StatCard";
+import SearchFilterBar, {
+  FilterField,
+  SortOption,
+  ActiveFilter,
+} from "../components/common/SearchFilterBar";
+import { productsApi } from "../api/productsApi";
+import type {
+  ProductResponse,
+  ProductUpdate,
+  ProductListQuery,
+} from "../types/product";
 
-// DB 스키마 기반 인터페이스
-interface Product {
-  product_id: number;
-  product_code: string;
-  product_kind: "YEARLY" | "MONTHLY" | "SINGLE";
-  product_name: string;
-  unit_weight: number;
-  unit_width: number;
-  unit_length: number;
-  unit_height: number;
-  price: number;
-  sale: number;
-  purchase: number;
-  stock_quantity: number;
-  is_active: boolean;
-  external_product_code_cafe24: string | null;
-  external_product_code_gpmall: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface ProductListPageProps {
-  onNavigateToRegister?: () => void;
-}
-
-// 목업 데이터
-const mockProducts: Product[] = [
-  // 정기구독 상품 (YEARLY)
-  {
-    product_id: 1,
-    product_code: "YEARLY-2603-BASIC",
-    product_kind: "YEARLY",
-    product_name: "1년 정기구독 - 26년 3월호 시작 말씀함께[기본판]",
-    unit_weight: 0,
-    unit_width: 0,
-    unit_length: 0,
-    unit_height: 0,
-    price: 144000,
-    sale: 144000,
-    purchase: 0,
-    stock_quantity: 0,
-    is_active: true,
-    external_product_code_cafe24: "CAFE24-Y2603-BASIC",
-    external_product_code_gpmall: null,
-    created_at: "2024-01-15T00:00:00",
-    updated_at: "2024-12-08T00:00:00",
-  },
-  {
-    product_id: 2,
-    product_code: "YEARLY-2603-LARGE",
-    product_kind: "YEARLY",
-    product_name: "1년 정기구독 - 26년 3월호 시작 말씀함께[큰글자판]",
-    unit_weight: 0,
-    unit_width: 0,
-    unit_length: 0,
-    unit_height: 0,
-    price: 144000,
-    sale: 144000,
-    purchase: 0,
-    stock_quantity: 0,
-    is_active: true,
-    external_product_code_cafe24: "CAFE24-Y2603-LARGE",
-    external_product_code_gpmall: null,
-    created_at: "2024-01-15T00:00:00",
-    updated_at: "2024-12-08T00:00:00",
-  },
-  {
-    product_id: 3,
-    product_code: "YEARLY-2603-CHILD-HIGH",
-    product_kind: "YEARLY",
-    product_name:
-      "1년 정기구독 - 26년 3월호 시작 어린이 말씀함께 [고학년 4~6학년]",
-    unit_weight: 200.0,
-    unit_width: 210.0,
-    unit_length: 297.0,
-    unit_height: 5.0,
-    price: 144000,
-    sale: 144000,
-    purchase: 50000,
-    stock_quantity: 60,
-    is_active: true,
-    external_product_code_cafe24: "CAFE24-Y2603-CHILD-HIGH",
-    external_product_code_gpmall: null,
-    created_at: "2024-01-15T00:00:00",
-    updated_at: "2024-12-08T00:00:00",
-  },
-  {
-    product_id: 4,
-    product_code: "YEARLY-2603-CHILD-LOW",
-    product_kind: "YEARLY",
-    product_name:
-      "1년 정기구독 - 26년 3월호 시작 어린이 말씀함께 [저학년 1~3학년]",
-    unit_weight: 0,
-    unit_width: 0,
-    unit_length: 0,
-    unit_height: 0,
-    price: 144000,
-    sale: 144000,
-    purchase: 0,
-    stock_quantity: 0,
-    is_active: true,
-    external_product_code_cafe24: "CAFE24-Y2603-CHILD-LOW",
-    external_product_code_gpmall: null,
-    created_at: "2024-01-15T00:00:00",
-    updated_at: "2024-12-08T00:00:00",
-  },
-  {
-    product_id: 5,
-    product_code: "YEARLY-2603-YOUTH",
-    product_kind: "YEARLY",
-    product_name: "1년 정기구독 - 26년 3월호 시작 청소년 말씀함께",
-    unit_weight: 0,
-    unit_width: 0,
-    unit_length: 0,
-    unit_height: 0,
-    price: 144000,
-    sale: 144000,
-    purchase: 0,
-    stock_quantity: 0,
-    is_active: true,
-    external_product_code_cafe24: "CAFE24-Y2603-YOUTH",
-    external_product_code_gpmall: null,
-    created_at: "2024-01-15T00:00:00",
-    updated_at: "2024-12-08T00:00:00",
-  },
-  {
-    product_id: 6,
-    product_code: "YEARLY-2603-KKULDDANG",
-    product_kind: "YEARLY",
-    product_name: "1년 정기구독 - 26년 3월호 시작 꿀땅 [미취학부]",
-    unit_weight: 0,
-    unit_width: 0,
-    unit_length: 0,
-    unit_height: 0,
-    price: 144000,
-    sale: 144000,
-    purchase: 0,
-    stock_quantity: 0,
-    is_active: true,
-    external_product_code_cafe24: "CAFE24-Y2603-KKULDDANG",
-    external_product_code_gpmall: null,
-    created_at: "2024-01-15T00:00:00",
-    updated_at: "2024-12-08T00:00:00",
-  },
-  // 단품 상품 (MONTHLY) - 26년 2월호
-  {
-    product_id: 7,
-    product_code: "SINGLE-2602-BASIC",
-    product_kind: "MONTHLY",
-    product_name: "단품 - 26년 2월호 말씀함께 [기본판]",
-    unit_weight: 250.5,
-    unit_width: 210.0,
-    unit_length: 297.0,
-    unit_height: 5.0,
-    price: 15000,
-    sale: 15000,
-    purchase: 5000,
-    stock_quantity: 200,
-    is_active: true,
-    external_product_code_cafe24: "CAFE24-S2602-BASIC",
-    external_product_code_gpmall: null,
-    created_at: "2024-01-20T00:00:00",
-    updated_at: "2024-12-08T00:00:00",
-  },
-  {
-    product_id: 8,
-    product_code: "SINGLE-2602-LARGE",
-    product_kind: "MONTHLY",
-    product_name: "단품 - 26년 2월호 말씀함께 [큰글자판]",
-    unit_weight: 250.5,
-    unit_width: 210.0,
-    unit_length: 297.0,
-    unit_height: 5.0,
-    price: 15000,
-    sale: 15000,
-    purchase: 5000,
-    stock_quantity: 150,
-    is_active: true,
-    external_product_code_cafe24: "CAFE24-S2602-LARGE",
-    external_product_code_gpmall: null,
-    created_at: "2024-01-20T00:00:00",
-    updated_at: "2024-12-08T00:00:00",
-  },
-  {
-    product_id: 9,
-    product_code: "SINGLE-2602-CHILD-LOW",
-    product_kind: "MONTHLY",
-    product_name: "단품 - 26년 2월호 어린이 말씀함께 [저학년 1~3학년]",
-    unit_weight: 200.0,
-    unit_width: 210.0,
-    unit_length: 297.0,
-    unit_height: 5.0,
-    price: 15000,
-    sale: 15000,
-    purchase: 5000,
-    stock_quantity: 120,
-    is_active: true,
-    external_product_code_cafe24: "CAFE24-S2602-CHILD-LOW",
-    external_product_code_gpmall: null,
-    created_at: "2024-01-20T00:00:00",
-    updated_at: "2024-12-08T00:00:00",
-  },
-  {
-    product_id: 10,
-    product_code: "SINGLE-2602-CHILD-HIGH",
-    product_kind: "MONTHLY",
-    product_name: "단품 - 26년 2월호 어린이 말씀함께 [고학년 4~6학년]",
-    unit_weight: 200.0,
-    unit_width: 210.0,
-    unit_length: 297.0,
-    unit_height: 5.0,
-    price: 15000,
-    sale: 15000,
-    purchase: 5000,
-    stock_quantity: 110,
-    is_active: true,
-    external_product_code_cafe24: "CAFE24-S2602-CHILD-HIGH",
-    external_product_code_gpmall: null,
-    created_at: "2024-01-20T00:00:00",
-    updated_at: "2024-12-08T00:00:00",
-  },
-  {
-    product_id: 11,
-    product_code: "SINGLE-2602-YOUTH",
-    product_kind: "MONTHLY",
-    product_name: "단품 - 26년 2월호 청소년 말씀함께",
-    unit_weight: 220.0,
-    unit_width: 210.0,
-    unit_length: 297.0,
-    unit_height: 5.0,
-    price: 15000,
-    sale: 15000,
-    purchase: 5000,
-    stock_quantity: 90,
-    is_active: true,
-    external_product_code_cafe24: "CAFE24-S2602-YOUTH",
-    external_product_code_gpmall: null,
-    created_at: "2024-01-20T00:00:00",
-    updated_at: "2024-12-08T00:00:00",
-  },
-  {
-    product_id: 12,
-    product_code: "SINGLE-2602-KKULDDANG",
-    product_kind: "MONTHLY",
-    product_name: "단품 - 26년 2월호 꿀땅 [미취학부]",
-    unit_weight: 180.0,
-    unit_width: 210.0,
-    unit_length: 297.0,
-    unit_height: 5.0,
-    price: 15000,
-    sale: 15000,
-    purchase: 5000,
-    stock_quantity: 80,
-    is_active: true,
-    external_product_code_cafe24: "CAFE24-S2602-KKULDDANG",
-    external_product_code_gpmall: null,
-    created_at: "2024-01-20T00:00:00",
-    updated_at: "2024-12-08T00:00:00",
-  },
-  // 단품 상품 (MONTHLY) - 26년 1월호
-  {
-    product_id: 13,
-    product_code: "SINGLE-2601-BASIC",
-    product_kind: "MONTHLY",
-    product_name: "단품 - 26년 1월호 말씀함께 [기본판]",
-    unit_weight: 250.5,
-    unit_width: 210.0,
-    unit_length: 297.0,
-    unit_height: 5.0,
-    price: 15000,
-    sale: 15000,
-    purchase: 5000,
-    stock_quantity: 180,
-    is_active: true,
-    external_product_code_cafe24: "CAFE24-S2601-BASIC",
-    external_product_code_gpmall: null,
-    created_at: "2024-12-01T00:00:00",
-    updated_at: "2024-12-08T00:00:00",
-  },
-  {
-    product_id: 14,
-    product_code: "SINGLE-2601-LARGE",
-    product_kind: "MONTHLY",
-    product_name: "단품 - 26년 1월호 말씀함께 [큰글자판]",
-    unit_weight: 250.5,
-    unit_width: 210.0,
-    unit_length: 297.0,
-    unit_height: 5.0,
-    price: 15000,
-    sale: 15000,
-    purchase: 5000,
-    stock_quantity: 130,
-    is_active: true,
-    external_product_code_cafe24: "CAFE24-S2601-LARGE",
-    external_product_code_gpmall: null,
-    created_at: "2024-12-01T00:00:00",
-    updated_at: "2024-12-08T00:00:00",
-  },
-  {
-    product_id: 15,
-    product_code: "SINGLE-2601-YOUTH",
-    product_kind: "MONTHLY",
-    product_name: "단품 - 26년 1월호 청소년 말씀함께",
-    unit_weight: 220.0,
-    unit_width: 210.0,
-    unit_length: 297.0,
-    unit_height: 5.0,
-    price: 15000,
-    sale: 15000,
-    purchase: 5000,
-    stock_quantity: 85,
-    is_active: true,
-    external_product_code_cafe24: "CAFE24-S2601-YOUTH",
-    external_product_code_gpmall: null,
-    created_at: "2024-12-01T00:00:00",
-    updated_at: "2024-12-08T00:00:00",
-  },
-  {
-    product_id: 16,
-    product_code: "SINGLE-2601-CHILD-LOW",
-    product_kind: "MONTHLY",
-    product_name: "단품 - 26년 1월호 어린이 말씀함께 [저학년 1~3학년]",
-    unit_weight: 200.0,
-    unit_width: 210.0,
-    unit_length: 297.0,
-    unit_height: 5.0,
-    price: 15000,
-    sale: 15000,
-    purchase: 5000,
-    stock_quantity: 100,
-    is_active: true,
-    external_product_code_cafe24: "CAFE24-S2601-CHILD-LOW",
-    external_product_code_gpmall: null,
-    created_at: "2024-12-01T00:00:00",
-    updated_at: "2024-12-08T00:00:00",
-  },
-  {
-    product_id: 17,
-    product_code: "SINGLE-2601-CHILD-HIGH",
-    product_kind: "MONTHLY",
-    product_name: "단품 - 26년 1월호 어린이 말씀함께 [고학년 4~6학년]",
-    unit_weight: 200.0,
-    unit_width: 210.0,
-    unit_length: 297.0,
-    unit_height: 5.0,
-    price: 15000,
-    sale: 15000,
-    purchase: 5000,
-    stock_quantity: 95,
-    is_active: true,
-    external_product_code_cafe24: "CAFE24-S2601-CHILD-HIGH",
-    external_product_code_gpmall: null,
-    created_at: "2024-12-01T00:00:00",
-    updated_at: "2024-12-08T00:00:00",
-  },
-  {
-    product_id: 18,
-    product_code: "SINGLE-2601-KKULDDANG",
-    product_kind: "MONTHLY",
-    product_name: "단품 - 26년 1월호 꿀땅 [미취학부]",
-    unit_weight: 180.0,
-    unit_width: 210.0,
-    unit_length: 297.0,
-    unit_height: 5.0,
-    price: 15000,
-    sale: 15000,
-    purchase: 5000,
-    stock_quantity: 75,
-    is_active: true,
-    external_product_code_cafe24: "CAFE24-S2601-KKULDDANG",
-    external_product_code_gpmall: null,
-    created_at: "2024-12-01T00:00:00",
-    updated_at: "2024-12-08T00:00:00",
-  },
-];
+type Product = ProductResponse;
 
 const PRODUCT_KIND_LABELS = {
   YEARLY: "연간",
   MONTHLY: "월간",
   SINGLE: "단품",
 };
+
+const PRODUCT_KIND_OPTIONS = [
+  { value: "YEARLY", label: "연간" },
+  { value: "MONTHLY", label: "월간" },
+  { value: "SINGLE", label: "단품" },
+];
 
 /** -----------------------------
  *  PhysicalInfoCard Component
@@ -422,7 +64,6 @@ function PhysicalInfoCard({
 }) {
   const fmt = (v: number | null | undefined, unit: string) => {
     if (v === null || v === undefined || Number.isNaN(v)) return "-";
-    // 소수점 필요하면 여기 수정
     return `${Math.round(v)}${unit}`;
   };
 
@@ -440,7 +81,6 @@ function PhysicalInfoCard({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-4">
-        {/* 도식 */}
         <div className="flex flex-col items-center">
           <BookDimensionDiagram
             widthLabel={`가로 ${fmt(widthMm, "mm")}`}
@@ -456,7 +96,6 @@ function PhysicalInfoCard({
 
 /** ------------------------------------
  *  BookDimensionDiagram (SVG)
- *  - 고정 도식 + 치수선/라벨 안정 정렬
  *  ------------------------------------ */
 function BookDimensionDiagram({
   widthLabel,
@@ -469,23 +108,17 @@ function BookDimensionDiagram({
   heightLabel: string;
   weightG: string;
 }) {
-  // SVG 고정 캔버스
   const W = 300;
   const H = 190;
-
-  // 책 도식(고정 크기) 영역
   const bookX = 110;
   const bookY = 40;
   const bookW = 100;
   const bookH = 130;
-  const spine = 15; // 오른쪽 두께 표현
-
-  // 치수선 위치
-  const topDimY = bookY - 20; // 가로 치수선
-  const leftDimX = bookX - 20; // 세로 치수선
-
+  const spine = 15;
+  const topDimY = bookY - 20;
+  const leftDimX = bookX - 20;
   const ink = "#111827";
-  const stroke = "#9CA3AF"; // gray-400
+  const stroke = "#9CA3AF";
 
   return (
     <div className="flex flex-col items-center">
@@ -497,7 +130,6 @@ function BookDimensionDiagram({
         role="img"
         aria-label="책 치수 도식"
       >
-        {/* 마커(화살표) 정의 - 작게 */}
         <defs>
           <marker
             id="arrow-start"
@@ -523,7 +155,6 @@ function BookDimensionDiagram({
           </marker>
         </defs>
 
-        {/* ---- 치수선: 가로 (위) ---- */}
         <line
           x1={bookX}
           y1={topDimY}
@@ -534,7 +165,6 @@ function BookDimensionDiagram({
           markerStart="url(#arrow-start)"
           markerEnd="url(#arrow-end)"
         />
-        {/* 가로 보조선 */}
         <line
           x1={bookX}
           y1={topDimY + 4}
@@ -562,7 +192,6 @@ function BookDimensionDiagram({
           {widthLabel}
         </text>
 
-        {/* ---- 치수선: 세로 (왼쪽) ---- */}
         <line
           x1={leftDimX}
           y1={bookY}
@@ -573,7 +202,6 @@ function BookDimensionDiagram({
           markerStart="url(#arrow-start)"
           markerEnd="url(#arrow-end)"
         />
-        {/* 세로 보조선 */}
         <line
           x1={leftDimX + 4}
           y1={bookY}
@@ -590,7 +218,6 @@ function BookDimensionDiagram({
           stroke={stroke}
           strokeWidth="1"
         />
-        {/* 세로 라벨(회전) */}
         <text
           x={leftDimX - 8}
           y={bookY + bookH / 2}
@@ -603,8 +230,6 @@ function BookDimensionDiagram({
           {lengthLabel}
         </text>
 
-        {/* ---- 치수선: 두께 (오른쪽) ---- */}
-        {/* 두께는 책의 옆면(등) 두께를 나타냄 - 가로 방향 */}
         <line
           x1={bookX + bookW}
           y1={bookY + bookH / 2}
@@ -615,7 +240,6 @@ function BookDimensionDiagram({
           markerStart="url(#arrow-start)"
           markerEnd="url(#arrow-end)"
         />
-        {/* 두께 보조선 */}
         <line
           x1={bookX + bookW}
           y1={bookY + bookH / 2 - 6}
@@ -643,8 +267,6 @@ function BookDimensionDiagram({
           {heightLabel}
         </text>
 
-        {/* ---- 책 도식 (중앙) ---- */}
-        {/* 표지 */}
         <rect
           x={bookX}
           y={bookY}
@@ -656,7 +278,6 @@ function BookDimensionDiagram({
           strokeWidth="2"
         />
 
-        {/* 책 등(두께) */}
         <polygon
           points={`${bookX + bookW},${bookY} ${bookX + bookW + spine},${
             bookY + 10
@@ -668,7 +289,6 @@ function BookDimensionDiagram({
           strokeWidth="2"
         />
       </svg>
-      {/* 무게 - 그림 아래 */}
       <div className="-mt-2 text-center">
         <span className="text-xs font-semibold text-ink">무게: {weightG}</span>
       </div>
@@ -676,31 +296,29 @@ function BookDimensionDiagram({
   );
 }
 
-const ProductListPage: React.FC<ProductListPageProps> = ({
-  onNavigateToRegister,
-}) => {
-  const [products, setProducts] = useState<Product[]>(mockProducts);
+const ProductListPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // 탭 상태
+  const [productTab, setProductTab] = useState<"active" | "inactive">("active");
 
   // 필터 상태
   const [searchTerm, setSearchTerm] = useState("");
   const [kindFilter, setKindFilter] = useState<string>("");
-  const [activeFilter, setActiveFilter] = useState<string>("");
   const [showFilters, setShowFilters] = useState(false);
-  const [showSortMenu, setShowSortMenu] = useState(false);
-  const [sortButtonRef, setSortButtonRef] = useState<HTMLDivElement | null>(
-    null
-  );
-  const [sortMenuPosition, setSortMenuPosition] = useState({ top: 0, left: 0 });
 
   // 페이지네이션
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
   const [sortKey, setSortKey] = useState("created_at");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [totalProducts, setTotalProducts] = useState(0);
 
   // 선택된 상품
-  const [selectedProducts, setSelectedProducts] = useState<Set<number>>(
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(
     new Set()
   );
 
@@ -710,33 +328,143 @@ const ProductListPage: React.FC<ProductListPageProps> = ({
   const [isEditMode, setIsEditMode] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
 
-  // 정렬 메뉴 외부 클릭 처리
+  // 삭제 확인 모달 상태
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [productsToDelete, setProductsToDelete] = useState<Product[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // 통계용 전체 상품 데이터
+  const [allProductsForStats, setAllProductsForStats] = useState<Product[]>([]);
+
+  // 필터/검색어/탭 변경 시 페이지를 1로 리셋
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (
-        !target.closest(".sort-menu-container") &&
-        !target.closest(".sort-menu-dropdown")
-      ) {
-        setShowSortMenu(false);
+    setCurrentPage(1);
+  }, [searchTerm, kindFilter, sortKey, sortDirection, productTab]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [currentPage, searchTerm, kindFilter, productTab]);
+
+  // 통계용 전체 상품 데이터 가져오기
+  useEffect(() => {
+    const fetchAllProductsForStats = async () => {
+      try {
+        const allProducts: Product[] = [];
+        let page = 1;
+        const limit = 100; // 백엔드 최대 limit
+        let hasMore = true;
+
+        // 모든 페이지를 순회하면서 데이터 가져오기
+        while (hasMore) {
+          const response = await productsApi.getProducts({
+            page,
+            limit,
+          });
+          const products = response.data.data;
+          allProducts.push(...products);
+
+          // 더 이상 가져올 데이터가 없으면 종료
+          if (products.length < limit || allProducts.length >= response.data.pagination.total) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        }
+
+        setAllProductsForStats(allProducts);
+      } catch (err) {
+        console.error("통계 데이터를 불러오는데 실패했습니다:", err);
       }
     };
-    if (showSortMenu && sortButtonRef) {
-      const rect = sortButtonRef.getBoundingClientRect();
-      const cardRect = sortButtonRef
-        .closest(".relative")
-        ?.getBoundingClientRect();
-      if (cardRect) {
-        setSortMenuPosition({
-          top: rect.bottom - cardRect.top + 8,
-          left: rect.left - cardRect.left,
+
+    fetchAllProductsForStats();
+  }, []);
+
+  // 필터 필드 정의
+  const filterFields: FilterField[] = [
+    {
+      key: "kind",
+      label: "상품 종류",
+      type: "select",
+      options: PRODUCT_KIND_OPTIONS,
+    },
+  ];
+
+  // 정렬 옵션 정의
+  const sortOptions: SortOption[] = [
+    { key: "created_at", direction: "desc", label: "등록일 최신순" },
+    { key: "created_at", direction: "asc", label: "등록일 오래된순" },
+    { key: "product_name", direction: "asc", label: "상품명 가나다순" },
+    { key: "product_name", direction: "desc", label: "상품명 역순" },
+    { key: "sale", direction: "desc", label: "판매가 높은순" },
+    { key: "sale", direction: "asc", label: "판매가 낮은순" },
+  ];
+
+  // 활성 필터 태그
+  const activeFilters: ActiveFilter[] = [
+    ...(kindFilter
+      ? [
+          {
+            key: "kind",
+            label: "상품 종류",
+            value:
+              kindFilter === "YEARLY"
+                ? "연간"
+                : kindFilter === "MONTHLY"
+                ? "월간"
+                : "단품",
+            onRemove: () => setKindFilter(""),
+          },
+        ]
+      : []),
+  ];
+
+  const fetchProducts = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params: ProductListQuery = {
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchTerm || null,
+        kind: kindFilter || null,
+        is_active: productTab === "active" ? true : false,
+      };
+
+      const response = await productsApi.getProducts(params);
+      setProducts(response.data.data);
+      setTotalProducts(response.data.pagination.total);
+
+      // 통계용 전체 상품 데이터도 업데이트 (여러 페이지 순회)
+      const allProducts: Product[] = [];
+      let statsPage = 1;
+      const statsLimit = 100; // 백엔드 최대 limit
+      let hasMore = true;
+
+      while (hasMore) {
+        const statsResponse = await productsApi.getProducts({
+          page: statsPage,
+          limit: statsLimit,
         });
+        const products = statsResponse.data.data;
+        allProducts.push(...products);
+
+        if (products.length < statsLimit || allProducts.length >= statsResponse.data.pagination.total) {
+          hasMore = false;
+        } else {
+          statsPage++;
+        }
       }
-      document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
+
+      setAllProductsForStats(allProducts);
+    } catch (err: any) {
+      setError(err?.message || "상품 목록을 불러오는데 실패했습니다.");
+      setProducts([]);
+      setTotalProducts(0);
+    } finally {
+      setLoading(false);
     }
-  }, [showSortMenu, sortButtonRef]);
+  };
 
   const handleSort = (key: string, direction: "asc" | "desc") => {
     setSortKey(key);
@@ -745,14 +473,15 @@ const ProductListPage: React.FC<ProductListPageProps> = ({
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const newSelected = new Set(products.map((p) => p.product_id));
-      setSelectedProducts(newSelected);
+      setSelectedProducts(
+        new Set(paginatedProducts.map((p) => String(p.product_id)))
+      );
     } else {
       setSelectedProducts(new Set());
     }
   };
 
-  const handleSelectProduct = (productId: number, checked: boolean) => {
+  const handleSelectProduct = (productId: string, checked: boolean) => {
     const newSelected = new Set(selectedProducts);
     if (checked) {
       newSelected.add(productId);
@@ -762,75 +491,145 @@ const ProductListPage: React.FC<ProductListPageProps> = ({
     setSelectedProducts(newSelected);
   };
 
-  const handleViewDetail = (product: Product, _index?: number) => {
-    setSelectedProduct(product);
-    setEditForm(product);
-    setIsEditMode(false);
+  const handleViewDetail = async (product: Product) => {
     setIsDetailModalOpen(true);
+    setIsEditMode(false);
+
+    try {
+      const productResponse = await productsApi.getProduct(product.product_id);
+      const productData = productResponse.data.data;
+
+      if (productData) {
+        setSelectedProduct(productData);
+        setEditForm(productData);
+      } else {
+        setSelectedProduct(product);
+        setEditForm(product);
+      }
+    } catch (err: any) {
+      console.error("상품 정보를 불러오는데 실패했습니다:", err);
+      setSelectedProduct(product);
+      setEditForm(product);
+    }
   };
 
   // 수정 시작
   const handleStartEdit = () => {
-    if (selectedProduct) {
-      setEditForm({ ...selectedProduct });
-      setIsEditMode(true);
-    }
+    setIsEditMode(true);
+    setEditForm(selectedProduct || {});
   };
 
   // 수정 취소
   const handleCancelEdit = () => {
     setIsEditMode(false);
-    if (selectedProduct) {
-      setEditForm(selectedProduct);
-    }
+    setEditForm(selectedProduct || {});
   };
 
   // 상품 정보 저장
-  const handleSaveProduct = () => {
+  const handleSaveProduct = async () => {
     if (!selectedProduct) return;
 
-    if (!editForm.product_name || !editForm.product_code) {
-      alert("상품명과 재고 코드는 필수입니다.");
+    if (!editForm.product_name) {
+      alert("상품명은 필수입니다.");
       return;
     }
 
-    // 실제로는 API 호출
-    const updatedProduct: Product = {
-      ...selectedProduct,
-      ...editForm,
-      product_id: selectedProduct.product_id,
-      updated_at: new Date().toISOString(),
-    };
+    try {
+      const updateData: ProductUpdate = {
+        product_name: editForm.product_name || null,
+        unit_weight: editForm.unit_weight !== undefined ? editForm.unit_weight : null,
+        unit_width: editForm.unit_width !== undefined ? editForm.unit_width : null,
+        unit_length: editForm.unit_length !== undefined ? editForm.unit_length : null,
+        unit_height: editForm.unit_height !== undefined ? editForm.unit_height : null,
+        price: editForm.price !== undefined ? editForm.price : null,
+        sale: editForm.sale !== undefined ? editForm.sale : null,
+        purchase: editForm.purchase !== undefined ? editForm.purchase : null,
+        stock_quantity: editForm.stock_quantity !== undefined ? editForm.stock_quantity : null,
+        is_active: editForm.is_active !== undefined ? editForm.is_active : null,
+        external_product_code_cafe24:
+          editForm.external_product_code_cafe24 !== undefined
+            ? editForm.external_product_code_cafe24
+            : null,
+        external_product_code_gpmall:
+          editForm.external_product_code_gpmall !== undefined
+            ? editForm.external_product_code_gpmall
+            : null,
+        subscribe_start_issue:
+          editForm.subscribe_start_issue !== undefined
+            ? editForm.subscribe_start_issue
+            : null,
+      };
 
-    setProducts(
-      products.map((p) =>
-        p.product_id === selectedProduct.product_id ? updatedProduct : p
-      )
+      const response = await productsApi.updateProduct(
+        selectedProduct.product_id,
+        updateData
+      );
+      const updatedProduct = response.data.data;
+
+      if (updatedProduct) {
+        setSelectedProduct(updatedProduct);
+        setEditForm(updatedProduct);
+        // 목록 새로고침
+        await fetchProducts();
+      }
+      setIsEditMode(false);
+      alert("상품 정보가 수정되었습니다.");
+    } catch (err: any) {
+      alert(err?.message || "상품 정보 수정에 실패했습니다.");
+    }
+  };
+
+  // 삭제 확인 모달 열기
+  const handleDeleteClick = () => {
+    if (selectedProducts.size === 0) {
+      alert("삭제할 상품을 선택해주세요.");
+      return;
+    }
+    
+    const selectedProductList = paginatedProducts.filter((product) =>
+      selectedProducts.has(String(product.product_id))
     );
-    setSelectedProduct(updatedProduct);
-    setEditForm(updatedProduct);
-    setIsEditMode(false);
+    
+    setProductsToDelete(selectedProductList);
+    setIsDeleteModalOpen(true);
+  };
+
+  // 상품 삭제 실행 (영구 삭제)
+  const handleConfirmDelete = async () => {
+    if (productsToDelete.length === 0) return;
+    
+    setIsDeleting(true);
+    try {
+      // 모든 상품 삭제 시도
+      const deletePromises = productsToDelete.map((product) =>
+        productsApi.deleteProduct(product.product_id)
+      );
+      
+      await Promise.all(deletePromises);
+      
+      // 성공 시 목록 새로고침
+      await fetchProducts();
+      
+      // 선택 초기화
+      setSelectedProducts(new Set());
+      setIsDeleteModalOpen(false);
+      setProductsToDelete([]);
+      
+      // 삭제된 상품이 현재 상세 모달에 표시된 상품이면 모달 닫기
+      if (selectedProduct && productsToDelete.some(p => p.product_id === selectedProduct.product_id)) {
+        setIsDetailModalOpen(false);
+        setSelectedProduct(null);
+      }
+      
+      alert(`${productsToDelete.length}개의 상품이 영구 삭제되었습니다.`);
+    } catch (err: any) {
+      alert(err?.message || "상품 삭제에 실패했습니다.");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const columns: Column<Product>[] = [
-    {
-      key: "checkbox",
-      label: "선택",
-      width: "50px",
-      align: "center",
-      render: (_, row) => (
-        <div className="flex justify-center">
-          <input
-            type="checkbox"
-            checked={selectedProducts.has(row.product_id)}
-            onChange={(e) =>
-              handleSelectProduct(row.product_id, e.target.checked)
-            }
-            className="w-4 h-4 rounded border-line text-accent focus:ring-accent"
-          />
-        </div>
-      ),
-    },
     {
       key: "product_code",
       label: "재고 코드",
@@ -938,87 +737,62 @@ const ProductListPage: React.FC<ProductListPageProps> = ({
     },
   ];
 
-  // 필터링 및 정렬
-  const filteredProducts = products
-    .filter((product) => {
-      if (
-        searchTerm &&
-        !product.product_name?.includes(searchTerm) &&
-        !product.product_code?.includes(searchTerm)
-      )
-        return false;
-      if (kindFilter && product.product_kind !== kindFilter) return false;
-      if (activeFilter) {
-        if (activeFilter === "active" && !product.is_active) return false;
-        if (activeFilter === "inactive" && product.is_active) return false;
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      const aVal = a[sortKey as keyof Product];
-      const bVal = b[sortKey as keyof Product];
+  // 클라이언트 사이드 정렬 (백엔드에 sort 파라미터가 없으므로)
+  const sortedProducts = [...products].sort((a, b) => {
+    const aVal = a[sortKey as keyof Product];
+    const bVal = b[sortKey as keyof Product];
 
-      // null/undefined 처리
-      if (aVal === null || aVal === undefined) {
-        return sortDirection === "asc" ? 1 : -1;
-      }
-      if (bVal === null || bVal === undefined) {
-        return sortDirection === "asc" ? -1 : 1;
-      }
+    if (aVal === null || aVal === undefined) {
+      return sortDirection === "asc" ? 1 : -1;
+    }
+    if (bVal === null || bVal === undefined) {
+      return sortDirection === "asc" ? -1 : 1;
+    }
 
-      // 숫자 필드 처리
-      if (
-        sortKey === "price" ||
-        sortKey === "sale" ||
-        sortKey === "purchase" ||
-        sortKey === "stock_quantity" ||
-        sortKey === "unit_weight" ||
-        sortKey === "unit_width" ||
-        sortKey === "unit_length" ||
-        sortKey === "unit_height"
-      ) {
-        const aNum = Number(aVal) || 0;
-        const bNum = Number(bVal) || 0;
-        if (sortDirection === "asc") {
-          return aNum - bNum;
-        }
-        return bNum - aNum;
-      }
-
-      // 날짜 필드 처리
-      if (sortKey === "created_at" || sortKey === "updated_at") {
-        const aDate = new Date(aVal as string).getTime();
-        const bDate = new Date(bVal as string).getTime();
-        if (sortDirection === "asc") {
-          return aDate - bDate;
-        }
-        return bDate - aDate;
-      }
-
-      // 문자열 필드 처리
-      const aStr = String(aVal).toLowerCase();
-      const bStr = String(bVal).toLowerCase();
+    if (
+      sortKey === "price" ||
+      sortKey === "sale" ||
+      sortKey === "purchase" ||
+      sortKey === "stock_quantity" ||
+      sortKey === "unit_weight" ||
+      sortKey === "unit_width" ||
+      sortKey === "unit_length" ||
+      sortKey === "unit_height"
+    ) {
+      const aNum = Number(aVal) || 0;
+      const bNum = Number(bVal) || 0;
       if (sortDirection === "asc") {
-        return aStr > bStr ? 1 : -1;
+        return aNum - bNum;
       }
-      return aStr < bStr ? 1 : -1;
-    });
+      return bNum - aNum;
+    }
 
-  // 페이지네이션
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-  const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+    if (sortKey === "created_at" || sortKey === "updated_at") {
+      const aDate = new Date(aVal as string).getTime();
+      const bDate = new Date(bVal as string).getTime();
+      if (sortDirection === "asc") {
+        return aDate - bDate;
+      }
+      return bDate - aDate;
+    }
 
-  // 통계
+    const aStr = String(aVal).toLowerCase();
+    const bStr = String(bVal).toLowerCase();
+    if (sortDirection === "asc") {
+      return aStr > bStr ? 1 : -1;
+    }
+    return aStr < bStr ? 1 : -1;
+  });
+
+  const totalPages = Math.ceil(totalProducts / itemsPerPage);
+  const paginatedProducts = sortedProducts;
+
+  // 통계 (전체 상품 데이터 사용)
   const stats = {
-    total: products.length,
-    active: products.filter((p) => p.is_active).length,
-    outOfStock: products.filter((p) => p.stock_quantity === 0).length,
-    lowStock: products.filter(
-      (p) => p.stock_quantity > 0 && p.stock_quantity < 10
-    ).length,
+    active: allProductsForStats.filter((p) => p.is_active).length,
+    yearly: allProductsForStats.filter((p) => p.product_kind === "YEARLY").length,
+    monthly: allProductsForStats.filter((p) => p.product_kind === "MONTHLY").length,
+    single: allProductsForStats.filter((p) => p.product_kind === "SINGLE").length,
   };
 
   return (
@@ -1049,12 +823,16 @@ const ProductListPage: React.FC<ProductListPageProps> = ({
                 variant="outline"
                 size="sm"
                 icon={RefreshCw}
-                onClick={() => setProducts([...mockProducts])}
+                onClick={fetchProducts}
                 loading={loading}
               >
                 새로고침
               </Button>
-              <Button size="sm" icon={Plus} onClick={onNavigateToRegister}>
+              <Button
+                size="sm"
+                icon={Plus}
+                onClick={() => navigate("/product/register")}
+              >
                 상품 등록
               </Button>
             </div>
@@ -1062,326 +840,140 @@ const ProductListPage: React.FC<ProductListPageProps> = ({
         </div>
 
         {/* 통계 카드 */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card className="unified-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted mb-1">전체 상품</p>
-                <p className="text-2xl font-bold text-ink">{stats.total}</p>
-              </div>
-              <Package className="w-8 h-8 text-neutral-400" />
-            </div>
-          </Card>
-          <Card className="unified-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted mb-1">판매중</p>
-                <p className="text-2xl font-bold text-subscription-active-600">
-                  {stats.active}
-                </p>
-              </div>
-              <Package className="w-8 h-8 text-subscription-active-400" />
-            </div>
-          </Card>
-          <Card className="unified-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted mb-1">품절</p>
-                <p className="text-2xl font-bold text-red-600">
-                  {stats.outOfStock}
-                </p>
-              </div>
-              <Package className="w-8 h-8 text-red-400" />
-            </div>
-          </Card>
-          <Card className="unified-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted mb-1">재고 부족</p>
-                <p className="text-2xl font-bold text-orange-600">
-                  {stats.lowStock}
-                </p>
-              </div>
-              <Package className="w-8 h-8 text-orange-400" />
-            </div>
-          </Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          <div className="bg-paper rounded-lg border border-line">
+            <StatCard
+              title="활성 상품"
+              value={stats.active}
+              icon={Package}
+              color="subscription-active"
+              valueColor="text-subscription-active-600"
+            />
+          </div>
+          <div className="bg-paper rounded-lg border border-line">
+            <StatCard
+              title="정기 구독"
+              value={stats.yearly}
+              icon={Package}
+              color="blue"
+            />
+          </div>
+          <div className="bg-paper rounded-lg border border-line">
+            <StatCard
+              title="월호 단품"
+              value={stats.monthly}
+              icon={Package}
+              color="green"
+            />
+          </div>
+          <div className="bg-paper rounded-lg border border-line">
+            <StatCard
+              title="일반 상품"
+              value={stats.single}
+              icon={Package}
+              color="purple"
+            />
+          </div>
+        </div>
+
+        {/* 탭 */}
+        <div className="mb-6">
+          <Tabs
+            tabs={[
+              {
+                key: "active",
+                label: "활성 상품",
+                icon: <CheckCircle className="w-4 h-4" />,
+              },
+              {
+                key: "inactive",
+                label: "비활성 상품",
+                icon: <XCircle className="w-4 h-4" />,
+              },
+            ]}
+            activeTab={productTab}
+            onChange={(key) => setProductTab(key as "active" | "inactive")}
+          />
         </div>
 
         {/* 검색 및 필터 */}
-        <div className="relative">
-          <Card className="unified-card mb-6 overflow-hidden" padding="none">
-            <div className="p-4 bg-gradient-to-r from-paper to-white">
-              {/* 상단: 검색 바, 필터 버튼, 정렬 버튼 */}
-              <div className="flex items-center gap-3 mb-4">
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-md font-medium text-sm transition-all ${
-                    showFilters
-                      ? "bg-accent text-white"
-                      : "bg-white text-ink border border-line hover:border-accent/30"
-                  }`}
-                >
-                  <Filter className="w-4 h-4" />
-                  필터
-                  <ChevronDown
-                    className={`w-4 h-4 transition-transform ${
-                      showFilters ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-                <div
-                  className="relative sort-menu-container"
-                  ref={(el) => setSortButtonRef(el)}
-                >
-                  <button
-                    onClick={() => setShowSortMenu(!showSortMenu)}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md font-medium text-sm bg-white text-ink border border-line hover:border-accent/30 transition-all"
-                  >
-                    <ArrowUpDown className="w-4 h-4" />
-                    정렬
-                  </button>
-                </div>
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted" />
-                  <input
-                    type="text"
-                    placeholder="상품명, 재고 코드로 검색"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="unified-input pl-10 w-full"
-                  />
-                </div>
-                {(searchTerm || kindFilter || activeFilter) && (
-                  <button
-                    onClick={() => {
-                      setSearchTerm("");
-                      setKindFilter("");
-                      setActiveFilter("");
-                    }}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md font-medium text-sm bg-accent text-white hover:bg-accent/90 transition-all"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    필터&정렬 초기화
-                  </button>
-                )}
-              </div>
+        <SearchFilterBar
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="상품명, 재고 코드로 검색"
+          showFilters={showFilters}
+          onToggleFilters={() => setShowFilters(!showFilters)}
+          filterFields={filterFields}
+          filterValues={{
+            kind: kindFilter,
+          }}
+          onFilterChange={(key, value) => {
+            if (key === "kind") {
+              setKindFilter(value);
+            }
+          }}
+          activeFilters={activeFilters}
+          sortOptions={sortOptions}
+          currentSort={{ key: sortKey, direction: sortDirection }}
+          onSortChange={handleSort}
+          onReset={() => {
+            setSearchTerm("");
+            setKindFilter("");
+          }}
+          hasActiveFilters={
+            !!(searchTerm || kindFilter)
+          }
+        />
 
-              {/* 선택된 필터 태그들 */}
-              {(kindFilter || activeFilter) && (
-                <div className="flex items-center gap-2 flex-wrap mb-4">
-                  {kindFilter && (
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md text-sm font-medium">
-                      상품 종류:{" "}
-                      {kindFilter === "YEARLY"
-                        ? "연간"
-                        : kindFilter === "MONTHLY"
-                        ? "월간"
-                        : "단품"}
-                      <button
-                        onClick={() => setKindFilter("")}
-                        className="hover:text-blue-900"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
-                  {activeFilter && (
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md text-sm font-medium">
-                      판매 상태: {activeFilter === "active" ? "활성" : "비활성"}
-                      <button
-                        onClick={() => setActiveFilter("")}
-                        className="hover:text-blue-900"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* 필터 옵션 */}
-              {showFilters && (
-                <div className="pt-4 border-t border-line">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="unified-label">상품 종류</label>
-                      <select
-                        value={kindFilter}
-                        onChange={(e) => setKindFilter(e.target.value)}
-                        className="unified-input w-full"
-                      >
-                        <option value="">전체</option>
-                        <option value="YEARLY">연간</option>
-                        <option value="MONTHLY">월간</option>
-                        <option value="SINGLE">단품</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="unified-label">판매 상태</label>
-                      <select
-                        value={activeFilter}
-                        onChange={(e) => setActiveFilter(e.target.value)}
-                        className="unified-input w-full"
-                      >
-                        <option value="">전체</option>
-                        <option value="active">활성</option>
-                        <option value="inactive">비활성</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </Card>
-
-          {/* 정렬 메뉴 - Card 밖으로 분리 */}
-          {showSortMenu && (
-            <div
-              className="absolute sort-menu-dropdown bg-white border border-line rounded-md shadow-lg z-[100] min-w-[200px]"
-              style={{
-                top: `${sortMenuPosition.top}px`,
-                left: `${sortMenuPosition.left}px`,
-              }}
-            >
-              <button
-                onClick={() => {
-                  handleSort("created_at", "desc");
-                  setShowSortMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 hover:bg-paper text-sm"
-              >
-                등록일 최신순
-              </button>
-              <button
-                onClick={() => {
-                  handleSort("created_at", "asc");
-                  setShowSortMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 hover:bg-paper text-sm"
-              >
-                등록일 오래된순
-              </button>
-              <div className="border-t border-line my-1"></div>
-              <button
-                onClick={() => {
-                  handleSort("product_name", "asc");
-                  setShowSortMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 hover:bg-paper text-sm"
-              >
-                상품명 가나다순
-              </button>
-              <button
-                onClick={() => {
-                  handleSort("product_name", "desc");
-                  setShowSortMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 hover:bg-paper text-sm"
-              >
-                상품명 역순
-              </button>
-              <div className="border-t border-line my-1"></div>
-              <button
-                onClick={() => {
-                  handleSort("sale", "desc");
-                  setShowSortMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 hover:bg-paper text-sm"
-              >
-                판매가 높은순
-              </button>
-              <button
-                onClick={() => {
-                  handleSort("sale", "asc");
-                  setShowSortMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 hover:bg-paper text-sm"
-              >
-                판매가 낮은순
-              </button>
-            </div>
+        {/* 목록 */}
+        <ListPage
+          data={paginatedProducts}
+          columns={columns}
+          keyExtractor={(row) => String(row.product_id)}
+          emptyMessage="상품이 없습니다"
+          selectable
+          selectedItems={new Set(
+            Array.from(selectedProducts).map((id) => String(id))
           )}
-        </div>
-
-        {/* 일괄 작업 */}
-        <Card className="unified-card mb-6 p-4 bg-neutral-50 border-neutral-200">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-ink">
-              {selectedProducts.size}개 선택됨
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                icon={Download}
-                onClick={() => {
-                  // 선택된 상품 엑셀 다운로드
-                }}
-                disabled={selectedProducts.size === 0}
-              >
-                엑셀 다운로드
-              </Button>
-              {selectedProducts.size > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedProducts(new Set())}
-                >
-                  선택 해제
-                </Button>
-              )}
-            </div>
-          </div>
-        </Card>
-
-        {/* 테이블 */}
-        <Card className="unified-card">
-          <>
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={
-                    products.length > 0 &&
-                    selectedProducts.size === products.length
-                  }
-                  onChange={(e) => handleSelectAll(e.target.checked)}
-                  className="w-4 h-4 rounded border-line text-accent focus:ring-accent"
-                />
-                <span className="text-sm text-muted">
-                  전체 {filteredProducts.length}건
-                </span>
-              </div>
-              <span className="text-sm text-muted">
-                {(currentPage - 1) * itemsPerPage + 1} -{" "}
-                {Math.min(currentPage * itemsPerPage, filteredProducts.length)}{" "}
-                / {filteredProducts.length}
-              </span>
-            </div>
-
-            <Table
-              columns={columns}
-              data={paginatedProducts}
-              keyExtractor={(row) => String(row.product_id)}
-              onSort={handleSort}
-              sortKey={sortKey}
-              sortDirection={sortDirection}
-              emptyMessage="상품이 없습니다"
-              hoverable
-              onRowClick={handleViewDetail}
-            />
-
-            {totalPages > 1 && (
-              <div className="mt-6">
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={setCurrentPage}
-                />
-              </div>
-            )}
-          </>
-        </Card>
+          onSelectAll={handleSelectAll}
+          onSelectItem={(id, checked) =>
+            handleSelectProduct(String(id), checked)
+          }
+          allSelected={
+            paginatedProducts.length > 0 &&
+            paginatedProducts.every((p) =>
+              selectedProducts.has(String(p.product_id))
+            )
+          }
+          onSort={handleSort}
+          sortKey={sortKey}
+          sortDirection={sortDirection}
+          onRowClick={handleViewDetail}
+          hoverable
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={totalProducts}
+          itemsPerPage={itemsPerPage}
+          batchActions={[
+            {
+              label: "엑셀 다운로드",
+              icon: Download,
+              onClick: () => {
+                // 선택된 상품 엑셀 다운로드
+              },
+            },
+            {
+              label: "삭제",
+              icon: Trash2,
+              onClick: handleDeleteClick,
+              variant: "danger",
+            },
+          ]}
+          loading={loading}
+          error={error}
+          onRetry={fetchProducts}
+        />
       </div>
 
       {/* 상품 상세 모달 */}
@@ -1415,6 +1007,18 @@ const ProductListPage: React.FC<ProductListPageProps> = ({
               </Button>
               <Button onClick={handleStartEdit} icon={Edit}>
                 수정
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  if (selectedProduct) {
+                    setProductsToDelete([selectedProduct]);
+                    setIsDeleteModalOpen(true);
+                  }
+                }}
+                icon={Trash2}
+              >
+                삭제
               </Button>
             </>
           )
@@ -1459,30 +1063,19 @@ const ProductListPage: React.FC<ProductListPageProps> = ({
                   )}
 
                   {/* 재고 코드 */}
-                  {isEditMode ? (
-                    <Input
-                      label="재고 코드"
-                      value={
-                        editForm.product_code || selectedProduct.product_code
-                      }
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          product_code: e.target.value,
-                        })
-                      }
-                      required
-                    />
-                  ) : (
-                    <div>
-                      <label className="text-xs text-muted uppercase tracking-wide">
-                        재고 코드
-                      </label>
-                      <p className="text-base font-medium text-ink mt-1 font-mono">
-                        {selectedProduct.product_code}
+                  <div>
+                    <label className="text-xs text-muted uppercase tracking-wide">
+                      재고 코드
+                    </label>
+                    <p className="text-base font-medium text-ink mt-1 font-mono">
+                      {selectedProduct.product_code}
+                    </p>
+                    {isEditMode && (
+                      <p className="text-xs text-muted mt-1">
+                        재고 코드는 수정할 수 없습니다.
                       </p>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   {/* Cafe24 상품 코드 */}
                   {isEditMode ? (
@@ -1537,6 +1130,42 @@ const ProductListPage: React.FC<ProductListPageProps> = ({
                       </p>
                     </div>
                   )}
+
+                  {/* 발행월/정기구독 시작 월 */}
+                  {isEditMode ? (
+                    <Input
+                      label={
+                        selectedProduct.product_kind === "YEARLY"
+                          ? "정기구독 시작 월 (YYYYMM)"
+                          : "발행월 (YYYYMM)"
+                      }
+                      type="text"
+                      value={
+                        editForm.subscribe_start_issue !== undefined
+                          ? editForm.subscribe_start_issue || ""
+                          : selectedProduct.subscribe_start_issue || ""
+                      }
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          subscribe_start_issue: e.target.value || null,
+                        })
+                      }
+                      placeholder="예: 202401"
+                      maxLength={6}
+                    />
+                  ) : (
+                    <div>
+                      <label className="text-xs text-muted uppercase tracking-wide">
+                        {selectedProduct.product_kind === "YEARLY"
+                          ? "정기구독 시작 월"
+                          : "발행월"}
+                      </label>
+                      <p className="text-base text-ink mt-1 font-mono">
+                        {selectedProduct.subscribe_start_issue || "-"}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1549,49 +1178,30 @@ const ProductListPage: React.FC<ProductListPageProps> = ({
                 </div>
                 <div className="space-y-4 pt-2">
                   {/* 상품 종류 */}
-                  {isEditMode ? (
-                    <Select
-                      label="상품 종류"
-                      required
-                      value={
-                        editForm.product_kind || selectedProduct.product_kind
-                      }
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          product_kind: e.target.value as
-                            | "YEARLY"
-                            | "MONTHLY"
-                            | "SINGLE",
-                        })
-                      }
-                      options={[
-                        { value: "YEARLY", label: "연간" },
-                        { value: "MONTHLY", label: "월간" },
-                        { value: "SINGLE", label: "단품" },
-                      ]}
-                    />
-                  ) : (
-                    <div>
-                      <label className="text-xs text-muted uppercase tracking-wide">
-                        상품 종류
-                      </label>
-                      <div className="mt-1">
-                        <Badge
-                          variant={
-                            selectedProduct.product_kind === "YEARLY"
-                              ? "info"
-                              : selectedProduct.product_kind === "MONTHLY"
-                              ? "success"
-                              : "default"
-                          }
-                          size="sm"
-                        >
-                          {PRODUCT_KIND_LABELS[selectedProduct.product_kind]}
-                        </Badge>
-                      </div>
+                  <div>
+                    <label className="text-xs text-muted uppercase tracking-wide">
+                      상품 종류
+                    </label>
+                    <div className="mt-1">
+                      <Badge
+                        variant={
+                          selectedProduct.product_kind === "YEARLY"
+                            ? "info"
+                            : selectedProduct.product_kind === "MONTHLY"
+                            ? "success"
+                            : "default"
+                        }
+                        size="sm"
+                      >
+                        {PRODUCT_KIND_LABELS[selectedProduct.product_kind]}
+                      </Badge>
                     </div>
-                  )}
+                    {isEditMode && (
+                      <p className="text-xs text-muted mt-1">
+                        상품 종류는 수정할 수 없습니다.
+                      </p>
+                    )}
+                  </div>
 
                   {/* 판매 상태 */}
                   {isEditMode ? (
@@ -1780,8 +1390,8 @@ const ProductListPage: React.FC<ProductListPageProps> = ({
               </div>
             </div>
 
-            {/* 물리적 정보 (MONTHLY만) */}
-            {selectedProduct.product_kind === "MONTHLY" && (
+            {/* 물리적 정보 (MONTHLY, SINGLE) */}
+            {(selectedProduct.product_kind === "MONTHLY" || selectedProduct.product_kind === "SINGLE") && (
               <PhysicalInfoCard
                 widthMm={selectedProduct.unit_width}
                 lengthMm={selectedProduct.unit_length}
@@ -1822,6 +1432,84 @@ const ProductListPage: React.FC<ProductListPageProps> = ({
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* 삭제 확인 모달 */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setProductsToDelete([]);
+        }}
+        title="상품 삭제 확인"
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-3 w-full">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setIsDeleteModalOpen(false);
+                setProductsToDelete([]);
+              }}
+              disabled={isDeleting}
+            >
+              취소
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleConfirmDelete}
+              icon={Trash2}
+              loading={isDeleting}
+              disabled={isDeleting}
+            >
+              영구 삭제
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-4 bg-danger-50 border border-danger-200 rounded-lg">
+            <AlertTriangle className="w-5 h-5 text-danger flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-ink mb-2">
+                정말로 {productsToDelete.length}개의 상품을 영구 삭제하시겠습니까?
+              </p>
+              <p className="text-xs text-muted">
+                이 작업은 되돌릴 수 없습니다. 삭제된 상품 정보는 복구할 수 없으며, 복원 기능이 없습니다.
+              </p>
+            </div>
+          </div>
+          
+          {productsToDelete.length > 0 && (
+            <div className="max-h-48 overflow-y-auto border border-line rounded-lg">
+              <div className="p-3 bg-paper border-b border-line">
+                <p className="text-xs font-medium text-muted uppercase tracking-wide">
+                  삭제될 상품 목록 ({productsToDelete.length}개)
+                </p>
+              </div>
+              <div className="divide-y divide-line">
+                {productsToDelete.slice(0, 10).map((product) => (
+                  <div key={product.product_id} className="p-3">
+                    <p className="text-sm font-medium text-ink">
+                      {product.product_name}
+                    </p>
+                    <p className="text-xs text-muted mt-1">
+                      {product.product_code}
+                      {product.product_kind && ` • ${PRODUCT_KIND_LABELS[product.product_kind as keyof typeof PRODUCT_KIND_LABELS]}`}
+                    </p>
+                  </div>
+                ))}
+                {productsToDelete.length > 10 && (
+                  <div className="p-3 text-center">
+                    <p className="text-xs text-muted">
+                      외 {productsToDelete.length - 10}개...
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </Modal>
     </div>
   );
