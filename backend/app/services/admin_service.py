@@ -58,7 +58,7 @@ def get_admins(
     total = query.count()
     
     offset = (page - 1) * limit
-    items = query.order_by(Admin.created_at.desc()).offset(offset).limit(limit).all()
+    items = query.order_by(Admin.created_at.asc()).offset(offset).limit(limit).all()
     
     return items, total
 
@@ -66,7 +66,7 @@ def get_admins(
 def create_admin(db: Session, admin_in: AdminCreate) -> Admin:
     admin = Admin(
         email=admin_in.email,
-        hashed_password=get_password_hash(admin_in.password),
+        hashed_password=get_password_hash(admin_in.plain_password),
         admin_name=admin_in.admin_name,
         admin_role=admin_in.admin_role,
         is_active=admin_in.is_active
