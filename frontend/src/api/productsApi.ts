@@ -13,13 +13,6 @@ export const productsApi = {
     return api.get<PaginatedResponse<ProductResponse>>("/products", { params });
   },
 
-  // GET /products/kind/{product_kind} - 상품종류별 조회
-  getProductsByKind: (productKind: string, activeOnly: boolean = true) => {
-    return api.get<ResponseModel<ProductResponse[]>>(`/products/kind/${productKind}`, {
-      params: { active_only: activeOnly },
-    });
-  },
-
   // GET /products/code/{product_code} - 상품코드로 조회
   getProductByCode: (productCode: string) => {
     return api.get<ResponseModel<ProductResponse>>(`/products/code/${productCode}`);
