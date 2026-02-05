@@ -132,7 +132,7 @@ def update_product(
         details={
             "reason": "상품 수정 성공",
             "before": old_data, 
-            "after": product_in.model_dump(exclude_unset=True)
+            "after": product_in.model_dump(exclude_unset=True, mode='json')
         },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
