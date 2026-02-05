@@ -10,7 +10,7 @@ export interface BatchAction {
   icon?: React.ComponentType<{ className?: string }>;
   onClick: () => void;
   disabled?: boolean;
-  variant?: "default" | "outline" | "ghost";
+  variant?: "default" | "outline" | "ghost" | "danger";
 }
 
 interface ListPageProps<T = any> {
@@ -22,8 +22,8 @@ interface ListPageProps<T = any> {
 
   // 선택 기능
   selectable?: boolean;
-  selectedItems: Set<string | number>;
-  onSelectAll: (checked: boolean) => void;
+  selectedItems?: Set<string | number>;
+  onSelectAll?: (checked: boolean) => void;
   onSelectItem?: (id: string | number, checked: boolean) => void;
   allSelected?: boolean;
 
@@ -35,13 +35,21 @@ interface ListPageProps<T = any> {
   // 행 클릭
   onRowClick?: (row: T, index: number) => void;
   hoverable?: boolean;
+  rowClassName?: (row: T) => string;
 
   // 페이지네이션
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
-  totalItems: number;
+  totalItems?: number; // 없으면 data.length 사용
   itemsPerPage: number;
+
+  // 헤더 커스터마이징
+  headerText?: string | ReactNode; // "전체 몇건" 또는 "검색 결과 몇건" 등
+  headerLeftContent?: ReactNode; // 헤더 왼쪽 커스텀 컨텐츠
+  headerRightContent?: ReactNode; // 헤더 오른쪽 커스텀 컨텐츠
+  showHeader?: boolean; // 헤더 표시 여부
+  customHeader?: ReactNode; // 완전히 커스텀 헤더
 
   // 일괄 작업
   batchActions?: BatchAction[];
@@ -51,9 +59,6 @@ interface ListPageProps<T = any> {
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
-
-  // 커스텀 헤더
-  customHeader?: ReactNode;
 
   // 커스텀 푸터
   customFooter?: ReactNode;
@@ -68,7 +73,7 @@ const ListPage = <T extends Record<string, any>>({
   keyExtractor,
   emptyMessage = "데이터가 없습니다",
   selectable = false,
-  selectedItems,
+  selectedItems = new Set(),
   onSelectAll,
   onSelectItem,
   allSelected = false,
@@ -77,23 +82,28 @@ const ListPage = <T extends Record<string, any>>({
   sortDirection,
   onRowClick,
   hoverable = true,
+  rowClassName,
   currentPage,
   totalPages,
   onPageChange,
   totalItems,
   itemsPerPage,
+  headerText,
+  headerLeftContent,
+  headerRightContent,
+  showHeader = true,
+  customHeader,
   batchActions = [],
   showBatchActions = true,
   loading = false,
   error = null,
   onRetry,
-  customHeader,
   customFooter,
   className = "",
 }: ListPageProps<T>) => {
   // 일괄 작업 바
   const renderBatchActions = () => {
-    if (!showBatchActions || selectedItems.size === 0) return null;
+    if (!showBatchActions || !selectedItems || selectedItems.size === 0) return null;
 
     return (
       <Card className="unified-card mb-6 p-4 bg-neutral-50 border-neutral-200">
@@ -131,25 +141,40 @@ const ListPage = <T extends Record<string, any>>({
 
   // 테이블 헤더
   const renderTableHeader = () => {
+    if (!showHeader) return null;
     if (customHeader) return customHeader;
+
+    const displayTotalItems = totalItems ?? data.length;
+    const startIndex = (currentPage - 1) * itemsPerPage + 1;
+    const endIndex = Math.min(currentPage * itemsPerPage, displayTotalItems);
+
+    // 기본 헤더 텍스트
+    const defaultHeaderText = headerText ?? `전체 ${displayTotalItems}건`;
 
     return (
       <div className="px-4 py-3 border-b border-line flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {selectable && (
-            <input
-              type="checkbox"
-              checked={allSelected}
-              onChange={(e) => onSelectAll(e.target.checked)}
-              className="w-4 h-4 rounded border-line text-accent focus:ring-accent"
-            />
+          {headerLeftContent || (
+            <span className="text-sm text-muted">
+              {typeof defaultHeaderText === "string" ? (
+                defaultHeaderText
+              ) : (
+                defaultHeaderText
+              )}
+            </span>
           )}
-          <span className="text-sm text-muted">전체 {totalItems}개</span>
         </div>
-        <span className="text-sm text-muted">
-          {(currentPage - 1) * itemsPerPage + 1} -{" "}
-          {Math.min(currentPage * itemsPerPage, totalItems)} / {totalItems}
-        </span>
+        {headerRightContent || (
+          <span className="text-sm text-muted">
+            {displayTotalItems > 0 ? (
+              <>
+                {startIndex} - {endIndex} / {displayTotalItems}
+              </>
+            ) : (
+              <>0 / 0</>
+            )}
+          </span>
+        )}
       </div>
     );
   };
@@ -197,7 +222,18 @@ const ListPage = <T extends Record<string, any>>({
           selectable={selectable}
           selectedRows={Array.from(selectedItems)}
           onSelectRow={onSelectItem}
-          onSelectAll={onSelectAll}
+          onSelectAll={
+            onSelectAll
+              ? () => {
+                  // Table의 allSelected 상태를 기반으로 토글
+                  const isAllSelected =
+                    data.length > 0 &&
+                    selectedItems.size === data.length;
+                  onSelectAll(!isAllSelected);
+                }
+              : undefined
+          }
+          rowClassName={rowClassName}
         />
 
         {/* 페이지네이션 */}

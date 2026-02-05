@@ -24,7 +24,7 @@ export interface TableProps<T = any> {
   className?: string;
   selectable?: boolean;
   selectedRows?: (string | number)[];
-  onSelectRow?: (id: string | number) => void;
+  onSelectRow?: (id: string | number, checked: boolean) => void;
   onSelectAll?: () => void;
   rowClassName?: (row: T) => string;
 }
@@ -77,18 +77,20 @@ const Table = <T extends Record<string, any>>({
   const allSelected = data.length > 0 && selectedRows.length === data.length;
 
   return (
-    <div className={`overflow-x-auto ${className}`}>
+    <div className={`overflow-x-auto bg-white border border-white ${className}`}>
       <table className="w-full border-collapse table-fixed">
         <thead>
-          <tr className="border-b border-line bg-primary-50">
+          <tr className="border-b border-line bg-white">
             {selectable && (
-              <th className="px-2 py-3 w-12">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={onSelectAll}
-                  className="w-4 h-4 text-accent border-line rounded focus:ring-accent"
-                />
+              <th className="px-2 py-3 w-10">
+                <div className="flex justify-center">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={onSelectAll}
+                    className="w-3.5 h-3.5 text-accent border-line rounded focus:ring-accent cursor-pointer"
+                  />
+                </div>
               </th>
             )}
             {columns.map((column) => (
@@ -125,7 +127,7 @@ const Table = <T extends Record<string, any>>({
             ))}
           </tr>
         </thead>
-        <tbody>
+        <tbody className="bg-white">
           {data.length === 0 ? (
             <tr>
               <td
@@ -144,7 +146,7 @@ const Table = <T extends Record<string, any>>({
               return (
                 <tr
                   key={rowId}
-                  className={`border-b border-line ${
+                  className={`border-b border-line bg-white ${
                     hoverable ? "hover:bg-chip/50 transition-colors" : ""
                   } ${onRowClick ? "cursor-pointer" : ""} ${
                     isSelected ? "bg-accent/10" : ""
@@ -167,17 +169,19 @@ const Table = <T extends Record<string, any>>({
                   }
                 >
                   {selectable && (
-                    <td className="px-2 py-3 w-12">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          onSelectRow?.(rowId);
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-4 h-4 text-accent border-line rounded focus:ring-accent"
-                      />
+                    <td className="px-2 py-3 w-10">
+                      <div className="flex justify-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            onSelectRow?.(rowId, e.target.checked);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-3.5 h-3.5 text-accent border-line rounded focus:ring-accent cursor-pointer"
+                        />
+                      </div>
                     </td>
                   )}
                   {columns.map((column) => {
