@@ -18,6 +18,7 @@ import Breadcrumb from "../components/common/Breadcrumb";
 import Card from "../components/common/Card";
 import Table, { Column } from "../components/common/Table";
 import Pagination from "../components/common/Pagination";
+import ListPage from "../components/common/ListPage";
 import Modal from "../components/common/Modal";
 import { activityLogsApi } from "../api/activityLogsApi";
 import { ActivityLogResponse, ActivityLogListQuery } from "../types/activityLog";
@@ -592,67 +593,35 @@ const ActivityLogPage: React.FC = () => {
         </div>
 
         {/* 테이블 */}
-        <Card className="unified-card">
-          <div className="px-4 py-3 border-b border-line flex items-center justify-between">
-            <span className="text-sm text-muted">
-              {searchTerm ? (
-                <>검색 결과 {filteredLogs.length}건</>
-              ) : (
-                <>전체 {pagination.total}건</>
-              )}
-            </span>
-            <span className="text-sm text-muted">
-              {searchTerm ? (
-                <>
-                  {filteredLogs.length > 0 ? (
-                    <>
-                      {(pagination.page - 1) * pagination.limit + 1} -{" "}
-                      {Math.min(pagination.page * pagination.limit, filteredLogs.length)} /{" "}
-                      {filteredLogs.length}
-                    </>
-                  ) : (
-                    <>0 / 0</>
-                  )}
-                </>
-              ) : (
-                <>
-                  {(pagination.page - 1) * pagination.limit + 1} -{" "}
-                  {Math.min(pagination.page * pagination.limit, pagination.total)} /{" "}
-                  {pagination.total}
-                </>
-              )}
-            </span>
-          </div>
-
-          <Table
-            columns={columns}
-            data={filteredLogs}
-            keyExtractor={(item) => String(item.log_id)}
-            onSort={handleSort}
-            sortKey={sortKey}
-            sortDirection={sortDirection}
-            emptyMessage={
-              searchTerm
-                ? "검색 결과가 없습니다."
-                : "활동 로그가 없습니다."
-            }
-            hoverable
-            onRowClick={handleViewDetail}
-          />
-
-          {/* 페이지네이션: 서버 사이드 페이지네이션 활용 */}
-          {pagination.total_pages > 1 && (
-            <div className="p-4 border-t border-line">
-              <Pagination
-                currentPage={pagination.page}
-                totalPages={pagination.total_pages}
-                onPageChange={(page) => {
-                  setPagination((prev) => ({ ...prev, page }));
-                }}
-              />
-            </div>
-          )}
-        </Card>
+        <ListPage
+          data={filteredLogs}
+          columns={columns}
+          keyExtractor={(item) => String(item.log_id)}
+          onSort={handleSort}
+          sortKey={sortKey}
+          sortDirection={sortDirection}
+          emptyMessage={
+            searchTerm
+              ? "검색 결과가 없습니다."
+              : "활동 로그가 없습니다."
+          }
+          hoverable
+          onRowClick={handleViewDetail}
+          currentPage={pagination.page}
+          totalPages={pagination.total_pages}
+          onPageChange={(page) => {
+            setPagination((prev) => ({ ...prev, page }));
+          }}
+          totalItems={searchTerm ? filteredLogs.length : pagination.total}
+          itemsPerPage={pagination.limit}
+          headerText={
+            searchTerm ? (
+              <>검색 결과 {filteredLogs.length}건</>
+            ) : (
+              <>전체 {pagination.total}건</>
+            )
+          }
+        />
 
         {/* 상세보기 모달 */}
         <Modal
