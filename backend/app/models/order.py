@@ -8,8 +8,8 @@ class Order(Base):
     __tablename__ = "orders"
     
     order_id = Column(BigInteger, primary_key=True, autoincrement=True)
-    customer_id = Column(BigInteger, nullable=False)
-    external_order_id = Column(String(50), nullable=True)
+    customer_id = Column(BigInteger, nullable=False, comment="고객 ID")
+    external_order_id = Column(String(50), nullable=True, comment="외부 주문 ID")
     order_channel = Column(
         Enum("CAFE24", "GPMALL", "OFFLINE", name="order_channel_enum"),
         nullable=False,
@@ -21,20 +21,20 @@ class Order(Base):
         default="ORDERED",
         comment="주문 상태"
     )
-    total_amount = Column(Integer, nullable=False, default=0)
-    discount_amount = Column(Integer, nullable=True, default=0)
-    refund_amount = Column(Integer, nullable=True, default=0, comment="환불총액")
-    send_fee = Column(Integer, nullable=True, default=0)
-    payment_amount = Column(Integer, nullable=False, default=0)
-    payment_method = Column(String(30), nullable=True)
-    address_id = Column(BigInteger, nullable=True)
-    request_memo = Column(Text, nullable=True)
-    admin_memo = Column(Text, nullable=True)
-    order_at = Column(DateTime, nullable=False, server_default=func.now())
-    payment_at = Column(DateTime, nullable=True)
-    cancelled_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, nullable=False, server_default=func.now())
-    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+    total_amount = Column(Integer, nullable=False, default=0, comment="총 주문 금액")
+    discount_amount = Column(Integer, nullable=True, default=0, comment="할인 금액")
+    refund_amount = Column(Integer, nullable=True, default=0, comment="환불 금액")
+    send_fee = Column(Integer, nullable=True, default=0, comment="배송비")
+    payment_amount = Column(Integer, nullable=False, default=0, comment="결제 금액")
+    payment_method = Column(String(30), nullable=True, comment="결제 방법")
+    address_id = Column(BigInteger, nullable=True, comment="배송지 ID")
+    request_memo = Column(Text, nullable=True, comment="고객 요청 메모")
+    admin_memo = Column(Text, nullable=True, comment="관리자 메모")
+    order_at = Column(DateTime, nullable=False, server_default=func.now(), comment="주문 일시")
+    payment_at = Column(DateTime, nullable=True, comment="결제 일시")
+    cancelled_at = Column(DateTime, nullable=True, comment="취소 일시")
+    created_at = Column(DateTime, nullable=False, server_default=func.now(), comment="생성 일시")
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now(), comment="수정 일시")
     
     # Relationships
     customer = relationship(
