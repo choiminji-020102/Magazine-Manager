@@ -1,6 +1,40 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
+from fastapi import Query
+
+
+class OrderListQuery(BaseModel):
+    """주문 목록 조회 쿼리 파라미터"""
+    page: int = Field(1, ge=1, description="페이지 번호")
+    limit: int = Field(20, ge=1, le=100, description="페이지당 항목 수")
+    search: Optional[str] = Field(None, description="검색어")
+    channel: Optional[str] = Field(None, description="주문 채널 필터 (CAFE24, GPMALL, OFFLINE)")
+    order_status: Optional[str] = Field(None, description="주문 상태 필터")
+    start_date: Optional[str] = Field(None, description="시작 날짜")
+    end_date: Optional[str] = Field(None, description="종료 날짜")
+
+    @classmethod
+    def as_query_params(
+        cls,
+        page: int = Query(1, ge=1, description="페이지 번호"),
+        limit: int = Query(20, ge=1, le=100, description="페이지당 항목 수"),
+        search: Optional[str] = Query(None, description="검색어"),
+        channel: Optional[str] = Query(None, description="주문 채널 필터 (CAFE24, GPMALL, OFFLINE)"),
+        order_status: Optional[str] = Query(None, description="주문 상태 필터"),
+        start_date: Optional[str] = Query(None, description="시작 날짜"),
+        end_date: Optional[str] = Query(None, description="종료 날짜"),
+    ):
+        """쿼리 파라미터로 사용하기 위한 팩토리 메서드"""
+        return cls(
+            page=page,
+            limit=limit,
+            search=search,
+            channel=channel,
+            order_status=order_status,
+            start_date=start_date,
+            end_date=end_date
+        )
 
 
 # 주문 생성 시 주문자 정보

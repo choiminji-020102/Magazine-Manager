@@ -1,6 +1,7 @@
 import api from "./axios";
 import type { ResponseModel, PaginatedResponse } from "../types/api";
 import type {
+  OrderListQuery,
   OrderCreate,
   OrderUpdate,
   OrderResponse,
@@ -12,15 +13,7 @@ import type { SendListResponse } from "../types/send";
 
 export const ordersApi = {
   // GET /orders - 주문 목록 조회
-  getOrders: (params: {
-    page?: number;
-    limit?: number;
-    search?: string | null;
-    channel?: string | null;
-    order_status?: string | null;
-    start_date?: string | null;
-    end_date?: string | null;
-  }) => {
+  getOrders: (params?: OrderListQuery) => {
     return api.get<PaginatedResponse<OrderListResponse>>("/orders", { params });
   },
 

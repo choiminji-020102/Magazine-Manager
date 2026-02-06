@@ -1,5 +1,15 @@
 // Order 관련 타입
 
+export interface OrderListQuery {
+  page?: number;
+  limit?: number;
+  search?: string | null;
+  channel?: string | null;
+  order_status?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+}
+
 export interface OrderCustomerInput {
   customer_name: string;
   customer_phone: string;

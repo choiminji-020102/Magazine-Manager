@@ -7,7 +7,7 @@ from app.db.session import get_db
 from app.core.deps import require_roles
 from app.models.admin import Admin
 from app.schemas.order import (
-    OrderCreate, OrderUpdate, OrderResponse, OrderDetailResponse,
+    OrderListQuery, OrderCreate, OrderUpdate, OrderResponse, OrderDetailResponse,
     OrderListResponse, OrderStatusUpdate, OrderItemResponse
 )
 from app.schemas.send import SendListResponse
@@ -56,27 +56,23 @@ def build_order_detail_response(order, customer, items) -> OrderDetailResponse:
 
 @router.get("", response_model=PaginatedResponse[OrderListResponse])
 def get_orders(
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
-    search: Optional[str] = None,
-    channel: Optional[str] = None,
-    order_status: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    query: OrderListQuery = Depends(OrderListQuery.as_query_params),
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin)
 ):
     """주문 목록 조회"""
-    items, total = order_service.get_orders(db, page, limit, search, channel, order_status, start_date, end_date)
+    items, total = order_service.get_orders(
+        db, query.page, query.limit, query.search, query.channel, query.order_status, query.start_date, query.end_date
+    )
     
     return PaginatedResponse(
         message="주문 목록을 조회했습니다.",
         data=[OrderListResponse(**item) for item in items],
         pagination=PaginationMeta(
             total=total,
-            page=page,
-            limit=limit,
-            total_pages=math.ceil(total / limit) if total > 0 else 0
+            page=query.page,
+            limit=query.limit,
+            total_pages=math.ceil(total / query.limit) if total > 0 else 0
         )
     )
 
