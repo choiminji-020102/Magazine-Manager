@@ -25,6 +25,6 @@ class Product(Base):
     is_active = Column(Boolean, nullable=False, default=True, comment="판매 여부")
     external_product_code_cafe24 = Column(String(50), nullable=True, comment="Cafe24 코드")
     external_product_code_gpmall = Column(String(50), nullable=True, comment="갓피플Mall 코드")
-    subscribe_start_issue = Column(String(10), nullable=True, comment="구독 시작 호")
+    subscribe_start_issue = Column(String(10), nullable=True, comment="구독 시작 호")   # 202601
     created_at = Column(DateTime, nullable=False, server_default=func.now(), comment="생성 일시")
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now(), comment="수정 일시")
