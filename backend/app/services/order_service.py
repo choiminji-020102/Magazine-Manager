@@ -1,9 +1,12 @@
+# 표준 라이브러리
+from typing import List, Tuple, Optional
+from datetime import datetime
+
+# 서드파티 라이브러리
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-from typing import Optional, List, Tuple
-from datetime import datetime
-from fastapi import HTTPException, status
 
+# 로컬 애플리케이션
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.customer import Customer
@@ -11,43 +14,24 @@ from app.models.product import Product
 from app.schemas.order import OrderCreate, OrderUpdate
 from app.schemas.customer import CustomerCreate
 from app.schemas.address import AddressCreate
+from app.crud import order as order_crud
 from app.services import customer_service, address_service
 from app.core.utils import format_phone_number, calculate_subscribe_end_issue
 
-def get_order_by_id(db: Session, order_id: int) -> Optional[Order]:
-    order = db.query(Order).filter(
-        Order.order_id == order_id
-    ).first()
-    if order is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문을 찾을 수 없습니다."
-        )
-    return order
 
-def get_active_order_by_id(db: Session, order_id: int) -> Optional[Order]:
-    order = db.query(Order).filter(
-        Order.order_id == order_id,
-        Order.cancelled_at.is_(None)
-    ).first()
-    if order is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문을 찾을 수 없거나 취소되었습니다."
-        )
-    return order
+def get_order_by_id(db: Session, order_id: int) -> Order:
+    """주문 ID로 주문 조회"""
+    return order_crud.read_order_by_id(order_id=order_id, db=db)
 
 
-def get_order_by_external_id(db: Session, external_order_id: str) -> Optional[Order]:
-    order = db.query(Order).filter(
-        Order.external_order_id == external_order_id
-    ).first()
-    if order is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문을 찾을 수 없습니다."
-        )
-    return order
+def get_active_order_by_id(db: Session, order_id: int) -> Order:
+    """활성 주문 ID로 주문 조회 (취소되지 않은 주문)"""
+    return order_crud.read_active_order_by_id(order_id=order_id, db=db)
+
+
+def get_order_by_external_id(db: Session, external_order_id: str) -> Order:
+    """외부 주문 ID로 주문 조회"""
+    return order_crud.read_order_by_external_id(external_order_id=external_order_id, db=db)
 
 
 def get_orders(
@@ -60,19 +44,19 @@ def get_orders(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None
 ) -> Tuple[List[dict], int]:
-    from app.core.utils import format_phone_number
-    
+    """주문 목록 조회 (검색, 필터링, 페이지네이션 지원)"""
     query = db.query(
         Order,
         Customer.customer_name,
         Customer.customer_phone
     ).join(Customer, Order.customer_id == Customer.customer_id)
     
+    # 검색 조건 적용
     if search:
-        # 검색어가 숫자만 포함하면 전화번호로 간주
         search_digits = ''.join(filter(str.isdigit, search))
         
         if len(search_digits) >= 4:
+            # 전화번호 형식화하여 검색
             formatted_phone, phone_num4 = format_phone_number(search)
             query = query.filter(
                 or_(
@@ -92,6 +76,7 @@ def get_orders(
                 )
             )
     
+    # 필터 조건 적용
     if channel:
         query = query.filter(Order.order_channel == channel)
     
@@ -102,18 +87,20 @@ def get_orders(
         query = query.filter(Order.order_at >= start_date)
     
     if end_date:
-        query = query.filter(Order.order_at <= end_date + " 23:59:59")
+        query = query.filter(Order.order_at <= f"{end_date} 23:59:59")
     
     total = query.count()
     
+    # 페이지네이션
     offset = (page - 1) * limit
     results = query.order_by(Order.order_at.desc()).offset(offset).limit(limit).all()
     
+    # 결과 변환
     items = []
     for order, customer_name, customer_phone in results:
         item_count = db.query(OrderItem).filter(
             OrderItem.order_id == order.order_id,
-            OrderItem.cancelled_at == None
+            OrderItem.cancelled_at.is_(None)
         ).count()
         
         items.append({
@@ -134,9 +121,8 @@ def get_orders(
 
 
 def get_orders_by_customer(db: Session, customer_id: int, limit: int = 50) -> List[Order]:
-    return db.query(Order).filter(
-        Order.customer_id == customer_id
-    ).order_by(Order.order_at.desc()).limit(limit).all()
+    """고객 ID로 주문 목록 조회"""
+    return order_crud.read_orders_by_customer(customer_id=customer_id, db=db, limit=limit)
 
 
 def create_order(db: Session, order_in: OrderCreate) -> Order:
@@ -146,7 +132,6 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
     customer_id = order_in.customer_id
     
     if not customer_id and order_in.customer:
-        # 연락처로 기존 고객 검색
         existing_customer = customer_service.get_customer_by_phone(db, order_in.customer.customer_phone)
         
         if existing_customer:
@@ -168,7 +153,6 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
     address_id = order_in.address_id
     
     if not address_id and order_in.address:
-        # 동일 주소 검색 또는 생성
         address = address_service.find_or_create_address(db, AddressCreate(
             customer_id=customer_id,
             address_name=order_in.address.address_name,
@@ -181,26 +165,26 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
         address_id = address.address_id
     
     # 3. 주문 생성
-    order = Order(
+    order = order_crud.create_order(
         customer_id=customer_id,
         address_id=address_id,
         external_order_id=order_in.external_order_id,
         order_channel=order_in.order_channel,
+        db=db,
         discount_amount=order_in.discount_amount,
         send_fee=order_in.send_fee,
         payment_method=order_in.payment_method,
         request_memo=order_in.request_memo,
         admin_memo=order_in.admin_memo
     )
-    db.add(order)
-    db.flush()
     
+    # 4. 주문 품목 생성 및 금액 계산
     total_amount = 0
     
-    # 4. 주문 품목 생성
     for item_in in order_in.items:
         product = db.query(Product).filter(Product.product_code == item_in.product_code).first()
         if not product:
+            db.rollback()
             raise ValueError(f"상품을 찾을 수 없습니다: {item_in.product_code}")
         
         price = item_in.price if item_in.price is not None else product.price
@@ -244,60 +228,47 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
         # 총 판매가액(total_amount) = 판매가 * 수량
         total_amount += sale * item_in.order_num
     
+    # 5. 주문 금액 계산 및 업데이트
     order.total_amount = total_amount
     # 총 결제금액(payment_amount) = total_amount - 특별할인 + 받은배송비
     order.payment_amount = total_amount - (order.discount_amount or 0) + (order.send_fee or 0)
     
-    # 고객 최근 주문일 업데이트
+    # 6. 고객 최근 주문일 업데이트
     customer = db.query(Customer).filter(Customer.customer_id == customer_id).first()
     if customer:
         customer.last_order_at = datetime.now()
     
-    db.commit()
-    db.refresh(order)
-    return order
+    try:
+        db.commit()
+        db.refresh(order)
+        return order
+    except Exception as e:
+        db.rollback()
+        raise ValueError(f"주문 생성 중 오류가 발생했습니다: {str(e)}")
 
 
 def update_order(db: Session, order: Order, order_in: OrderUpdate) -> Order:
-    update_data = order_in.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(order, field, value)
-    db.commit()
-    db.refresh(order)
-    return order
+    """주문 수정"""
+    return order_crud.update_order(order=order, order_in=order_in, db=db)
 
 
 def update_order_status(db: Session, order: Order, status: str) -> Order:
-    order.order_status = status
-    if status == "PAID":
-        order.payment_at = datetime.now()
-    elif status == "CANCELLED":
-        order.cancelled_at = datetime.now()
-    db.commit()
-    db.refresh(order)
-    return order
+    """주문 상태 변경"""
+    return order_crud.update_order_status(order=order, status=status, db=db)
 
 
 def cancel_order(db: Session, order: Order) -> Order:
-    order.order_status = "CANCELLED"
-    order.cancelled_at = datetime.now()
-    
-    # 품목도 취소
-    items = db.query(OrderItem).filter(OrderItem.order_id == order.order_id).all()
-    for item in items:
-        if item.cancelled_at is None:
-            item.cancelled_at = datetime.now()
-    
-    db.commit()
-    db.refresh(order)
-    return order
+    """주문 취소"""
+    return order_crud.cancel_order(order=order, db=db)
 
 
 def recalculate_totals(db: Session, order: Order) -> Order:
-    items = db.query(OrderItem).filter(
-        OrderItem.order_id == order.order_id,
-        OrderItem.cancelled_at == None
-    ).all()
+    """주문 총액 재계산"""
+    items = order_crud.read_order_items_by_order_id(
+        order_id=order.order_id,
+        db=db,
+        include_cancelled=False
+    )
     
     total_amount = sum(item.sale * item.order_num for item in items)
     refund_amount = sum(item.refund or 0 for item in items)
@@ -306,6 +277,10 @@ def recalculate_totals(db: Session, order: Order) -> Order:
     order.refund_amount = refund_amount
     order.payment_amount = total_amount - (order.discount_amount or 0) - refund_amount + (order.send_fee or 0)
     
-    db.commit()
-    db.refresh(order)
-    return order
+    try:
+        db.commit()
+        db.refresh(order)
+        return order
+    except Exception as e:
+        db.rollback()
+        raise ValueError(f"주문 총액 재계산 중 오류가 발생했습니다: {str(e)}")

@@ -115,13 +115,6 @@ def get_order_by_external_id(
 ):
     """외부 주문번호로 주문 조회"""
     order = order_service.get_order_by_external_id(db, external_order_id)
-    
-    if order is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문을 찾을 수 없습니다."
-        )
-    
     items = list(order.items)
     customer = customer_service.get_customer_by_id(db, order.customer_id)
     
@@ -139,13 +132,6 @@ def get_order(
 ):
     """주문 상세 조회"""
     order = order_service.get_order_by_id(db, order_id)
-    
-    if order is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문을 찾을 수 없습니다."
-        )
-    
     items = list(order.items)
     customer = customer_service.get_customer_by_id(db, order.customer_id)
     
@@ -231,12 +217,6 @@ def update_order(
     """주문 수정"""
     order = order_service.get_order_by_id(db, order_id)
     
-    if order is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문을 찾을 수 없습니다."
-        )
-    
     old_data = {
         "order_status": order.order_status,
         "discount_amount": order.discount_amount,
@@ -272,13 +252,6 @@ def update_order_status(
 ):
     """주문 상태 변경"""
     order = order_service.get_order_by_id(db, order_id)
-    
-    if order is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문을 찾을 수 없습니다."
-        )
-    
     old_status = order.order_status
     order = order_service.update_order_status(db, order, status_in.status)
     
@@ -308,12 +281,6 @@ def cancel_order(
 ):
     """주문 취소"""
     order = order_service.get_order_by_id(db, order_id)
-    
-    if order is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문을 찾을 수 없습니다."
-        )
     
     if order.order_status == "CANCELLED":
         raise HTTPException(
@@ -349,13 +316,6 @@ def get_order_sends(
 ):
     """주문별 발송 목록"""
     order = order_service.get_order_by_id(db, order_id)
-    
-    if order is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문을 찾을 수 없습니다."
-        )
-    
     sends = send_service.get_sends_by_order(db, order_id)
     
     result = []
