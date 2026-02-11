@@ -142,8 +142,8 @@ class OrderItemResponse(BaseModel):
     order_item_id: int
     order_id: int
     product_code: str
-    product_name: str
     product_kind: str
+    product_name: str
     price: int
     sale: int
     refund: Optional[int] = 0
@@ -157,6 +157,7 @@ class OrderItemResponse(BaseModel):
     sended_at: Optional[datetime] = None
     cancelled_at: Optional[datetime] = None
     created_at: datetime
+    updated_at: datetime
     
     class Config:
         from_attributes = True

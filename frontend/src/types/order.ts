@@ -19,7 +19,7 @@ export interface OrderCustomerInput {
 export interface OrderAddressInput {
   address_name: string;
   phone: string;
-  nation: string;
+  nation?: string; // 기본값: "대한민국"
   postal_code: string;
   address: string;
   address_memo?: string | null;
@@ -27,10 +27,10 @@ export interface OrderAddressInput {
 
 export interface OrderItemCreateInOrder {
   product_code: string;
-  order_num?: number | null;
+  order_num?: number; // 기본값: 1
   price?: number | null;
   sale?: number | null;
-  subscribe_period?: number | null;
+  subscribe_period?: number; // 기본값: 12
 }
 
 export interface OrderCreate {
@@ -39,9 +39,9 @@ export interface OrderCreate {
   customer?: OrderCustomerInput | null;
   address?: OrderAddressInput | null;
   external_order_id?: string | null;
-  order_channel: string;
-  discount_amount: number;
-  send_fee: number;
+  order_channel?: string; // 기본값: "OFFLINE"
+  discount_amount?: number; // 기본값: 0
+  send_fee?: number; // 기본값: 0
   payment_method?: string | null;
   request_memo?: string | null;
   admin_memo?: string | null;
@@ -70,9 +70,9 @@ export interface OrderResponse {
   order_channel: string;
   order_status: string;
   total_amount: number;
-  discount_amount?: number | null;
-  refund_amount?: number | null;
-  send_fee?: number | null;
+  discount_amount?: number; // 기본값: 0
+  refund_amount?: number; // 기본값: 0
+  send_fee?: number; // 기본값: 0
   payment_amount: number;
   payment_method?: string | null;
   address_id?: number | null;
@@ -94,23 +94,23 @@ export interface OrderListResponse {
   order_channel: string;
   order_status: string;
   total_amount: number;
-  discount_amount?: number | null;
-  refund_amount?: number | null;
-  send_fee?: number | null;
+  discount_amount?: number; // 기본값: 0
+  refund_amount?: number; // 기본값: 0
+  send_fee?: number; // 기본값: 0
   payment_amount: number;
   order_at: string;
-  item_count?: number | null;
+  item_count?: number; // 기본값: 0
 }
 
 export interface OrderItemResponse {
   order_item_id: number;
   order_id: number;
   product_code: string;
-  product_name: string;
   product_kind: string;
+  product_name: string;
   price: number;
   sale: number;
-  refund?: number | null;
+  refund?: number; // 기본값: 0
   order_num: number;
   subscribe_start_issue?: string | null;
   subscribe_end_issue?: string | null;
@@ -121,10 +121,24 @@ export interface OrderItemResponse {
   sended_at?: string | null;
   cancelled_at?: string | null;
   created_at: string;
+  updated_at: string;
+}
+
+export interface OrderDetailResponseCustomer {
+  customer_id: number;
+  customer_name: string;
+  customer_phone: string;
+}
+
+export interface OrderDetailResponseAddress {
+  address_id: number;
+  address_name: string;
+  phone: string;
+  address: string;
 }
 
 export interface OrderDetailResponse extends OrderResponse {
-  customer?: Record<string, any> | null;
-  address?: Record<string, any> | null;
+  customer?: OrderDetailResponseCustomer | null;
+  address?: OrderDetailResponseAddress | null;
   items: OrderItemResponse[];
 }
