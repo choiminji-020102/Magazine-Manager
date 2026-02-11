@@ -39,6 +39,7 @@ def get_sends(
     items, total = send_service.get_sends(db, page, limit, send_status, courier, send_date, search)
     
     return PaginatedResponse(
+        message="발송 목록을 조회했습니다.",
         data=[SendListResponse(**item) for item in items],
         pagination=PaginationMeta(
             total=total, page=page, limit=limit,
@@ -59,7 +60,10 @@ def get_sends_by_date(
     for send in sends:
         item_count = send.items.filter_by(cancelled_at=None).count()
         result.append(SendListResponse(**send.__dict__, item_count=item_count))
-    return ResponseModel(data=result)
+    return ResponseModel(
+        message="날짜별 발송 목록을 조회했습니다.",
+        data=result
+    )
 
 
 @router.get("/{send_id}", response_model=ResponseModel[SendDetailResponse])
@@ -70,15 +74,16 @@ def get_send(
 ):
     """발송 상세 조회"""
     send = send_service.get_send_by_id(db, send_id)
-    if send is None:
-        raise HTTPException(status_code=404, detail="발송 정보를 찾을 수 없습니다.")
-    
     items = send_service.get_send_items(db, send_id)
-    return ResponseModel(data=SendDetailResponse(
-        **send.__dict__,
-        items=[SendItemResponse.model_validate(i) for i in items],
-        item_count=len(items)
-    ))
+    
+    return ResponseModel(
+        message="발송 정보를 조회했습니다.",
+        data=SendDetailResponse(
+            **send.__dict__,
+            items=[SendItemResponse.model_validate(i) for i in items],
+            item_count=len(items)
+        )
+    )
 
 
 @router.post("", response_model=ResponseModel[SendDetailResponse], status_code=201)
