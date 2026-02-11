@@ -4,12 +4,12 @@ from app.api.endpoints import (
     activity_logs,
     addresses,
     admins,
-    auth,
-    cafe24_oauth,
+    auths,
+    cafe24_oauths,
     cafe24_orders,
     cafe24_products,
     customers,
-    dispatch,
+    dispatches,
     health,
     inquiries,
     order_items,
@@ -24,17 +24,17 @@ from app.api.endpoints import (
 api_router = APIRouter()
 
 # Auth (public)
-api_router.include_router(auth.router)
+api_router.include_router(auths.router)
 
 # Protected routes
 api_router.include_router(activity_logs.router)
 api_router.include_router(addresses.router)
 api_router.include_router(admins.router)
-api_router.include_router(cafe24_oauth.router)
+api_router.include_router(cafe24_oauths.router)
 api_router.include_router(cafe24_orders.router)
 api_router.include_router(cafe24_products.router)
 api_router.include_router(customers.router)
-api_router.include_router(dispatch.router)
+api_router.include_router(dispatches.router)
 api_router.include_router(health.router)
 api_router.include_router(inquiries.router)
 api_router.include_router(order_items.router)
