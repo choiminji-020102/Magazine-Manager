@@ -1,9 +1,12 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, func, case
+# 표준 라이브러리
 from typing import Optional, List
 from datetime import datetime
-from fastapi import HTTPException, status
 
+# 서드파티 라이브러리
+from sqlalchemy.orm import Session
+from sqlalchemy import or_, func, case
+
+# 로컬 애플리케이션
 from app.models.order_item import OrderItem
 from app.models.order import Order
 from app.models.product import Product
@@ -11,41 +14,25 @@ from app.models.address import Address
 from app.models.pause import Pause
 from app.models.customer import Customer
 from app.schemas.order_item import OrderItemCreate, OrderItemUpdate
-from app.services import address_service
-from app.services import pause_service
+from app.crud import order_item as order_item_crud
+from app.services import address_service, pause_service
 
 
-def get_order_item_by_id(db: Session, order_item_id: int) -> Optional[OrderItem]:
-    # cancelled_at 상관없이 모두 조회
-    order_item = db.query(OrderItem).filter(
-        OrderItem.order_item_id == order_item_id
-    ).first()
-    if order_item is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문 품목을 찾을 수 없습니다."
-        )
-    return order_item
+def get_order_item_by_id(db: Session, order_item_id: int) -> OrderItem:
+    """주문 품목 ID로 주문 품목 조회 (취소된 것 포함)"""
+    return order_item_crud.read_order_item_by_id(order_item_id=order_item_id, db=db)
 
 
-def get_active_order_item_by_id(db: Session, order_item_id: int) -> Optional[OrderItem]:
-    order_item = db.query(OrderItem).filter(
-        OrderItem.order_item_id == order_item_id,
-        OrderItem.cancelled_at.is_(None)
-    ).first()
-    if order_item is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문 품목을 찾을 수 없거나 취소되었습니다."
-        )
-    return order_item
+def get_active_order_item_by_id(db: Session, order_item_id: int) -> OrderItem:
+    """활성 주문 품목 ID로 주문 품목 조회 (취소되지 않은 주문 품목)"""
+    return order_item_crud.read_active_order_item_by_id(order_item_id=order_item_id, db=db)
 
 
 def get_order_items_by_order(db: Session, order_id: int) -> List[OrderItem]:
-    order_items = db.query(OrderItem).filter(
-        OrderItem.order_id == order_id
-    ).order_by(OrderItem.order_item_id.asc()).all()
+    """주문 ID로 주문 품목 목록 조회 (취소된 것 포함)"""
+    order_items = order_item_crud.read_order_items_by_order_id(order_id=order_id, db=db, include_cancelled=True)
     if len(order_items) == 0:
+        from fastapi import HTTPException, status
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="주문 품목들을 찾을 수 없습니다."
@@ -54,11 +41,10 @@ def get_order_items_by_order(db: Session, order_id: int) -> List[OrderItem]:
 
 
 def get_active_order_items_by_order(db: Session, order_id: int) -> List[OrderItem]:
-    order_items = db.query(OrderItem).filter(
-        OrderItem.order_id == order_id,
-        OrderItem.cancelled_at.is_(None)
-    ).order_by(OrderItem.order_item_id.asc()).all()
+    """주문 ID로 활성 주문 품목 목록 조회 (취소되지 않은 것만)"""
+    order_items = order_item_crud.read_order_items_by_order_id(order_id=order_id, db=db, include_cancelled=False)
     if len(order_items) == 0:
+        from fastapi import HTTPException, status
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="주문 품목들을 찾을 수 없거나 취소되었습니다."
@@ -67,11 +53,13 @@ def get_active_order_items_by_order(db: Session, order_id: int) -> List[OrderIte
 
 
 def create_order_item(db: Session, order: Order, item_in: OrderItemCreate) -> OrderItem:
+    """주문 품목 생성"""
+    # 상품 조회
     product = db.query(Product).filter(Product.product_code == item_in.product_code).first()
     if not product:
         raise ValueError(f"상품을 찾을 수 없습니다: {item_in.product_code}")
     
-    # Address
+    # 배송지 처리
     address_id = order.address_id
     if item_in.address:
         address = address_service.find_or_create_address(db, item_in.address)
@@ -79,52 +67,53 @@ def create_order_item(db: Session, order: Order, item_in: OrderItemCreate) -> Or
     elif item_in.address_id:
         address_id = item_in.address_id
     
-    order_item = OrderItem(
-        external_order_item_id=item_in.external_order_item_id,
+    # 주문 품목 생성
+    order_item = order_item_crud.create_order_item(
         order_id=order.order_id,
         product_code=product.product_code,
         product_kind=product.product_kind,
         product_name=product.product_name,
+        address_id=address_id,
+        db=db,
+        external_order_item_id=item_in.external_order_item_id,
         price=item_in.price if item_in.price is not None else product.price,
         sale=item_in.sale if item_in.sale is not None else product.sale,
         order_num=item_in.order_num or 1,
         subscribe_start_issue=item_in.subscribe_start_issue,
-        subscribe_end_issue=item_in.subscribe_end_issue,
-        address_id=address_id
+        subscribe_end_issue=item_in.subscribe_end_issue
     )
-    db.add(order_item)
-    db.commit()
-    db.refresh(order_item)
-    return order_item
+    
+    try:
+        db.commit()
+        db.refresh(order_item)
+        return order_item
+    except Exception as e:
+        db.rollback()
+        raise ValueError(f"주문 품목 생성 중 오류가 발생했습니다: {str(e)}")
 
 
 def update_order_item(db: Session, order_item: OrderItem, item_in: OrderItemUpdate) -> OrderItem:
+    """주문 품목 수정"""
     update_data = item_in.model_dump(exclude_unset=True)
     
     # 환불액/구독기간 변경 여부 확인
     refund_changed = "refund" in update_data
     period_changed = "subscribe_period" in update_data
     
-    # Handle address
+    # 배송지 처리
     if "address" in update_data and update_data["address"]:
         from app.schemas.address import AddressCreate
         address = address_service.find_or_create_address(db, AddressCreate(**update_data["address"]))
         order_item.address_id = address.address_id
-        del update_data["address"]
     
-    for field, value in update_data.items():
-        if field != "address":
-            setattr(order_item, field, value)
-    
-    db.commit()
-    db.refresh(order_item)
+    # 주문 품목 수정
+    order_item = order_item_crud.update_order_item(order_item=order_item, item_in=item_in, db=db)
     
     # 환불액이 변경되면 주문 총액 재계산
     if refund_changed:
         from app.services import order_service
         order = order_service.get_order_by_id(db, order_item.order_id)
-        if order:
-            order_service.recalculate_totals(db, order)
+        order_service.recalculate_totals(db, order)
     
     # 구독기간이 변경되면 final_subscribe_end_issue 재계산
     if period_changed and order_item.product_kind in ["YEARLY", "MONTHLY"]:
@@ -137,33 +126,34 @@ def update_order_item(db: Session, order_item: OrderItem, item_in: OrderItemUpda
                 order_item.subscribe_start_issue, 
                 order_item.subscribe_period or 12
             )
-            db.commit()
-            db.refresh(order_item)
+            try:
+                db.commit()
+                db.refresh(order_item)
+            except Exception as e:
+                db.rollback()
+                raise ValueError(f"구독 기간 업데이트 중 오류가 발생했습니다: {str(e)}")
     
     return order_item
 
 
 def cancel_order_item(db: Session, order_item: OrderItem) -> OrderItem:
-    order_item.cancelled_at = datetime.now()
-    db.commit()
-    db.refresh(order_item)
-    return order_item
+    """주문 품목 취소"""
+    return order_item_crud.cancel_order_item(order_item=order_item, db=db)
 
 
 def update_subscription(db: Session, order_item: OrderItem, start_issue: str, end_issue: str) -> OrderItem:
-    order_item.subscribe_start_issue = start_issue
-    order_item.subscribe_end_issue = end_issue
-    db.commit()
-    db.refresh(order_item)
-    return order_item
+    """구독 기간 업데이트"""
+    return order_item_crud.update_subscription(
+        order_item=order_item,
+        start_issue=start_issue,
+        end_issue=end_issue,
+        db=db
+    )
 
 
 def update_last_send_issue(db: Session, order_item: OrderItem, issue: str) -> OrderItem:
-    order_item.last_send_issue = issue
-    order_item.sended_at = datetime.now()
-    db.commit()
-    db.refresh(order_item)
-    return order_item
+    """마지막 발송 호수 업데이트"""
+    return order_item_crud.update_last_send_issue(order_item=order_item, issue=issue, db=db)
 
 
 def convert_to_monthly_product_code(product_code: str, product_kind: str, issue: str) -> str:

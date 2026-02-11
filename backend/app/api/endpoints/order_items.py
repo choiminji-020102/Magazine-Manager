@@ -28,10 +28,13 @@ def get_order_items(
     current_admin: Admin = Depends(require_admin)
 ):
     """주문별 품목 목록 (휴지 정보 포함)"""
-    _ = order_service.get_order_by_id(db, order_id)
+    order_service.get_order_by_id(db, order_id)  # 주문 존재 여부 검증
     items = order_item_service.get_order_items_with_pauses(db, order_id)
     
-    return ResponseModel(data=[OrderItemDetailResponse(**item) for item in items])
+    return ResponseModel(
+        message="주문별 품목 목록을 조회했습니다.",
+        data=[OrderItemDetailResponse(**item) for item in items]
+    )
 
 
 @router.get("/order-items/{order_item_id}", response_model=ResponseModel[OrderItemDetailResponse])
@@ -43,7 +46,10 @@ def get_order_item(
     """품목 상세 조회 (휴지 정보 포함)"""
     item_data = order_item_service.get_order_item_with_pauses(db, order_item_id)
     
-    return ResponseModel(data=OrderItemDetailResponse(**item_data))
+    return ResponseModel(
+        message="주문 품목 정보를 조회했습니다.",
+        data=OrderItemDetailResponse(**item_data)
+    )
 
 
 @router.post("/orders/{order_id}/items", response_model=ResponseModel[OrderItemResponse], status_code=status.HTTP_201_CREATED)
@@ -141,10 +147,11 @@ def cancel_order_item(
 ):
     """품목 취소"""
     item = order_item_service.get_active_order_item_by_id(db, order_item_id)
-    
     order_id = item.order_id
+    
     item = order_item_service.cancel_order_item(db, item)
     
+    # 주문 총액 재계산
     order = order_service.get_active_order_by_id(db, order_id)
     order_service.recalculate_totals(db, order)
     
@@ -193,7 +200,7 @@ def update_subscription(
     
     activity_log_service.create_log(
         db=db,
-        admin=current_admin,    
+        admin=current_admin,
         action=ActivityAction.UPDATE,
         target_type=ActivityTargetType.ORDER_ITEM,
         target_id=order_item_id,
