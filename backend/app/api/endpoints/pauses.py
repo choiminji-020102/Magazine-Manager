@@ -22,17 +22,13 @@ def get_pauses_by_order_item(
     current_admin: Admin = Depends(require_admin)
 ):
     """품목별 휴지 목록"""
-    item = order_item_service.get_order_item_by_id(db, order_item_id)
-    
-    if item is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문 품목을 찾을 수 없습니다."
-        )
-    
+    order_item_service.get_order_item_by_id(db, order_item_id)  # 주문 품목 존재 여부 검증
     pauses = pause_service.get_pauses_by_order_item(db, order_item_id)
     
-    return ResponseModel(data=[PauseResponse.model_validate(p) for p in pauses])
+    return ResponseModel(
+        message="품목별 휴지 목록을 조회했습니다.",
+        data=[PauseResponse.model_validate(p) for p in pauses]
+    )
 
 
 @router.post("/order-items/{order_item_id}/pauses", response_model=ResponseModel[PauseResponse], status_code=status.HTTP_201_CREATED)
@@ -99,13 +95,10 @@ def get_pause(
     """휴지 상세 조회"""
     pause = pause_service.get_pause_by_id(db, pause_id)
     
-    if pause is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="휴지 정보를 찾을 수 없습니다."
-        )
-    
-    return ResponseModel(data=PauseResponse.model_validate(pause))
+    return ResponseModel(
+        message="휴지 정보를 조회했습니다.",
+        data=PauseResponse.model_validate(pause)
+    )
 
 
 @router.put("/pauses/{pause_id}", response_model=ResponseModel[PauseResponse])
@@ -205,4 +198,7 @@ def get_pauses_by_issue(
     """호수별 휴지 목록"""
     pauses = pause_service.get_pauses_by_issue(db, issue)
     
-    return ResponseModel(data=[PauseByIssueResponse(**p) for p in pauses])
+    return ResponseModel(
+        message="호수별 휴지 목록을 조회했습니다.",
+        data=[PauseByIssueResponse(**p) for p in pauses]
+    )

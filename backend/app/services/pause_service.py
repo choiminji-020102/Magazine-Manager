@@ -1,32 +1,27 @@
-from sqlalchemy.orm import Session
+# 표준 라이브러리
 from typing import Optional, List
 from datetime import datetime
-from fastapi import HTTPException, status
 
+# 서드파티 라이브러리
+from sqlalchemy.orm import Session
+
+# 로컬 애플리케이션
 from app.models.pause import Pause
 from app.models.order_item import OrderItem
 from app.schemas.pause import PauseCreate, PauseUpdate
+from app.crud import pause as pause_crud
 
 
-def get_pause_by_id(db: Session, pause_id: int) -> Optional[Pause]:
-    pause = db.query(Pause).filter(
-        Pause.pause_id == pause_id,
-        Pause.deleted_at == None
-    ).first()
-    if pause is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="휴지를 찾을 수 없습니다."
-        )
-    return pause
+def get_pause_by_id(db: Session, pause_id: int) -> Pause:
+    """휴지 ID로 휴지 조회"""
+    return pause_crud.read_pause_by_id(pause_id=pause_id, db=db)
 
 
 def get_pauses_by_order_item(db: Session, order_item_id: int) -> List[Pause]:
-    pauses = db.query(Pause).filter(
-        Pause.order_item_id == order_item_id,
-        Pause.deleted_at == None
-    ).order_by(Pause.pause_issue).all()
+    """주문 품목 ID로 휴지 목록 조회"""
+    pauses = pause_crud.read_pauses_by_order_item_id(order_item_id=order_item_id, db=db)
     if len(pauses) == 0:
+        from fastapi import HTTPException, status
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="휴지들을 찾을 수 없습니다."
@@ -36,11 +31,11 @@ def get_pauses_by_order_item(db: Session, order_item_id: int) -> List[Pause]:
 
 def exists_for_issue(db: Session, order_item_id: int, pause_issue: str) -> bool:
     """해당 호에 휴지가 이미 존재하는지 확인"""
-    return db.query(Pause).filter(
-        Pause.order_item_id == order_item_id,
-        Pause.pause_issue == pause_issue,
-        Pause.deleted_at == None
-    ).first() is not None
+    return pause_crud.check_pause_exists_for_issue(
+        order_item_id=order_item_id,
+        pause_issue=pause_issue,
+        db=db
+    )
 
 
 def get_pauses_by_issue(db: Session, issue: str) -> List[dict]:
@@ -61,7 +56,7 @@ def get_pauses_by_issue(db: Session, issue: str) -> List[dict]:
         Customer, Order.customer_id == Customer.customer_id
     ).filter(
         Pause.pause_issue == issue,
-        Pause.deleted_at == None
+        Pause.deleted_at.is_(None)
     ).all()
     
     return [{
@@ -87,10 +82,11 @@ def recalculate_final_issue(db: Session, order_item: OrderItem) -> None:
         return
     
     # 휴지 개수 조회
-    pause_count = db.query(Pause).filter(
-        Pause.order_item_id == order_item.order_item_id,
-        Pause.deleted_at == None
-    ).count()
+    pauses = pause_crud.read_pauses_by_order_item_id(
+        order_item_id=order_item.order_item_id,
+        db=db
+    )
+    pause_count = len(pauses)
     
     # 기본 구독 기간 + 휴지 개수
     period = order_item.subscribe_period or 12
@@ -105,47 +101,46 @@ def recalculate_final_issue(db: Session, order_item: OrderItem) -> None:
     db.refresh(order_item)
 
 
-def create_pause(db: Session, order_item_id: int, pause_in: PauseCreate, admin_id: int = None) -> Pause:
+def create_pause(db: Session, order_item_id: int, pause_in: PauseCreate, admin_id: Optional[int] = None) -> Pause:
     """휴지 생성 + final_subscribe_end_issue 재계산"""
-    pause = Pause(
+    # 휴지 생성
+    pause = pause_crud.create_pause(
         order_item_id=order_item_id,
         pause_issue=pause_in.pause_issue,
+        db=db,
         reason=pause_in.reason,
         admin_id=admin_id
     )
-    db.add(pause)
-    db.commit()
-    db.refresh(pause)
     
-    # 해당 order_item의 final_subscribe_end_issue 재계산
-    order_item = db.query(OrderItem).filter(
-        OrderItem.order_item_id == order_item_id
-    ).first()
-    
-    if order_item:
-        recalculate_final_issue(db, order_item)
-    
-    return pause
+    try:
+        db.commit()
+        db.refresh(pause)
+        
+        # 해당 order_item의 final_subscribe_end_issue 재계산
+        order_item = db.query(OrderItem).filter(
+            OrderItem.order_item_id == order_item_id
+        ).first()
+        
+        if order_item:
+            recalculate_final_issue(db, order_item)
+        
+        return pause
+    except Exception as e:
+        db.rollback()
+        raise ValueError(f"휴지 생성 중 오류가 발생했습니다: {str(e)}")
 
 
 def update_pause(db: Session, pause: Pause, pause_in: PauseUpdate) -> Pause:
-    update_data = pause_in.model_dump(exclude_unset=True)
-    
-    for field, value in update_data.items():
-        setattr(pause, field, value)
-    
-    db.commit()
-    db.refresh(pause)
-    return pause
+    """휴지 수정"""
+    return pause_crud.update_pause(pause=pause, pause_in=pause_in, db=db)
 
 
 def delete_pause(db: Session, pause: Pause) -> None:
-    """소프트 삭제 + final_subscribe_end_issue 재계산"""
+    """휴지 소프트 삭제 + final_subscribe_end_issue 재계산"""
     order_item_id = pause.order_item_id
     
     # 소프트 삭제
-    pause.deleted_at = datetime.now()
-    db.commit()
+    pause_crud.delete_pause(pause=pause, db=db)
     
     # 해당 order_item의 final_subscribe_end_issue 재계산
     order_item = db.query(OrderItem).filter(
