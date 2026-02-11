@@ -17,8 +17,8 @@ class OrderItem(Base):
         comment="상품종류"
     )
     product_name = Column(String(255), nullable=False)
-    price = Column(Integer, nullable=True, default=0)
-    sale = Column(Integer, nullable=True, default=0)
+    price = Column(Integer, nullable=True, default=0, comment="정가")
+    sale = Column(Integer, nullable=True, default=0, comment="할인가")
     refund = Column(Integer, nullable=True, default=0, comment="환불액")
     order_num = Column(Integer, nullable=True, default=1)
     subscribe_start_issue = Column(String(10), nullable=True)
