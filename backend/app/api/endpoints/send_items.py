@@ -22,12 +22,13 @@ def get_send_items(
     current_admin: Admin = Depends(require_admin)
 ):
     """발송별 품목 목록"""
-    send = send_service.get_send_by_id(db, send_id)
-    if send is None:
-        raise HTTPException(status_code=404, detail="발송 정보를 찾을 수 없습니다.")
-    
+    send_service.get_send_by_id(db, send_id)  # 발송 존재 여부 검증
     items = send_item_service.get_send_items_by_send(db, send_id)
-    return ResponseModel(data=[SendItemResponse.model_validate(i) for i in items])
+    
+    return ResponseModel(
+        message="발송별 품목 목록을 조회했습니다.",
+        data=[SendItemResponse.model_validate(i) for i in items]
+    )
 
 
 @router.post("/sends/{send_id}/items", response_model=ResponseModel[SendItemResponse], status_code=201)
@@ -73,7 +74,11 @@ def get_send_item(
 ):
     """발송 품목 상세"""
     item = send_item_service.get_send_item_by_id(db, send_item_id)
-    return ResponseModel(data=SendItemResponse.model_validate(item))
+    
+    return ResponseModel(
+        message="발송 품목 정보를 조회했습니다.",
+        data=SendItemResponse.model_validate(item)
+    )
 
 
 @router.put("/send-items/{send_item_id}", response_model=ResponseModel[SendItemResponse])
