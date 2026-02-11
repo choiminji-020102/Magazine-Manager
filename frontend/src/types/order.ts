@@ -1,4 +1,4 @@
-// Order 관련 타입
+import { OrderItemResponse } from "./orderItem";
 
 export interface OrderListQuery {
   page?: number;
@@ -102,27 +102,6 @@ export interface OrderListResponse {
   item_count?: number; // 기본값: 0
 }
 
-export interface OrderItemResponse {
-  order_item_id: number;
-  order_id: number;
-  product_code: string;
-  product_kind: string;
-  product_name: string;
-  price: number;
-  sale: number;
-  refund?: number; // 기본값: 0
-  order_num: number;
-  subscribe_start_issue?: string | null;
-  subscribe_end_issue?: string | null;
-  subscribe_period?: number | null;
-  last_send_issue?: string | null;
-  final_subscribe_end_issue?: string | null;
-  memo?: string | null;
-  sended_at?: string | null;
-  cancelled_at?: string | null;
-  created_at: string;
-  updated_at: string;
-}
 
 export interface OrderDetailResponseCustomer {
   customer_id: number;

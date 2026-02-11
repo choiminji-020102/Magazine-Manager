@@ -3,6 +3,8 @@ from typing import Optional, List
 from datetime import datetime
 from fastapi import Query
 
+from app.schemas.order_item import OrderItemResponse
+
 
 class OrderListQuery(BaseModel):
     """주문 목록 조회 쿼리 파라미터"""
@@ -136,31 +138,6 @@ class OrderListResponse(BaseModel):
     payment_amount: int
     order_at: datetime
     item_count: Optional[int] = 0
-
-
-class OrderItemResponse(BaseModel):
-    order_item_id: int
-    order_id: int
-    product_code: str
-    product_kind: str
-    product_name: str
-    price: int
-    sale: int
-    refund: Optional[int] = 0
-    order_num: int
-    subscribe_start_issue: Optional[str] = None
-    subscribe_end_issue: Optional[str] = None
-    subscribe_period: Optional[int] = None
-    last_send_issue: Optional[str] = None
-    final_subscribe_end_issue: Optional[str] = None
-    memo: Optional[str] = None
-    sended_at: Optional[datetime] = None
-    cancelled_at: Optional[datetime] = None
-    created_at: datetime
-    updated_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 
 class OrderDetailResponse(OrderResponse):

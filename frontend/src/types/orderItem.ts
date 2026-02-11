@@ -10,7 +10,7 @@ export interface PauseInfo {
 export interface OrderItemCreate {
   order_id: number;
   product_code: string;
-  order_num: number;
+  order_num: number; // 기본값 1 (백엔드에서 기본값 처리)
   price?: number | null;
   sale?: number | null;
   subscribe_start_issue?: string | null;
@@ -39,11 +39,11 @@ export interface OrderItemResponse {
   order_item_id: number;
   order_id: number;
   product_code: string;
-  product_name: string;
   product_kind: string;
+  product_name: string;
   price: number;
   sale: number;
-  refund?: number | null;
+  refund?: number | null; // 백엔드 Optional[int] = 0 (기본값 0, null 가능)
   order_num: number;
   subscribe_start_issue?: string | null;
   subscribe_end_issue?: string | null;
@@ -54,6 +54,7 @@ export interface OrderItemResponse {
   sended_at?: string | null;
   cancelled_at?: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface OrderItemDetailResponse {
@@ -77,5 +78,5 @@ export interface OrderItemDetailResponse {
   cancelled_at?: string | null;
   created_at: string;
   updated_at: string;
-  pauses: PauseInfo[];
+  pauses: PauseInfo[]; // 백엔드에서 항상 배열 반환 (기본값 빈 배열)
 }
