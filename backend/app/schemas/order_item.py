@@ -43,6 +43,7 @@ class SubscriptionUpdate(BaseModel):
 
 class OrderItemResponse(BaseModel):
     order_item_id: int
+    external_order_item_id: Optional[str] = None
     order_id: int
     product_code: str
     product_kind: str
@@ -57,9 +58,9 @@ class OrderItemResponse(BaseModel):
     last_send_issue: Optional[str] = None
     final_subscribe_end_issue: Optional[str] = None
     memo: Optional[str] = None
+    created_at: datetime
     sended_at: Optional[datetime] = None
     cancelled_at: Optional[datetime] = None
-    created_at: datetime
     updated_at: datetime
     
     class Config:
@@ -68,6 +69,7 @@ class OrderItemResponse(BaseModel):
 
 class OrderItemDetailResponse(BaseModel):
     order_item_id: int
+    external_order_item_id: Optional[str] = None
     order_id: int
     product_code: str
     product_kind: str
@@ -83,9 +85,9 @@ class OrderItemDetailResponse(BaseModel):
     final_subscribe_end_issue: Optional[str] = None
     address_id: Optional[int] = None
     memo: Optional[str] = None
+    created_at: datetime
     sended_at: Optional[datetime] = None
     cancelled_at: Optional[datetime] = None
-    created_at: datetime
     updated_at: datetime
     pauses: List[PauseInfo] = []
     

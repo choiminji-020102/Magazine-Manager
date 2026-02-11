@@ -37,6 +37,7 @@ export interface SubscriptionUpdate {
 
 export interface OrderItemResponse {
   order_item_id: number;
+  external_order_item_id?: string | null;
   order_id: number;
   product_code: string;
   product_kind: string;
@@ -51,14 +52,15 @@ export interface OrderItemResponse {
   last_send_issue?: string | null;
   final_subscribe_end_issue?: string | null;
   memo?: string | null;
+  created_at: string
   sended_at?: string | null;
   cancelled_at?: string | null;
-  created_at: string;
   updated_at: string;
 }
 
 export interface OrderItemDetailResponse {
   order_item_id: number;
+  external_order_item_id?: string | null;
   order_id: number;
   product_code: string;
   product_name: string;
@@ -74,9 +76,9 @@ export interface OrderItemDetailResponse {
   final_subscribe_end_issue?: string | null;
   address_id?: number | null;
   memo?: string | null;
+  created_at: string;
   sended_at?: string | null;
   cancelled_at?: string | null;
-  created_at: string;
   updated_at: string;
   pauses: PauseInfo[]; // 백엔드에서 항상 배열 반환 (기본값 빈 배열)
 }
