@@ -58,29 +58,37 @@ def read_orders_by_customer(customer_id: int, db: Session, limit: int = 50) -> L
 
 
 def create_order(
+    db: Session,
     customer_id: int,
-    address_id: Optional[int],
     external_order_id: Optional[str],
     order_channel: str,
-    db: Session,
+    order_status: str,
+    total_amount: int,
+    payment_amount: int,
     discount_amount: Optional[int] = None,
     send_fee: Optional[int] = None,
     payment_method: Optional[str] = None,
+    address_id: Optional[int] = None,
     request_memo: Optional[str] = None,
-    admin_memo: Optional[str] = None
+    admin_memo: Optional[str] = None,
+    payment_at: Optional[datetime] = None,
 ) -> Order:
     """주문 생성"""
     try:
         order = Order(
             customer_id=customer_id,
-            address_id=address_id,
             external_order_id=external_order_id,
             order_channel=order_channel,
+            order_status=order_status,
+            total_amount=total_amount,
+            payment_amount=payment_amount,
             discount_amount=discount_amount,
             send_fee=send_fee,
             payment_method=payment_method,
+            address_id=address_id,
             request_memo=request_memo,
-            admin_memo=admin_memo
+            admin_memo=admin_memo,
+            payment_at=payment_at,
         )
         db.add(order)
         db.flush()

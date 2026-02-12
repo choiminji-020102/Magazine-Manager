@@ -165,19 +165,7 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
         ))
         address_id = address.address_id
     
-    # 3. 주문 생성
-    order = order_crud.create_order(
-        customer_id=customer_id,
-        address_id=address_id,
-        external_order_id=order_in.external_order_id,
-        order_channel=order_in.order_channel,
-        db=db,
-        discount_amount=order_in.discount_amount,
-        send_fee=order_in.send_fee,
-        payment_method=order_in.payment_method,
-        request_memo=order_in.request_memo,
-        admin_memo=order_in.admin_memo
-    )
+   
     
     # 4. 주문 품목 생성 및 금액 계산
     total_amount = 0
@@ -205,16 +193,16 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
                 final_subscribe_end_issue = subscribe_end_issue
         elif product.product_kind == "MONTHLY":
             subscribe_start_issue = product.subscribe_start_issue
-            subscribe_end_issue = product.subscribe_start_issue
             subscribe_period = 1
+            subscribe_end_issue = product.subscribe_start_issue
             final_subscribe_end_issue = subscribe_end_issue
         # SINGLE은 모두 NULL
         
         order_item = OrderItem(
             order_id=order.order_id,
             product_code=product.product_code,
-            product_name=product.product_name,
             product_kind=product.product_kind,
+            product_name=product.product_name,
             price=price,
             sale=sale,
             order_num=item_in.order_num,
@@ -222,18 +210,36 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
             subscribe_end_issue=subscribe_end_issue,
             subscribe_period=subscribe_period,
             final_subscribe_end_issue=final_subscribe_end_issue,
-            address_id=address_id
+            address_id=address_id,
+            memo=item_in.memo,
         )
         db.add(order_item)
         
         # 총 판매가액(total_amount) = 판매가 * 수량
         total_amount += sale * item_in.order_num
     
-    # 5. 주문 금액 계산 및 업데이트
-    order.total_amount = total_amount
+
     # 총 결제금액(payment_amount) = total_amount - 특별할인 + 받은배송비
-    order.payment_amount = total_amount - (order.discount_amount or 0) + (order.send_fee or 0)
+    payment_amount = total_amount - (order_in.discount_amount or 0) + (order_in.send_fee or 0)
     
+     # 3. 주문 생성
+    order = order_crud.create_order(
+        db=db,
+        customer_id=customer_id,
+        external_order_id=order_in.external_order_id,
+        order_channel=order_in.order_channel,
+        order_status=order_in.order_status,
+        total_amount=total_amount,
+        payment_amount=payment_amount,
+        discount_amount=order_in.discount_amount,
+        send_fee=order_in.send_fee,
+        payment_method=order_in.payment_method,
+        address_id=address_id,
+        request_memo=order_in.request_memo,
+        admin_memo=order_in.admin_memo,
+        payment_at=order_in.payment_at,
+    )
+
     # 6. 고객 최근 주문일 업데이트
     customer = db.query(Customer).filter(Customer.customer_id == customer_id).first()
     if customer:

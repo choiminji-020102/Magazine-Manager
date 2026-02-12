@@ -30,6 +30,7 @@ class Order(Base):
     address_id = Column(BigInteger, nullable=True, comment="배송지 ID")
     request_memo = Column(Text, nullable=True, comment="고객 요청 메모")
     admin_memo = Column(Text, nullable=True, comment="관리자 메모")
+    
     order_at = Column(DateTime, nullable=False, server_default=func.now(), comment="주문 일시")
     payment_at = Column(DateTime, nullable=True, comment="결제 일시")
     cancelled_at = Column(DateTime, nullable=True, comment="취소 일시")

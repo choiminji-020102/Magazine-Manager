@@ -33,21 +33,31 @@ export interface OrderItemCreateInOrder {
   price?: number | null;
   sale?: number | null;
   subscribe_period?: number; // 기본값: 12
+  memo?: string | null;
 }
 
 export interface OrderCreate {
   customer_id?: number | null;
   address_id?: number | null;
+
   customer?: OrderCustomerInput | null;
   address?: OrderAddressInput | null;
-  external_order_id?: string | null;
+
+  external_order_id?: string | null; // 필요한 경우만 입력 받기
+
+  items: OrderItemCreateInOrder[];
+
   order_channel?: string; // 기본값: "OFFLINE"
+  order_status?: string; // 기본값: "ORDERED"
+
   discount_amount?: number; // 기본값: 0
   send_fee?: number; // 기본값: 0
   payment_method?: string | null;
+
   request_memo?: string | null;
   admin_memo?: string | null;
-  items: OrderItemCreateInOrder[];
+  
+  payment_at?: string | null; // 결제를 했을 경우 order_status와 함께 꼭 입력 받기
 }
 
 export interface OrderUpdate {

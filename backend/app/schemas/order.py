@@ -64,25 +64,31 @@ class OrderItemCreateInOrder(BaseModel):
     price: Optional[int] = None
     sale: Optional[int] = None
     subscribe_period: Optional[int] = 12  # 구독 기간 (기본 12개월)
+    memo: Optional[str] = None
 
 
 class OrderCreate(BaseModel):
-    # 기존 고객/주소 ID 사용 시
     customer_id: Optional[int] = None
     address_id: Optional[int] = None
     
-    # 새 주문자/배송지 정보 입력 시
     customer: Optional[OrderCustomerInput] = None
     address: Optional[OrderAddressInput] = None
     
     external_order_id: Optional[str] = None
+    
+    items: List[OrderItemCreateInOrder]
+    
     order_channel: str = "OFFLINE"
+    order_status: str = "ORDERED"
+    
     discount_amount: int = 0
     send_fee: int = 0
     payment_method: Optional[str] = None
+    
     request_memo: Optional[str] = None
     admin_memo: Optional[str] = None
-    items: List[OrderItemCreateInOrder]
+    
+    payment_at: Optional[datetime] = None
 
 
 class OrderUpdate(BaseModel):
@@ -142,7 +148,20 @@ class OrderListResponse(BaseModel):
     item_count: Optional[int] = 0
 
 
+class OrderDetailResponseCustomer(BaseModel):
+    customer_id: int
+    customer_name: str
+    customer_phone: str
+
+
+class OrderDetailResponseAddress(BaseModel):
+    address_id: int
+    address_name: str
+    phone: str
+    address: str
+
+
 class OrderDetailResponse(OrderResponse):
-    customer: Optional[dict] = None
-    address: Optional[dict] = None
+    customer: Optional[OrderDetailResponseCustomer] = None
+    address: Optional[OrderDetailResponseAddress] = None
     items: List[OrderItemResponse] = []
