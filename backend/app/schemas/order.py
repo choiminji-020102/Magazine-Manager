@@ -44,6 +44,8 @@ class OrderCustomerInput(BaseModel):
     customer_name: str
     customer_phone: str
     customer_email: Optional[str] = None
+    create_channel: Optional[str] = None
+    admin_memo: Optional[str] = None
 
 
 # 주문 생성 시 배송지 정보

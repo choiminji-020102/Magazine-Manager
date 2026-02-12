@@ -142,7 +142,8 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
                 customer_name=order_in.customer.customer_name,
                 customer_phone=order_in.customer.customer_phone,
                 customer_email=order_in.customer.customer_email,
-                create_channel=order_in.order_channel
+                create_channel=order_in.customer.create_channel,
+                admin_memo=order_in.customer.admin_memo
             ))
             customer_id = new_customer.customer_id
     

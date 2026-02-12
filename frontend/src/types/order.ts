@@ -14,6 +14,8 @@ export interface OrderCustomerInput {
   customer_name: string;
   customer_phone: string;
   customer_email?: string | null;
+  create_channel?: string | null;
+  admin_memo?: string | null;
 }
 
 export interface OrderAddressInput {
@@ -63,7 +65,7 @@ export interface OrderStatusUpdate {
   status: string;
 }
 
-export interface OrderResponse {
+export interface OrderResponse { // model Order 필드 다 있음
   order_id: number;
   customer_id: number;
   external_order_id?: string | null;
