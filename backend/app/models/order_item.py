@@ -8,32 +8,35 @@ class OrderItem(Base):
     __tablename__ = "order_items"
     
     order_item_id = Column(BigInteger, primary_key=True, autoincrement=True)
-    external_order_item_id = Column(String(100), nullable=True)
-    order_id = Column(BigInteger, nullable=False)
-    product_code = Column(String(50), nullable=False)
-    product_kind = Column(
-        Enum("YEARLY", "MONTHLY", "SINGLE", name="product_kind_enum"),
-        nullable=False,
-        comment="상품종류"
-    )
-    product_name = Column(String(255), nullable=False)
-
-    price = Column(Integer, nullable=True, default=0, comment="정가")
-    sale = Column(Integer, nullable=True, default=0, comment="할인가")
-    refund = Column(Integer, nullable=True, default=0, comment="환불액")
-    order_num = Column(Integer, nullable=True, default=1)
-
-    subscribe_start_issue = Column(String(10), nullable=True)
-    subscribe_end_issue = Column(String(10), nullable=True)
-    subscribe_period = Column(Integer, nullable=True, default=12, comment="구독 기간(개월)")
-    last_send_issue = Column(String(10), nullable=True)
-    final_subscribe_end_issue = Column(String(10), nullable=True)
+   
+    external_order_item_id = Column(String(100), nullable=True, comment="외부 주문 품목 ID")
     
-    address_id = Column(BigInteger, nullable=False)
-    memo = Column(Text, nullable=True, comment="메모")
-    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    order_id = Column(BigInteger, nullable=False, comment="주문 ID")
+
+    address_id = Column(BigInteger, nullable=False, comment="품목 배송지 ID")
+
+    product_code = Column(String(50), nullable=False, comment="상품 코드")
+    product_kind = Column(Enum("YEARLY", "MONTHLY", name="product_kind_enum"), nullable=False, comment="상품종류")
+    product_name = Column(String(255), nullable=False, comment="상품명")
+
+    list_price = Column(Integer, nullable=False, server_default="0", comment="정가")
+    sale_price = Column(Integer, nullable=False, server_default="0", comment="판매가")
+    refund_amount = Column(Integer, nullable=False, server_default="0", comment="환불액")
+    order_num = Column(Integer, nullable=False, server_default="1", comment="수량")
+
+    subscribe_start_issue = Column(String(10), nullable=False, comment="구독 시작 호(202604)")
+    subscribe_end_issue = Column(String(10), nullable=False, comment="구독 종료 호(202604)")
+    final_subscribe_end_issue = Column(String(10), nullable=False, comment="최종 구독 종료 호(연장/변경 반영)(202604)")
+    subscribe_period = Column(Integer, nullable=False, server_default="12", comment="구독 기간(개월)")
+    
+    last_send_issue = Column(String(10), nullable=True, comment="마지막 발송 호(202604)")
+    
+    admin_memo = Column(Text, nullable=True, comment="관리자 메모")
+    
     sended_at = Column(DateTime, nullable=True)
     cancelled_at = Column(DateTime, nullable=True)
+    
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
     
     # Relationships

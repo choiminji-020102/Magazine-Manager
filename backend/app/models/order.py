@@ -8,32 +8,31 @@ class Order(Base):
     __tablename__ = "orders"
     
     order_id = Column(BigInteger, primary_key=True, autoincrement=True)
-    customer_id = Column(BigInteger, nullable=False, comment="고객 ID")
+    
     external_order_id = Column(String(50), nullable=True, comment="외부 주문 ID")
-    order_channel = Column(
-        Enum("CAFE24", "GPMALL", "OFFLINE", name="order_channel_enum"),
-        nullable=False,
-        comment="주문 채널"
-    )
-    order_status = Column(
-        Enum("ORDERED", "PAID", "CANCELLED", "SHIPPING", "COMPLETED", name="order_status_enum"),
-        nullable=False,
-        default="ORDERED",
-        comment="주문 상태"
-    )
-    total_amount = Column(Integer, nullable=False, default=0, comment="총 주문 금액")
-    discount_amount = Column(Integer, nullable=True, default=0, comment="할인 금액")
-    refund_amount = Column(Integer, nullable=True, default=0, comment="환불 금액")
-    send_fee = Column(Integer, nullable=True, default=0, comment="배송비")
-    payment_amount = Column(Integer, nullable=False, default=0, comment="결제 금액")
+    
+    customer_id = Column(BigInteger, nullable=False, comment="고객 ID")
+
+    address_id = Column(BigInteger, nullable=False, comment="배송지 ID")
+
+    order_channel = Column(Enum("CAFE24", "GPMALL", "OFFLINE", name="order_channel_enum"), nullable=False, comment="주문 채널")
+    order_status = Column(Enum("ORDERED", "PAID", "CANCELLED", name="order_status_enum"), nullable=False, default="ORDERED", comment="주문 상태")
+    
+    total_amount = Column(Integer, nullable=False, server_default="0", comment="총 주문 금액")
+    discount_amount = Column(Integer, nullable=False, server_default="0", comment="할인 금액")
+    refund_amount = Column(Integer, nullable=False, server_default="0", comment="환불 금액")
+    send_fee = Column(Integer, nullable=False, server_default="0", comment="배송비")
+    payment_amount = Column(Integer, nullable=False, server_default="0", comment="결제 금액")
+
     payment_method = Column(String(30), nullable=True, comment="결제 방법")
-    address_id = Column(BigInteger, nullable=True, comment="배송지 ID")
-    request_memo = Column(Text, nullable=True, comment="고객 요청 메모")
+    
+    customer_memo = Column(Text, nullable=True, comment="고객 메모")
     admin_memo = Column(Text, nullable=True, comment="관리자 메모")
     
     order_at = Column(DateTime, nullable=False, server_default=func.now(), comment="주문 일시")
     payment_at = Column(DateTime, nullable=True, comment="결제 일시")
     cancelled_at = Column(DateTime, nullable=True, comment="취소 일시")
+    
     created_at = Column(DateTime, nullable=False, server_default=func.now(), comment="생성 일시")
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now(), comment="수정 일시")
     
@@ -42,25 +41,25 @@ class Order(Base):
         "Customer",
         primaryjoin="Order.customer_id == Customer.customer_id",
         foreign_keys=[customer_id],
-        lazy="joined"
+        lazy="select"
     )
     address = relationship(
         "Address",
         primaryjoin="Order.address_id == Address.address_id",
         foreign_keys=[address_id],
-        lazy="joined"
+        lazy="select"
     )
     items = relationship(
         "OrderItem",
         primaryjoin="Order.order_id == OrderItem.order_id",
         foreign_keys="OrderItem.order_id",
         back_populates="order",
-        lazy="dynamic"
+        lazy="select"
     )
     sends = relationship(
         "Send",
         primaryjoin="Order.order_id == Send.order_id",
         foreign_keys="Send.order_id",
         back_populates="order",
-        lazy="dynamic"
+        lazy="select"
     )
