@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, String, DateTime, Integer, Text, Enum
+from sqlalchemy import Column, BigInteger, String, DateTime, Integer, Text, Enum, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -6,14 +6,14 @@ from app.db.base import Base
 
 class Order(Base):
     __tablename__ = "orders"
-    
-    order_id = Column(BigInteger, primary_key=True, autoincrement=True)
-    
-    external_order_id = Column(String(50), nullable=True, comment="외부 주문 ID")
-    
-    customer_id = Column(BigInteger, nullable=False, comment="고객 ID")
 
-    address_id = Column(BigInteger, nullable=False, comment="배송지 ID")
+    order_id = Column(BigInteger, primary_key=True, autoincrement=True)
+
+    external_order_id = Column(String(50), nullable=True, comment="외부 주문 ID")
+
+    customer_id = Column(BigInteger, ForeignKey("customers.customer_id"), nullable=False, comment="고객 ID")
+
+    address_id = Column(BigInteger, ForeignKey("addresses.address_id"), nullable=False, comment="배송지 ID")
 
     order_channel = Column(Enum("CAFE24", "GPMALL", "OFFLINE", name="order_channel_enum"), nullable=False, comment="주문 채널")
     order_status = Column(Enum("ORDERED", "PAID", "CANCELLED", name="order_status_enum"), nullable=False, default="ORDERED", comment="주문 상태")
@@ -28,7 +28,7 @@ class Order(Base):
     
     customer_memo = Column(Text, nullable=True, comment="고객 메모")
     admin_memo = Column(Text, nullable=True, comment="관리자 메모")
-    
+        
     order_at = Column(DateTime, nullable=False, server_default=func.now(), comment="주문 일시")
     payment_at = Column(DateTime, nullable=True, comment="결제 일시")
     cancelled_at = Column(DateTime, nullable=True, comment="취소 일시")

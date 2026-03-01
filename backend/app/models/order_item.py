@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, String, DateTime, Integer, Text, Enum
+from sqlalchemy import Column, BigInteger, String, DateTime, Integer, Text, Enum, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -6,14 +6,14 @@ from app.db.base import Base
 
 class OrderItem(Base):
     __tablename__ = "order_items"
-    
-    order_item_id = Column(BigInteger, primary_key=True, autoincrement=True)
-   
-    external_order_item_id = Column(String(100), nullable=True, comment="외부 주문 품목 ID")
-    
-    order_id = Column(BigInteger, nullable=False, comment="주문 ID")
 
-    address_id = Column(BigInteger, nullable=False, comment="품목 배송지 ID")
+    order_item_id = Column(BigInteger, primary_key=True, autoincrement=True)
+
+    external_order_item_id = Column(String(100), nullable=True, comment="외부 주문 품목 ID")
+
+    order_id = Column(BigInteger, ForeignKey("orders.order_id"), nullable=False, comment="주문 ID")
+
+    address_id = Column(BigInteger, ForeignKey("addresses.address_id"), nullable=False, comment="품목 배송지 ID")
 
     product_code = Column(String(50), nullable=False, comment="상품 코드")
     product_kind = Column(Enum("YEARLY", "MONTHLY", name="product_kind_enum"), nullable=False, comment="상품종류")
@@ -50,7 +50,7 @@ class OrderItem(Base):
         "Pause",
         primaryjoin="OrderItem.order_item_id == Pause.order_item_id",
         foreign_keys="Pause.order_item_id",
-        lazy="dynamic"
+        lazy="select"
     )
     address = relationship(
         "Address",

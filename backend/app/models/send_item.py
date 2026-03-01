@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, String, DateTime, Integer, DECIMAL, Text
+from sqlalchemy import Column, BigInteger, String, DateTime, Integer, DECIMAL, Text, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -6,12 +6,12 @@ from app.db.base import Base
 
 class SendItem(Base):
     __tablename__ = "send_items"
-    
+
     send_item_id = Column(BigInteger, primary_key=True, autoincrement=True)
 
-    send_id = Column(BigInteger, nullable=False)
-    
-    order_item_id = Column(BigInteger, nullable=False)
+    send_id = Column(BigInteger, ForeignKey("sends.send_id"), nullable=False, comment="발송 ID")
+
+    order_item_id = Column(BigInteger, ForeignKey("order_items.order_item_id"), nullable=False, comment="주문 품목 ID")
 
     product_code = Column(String(50), nullable=False, comment="상품 코드 (스냅샷)")
     product_name = Column(String(255), nullable=False, comment="상품명 (스냅샷)")

@@ -1,13 +1,13 @@
-from sqlalchemy import Column, BigInteger, String, DateTime
+from sqlalchemy import Column, BigInteger, String, DateTime, ForeignKey
 from sqlalchemy.sql import func
 
 from app.db.base import Base
 
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
-    
+
     refresh_token_id = Column(BigInteger, primary_key=True, autoincrement=True)
-    admin_id = Column(BigInteger, nullable=False)
+    admin_id = Column(BigInteger, ForeignKey("admins.admin_id"), nullable=False, comment="관리자 ID")
     
     token = Column(String(512), unique=True, nullable=False)
     

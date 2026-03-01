@@ -2,7 +2,8 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 from fastapi import Query
-from enum import Enum
+
+from app.models.activity_log import ActivityAction, ActivityTargetType
 
 '''
     db: Session,
@@ -15,38 +16,6 @@ from enum import Enum
     ip_address: Optional[str] = None,
     user_agent: Optional[str] = None
 '''
-
-class ActivityAction(str, Enum):
-    """활동 로그 액션 타입"""
-    CREATE = "CREATE"
-    UPDATE = "UPDATE"
-    DELETE = "DELETE"
-    ACTIVATE = "ACTIVATE"
-    DEACTIVATE = "DEACTIVATE"
-    RESTORE = "RESTORE"
-    CANCEL = "CANCEL"
-    LOGIN = "LOGIN"
-    LOGOUT = "LOGOUT"
-    SIGNUP = "SIGNUP"
-    ANSWER = "ANSWER"
-
-
-class ActivityTargetType(str, Enum):
-    """활동 로그 대상 타입 (DB 테이블과 1:1 매칭, 복수형 금지)"""
-    ACTIVITY_LOG = "ACTIVITY_LOG"
-    ADDRESS = "ADDRESS"
-    ADMIN = "ADMIN"
-    AUTH = "AUTH"
-    CAFE24 = "CAFE24"
-    CUSTOMER = "CUSTOMER"
-    INQUIRY = "INQUIRY"
-    ORDER_ITEM = "ORDER_ITEM"
-    ORDER = "ORDER"
-    PAUSE = "PAUSE"
-    PRODUCT = "PRODUCT"
-    # REFRESH_TOKEN = "REFRESH_TOKEN"
-    SEND_ITEM = "SEND_ITEM"
-    SEND = "SEND"
 
 
 class ActivityLogListQuery(BaseModel):

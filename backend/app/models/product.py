@@ -20,12 +20,12 @@ class Product(Base):
     sale_price = Column(Integer, nullable=False, server_default="0", comment="판매가, 할인가")
     cost_price = Column(Integer, nullable=False, server_default="0", comment="제작 단가")
     
-    stock_quantity = Column(Integer, default=0, comment="제작 수량")
+    stock_quantity = Column(Integer, nullable=False, server_default="0", comment="제작 수량")
 
-    unit_weight = Column(DECIMAL(8, 2), default=0.00, nullable=True, comment="한 권의 무게(g)")
-    unit_width = Column(DECIMAL(6, 1), default=0.0, nullable=True, comment="가로(mm)")
-    unit_length = Column(DECIMAL(6, 1), default=0.0, nullable=True, comment="세로(mm)")
-    unit_height = Column(DECIMAL(6, 1), default=0.0, nullable=True, comment="높이/두께(mm)")
+    unit_weight = Column(DECIMAL(8, 2), nullable=True, server_default="0.00", comment="한 권의 무게(g)")
+    unit_width = Column(DECIMAL(6, 1), nullable=True, server_default="0.0", comment="가로(mm)")
+    unit_length = Column(DECIMAL(6, 1), nullable=True, server_default="0.0", comment="세로(mm)")
+    unit_height = Column(DECIMAL(6, 1), nullable=True, server_default="0.0", comment="높이/두께(mm)")
 
     is_active = Column(Boolean, nullable=False, server_default="1", comment="판매 여부")
     

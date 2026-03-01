@@ -1,3 +1,5 @@
+import re
+
 from sqlalchemy import Column, BigInteger, String, DateTime, Text, CHAR, Enum, Boolean
 from sqlalchemy.sql import func
 
@@ -29,6 +31,5 @@ class Customer(Base):
     
     @staticmethod
     def extract_phone_num4(phone: str) -> str:
-        import re
         digits = re.sub(r'[^0-9]', '', phone)
         return digits[-4:] if len(digits) >= 4 else digits
