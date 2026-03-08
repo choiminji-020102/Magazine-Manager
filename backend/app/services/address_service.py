@@ -20,16 +20,16 @@ def get_addresses_by_customer(db: Session, customer_id: int) -> List[Address]:
 def find_address(
     db: Session,
     customer_id: Optional[int],
-    address_name: str,
-    phone: str,
+    recipient_name: str,
+    recipient_phone: str,
     address: str
 ) -> Optional[Address]:
     """동일 주소 검색 (customer_id + 수령인 + 연락처 + 주소)"""
-    formatted_phone, _ = format_phone_number(phone)
-    
+    formatted_phone, _ = format_phone_number(recipient_phone)
+
     query = db.query(Address).filter(
-        Address.address_name == address_name,
-        Address.phone == formatted_phone,
+        Address.recipient_name == recipient_name,
+        Address.recipient_phone == formatted_phone,
         Address.address == address
     )
     
@@ -43,10 +43,10 @@ def find_address(
 
 def create_address(db: Session, address_in: AddressCreate) -> Address:
     data = address_in.model_dump()
-    
-    if data.get("phone"):
-        formatted_phone, _ = format_phone_number(data["phone"])
-        data["phone"] = formatted_phone
+
+    if data.get("recipient_phone"):
+        formatted_phone, _ = format_phone_number(data["recipient_phone"])
+        data["recipient_phone"] = formatted_phone
     
     address = Address(**data)
     db.add(address)
@@ -77,12 +77,12 @@ def update_address(db: Session, address: Address, address_in: AddressUpdate) -> 
 
 def find_or_create_address(db: Session, address_in: AddressCreate) -> Address:
     """동일 주소 검색 또는 생성"""
-    formatted_phone, _ = format_phone_number(address_in.phone)
-    
+    formatted_phone, _ = format_phone_number(address_in.recipient_phone)
+
     existing = find_address(
         db,
         address_in.customer_id,
-        address_in.address_name,
+        address_in.recipient_name,
         formatted_phone,
         address_in.address
     )

@@ -57,8 +57,8 @@ def get_sends(
     if search:
         query = query.filter(
             (Send.tracking_no.like(f"%{search}%")) |
-            (Send.address_name.like(f"%{search}%")) |
-            (Send.phone.like(f"%{search}%"))
+            (Send.recipient_name.like(f"%{search}%")) |
+            (Send.recipient_phone.like(f"%{search}%"))
         )
     
     total = query.count()
@@ -93,27 +93,27 @@ def create_send(db: Session, send_in: SendCreate) -> Send:
     
     # 배송지 정보 결정 (우선순위: send_in.address > address > 기본값)
     if send_in.address:
-        address_name = send_in.address.address_name
-        phone = send_in.address.phone
-        nation = send_in.address.nation or "대한민국"
+        recipient_name = send_in.address.recipient_name
+        recipient_phone = send_in.address.recipient_phone
+        country_code = send_in.address.country_code or "KR"
         postal_code = send_in.address.postal_code
         address_str = send_in.address.address
-        address_memo = send_in.address.address_memo
+        customer_memo = send_in.address.customer_memo
     elif address:
-        address_name = address.address_name
-        phone = address.phone
-        nation = address.nation or "대한민국"
+        recipient_name = address.recipient_name
+        recipient_phone = address.recipient_phone
+        country_code = address.country_code or "KR"
         postal_code = address.postal_code
         address_str = address.address
-        address_memo = address.address_memo
+        customer_memo = address.customer_memo
     else:
-        address_name = ""
-        phone = ""
-        nation = "대한민국"
+        recipient_name = ""
+        recipient_phone = ""
+        country_code = "KR"
         postal_code = ""
         address_str = ""
-        address_memo = None
-    
+        customer_memo = None
+
     # 발송 생성
     send = send_crud.create_send(
         order_id=send_in.order_id,
@@ -124,12 +124,12 @@ def create_send(db: Session, send_in: SendCreate) -> Send:
         tracking_no=send_in.tracking_no,
         send_status=send_in.send_status or "PREPARING",
         send_memo=send_in.send_memo,
-        address_name=address_name,
-        phone=phone,
-        nation=nation,
+        recipient_name=recipient_name,
+        recipient_phone=recipient_phone,
+        country_code=country_code,
         postal_code=postal_code,
         address=address_str,
-        address_memo=address_memo
+        customer_memo=customer_memo
     )
     
     # 발송 품목 생성
@@ -165,12 +165,12 @@ def update_send(db: Session, send: Send, send_in: SendUpdate) -> Send:
     """발송 수정"""
     # 배송지 정보 업데이트 처리
     if send_in.address:
-        send.address_name = send_in.address.address_name
-        send.phone = send_in.address.phone
-        send.nation = send_in.address.nation or send.nation
+        send.recipient_name = send_in.address.recipient_name
+        send.recipient_phone = send_in.address.recipient_phone
+        send.country_code = send_in.address.country_code or send.country_code
         send.postal_code = send_in.address.postal_code
         send.address = send_in.address.address
-        send.address_memo = send_in.address.address_memo
+        send.customer_memo = send_in.address.customer_memo
     
     return send_crud.update_send(send=send, send_in=send_in, db=db)
 

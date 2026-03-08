@@ -177,10 +177,13 @@ def logout(
         db=db
     )
     
-def init_first_admin(admin_in: admin_schema.AdminCreate, req: Request, db: Session) -> admin_schema.AdminResponse:
+def check_admin_exists(db: Session) -> bool:
+    """관리자 존재 여부 확인 (인증 불필요)"""
     admin_count = db.query(admin_model.Admin).filter(admin_model.Admin.deleted_at.is_(None)).count()
-    
-    if admin_count > 0:
+    return admin_count > 0
+
+def init_first_admin(admin_in: admin_schema.AdminCreate, req: Request, db: Session) -> admin_schema.AdminResponse:
+    if check_admin_exists(db):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="이미 관리자가 존재합니다. 최초 관리자 생성은 시스템에 관리자가 없을 때만 가능합니다.")
     
     # 최초 관리자는 항상 SUPER_ADMIN으로 설정

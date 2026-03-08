@@ -112,6 +112,9 @@ def get_orders(
             "order_channel": order.order_channel,
             "order_status": order.order_status,
             "total_amount": order.total_amount,
+            "discount_amount": order.discount_amount,
+            "refund_amount": order.refund_amount,
+            "send_fee": order.send_fee,
             "payment_amount": order.payment_amount,
             "order_at": order.order_at,
             "item_count": item_count
@@ -156,20 +159,51 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
     if not address_id and order_in.address:
         address = address_service.find_or_create_address(db, AddressCreate(
             customer_id=customer_id,
-            address_name=order_in.address.address_name,
-            phone=order_in.address.phone,
-            nation=order_in.address.nation,
+            recipient_name=order_in.address.recipient_name,
+            recipient_phone=order_in.address.recipient_phone,
+            country_code=order_in.address.country_code,
             postal_code=order_in.address.postal_code,
             address=order_in.address.address,
-            address_memo=order_in.address.address_memo
+            customer_memo=order_in.address.customer_memo
         ))
         address_id = address.address_id
     
-   
-    
-    # 4. 주문 품목 생성 및 금액 계산
+    # 3. 주문 품목 금액 계산 (주문 생성 전에 total_amount 계산)
     total_amount = 0
     
+    for item_in in order_in.items:
+        product = db.query(Product).filter(Product.product_code == item_in.product_code).first()
+        if not product:
+            raise ValueError(f"상품을 찾을 수 없습니다: {item_in.product_code}")
+        
+        price = item_in.price if item_in.price is not None else product.price
+        sale = item_in.sale if item_in.sale is not None else product.sale
+        
+        # 총 판매가액(total_amount) = 판매가 * 수량
+        total_amount += sale * item_in.order_num
+    
+    # 총 결제금액(payment_amount) = total_amount - 특별할인 + 받은배송비
+    payment_amount = total_amount - (order_in.discount_amount or 0) + (order_in.send_fee or 0)
+    
+    # 4. 주문 생성
+    order = order_crud.create_order(
+        db=db,
+        customer_id=customer_id,
+        external_order_id=order_in.external_order_id,
+        order_channel=order_in.order_channel,
+        order_status=order_in.order_status,
+        total_amount=total_amount,
+        payment_amount=payment_amount,
+        discount_amount=order_in.discount_amount,
+        send_fee=order_in.send_fee,
+        payment_method=order_in.payment_method,
+        address_id=address_id,
+        request_memo=order_in.request_memo,
+        admin_memo=order_in.admin_memo,
+        payment_at=order_in.payment_at,
+    )
+    
+    # 5. 주문 품목 생성
     for item_in in order_in.items:
         product = db.query(Product).filter(Product.product_code == item_in.product_code).first()
         if not product:
@@ -214,31 +248,6 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
             memo=item_in.memo,
         )
         db.add(order_item)
-        
-        # 총 판매가액(total_amount) = 판매가 * 수량
-        total_amount += sale * item_in.order_num
-    
-
-    # 총 결제금액(payment_amount) = total_amount - 특별할인 + 받은배송비
-    payment_amount = total_amount - (order_in.discount_amount or 0) + (order_in.send_fee or 0)
-    
-     # 3. 주문 생성
-    order = order_crud.create_order(
-        db=db,
-        customer_id=customer_id,
-        external_order_id=order_in.external_order_id,
-        order_channel=order_in.order_channel,
-        order_status=order_in.order_status,
-        total_amount=total_amount,
-        payment_amount=payment_amount,
-        discount_amount=order_in.discount_amount,
-        send_fee=order_in.send_fee,
-        payment_method=order_in.payment_method,
-        address_id=address_id,
-        request_memo=order_in.request_memo,
-        admin_memo=order_in.admin_memo,
-        payment_at=order_in.payment_at,
-    )
 
     # 6. 고객 최근 주문일 업데이트
     customer = db.query(Customer).filter(Customer.customer_id == customer_id).first()

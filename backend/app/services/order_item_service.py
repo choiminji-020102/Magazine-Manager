@@ -199,11 +199,11 @@ def find_subscription_targets(
         Order.order_channel,
         Customer.customer_name,
         Customer.customer_phone,
-        Address.address_name,
-        Address.phone,
+        Address.recipient_name,
+        Address.recipient_phone,
         Address.postal_code,
         Address.address,
-        Address.address_memo
+        Address.customer_memo
     ).join(Order, OrderItem.order_id == Order.order_id)\
      .join(Customer, Order.customer_id == Customer.customer_id)\
      .outerjoin(Address, OrderItem.address_id == Address.address_id)\
@@ -235,13 +235,13 @@ def find_subscription_targets(
     targets = []
     for row in results:
         item, customer_id, order_channel, customer_name, customer_phone, \
-        address_name, phone, postal_code, address, address_memo = row
-        
+        recipient_name, recipient_phone, postal_code, address, customer_memo = row
+
         # 발송용 product_code 변환
         send_product_code = convert_to_monthly_product_code(
             item.product_code, item.product_kind, issue
         )
-        
+
         targets.append({
             "order_item_id": item.order_item_id,
             "order_id": item.order_id,
@@ -254,11 +254,11 @@ def find_subscription_targets(
             "customer_name": customer_name,
             "customer_phone": customer_phone,
             "address_id": item.address_id,
-            "address_name": address_name,
-            "phone": phone,
+            "recipient_name": recipient_name,
+            "recipient_phone": recipient_phone,
             "postal_code": postal_code,
             "address": address,
-            "address_memo": address_memo
+            "customer_memo": customer_memo
         })
     
     return targets
@@ -332,11 +332,11 @@ def find_single_targets(
         Order.order_channel,
         Customer.customer_name,
         Customer.customer_phone,
-        Address.address_name,
-        Address.phone,
+        Address.recipient_name,
+        Address.recipient_phone,
         Address.postal_code,
         Address.address,
-        Address.address_memo
+        Address.customer_memo
     ).join(Order, OrderItem.order_id == Order.order_id)\
      .join(Customer, Order.customer_id == Customer.customer_id)\
      .outerjoin(Address, OrderItem.address_id == Address.address_id)\
@@ -350,8 +350,8 @@ def find_single_targets(
     targets = []
     for row in results:
         item, customer_id, order_channel, customer_name, customer_phone, \
-        address_name, phone, postal_code, address, address_memo = row
-        
+        recipient_name, recipient_phone, postal_code, address, customer_memo = row
+
         targets.append({
             "order_item_id": item.order_item_id,
             "order_id": item.order_id,
@@ -365,11 +365,11 @@ def find_single_targets(
             "customer_name": customer_name,
             "customer_phone": customer_phone,
             "address_id": item.address_id,
-            "address_name": address_name,
-            "phone": phone,
+            "recipient_name": recipient_name,
+            "recipient_phone": recipient_phone,
             "postal_code": postal_code,
             "address": address,
-            "address_memo": address_memo
+            "customer_memo": customer_memo
         })
     
     return targets
