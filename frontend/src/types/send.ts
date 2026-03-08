@@ -1,4 +1,5 @@
 // Send 관련 타입
+import type { SendItemResponse } from "./sendItem";
 
 export type CourierCompany =
   | "CJ대한통운"
@@ -11,13 +12,13 @@ export type SendStatus = "PREPARING" | "SHIPPED" | "DELIVERED" | "CANCELLED";
 
 export interface SendItemInput {
   order_item_id: number;
-  send_num: number;
+  send_num?: number; // 기본값: 1
 }
 
 export interface SendAddressInput {
   address_name: string;
   phone: string;
-  nation?: string | null;
+  nation?: string; // 기본값: "대한민국"
   postal_code: string;
   address: string;
   address_memo?: string | null;
@@ -30,7 +31,7 @@ export interface SendCreate {
   send_date?: string | null;
   courier_company?: CourierCompany | null;
   tracking_no?: string | null;
-  send_status?: SendStatus | null;
+  send_status?: SendStatus; // 기본값: "PREPARING"
   send_memo?: string | null;
   items: SendItemInput[];
 }
@@ -53,24 +54,7 @@ export interface SendTrackingUpdate {
   tracking_no: string;
 }
 
-export interface SendItemResponse {
-  send_item_id: number;
-  send_id: number;
-  order_item_id: number;
-  product_code: string;
-  send_num: number;
-  purchase: number;
-  product_name: string;
-  unit_weight: number;
-  unit_width: number;
-  unit_length: number;
-  unit_height: number;
-  created_at: string;
-  updated_at: string;
-  cancelled_at?: string | null;
-}
-
-export interface SendResponse {
+export interface SendResponse { // 확인 (모델의 모든 필트 포함)
   send_id: number;
   order_id: number;
   address_id?: number | null;
@@ -81,7 +65,7 @@ export interface SendResponse {
   send_memo?: string | null;
   address_name: string;
   phone: string;
-  nation?: string | null;
+  nation: string;
   postal_code: string;
   address: string;
   address_memo?: string | null;
@@ -90,11 +74,12 @@ export interface SendResponse {
   cancelled_at?: string | null;
 }
 
+export interface SendListResponse extends SendResponse {
+  item_count: number;
+}
+
 export interface SendDetailResponse extends SendResponse {
   items: SendItemResponse[];
   item_count: number;
 }
 
-export interface SendListResponse extends SendResponse {
-  item_count: number;
-}

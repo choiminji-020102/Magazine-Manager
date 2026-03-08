@@ -1,4 +1,4 @@
-import { OrderItemResponse } from "./orderItem";
+// OrderItemResponse는 orderItem.ts에서 import
 
 export interface OrderListQuery {
   page?: number;
@@ -115,21 +115,3 @@ export interface OrderListResponse {
 }
 
 
-export interface OrderDetailResponseCustomer {
-  customer_id: number;
-  customer_name: string;
-  customer_phone: string;
-}
-
-export interface OrderDetailResponseAddress {
-  address_id: number;
-  address_name: string;
-  phone: string;
-  address: string;
-}
-
-export interface OrderDetailResponse extends OrderResponse {
-  customer?: OrderDetailResponseCustomer | null;
-  address?: OrderDetailResponseAddress | null;
-  items: OrderItemResponse[];
-}

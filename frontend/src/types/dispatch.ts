@@ -6,6 +6,7 @@ export interface DispatchTarget {
   customer_id: number;
   order_channel: string;
   product_code: string;
+  send_product_code: string;
   product_kind: string;
   product_name: string;
   customer_name: string;

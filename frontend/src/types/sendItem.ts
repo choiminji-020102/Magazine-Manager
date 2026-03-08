@@ -2,7 +2,7 @@
 
 export interface SendItemCreate {
   order_item_id: number;
-  send_num: number;
+  send_num?: number; // 기본값: 1
 }
 
 export interface SendItemUpdate {
