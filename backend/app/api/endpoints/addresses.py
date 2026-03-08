@@ -74,11 +74,11 @@ def create_address(
         action=ActivityAction.CREATE,
         target_type=ActivityTargetType.ADDRESS,
         target_id=address.address_id,
-        target_name=address.address_name,
+        target_name=address.recipient_name,
         details={
             "reason": "배송지 등록 성공",
             "customer_id": address.customer_id,
-            "phone": address.phone,
+            "recipient_phone": address.recipient_phone,
             "postal_code": address.postal_code
         },
         ip_address=request.client.host if request.client else None,
@@ -99,19 +99,19 @@ def update_address(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin)
 ):
-    """배송지 수정 (nation, postal_code, address_memo만 수정 가능)"""
+    """배송지 수정 (country_code, postal_code, customer_memo만 수정 가능)"""
     address = address_service.get_address_by_id(db, address_id)
-    
+
     if address is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="배송지를 찾을 수 없습니다."
         )
-    
+
     old_data = {
-        "nation": address.nation,
+        "country_code": address.country_code,
         "postal_code": address.postal_code,
-        "address_memo": address.address_memo
+        "customer_memo": address.customer_memo
     }
     
     address = address_service.update_address(db, address, address_in)
@@ -122,9 +122,9 @@ def update_address(
         action=ActivityAction.UPDATE,
         target_type=ActivityTargetType.ADDRESS,
         target_id=address.address_id,
-        target_name=address.address_name,
+        target_name=address.recipient_name,
         details={
-            "reason": "배송지 수정 성공", 
+            "reason": "배송지 수정 성공",
             "before": old_data, 
             "after": address_in.model_dump(exclude_unset=True)
         },

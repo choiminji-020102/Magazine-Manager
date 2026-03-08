@@ -93,16 +93,16 @@ def generate_dispatch(
                 address_id=target["address_id"],
                 send_date=req.send_date,
                 send_status="PREPARING",
-                address_name=target["address_name"] or "",
-                phone=target["phone"] or "",
-                nation="대한민국",
+                recipient_name=target["recipient_name"] or "",
+                recipient_phone=target["recipient_phone"] or "",
+                country_code="KR",
                 postal_code=target["postal_code"] or "",
                 address=target["address"] or '',
-                address_memo=target["address_memo"]
+                customer_memo=target["customer_memo"]
             )
             db.add(send)
             db.flush()
-            
+
             send_item = SendItem(
                 send_id=send.send_id,
                 order_item_id=target["order_item_id"],
@@ -268,16 +268,16 @@ def generate_single_dispatch(
                 address_id=target["address_id"],
                 send_date=req.send_date,
                 send_status="PREPARING",
-                address_name=target["address_name"] or "",
-                phone=target["phone"] or "",
-                nation="대한민국",
+                recipient_name=target["recipient_name"] or "",
+                recipient_phone=target["recipient_phone"] or "",
+                country_code="KR",
                 postal_code=target["postal_code"] or "",
                 address=target["address"] or '',
-                address_memo=target["address_memo"]
+                customer_memo=target["customer_memo"]
             )
             db.add(send)
             db.flush()
-            
+
             send_item = SendItem(
                 send_id=send.send_id,
                 order_item_id=target["order_item_id"],

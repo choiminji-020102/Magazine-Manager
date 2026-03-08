@@ -60,6 +60,14 @@ def logout(
     )
     return auth_service.logout(logout_in=logout_in, admin=current_admin, req=req, db=db)
 
+@router.get("/check-admin-exists")
+def check_admin_exists(
+    db: Session = Depends(get_db)
+):
+    """관리자 존재 여부 확인 (인증 불필요)"""
+    exists = auth_service.check_admin_exists(db=db)
+    return {"exists": exists}
+
 @router.post("/signup/init", response_model=admin_schema.AdminResponse, status_code=status.HTTP_201_CREATED)
 def init_first_admin(
     admin_in: admin_schema.AdminCreate,

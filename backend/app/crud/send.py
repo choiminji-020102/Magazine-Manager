@@ -46,12 +46,12 @@ def create_send(
     tracking_no: Optional[str] = None,
     send_status: str = "PREPARING",
     send_memo: Optional[str] = None,
-    address_name: str = "",
-    phone: str = "",
-    nation: str = "대한민국",
+    recipient_name: str = "",
+    recipient_phone: str = "",
+    country_code: str = "KR",
     postal_code: str = "",
     address: str = "",
-    address_memo: Optional[str] = None
+    customer_memo: Optional[str] = None
 ) -> Send:
     """발송 생성"""
     try:
@@ -63,12 +63,12 @@ def create_send(
             tracking_no=tracking_no,
             send_status=send_status,
             send_memo=send_memo,
-            address_name=address_name,
-            phone=phone,
-            nation=nation,
+            recipient_name=recipient_name,
+            recipient_phone=recipient_phone,
+            country_code=country_code,
             postal_code=postal_code,
             address=address,
-            address_memo=address_memo
+            customer_memo=customer_memo
         )
         db.add(send)
         db.flush()
