@@ -9,366 +9,55 @@ import {
   Search,
   ChevronDown,
   ArrowUpDown,
-  ArrowRight,
   Package,
   CreditCard,
   Truck,
   Clock,
   AlertCircle,
-  Save,
-  MapPin,
   X,
   RotateCcw,
+  Store,
+  ShoppingCart,
+  Building2,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 import Card from "../components/common/Card";
 import Button from "../components/common/Button";
 import Badge from "../components/common/Badge";
-import Table, { Column } from "../components/common/Table";
-import Pagination from "../components/common/Pagination";
-import Modal from "../components/common/Modal";
+import { Column } from "../components/common/Table";
+import ListPage from "../components/common/ListPage";
 import SlidePanel from "../components/common/SlidePanel";
 import Tabs from "../components/common/Tabs";
 import Textarea from "../components/common/Textarea";
-import Select from "../components/common/Select";
 import Input from "../components/common/Input";
 import Breadcrumb from "../components/common/Breadcrumb";
+import StatCard from "../components/common/StatCard";
 import {
   OrderChannel,
   OrderStatus,
   ORDER_CHANNEL_LABELS,
   ORDER_STATUS_LABELS,
 } from "../utils/constants";
-
-// DB 스키마 기반 인터페이스
-interface Order {
-  order_id: number;
-  customer_id: number;
-  external_order_id: string | null;
-  order_channel: "CAFE24" | "GPMALL" | "OFFLINE";
-  order_status: "ORDERED" | "PAID" | "CANCELLED" | "SHIPPING" | "COMPLETED";
-  total_amount: number;
-  discount_amount: number;
-  send_fee: number;
-  payment_amount: number;
-  payment_method: string | null;
-  address_id: number | null;
-  request_memo: string | null;
-  admin_memo: string | null;
-  order_at: string;
-  payment_at: string | null;
-  cancelled_at: string | null;
-  created_at: string;
-  updated_at: string;
-  order_items?: OrderItem[];
-  customer_name?: string;
-  customer_phone?: string;
-  customer_email?: string;
-}
-
-interface OrderItem {
-  order_item_id: number;
-  external_order_item_id: string | null;
-  order_id: number;
-  product_code: string;
-  product_kind: "YEARLY" | "MONTHLY" | "SINGLE";
-  product_name: string;
-  price: number;
-  sale: number;
-  order_num: number;
-  subscribe_start_issue: string | null;
-  subscribe_end_issue: string | null;
-  last_send_issue: string | null;
-  final_subscribe_end_issue: string | null;
-  address_id: number;
-  created_at: string;
-  sended_at: string | null;
-  cancelled_at: string | null;
-  updated_at: string;
-}
-
-interface Address {
-  address_id: number;
-  address_name: string;
-  phone: string;
-  nation: string;
-  postal_code: string;
-  address1: string;
-  address2: string;
-  address_memo: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface Customer {
-  customer_id: number;
-  customer_name: string;
-  customer_phone: string;
-  customer_phone_num4: string;
-  customer_email: string | null;
-  create_channel: "CAFE24" | "GPMALL" | "OFFLINE";
-  admin_memo: string | null;
-  last_order_at: string | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-}
-
-// 목업 데이터
-const mockOrders: Order[] = [
-  {
-    order_id: 1,
-    customer_id: 1,
-    external_order_id: "CAFE24-20241208001",
-    order_channel: "CAFE24",
-    order_status: "COMPLETED",
-    total_amount: 240000,
-    discount_amount: 5000,
-    send_fee: 3000,
-    payment_amount: 238000,
-    payment_method: "카드결제",
-    address_id: 1,
-    request_memo: "부재 시 문 앞에 놓아주세요",
-    admin_memo: null,
-    order_at: "2024-12-08T10:30:00",
-    payment_at: "2024-12-08T10:30:00",
-    cancelled_at: null,
-    created_at: "2024-12-08T10:30:00",
-    updated_at: "2024-12-08T10:30:00",
-    customer_name: "김민수",
-    customer_phone: "010-1234-5678",
-    customer_email: "minsu.kim@example.com",
-    order_items: [
-      {
-        order_item_id: 1,
-        external_order_item_id: "ITEM-001",
-        order_id: 1,
-        product_code: "PROD-001",
-        product_kind: "YEARLY",
-        product_name: "말씀함께 12개월 구독",
-        price: 144000,
-        sale: 0,
-        order_num: 1,
-        subscribe_start_issue: "202501",
-        subscribe_end_issue: "202512",
-        last_send_issue: null,
-        final_subscribe_end_issue: null,
-        address_id: 1, // 기본 배송지
-        created_at: "2024-12-08T10:30:00",
-        sended_at: null,
-        cancelled_at: null,
-        updated_at: "2024-12-08T10:30:00",
-      },
-      {
-        order_item_id: 4,
-        external_order_item_id: "ITEM-004",
-        order_id: 1,
-        product_code: "PROD-002",
-        product_kind: "MONTHLY",
-        product_name: "꿀땅 6개월 구독",
-        price: 96000,
-        sale: 5000,
-        order_num: 1,
-        subscribe_start_issue: "202501",
-        subscribe_end_issue: "202506",
-        last_send_issue: null,
-        final_subscribe_end_issue: null,
-        address_id: 4, // 다른 배송지로 변경됨
-        created_at: "2024-12-08T10:30:00",
-        sended_at: null,
-        cancelled_at: null,
-        updated_at: "2024-12-08T11:00:00",
-      },
-    ],
-  },
-  {
-    order_id: 2,
-    customer_id: 2,
-    external_order_id: "GPMALL-20241207002",
-    order_channel: "GPMALL",
-    order_status: "SHIPPING",
-    total_amount: 96000,
-    discount_amount: 5000,
-    send_fee: 0,
-    payment_amount: 91000,
-    payment_method: "계좌이체",
-    address_id: 2,
-    request_memo: null,
-    admin_memo: "특별 처리 필요",
-    order_at: "2024-12-07T14:20:00",
-    payment_at: "2024-12-07T14:25:00",
-    cancelled_at: null,
-    created_at: "2024-12-07T14:20:00",
-    updated_at: "2024-12-07T14:25:00",
-    customer_name: "이영희",
-    customer_phone: "010-2345-6789",
-    customer_email: "younghee.lee@example.com",
-    order_items: [
-      {
-        order_item_id: 2,
-        external_order_item_id: "ITEM-002",
-        order_id: 2,
-        product_code: "PROD-002",
-        product_kind: "MONTHLY",
-        product_name: "꿀땅 6개월 구독",
-        price: 96000,
-        sale: 5000,
-        order_num: 1,
-        subscribe_start_issue: "202501",
-        subscribe_end_issue: "202506",
-        last_send_issue: null,
-        final_subscribe_end_issue: null,
-        address_id: 2,
-        created_at: "2024-12-07T14:20:00",
-        sended_at: null,
-        cancelled_at: null,
-        updated_at: "2024-12-07T14:20:00",
-      },
-    ],
-  },
-  {
-    order_id: 3,
-    customer_id: 3,
-    external_order_id: null,
-    order_channel: "OFFLINE",
-    order_status: "ORDERED",
-    total_amount: 12000,
-    discount_amount: 0,
-    send_fee: 0,
-    payment_amount: 12000,
-    payment_method: null,
-    address_id: 3,
-    request_memo: null,
-    admin_memo: null,
-    order_at: "2024-12-06T16:45:00",
-    payment_at: null,
-    cancelled_at: null,
-    created_at: "2024-12-06T16:45:00",
-    updated_at: "2024-12-06T16:45:00",
-    customer_name: "박철수",
-    customer_phone: "010-3456-7890",
-    customer_email: "chulsoo.park@example.com",
-    order_items: [
-      {
-        order_item_id: 3,
-        external_order_item_id: null,
-        order_id: 3,
-        product_code: "PROD-003",
-        product_kind: "SINGLE",
-        product_name: "말씀함께 단품",
-        price: 12000,
-        sale: 0,
-        order_num: 1,
-        subscribe_start_issue: null,
-        subscribe_end_issue: null,
-        last_send_issue: null,
-        final_subscribe_end_issue: null,
-        address_id: 3,
-        created_at: "2024-12-06T16:45:00",
-        sended_at: null,
-        cancelled_at: null,
-        updated_at: "2024-12-06T16:45:00",
-      },
-    ],
-  },
-];
-
-const mockCustomers: Customer[] = [
-  {
-    customer_id: 1,
-    customer_name: "김민수",
-    customer_phone: "010-1234-5678",
-    customer_phone_num4: "5678",
-    customer_email: "minsu.kim@example.com",
-    create_channel: "CAFE24",
-    admin_memo: null,
-    last_order_at: "2024-12-08T00:00:00",
-    created_at: "2024-01-15T00:00:00",
-    updated_at: "2024-12-08T00:00:00",
-    deleted_at: null,
-  },
-  {
-    customer_id: 2,
-    customer_name: "이영희",
-    customer_phone: "010-2345-6789",
-    customer_phone_num4: "6789",
-    customer_email: "younghee.lee@example.com",
-    create_channel: "GPMALL",
-    admin_memo: null,
-    last_order_at: "2024-12-05T00:00:00",
-    created_at: "2024-02-20T00:00:00",
-    updated_at: "2024-12-05T00:00:00",
-    deleted_at: null,
-  },
-  {
-    customer_id: 3,
-    customer_name: "박철수",
-    customer_phone: "010-3456-7890",
-    customer_phone_num4: "7890",
-    customer_email: "chulsoo.park@example.com",
-    create_channel: "OFFLINE",
-    admin_memo: null,
-    last_order_at: "2024-11-28T00:00:00",
-    created_at: "2024-03-10T00:00:00",
-    updated_at: "2024-11-28T00:00:00",
-    deleted_at: null,
-  },
-];
-
-const mockAddresses: Address[] = [
-  {
-    address_id: 1,
-    address_name: "김민수",
-    phone: "010-1234-5678",
-    nation: "대한민국",
-    postal_code: "06234",
-    address1: "서울특별시 강남구 테헤란로 123",
-    address2: "101동 101호",
-    address_memo: "부재 시 문 앞에 놓아주세요",
-    created_at: "2024-12-08T10:30:00",
-    updated_at: "2024-12-08T10:30:00",
-  },
-  {
-    address_id: 4,
-    address_name: "김민수",
-    phone: "010-1234-5678",
-    nation: "대한민국",
-    postal_code: "13529",
-    address1: "경기도 성남시 분당구 판교로 789",
-    address2: "501동 501호",
-    address_memo: "경비실에 맡겨주세요",
-    created_at: "2024-12-08T11:00:00",
-    updated_at: "2024-12-08T11:00:00",
-  },
-  {
-    address_id: 2,
-    address_name: "이영희",
-    phone: "010-2345-6789",
-    nation: "대한민국",
-    postal_code: "13529",
-    address1: "경기도 성남시 분당구 판교로 456",
-    address2: "202동 202호",
-    address_memo: null,
-    created_at: "2024-12-07T14:20:00",
-    updated_at: "2024-12-07T14:20:00",
-  },
-  {
-    address_id: 3,
-    address_name: "박철수",
-    phone: "010-3456-7890",
-    nation: "대한민국",
-    postal_code: "03051",
-    address1: "서울특별시 종로구 세종대로 789",
-    address2: "303동 303호",
-    address_memo: null,
-    created_at: "2024-12-06T16:45:00",
-    updated_at: "2024-12-06T16:45:00",
-  },
-];
+import { ordersApi } from "../api/ordersApi";
+import { addressesApi } from "../api/addressesApi";
+import { orderItemsApi } from "../api/orderItemsApi";
+import OrderDetailModal from "./OrderDetailPage";
+import type {
+  OrderListResponse,
+  OrderListQuery,
+  OrderResponse,
+} from "../types/order";
+import type { OrderItemDetailResponse, OrderItemResponse } from "../types/orderItem";
+import type { AddressResponse, AddressCreate } from "../types/address";
 
 const OrderListPage: React.FC = () => {
   const navigate = useNavigate();
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const [orders, setOrders] = useState<OrderListResponse[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // 탭 상태
+  const [channelTab, setChannelTab] = useState<"ALL" | "CAFE24" | "GPMALL" | "OFFLINE">("ALL");
 
   // 필터 상태
   const [searchValue, setSearchValue] = useState("");
@@ -392,9 +81,7 @@ const OrderListPage: React.FC = () => {
 
   // 모달 상태
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [detailTab, setDetailTab] = useState("info");
-  const [newMemo, setNewMemo] = useState("");
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
 
   // 배송지 변경 모달 상태
   const [isAddressChangePanelOpen, setIsAddressChangePanelOpen] =
@@ -402,15 +89,15 @@ const OrderListPage: React.FC = () => {
   const [
     selectedOrderItemForAddressChange,
     setSelectedOrderItemForAddressChange,
-  ] = useState<OrderItem | null>(null);
+  ] = useState<OrderItemDetailResponse | null>(null);
   const [newAddress, setNewAddress] = useState({
     address_name: "",
     phone: "",
     postal_code: "",
-    address1: "",
-    address2: "",
+    address: "",
     address_memo: "",
   });
+  const [currentAddress, setCurrentAddress] = useState<AddressResponse | null>(null);
 
   // 우편번호 검색 핸들러
   const handlePostcodeSearch = () => {
@@ -431,8 +118,7 @@ const OrderListPage: React.FC = () => {
           setNewAddress({
             ...newAddress,
             postal_code: data.zonecode,
-            address1: addr,
-            address2: "", // 상세주소는 사용자가 직접 입력
+            address: addr,
           });
         },
       }).open();
@@ -443,79 +129,46 @@ const OrderListPage: React.FC = () => {
     }
   };
 
-  // 배송지 변경 핸들러
-  const handleOpenAddressChangePanel = (orderItem: OrderItem) => {
-    setSelectedOrderItemForAddressChange(orderItem);
-    const currentAddress = getAddressById(orderItem.address_id);
-    if (currentAddress) {
-      setNewAddress({
-        address_name: currentAddress.address_name,
-        phone: currentAddress.phone,
-        postal_code: currentAddress.postal_code,
-        address1: currentAddress.address1,
-        address2: currentAddress.address2 || "",
-        address_memo: currentAddress.address_memo || "",
-      });
-    } else {
-      setNewAddress({
-        address_name: "",
-        phone: "",
-        postal_code: "",
-        address1: "",
-        address2: "",
-        address_memo: "",
-      });
-    }
-    setIsAddressChangePanelOpen(true);
-  };
+  const handleConfirmAddressChange = async () => {
+    if (!selectedOrderItemForAddressChange) return;
 
-  const handleConfirmAddressChange = () => {
-    if (!selectedOrder || !selectedOrderItemForAddressChange) return;
+    try {
+      // 주문 정보 가져오기 (customer_id를 위해)
+      const orderResponse = await ordersApi.getOrder(selectedOrderItemForAddressChange.order_id);
+      if (!orderResponse.data.data) {
+        alert("주문 정보를 불러올 수 없습니다.");
+        return;
+      }
+      const order = orderResponse.data.data;
 
-    // 새 배송지 생성 (실제로는 API 호출이지만 여기서는 새 address_id 생성)
-    // 임시로 새로운 address_id 생성 (실제로는 API에서 반환된 ID 사용)
-    const newAddressId = Math.max(...addresses.map((a) => a.address_id), 0) + 1;
-
-    // 새 주소 객체 생성 (실제로는 API를 통해 생성됨)
-    const createdAddress: Address = {
-      address_id: newAddressId,
+      // 새 배송지 생성
+      const addressData: AddressCreate = {
+        customer_id: order.customer_id,
       address_name: newAddress.address_name,
       phone: newAddress.phone,
       nation: "대한민국",
       postal_code: newAddress.postal_code,
-      address1: newAddress.address1,
-      address2: newAddress.address2 || "",
-      address_memo: newAddress.address_memo || "",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+        address: newAddress.address,
+        address_memo: newAddress.address_memo || null,
+      };
 
-    // 주소 목록에 추가 (실제로는 API 호출 후 상태 업데이트)
-    setAddresses([...addresses, createdAddress]);
+      const addressResponse = await addressesApi.createAddress(addressData);
+      if (!addressResponse.data.data) {
+        alert("배송지 생성에 실패했습니다.");
+        return;
+      }
 
-    // 주문 품목의 배송지 업데이트
-    const updatedOrderItems = selectedOrder.order_items?.map((item) =>
-      item.order_item_id === selectedOrderItemForAddressChange.order_item_id
-        ? { ...item, address_id: newAddressId }
-        : item
-    );
-
-    setSelectedOrder({
-      ...selectedOrder,
-      order_items: updatedOrderItems,
-    });
-
-    // 전체 주문 목록도 업데이트
-    setOrders(
-      orders.map((order) =>
-        order.order_id === selectedOrder.order_id
-          ? {
-              ...order,
-              order_items: updatedOrderItems,
-            }
-          : order
-      )
-    );
+      // 주문 품목의 배송지 업데이트
+      await orderItemsApi.updateOrderItem(selectedOrderItemForAddressChange.order_item_id, {
+        address: {
+          address_name: newAddress.address_name,
+          phone: newAddress.phone,
+          nation: "대한민국",
+          postal_code: newAddress.postal_code,
+          address: newAddress.address,
+          address_memo: newAddress.address_memo || null,
+        },
+      });
 
     setIsAddressChangePanelOpen(false);
     setSelectedOrderItemForAddressChange(null);
@@ -523,33 +176,36 @@ const OrderListPage: React.FC = () => {
       address_name: "",
       phone: "",
       postal_code: "",
-      address1: "",
-      address2: "",
+        address: "",
       address_memo: "",
     });
+
+      alert("배송지가 변경되었습니다.");
+    } catch (error: any) {
+      console.error("배송지 변경에 실패했습니다.", error);
+      alert(error.response?.data?.message || "배송지 변경에 실패했습니다.");
+    }
   };
 
-  // 상세보기 패널 상태
-  const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false);
-  const [selectedOrderForPanel, setSelectedOrderForPanel] =
-    useState<Order | null>(null);
 
   // 데이터 상태
-  const [addresses, setAddresses] = useState<Address[]>(mockAddresses);
-  const [customers] = useState<Customer[]>(mockCustomers);
+  const [totalCount, setTotalCount] = useState(0);
 
-  // 구독 호수를 포맷하는 함수 (예: "202501" -> "25년 01월호")
-  const formatIssue = (issue: string | null): string => {
-    if (!issue || issue.length !== 6) return "-";
-    const year = issue.substring(0, 4);
-    const month = issue.substring(4, 6);
-    const shortYear = year.substring(2); // "2025" -> "25"
-    return `${shortYear}년 ${month}월호`;
+
+  // 탭 변경 핸들러
+  const handleChannelTabChange = (tab: "ALL" | "CAFE24" | "GPMALL" | "OFFLINE") => {
+    setChannelTab(tab);
+    setChannelFilter(tab === "ALL" ? "" : tab);
+    setCurrentPage(1);
   };
 
   useEffect(() => {
+    setCurrentPage(1); // 필터 변경 시 첫 페이지로
+  }, [statusFilter, channelFilter, paymentFilter, dateFilter.start, dateFilter.end, searchValue]);
+
+  useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [currentPage, statusFilter, channelFilter, paymentFilter, dateFilter, searchValue, sortKey, sortDirection]);
 
   // 외부 클릭 시 정렬 메뉴 닫기 및 위치 계산
   useEffect(() => {
@@ -582,24 +238,45 @@ const OrderListPage: React.FC = () => {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    setOrders(mockOrders);
+      const query: OrderListQuery = {
+        page: currentPage,
+        limit: pageSize,
+        search: searchValue || null,
+        channel: channelFilter || null,
+        order_status: statusFilter || null,
+        start_date: dateFilter.start || null,
+        end_date: dateFilter.end || null,
+      };
+
+      const response = await ordersApi.getOrders(query);
+      if (response.data && response.data.data) {
+        setOrders(response.data.data);
+        setTotalCount(response.data.pagination?.total || 0);
+      } else {
+        console.error("응답 데이터 형식이 올바르지 않습니다:", response);
+        setOrders([]);
+        setTotalCount(0);
+      }
     } catch (err: any) {
       console.error("주문 목록을 불러오는데 실패했습니다.", err);
+      console.error("에러 상세:", {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        url: err.config?.url,
+      });
       setOrders([]);
+      setTotalCount(0);
+      const errorMessage = err.response?.data?.message || err.response?.data?.detail || err.message || "주문 목록을 불러오는데 실패했습니다.";
+      alert(errorMessage);
     } finally {
     setLoading(false);
     }
   };
 
-  const handleSort = (key: string, direction: "asc" | "desc") => {
-    setSortKey(key);
-    setSortDirection(direction);
-  };
-
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedOrders(new Set(filteredOrders.map((o) => String(o.order_id))));
+      setSelectedOrders(new Set(paginatedOrders.map((o) => String(o.order_id))));
     } else {
       setSelectedOrders(new Set());
     }
@@ -615,28 +292,21 @@ const OrderListPage: React.FC = () => {
     setSelectedOrders(newSelected);
   };
 
-  const handleViewDetail = (order: Order) => {
-    setSelectedOrder(order);
-    setNewMemo(order.admin_memo || "");
+  const handleViewDetail = (order: OrderListResponse) => {
+    setSelectedOrderId(order.order_id);
     setIsDetailModalOpen(true);
-    setDetailTab("info");
-  };
-
-  const handleViewOrderDetail = (order: Order) => {
-    setSelectedOrderForPanel(order);
-    setIsDetailPanelOpen(true);
   };
 
   // 엑셀 다운로드 함수
   const handleExportExcel = (selectedOnly: boolean = false) => {
-    let dataToExport: Order[];
+    let dataToExport: OrderListResponse[];
 
     if (selectedOnly && selectedOrders.size > 0) {
-      dataToExport = filteredOrders.filter((order) =>
+      dataToExport = paginatedOrders.filter((order) =>
         selectedOrders.has(String(order.order_id))
       );
     } else {
-      dataToExport = filteredOrders;
+      dataToExport = paginatedOrders;
     }
 
     if (dataToExport.length === 0) {
@@ -645,22 +315,18 @@ const OrderListPage: React.FC = () => {
     }
 
     const excelData = dataToExport.map((order) => ({
-      주문번호: order.external_order_id || `#${order.order_id}`,
+      주문번호: `#${order.order_id}`,
+      외부주문번호: order.external_order_id || "-",
       주문일시: new Date(order.order_at).toLocaleString("ko-KR"),
+      주문채널:
+        ORDER_CHANNEL_LABELS[order.order_channel as OrderChannel] || order.order_channel,
+      주문상태: ORDER_STATUS_LABELS[order.order_status as OrderStatus] || order.order_status,
       고객명: order.customer_name || `고객 ID: ${order.customer_id}`,
       연락처: order.customer_phone || "-",
-      이메일: order.customer_email || "-",
-      유입채널:
-        ORDER_CHANNEL_LABELS[order.order_channel] || order.order_channel,
-      주문상태: ORDER_STATUS_LABELS[order.order_status] || order.order_status,
-      결제방법: order.payment_method || "-",
       결제금액: order.payment_amount,
       주문금액: order.total_amount,
-      할인금액: order.discount_amount,
-      배송비: order.send_fee,
-      결제일시: order.payment_at
-        ? new Date(order.payment_at).toLocaleString("ko-KR")
-        : "-",
+      할인금액: order.discount_amount || 0,
+      배송비: order.send_fee || 0,
     }));
 
     const ws = XLSX.utils.json_to_sheet(excelData);
@@ -671,122 +337,25 @@ const OrderListPage: React.FC = () => {
     XLSX.writeFile(wb, fileName);
   };
 
-  const getFilteredOrders = () => {
-    let filtered = orders;
+  // 필터링과 정렬은 서버 사이드에서 처리되므로 클라이언트 사이드 필터링 제거
+  const totalPages = Math.ceil(totalCount / pageSize);
+  const paginatedOrders = orders;
 
-    if (searchValue) {
-      const search = searchValue.toLowerCase();
-      filtered = filtered.filter(
-        (o) =>
-          o.external_order_id?.toLowerCase().includes(search) ||
-          String(o.order_id).includes(search) ||
-          o.customer_name?.toLowerCase().includes(search) ||
-          o.customer_phone?.includes(search)
-      );
-    }
-
-    if (statusFilter) {
-      filtered = filtered.filter((o) => o.order_status === statusFilter);
-    }
-    if (channelFilter) {
-      filtered = filtered.filter((o) => o.order_channel === channelFilter);
-    }
-    if (paymentFilter) {
-      filtered = filtered.filter((o) => o.payment_method === paymentFilter);
-    }
-
-    // 기간 필터
-    if (dateFilter.start) {
-      const startDate = new Date(dateFilter.start);
-      startDate.setHours(0, 0, 0, 0);
-      filtered = filtered.filter((o) => {
-        const orderDate = new Date(o.order_at);
-        orderDate.setHours(0, 0, 0, 0);
-        return orderDate >= startDate;
-      });
-    }
-    if (dateFilter.end) {
-      const endDate = new Date(dateFilter.end);
-      endDate.setHours(23, 59, 59, 999);
-      filtered = filtered.filter((o) => {
-        const orderDate = new Date(o.order_at);
-        return orderDate <= endDate;
-      });
-    }
-
-    filtered = filtered.sort((a, b) => {
-      let aVal: any = a[sortKey as keyof Order];
-      let bVal: any = b[sortKey as keyof Order];
-
-      // null/undefined 처리
-      if (aVal === null || aVal === undefined) {
-        return sortDirection === "asc" ? 1 : -1;
-      }
-      if (bVal === null || bVal === undefined) {
-        return sortDirection === "asc" ? -1 : 1;
-      }
-
-      // 날짜 필드 처리
-      if (
-        sortKey === "order_at" ||
-        sortKey === "payment_at" ||
-        sortKey === "cancelled_at"
-      ) {
-        const aDate = new Date(aVal as string).getTime();
-        const bDate = new Date(bVal as string).getTime();
-        if (sortDirection === "asc") {
-          return aDate - bDate;
-        }
-        return bDate - aDate;
-      }
-
-      // 숫자 필드 처리
-      if (
-        sortKey === "payment_amount" ||
-        sortKey === "total_amount" ||
-        sortKey === "discount_amount"
-      ) {
-        const aNum = Number(aVal) || 0;
-        const bNum = Number(bVal) || 0;
-        if (sortDirection === "asc") {
-          return aNum - bNum;
-        }
-        return bNum - aNum;
-      }
-
-      // 문자열 필드 처리
-      const aStr = String(aVal).toLowerCase();
-      const bStr = String(bVal).toLowerCase();
-      if (sortDirection === "asc") {
-        if (aStr > bStr) return 1;
-        if (aStr < bStr) return -1;
-        return 0;
-      }
-      if (aStr < bStr) return 1;
-      if (aStr > bStr) return -1;
-      return 0;
-    });
-
-    return filtered;
-  };
-
-  const filteredOrders = getFilteredOrders();
-  const totalPages = Math.ceil(filteredOrders.length / pageSize);
-  const paginatedOrders = filteredOrders.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
-
-  // 통계
+  // 통계 (클라이언트 사이드에서 계산 - 실제로는 서버에서 제공하는 것이 좋음)
   const stats = {
-    total: orders.length,
+    total: totalCount,
     pending: orders.filter((o) => o.order_status === "ORDERED").length,
     paid: orders.filter((o) => o.order_status === "PAID").length,
     shipping: orders.filter((o) => o.order_status === "SHIPPING").length,
     completed: orders.filter((o) => o.order_status === "COMPLETED").length,
+    cancelled: orders.filter((o) => o.order_status === "CANCELLED").length,
     offlineUnpaid: orders.filter(
-      (o) => o.order_channel === "OFFLINE" && !o.payment_at
+      (o) => o.order_channel === "OFFLINE"
     ).length,
+    // 채널별 통계 (현재 로드된 데이터 기준)
+    cafe24: orders.filter((o) => o.order_channel === "CAFE24").length,
+    gpmall: orders.filter((o) => o.order_channel === "GPMALL").length,
+    offline: orders.filter((o) => o.order_channel === "OFFLINE").length,
   };
 
   const getOrderStatusBadge = (status: OrderStatus) => {
@@ -806,37 +375,16 @@ const OrderListPage: React.FC = () => {
     return statusMap[status] || { variant: "default" as const, label: status };
   };
 
-  const getOrderStatusLabel = (status: OrderStatus) => {
-    return ORDER_STATUS_LABELS[status] || status;
-  };
 
-  const columns: Column<Order>[] = [
-    {
-      key: "checkbox",
-      label: "선택",
-      width: "50px",
-      align: "center",
-      render: (_, row) => (
-        <div className="flex justify-center">
-        <input
-          type="checkbox"
-          checked={selectedOrders.has(String(row.order_id))}
-            onChange={(e) =>
-              handleSelectOrder(String(row.order_id), e.target.checked)
-            }
-          className="w-4 h-4 rounded border-line text-accent focus:ring-accent"
-        />
-        </div>
-      ),
-    },
+  const columns: Column<OrderListResponse>[] = [
     {
       key: "external_order_id",
-      label: "주문번호",
+      label: "외부주문번호",
       sortable: true,
       align: "center",
-      render: (value, row) => (
+      render: (value) => (
         <span className="font-mono text-sm text-ink">
-          {value || `#${row.order_id}`}
+          {value || "-"}
         </span>
       ),
     },
@@ -858,26 +406,8 @@ const OrderListPage: React.FC = () => {
       ),
     },
     {
-      key: "customer_name",
-      label: "고객명",
-      align: "center",
-      render: (_value, row) => (
-        <span className="font-medium text-ink">
-          {row.customer_name || `고객 ID: ${row.customer_id}`}
-        </span>
-      ),
-    },
-    {
-      key: "customer_phone",
-      label: "연락처",
-      align: "center",
-      render: (value) => (
-        <span className="text-sm">{value || "-"}</span>
-      ),
-    },
-    {
       key: "order_channel",
-      label: "유입채널",
+      label: "주문 채널",
       align: "center",
       render: (value) => (
         <div className="flex justify-center">
@@ -912,6 +442,76 @@ const OrderListPage: React.FC = () => {
       },
     },
     {
+      key: "customer_name",
+      label: "고객명",
+      align: "center",
+      render: (_value, row) => (
+        <span className="font-medium text-ink">
+          {row.customer_name || `고객 ID: ${row.customer_id}`}
+        </span>
+      ),
+    },
+    {
+      key: "customer_phone",
+      label: "연락처",
+      align: "center",
+      render: (value) => (
+        <span className="text-sm">{value || "-"}</span>
+      ),
+    },
+    {
+      key: "item_count",
+      label: "품목 수",
+      align: "center",
+      render: (value) => (
+        <span className="text-sm">{value || 0}개</span>
+      ),
+    },
+    {
+      key: "total_amount",
+      label: "주문금액",
+      align: "center",
+      sortable: true,
+      render: (value) => (
+        <span className="text-sm">
+          {Number(value).toLocaleString()}원
+        </span>
+      ),
+    },
+    {
+      key: "discount_amount",
+      label: "할인금액",
+      align: "center",
+      sortable: true,
+      render: (value) => (
+        <span className="text-sm text-muted">
+          {value ? `-${Number(value).toLocaleString()}원` : "0원"}
+        </span>
+      ),
+    },
+    {
+      key: "refund_amount",
+      label: "환불금액",
+      align: "center",
+      sortable: true,
+      render: (value) => (
+        <span className="text-sm text-danger">
+          {value ? `-${Number(value).toLocaleString()}원` : "0원"}
+        </span>
+      ),
+    },
+    {
+      key: "send_fee",
+      label: "배송비",
+      align: "center",
+      sortable: true,
+      render: (value) => (
+        <span className="text-sm text-muted">
+          {value ? `${Number(value).toLocaleString()}원` : "0원"}
+        </span>
+      ),
+    },
+    {
       key: "payment_amount",
       label: "결제금액",
       align: "center",
@@ -923,26 +523,6 @@ const OrderListPage: React.FC = () => {
       ),
     },
   ];
-
-  const detailTabs = [
-    { key: "info", label: "기본 정보" },
-    { key: "items", label: "주문 품목" },
-    { key: "customer", label: "고객 정보" },
-    { key: "shipping", label: "배송지" },
-    { key: "memos", label: "관리자 메모" },
-  ];
-
-  // address_id로 배송지 정보 가져오기
-  const getAddressById = (addressId: number): Address | null => {
-    return addresses.find((a) => a.address_id === addressId) || null;
-  };
-
-  // customer_id로 고객 정보 가져오기
-  const getCustomerById = (customerId: number): Customer | null => {
-    return (
-      customers.find((c: Customer) => c.customer_id === customerId) || null
-    );
-  };
 
   return (
     <div className="min-h-screen">
@@ -959,15 +539,6 @@ const OrderListPage: React.FC = () => {
           <div className="flex items-start justify-between">
             <div></div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                icon={Download}
-                onClick={() => handleExportExcel(false)}
-                className="unified-btn-outline"
-              >
-                엑셀 다운로드
-              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -991,66 +562,118 @@ const OrderListPage: React.FC = () => {
         </div>
 
         {/* 통계 카드 */}
-        <div
-          className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 anim-rise"
-          style={{ animationDelay: "0.1s" }}
-        >
-          <Card className="unified-card p-5 unified-card-hover cursor-pointer">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted mb-1">전체 주문</p>
-                <p className="text-2xl font-bold text-ink">{stats.total}</p>
-                <p className="text-xs text-muted mt-0.5">이번 달</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 mb-6">
+          <div className="bg-paper rounded-lg border border-line">
+            <StatCard
+              title="전체 주문"
+              value={stats.total}
+              icon={Package}
+              color="accent"
+              valueColor="text-accent"
+            />
               </div>
-              <div className="w-12 h-12 rounded-xl bg-chip flex items-center justify-center">
-                <Package className="w-6 h-6 text-accent" />
+          <div className="bg-paper rounded-lg border border-line">
+            <StatCard
+              title="주문 대기"
+              value={stats.pending}
+              icon={Clock}
+              color="blue"
+              valueColor="text-warning-600"
+            />
+              </div>
+          <div className="bg-paper rounded-lg border border-line">
+            <StatCard
+              title="결제 완료"
+              value={stats.paid}
+              icon={CreditCard}
+              color="green"
+              valueColor="text-info-600"
+            />
+            </div>
+          <div className="bg-paper rounded-lg border border-line">
+            <StatCard
+              title="배송 중"
+              value={stats.shipping}
+              icon={Truck}
+              color="purple"
+            />
+              </div>
+          <div className="bg-paper rounded-lg border border-line">
+            <StatCard
+              title="완료"
+              value={stats.completed}
+              icon={CheckCircle}
+              color="subscription-active"
+              valueColor="text-subscription-active-600"
+            />
+              </div>
+          <div className="bg-paper rounded-lg border border-line">
+            <StatCard
+              title="취소됨"
+              value={stats.cancelled}
+              icon={XCircle}
+              color="red"
+            />
+            </div>
+          <div className="bg-paper rounded-lg border border-warning-200 bg-warning-50/50">
+            <StatCard
+              title="오프라인 미입금"
+              value={stats.offlineUnpaid}
+              icon={AlertCircle}
+              color="red"
+              valueColor="text-warning-700"
+            />
+              </div>
+          <div className="bg-paper rounded-lg border border-line">
+            <StatCard
+              title="오늘 주문"
+              value={orders.filter((o) => {
+                const today = new Date();
+                const orderDate = new Date(o.order_at);
+                return (
+                  orderDate.getDate() === today.getDate() &&
+                  orderDate.getMonth() === today.getMonth() &&
+                  orderDate.getFullYear() === today.getFullYear()
+                );
+              }).length}
+              icon={ShoppingCart}
+              color="blue"
+            />
               </div>
             </div>
-          </Card>
-          <Card className="unified-card p-5 unified-card-hover cursor-pointer">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted mb-1">주문 대기</p>
-                <p className="text-2xl font-bold text-warning-600">
-                  {stats.pending}
-                </p>
-                <p className="text-xs text-muted mt-0.5">확인 필요</p>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-warning-100 flex items-center justify-center">
-                <Clock className="w-6 h-6 text-warning-600" />
-              </div>
-            </div>
-          </Card>
-          <Card className="unified-card p-5 unified-card-hover cursor-pointer">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted mb-1">결제 완료</p>
-                <p className="text-2xl font-bold text-info-600">{stats.paid}</p>
-                <p className="text-xs text-muted mt-0.5">발송 대기 중</p>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-info-100 flex items-center justify-center">
-                <CreditCard className="w-6 h-6 text-info-600" />
-              </div>
-            </div>
-          </Card>
-          <Card className="unified-card p-5 unified-card-hover cursor-pointer border-warning-200 bg-gradient-to-br from-warning-50 to-warning-100/50">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-warning-700 mb-1 font-medium">
-                  오프라인 미입금
-                </p>
-                <p className="text-2xl font-bold text-warning-700">
-                  {stats.offlineUnpaid}
-                </p>
-                <p className="text-xs text-warning-600 mt-0.5 font-medium">
-                  ⚠ 즉시 확인
-                </p>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-warning-200 flex items-center justify-center">
-                <AlertCircle className="w-6 h-6 text-warning-700" />
-              </div>
-            </div>
-          </Card>
+
+        {/* 주문 채널 탭 */}
+        <div className="mb-6">
+          <Tabs
+            tabs={[
+              {
+                key: "ALL",
+                label: "전체",
+                icon: <Package className="w-4 h-4" />,
+                count: stats.total,
+              },
+              {
+                key: "CAFE24",
+                label: "Cafe24",
+                icon: <Store className="w-4 h-4" />,
+                count: stats.cafe24,
+              },
+              {
+                key: "GPMALL",
+                label: "갓피플몰",
+                icon: <ShoppingCart className="w-4 h-4" />,
+                count: stats.gpmall,
+              },
+              {
+                key: "OFFLINE",
+                label: "오프라인",
+                icon: <Building2 className="w-4 h-4" />,
+                count: stats.offline,
+              },
+            ]}
+            activeTab={channelTab}
+            onChange={(key) => handleChannelTabChange(key as "ALL" | "CAFE24" | "GPMALL" | "OFFLINE")}
+          />
         </div>
 
         {/* 검색 및 필터 */}
@@ -1091,7 +714,7 @@ const OrderListPage: React.FC = () => {
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted" />
                   <input
                     type="text"
-                    placeholder="주문번호, 고객명, 연락처로 검색..."
+                    placeholder="예: 홍길동, 010-1234-5678, CAFE24-20240101-12345"
                     value={searchValue}
                     onChange={(e) => setSearchValue(e.target.value)}
                     className="unified-input pl-10 w-full"
@@ -1140,7 +763,7 @@ const OrderListPage: React.FC = () => {
                   )}
                   {channelFilter && (
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md text-sm font-medium">
-                      유입채널:{" "}
+                      주문 채널:{" "}
                       {ORDER_CHANNEL_LABELS[channelFilter as OrderChannel]}
                       <button
                         onClick={() => setChannelFilter("")}
@@ -1196,7 +819,7 @@ const OrderListPage: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="unified-label">유입채널</label>
+                    <label className="unified-label">주문 채널</label>
                     <select
                       value={channelFilter}
                       onChange={(e) => setChannelFilter(e.target.value)}
@@ -1350,741 +973,42 @@ const OrderListPage: React.FC = () => {
           )}
         </div>
 
-        {/* 일괄 작업 */}
-        <Card className="unified-card mb-6 p-4 bg-neutral-50 border-neutral-200">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-ink">
-              {selectedOrders.size}건 선택됨
-            </span>
-            <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={Download}
-                onClick={() => handleExportExcel(true)}
-                disabled={selectedOrders.size === 0}
-                  >
-                엑셀 다운로드
-                  </Button>
-              {selectedOrders.size > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelectedOrders(new Set())}
-                  >
-                    선택 해제
-                  </Button>
-              )}
-                </div>
-              </div>
-        </Card>
-
         {/* 테이블 */}
-        <Card className="unified-card">
-          <div className="px-4 py-3 border-b border-line flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={
-                  filteredOrders.length > 0 &&
-                  selectedOrders.size === filteredOrders.length
-                }
-                onChange={(e) => handleSelectAll(e.target.checked)}
-                className="w-4 h-4 rounded border-line text-accent focus:ring-accent"
-              />
-              <span className="text-sm text-muted">
-                전체 {filteredOrders.length}건
-              </span>
-            </div>
-            <span className="text-sm text-muted">
-              {(currentPage - 1) * pageSize + 1} -{" "}
-              {Math.min(currentPage * pageSize, filteredOrders.length)} /{" "}
-              {filteredOrders.length}
-            </span>
-          </div>
-
-          <Table
-            columns={columns}
-            data={paginatedOrders}
-            keyExtractor={(item) => String(item.order_id)}
-            onRowClick={handleViewDetail}
-            rowClassName={(item) =>
-              item.order_channel === "OFFLINE" && !item.payment_at
-                ? "bg-warning-50/50"
-                : ""
-            }
-            hoverable
-          />
-
-          {totalPages > 1 && (
-            <div className="p-4 border-t border-line">
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
-            </div>
-          )}
-        </Card>
+        <ListPage
+          data={paginatedOrders}
+          columns={columns}
+          keyExtractor={(item) => String(item.order_id)}
+          onRowClick={handleViewDetail}
+          rowClassName={(item) =>
+            item.order_channel === "OFFLINE"
+              ? "bg-warning-50/50"
+              : ""
+          }
+          hoverable
+          selectable
+          selectedItems={selectedOrders}
+          onSelectAll={handleSelectAll}
+          onSelectItem={(id, checked) => handleSelectOrder(String(id), checked)}
+          allSelected={
+            paginatedOrders.length > 0 &&
+            selectedOrders.size === paginatedOrders.length
+          }
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={totalCount}
+          itemsPerPage={pageSize}
+        />
 
         {/* 주문 상세 모달 */}
-        <Modal
+        <OrderDetailModal
           isOpen={isDetailModalOpen}
-          onClose={() => setIsDetailModalOpen(false)}
-          title={`주문 상세 - ${
-            selectedOrder?.external_order_id || `#${selectedOrder?.order_id}`
-          }`}
-          size="xl"
-        >
-          {selectedOrder && (
-            <div>
-              <Tabs
-                tabs={detailTabs}
-                activeTab={detailTab}
-                onChange={setDetailTab}
-                className="mb-6"
-              />
-
-              {detailTab === "info" && (
-                <div className="space-y-4">
-                  {/* 주문 정보 */}
-                  <div className="p-4 bg-paper rounded-lg border border-line">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                          주문 번호
-                        </label>
-                        <p className="text-sm text-ink font-medium">
-                          {selectedOrder.external_order_id ||
-                            `#${selectedOrder.order_id}`}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                          주문 채널
-                        </label>
-                        <p className="text-sm text-ink font-medium">
-                          {ORDER_CHANNEL_LABELS[
-                            selectedOrder.order_channel as OrderChannel
-                          ] || selectedOrder.order_channel}
-                        </p>
-                        </div>
-                      <div>
-                        <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                          주문 상태
-                        </label>
-                        <p className="text-sm text-ink font-medium">
-                          {getOrderStatusLabel(
-                            selectedOrder.order_status as OrderStatus
-                          )}
-                        </p>
-                        </div>
-                      <div>
-                        <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                          주문 일시
-                        </label>
-                        <p className="text-sm text-ink font-medium">
-                          {new Date(selectedOrder.order_at).toLocaleString(
-                            "ko-KR"
-                          )}
-                        </p>
-                        </div>
-                      <div>
-                        <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                          결제 일시
-                        </label>
-                        <p className="text-sm text-ink font-medium">
-                          {selectedOrder.payment_at
-                            ? new Date(selectedOrder.payment_at).toLocaleString(
-                                "ko-KR"
-                              )
-                            : "-"}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                          취소 일시
-                        </label>
-                        <p className="text-sm text-ink font-medium">
-                          {selectedOrder.cancelled_at
-                            ? new Date(
-                                selectedOrder.cancelled_at
-                              ).toLocaleString("ko-KR")
-                            : "-"}
-                        </p>
-                    </div>
-                      </div>
-                        </div>
-
-                  {/* 금액 정보 */}
-                  <div className="p-4 bg-paper rounded-lg border border-line">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                          합계액
-                        </label>
-                        <p className="text-sm text-ink font-medium">
-                          {selectedOrder.total_amount.toLocaleString()}원
-                        </p>
-                        </div>
-                      <div>
-                        <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                          할인 금액
-                        </label>
-                        <p className="text-sm text-ink font-medium">
-                          {selectedOrder.discount_amount.toLocaleString()}원
-                        </p>
-                        </div>
-                      <div>
-                        <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                          배송비
-                        </label>
-                        <p className="text-sm text-ink font-medium">
-                          {selectedOrder.send_fee.toLocaleString()}원
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                          최종 결제 금액
-                        </label>
-                        <p className="text-base font-bold text-accent">
-                          {selectedOrder.payment_amount.toLocaleString()}원
-                        </p>
-                    </div>
-                      <div>
-                        <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                          결제 방식
-                        </label>
-                        <p className="text-sm text-ink font-medium">
-                          {selectedOrder.payment_method || "-"}
-                        </p>
-                  </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {detailTab === "customer" &&
-                (() => {
-                  const customer = getCustomerById(selectedOrder.customer_id);
-                  return customer ? (
-                    <div className="space-y-4">
-                      <div className="p-4 bg-paper rounded-lg border border-line">
-                  <div className="grid grid-cols-2 gap-4">
-                          {/* 왼쪽: 고객명, 연락처, 이메일 */}
-                          <div className="space-y-4">
-                            <div>
-                              <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                고객명
-                              </label>
-                              <p className="text-sm text-ink font-medium">
-                                {customer.customer_name}
-                              </p>
-                    </div>
-                            <div>
-                              <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                연락처
-                              </label>
-                              <p className="text-sm text-ink font-medium">
-                                {customer.customer_phone}
-                              </p>
-                    </div>
-                            <div>
-                              <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                이메일
-                              </label>
-                              <p className="text-sm text-ink font-medium">
-                                {customer.customer_email || "-"}
-                              </p>
-                  </div>
-                </div>
-                          {/* 오른쪽: 유입 경로, 최근 주문일시, 생성일시 */}
-                          <div className="space-y-4">
-                            <div>
-                              <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                유입 경로
-                              </label>
-                              <p className="text-sm text-ink font-medium">
-                                {customer.create_channel === "CAFE24"
-                                  ? "Cafe24"
-                                  : customer.create_channel === "GPMALL"
-                                  ? "갓피플몰"
-                                  : customer.create_channel}
-                              </p>
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                최근 주문일시
-                              </label>
-                              <p className="text-sm text-ink font-medium">
-                                {customer.last_order_at
-                                  ? new Date(
-                                      customer.last_order_at
-                                    ).toLocaleString("ko-KR")
-                                  : "-"}
-                              </p>
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                생성일시
-                              </label>
-                              <p className="text-sm text-ink font-medium">
-                                {new Date(customer.created_at).toLocaleString(
-                                  "ko-KR"
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      {/* 관리자 메모 */}
-                      {customer.admin_memo && (
-                        <div className="p-4 bg-paper rounded-lg border border-line">
-                          <label className="text-xs text-muted uppercase tracking-wide block mb-2">
-                            관리자 메모
-                          </label>
-                          <p className="text-sm text-ink whitespace-pre-wrap">
-                            {customer.admin_memo}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted">
-                      고객 정보를 찾을 수 없습니다. (고객 ID:{" "}
-                      {selectedOrder.customer_id})
-                    </div>
-                  );
-                })()}
-
-              {detailTab === "items" && (
-                <div className="space-y-4">
-                  {selectedOrder.order_items &&
-                  selectedOrder.order_items.length > 0 ? (
-                    selectedOrder.order_items.map((item) => (
-                      <div
-                        key={item.order_item_id}
-                        className="p-3 bg-white rounded border border-line space-y-2"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant={
-                                item.product_kind === "YEARLY"
-                                  ? "info"
-                                  : item.product_kind === "MONTHLY"
-                                  ? "success"
-                                  : "default"
-                              }
-                              size="sm"
-                            >
-                              {item.product_kind === "YEARLY"
-                                ? "연간"
-                                : item.product_kind === "MONTHLY"
-                                ? "월간"
-                                : "단품"}
-                            </Badge>
-                            <span className="font-medium text-ink">
-                              {item.product_name}
-                            </span>
-                          </div>
-                          <span className="font-semibold text-ink">
-                            {item.price.toLocaleString()}원
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <span className="text-muted">
-                              외부 주문 구성 번호:
-                            </span>{" "}
-                            <span className="text-ink">
-                              {item.external_order_item_id || "-"}
-                            </span>
-                      </div>
-                          <div>
-                            <span className="text-muted">내부 상품 코드:</span>{" "}
-                            <span className="text-ink">
-                              {item.product_code}
-                      </span>
-                          </div>
-                          <div>
-                            <span className="text-muted">할인 금액:</span>{" "}
-                            <span className="text-ink">
-                              {item.sale.toLocaleString()}원
-                      </span>
-                    </div>
-                          <div>
-                            <span className="text-muted">주문 수량:</span>{" "}
-                            <span className="text-ink">{item.order_num}</span>
-                  </div>
-                          {item.subscribe_start_issue && (
-                            <div>
-                              <span className="text-muted">구독기간:</span>{" "}
-                              <span className="text-ink">
-                                {formatIssue(item.subscribe_start_issue)} ~{" "}
-                                {formatIssue(item.subscribe_end_issue)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-muted">
-                      주문 품목이 없습니다.
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {detailTab === "shipping" &&
-                (() => {
-                  // 주문 기본 배송지
-                  const orderAddress = selectedOrder.address_id
-                    ? getAddressById(selectedOrder.address_id)
-                    : null;
-
-                  // 주문 품목별 배송지 확인
-                  const itemAddresses = selectedOrder.order_items
-                    ? selectedOrder.order_items.map((item) => ({
-                        item,
-                        address: getAddressById(item.address_id),
-                      }))
-                    : [];
-
-                  // 모든 품목이 같은 배송지인지 확인
-                  const allSameAddress =
-                    itemAddresses.length > 0 &&
-                    itemAddresses.every(
-                      (ia) =>
-                        ia.address &&
-                        ia.address.address_id ===
-                          itemAddresses[0].address?.address_id
-                    );
-
-                  return (
-                <div className="space-y-4">
-                      {/* 주문 기본 배송지 */}
-                      {orderAddress && (
-                        <div className="p-4 bg-paper rounded-lg border border-line">
-                          <div className="flex items-center gap-2 mb-4">
-                            <MapPin className="w-4 h-4 text-accent" />
-                            <h3 className="text-sm font-semibold text-ink uppercase tracking-wide">
-                              주문 기본 배송지
-                            </h3>
-                    </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                수령인
-                              </label>
-                              <p className="text-sm text-ink font-medium">
-                                {orderAddress.address_name}
-                              </p>
-                      </div>
-                            <div>
-                              <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                연락처
-                              </label>
-                              <p className="text-sm text-ink font-medium">
-                                {orderAddress.phone}
-                              </p>
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                우편번호
-                              </label>
-                              <p className="text-sm text-ink font-medium">
-                                {orderAddress.postal_code}
-                              </p>
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                국가
-                              </label>
-                              <p className="text-sm text-ink font-medium">
-                                {orderAddress.nation}
-                              </p>
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                주소
-                              </label>
-                              <p className="text-sm text-ink font-medium">
-                                {orderAddress.address1}
-                              </p>
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                상세주소
-                              </label>
-                              <p className="text-sm text-ink font-medium">
-                                {orderAddress.address2 || "-"}
-                              </p>
-                            </div>
-                            {orderAddress.address_memo && (
-                              <div className="col-span-2">
-                                <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                  배송 특이사항
-                                </label>
-                                <p className="text-sm text-ink font-medium">
-                                  {orderAddress.address_memo}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 품목별 배송지 */}
-                      {itemAddresses.length > 0 && (
-                        <div className="p-4 bg-paper rounded-lg border border-line">
-                          <div className="flex items-center gap-2 mb-4">
-                            <Package className="w-4 h-4 text-accent" />
-                            <h3 className="text-sm font-semibold text-ink uppercase tracking-wide">
-                              품목별 배송지
-                            </h3>
-                          </div>
-                          {allSameAddress && itemAddresses[0].address ? (
-                            <div className="p-3 bg-info-50 border border-info-200 rounded-lg">
-                              <div className="flex items-center justify-between mb-3">
-                                <p className="text-sm text-info-800 font-medium">
-                                  모든 품목이 동일한 배송지로 설정되어 있습니다.
-                                </p>
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  onClick={() => {
-                                    // 첫 번째 품목의 배송지 변경 패널 열기
-                                    if (itemAddresses[0].item) {
-                                      handleOpenAddressChangePanel(
-                                        itemAddresses[0].item
-                                      );
-                                    }
-                                  }}
-                                >
-                                  배송지 변경
-                                </Button>
-                              </div>
-                              <div className="mt-3 grid grid-cols-2 gap-4">
-                                <div>
-                                  <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                    수령인
-                                  </label>
-                                  <p className="text-sm text-ink font-medium">
-                                    {itemAddresses[0].address.address_name}
-                                  </p>
-                                </div>
-                                <div>
-                                  <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                    연락처
-                                  </label>
-                                  <p className="text-sm text-ink font-medium">
-                                    {itemAddresses[0].address.phone}
-                                  </p>
-                                </div>
-                                <div>
-                                  <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                    우편번호
-                                  </label>
-                                  <p className="text-sm text-ink font-medium">
-                                    {itemAddresses[0].address.postal_code}
-                                  </p>
-                                </div>
-                                <div>
-                                  <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                    국가
-                                  </label>
-                                  <p className="text-sm text-ink font-medium">
-                                    {itemAddresses[0].address.nation}
-                                  </p>
-                                </div>
-                                <div>
-                                  <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                    주소
-                                  </label>
-                                  <p className="text-sm text-ink font-medium">
-                                    {itemAddresses[0].address.address1}
-                                  </p>
-                                </div>
-                                <div>
-                                  <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                    상세주소
-                                  </label>
-                                  <p className="text-sm text-ink font-medium">
-                                    {itemAddresses[0].address.address2 || "-"}
-                                  </p>
-                                </div>
-                                {itemAddresses[0].address.address_memo && (
-                                  <div className="col-span-2">
-                                    <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                                      배송 특이사항
-                                    </label>
-                                    <p className="text-sm text-ink font-medium">
-                                      {itemAddresses[0].address.address_memo}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="space-y-3">
-                              {itemAddresses.map(({ item, address }) => (
-                                <div
-                                  key={item.order_item_id}
-                                  className="p-3 bg-white rounded border border-line space-y-2"
-                                >
-                                  <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                        <Badge
-                                        variant={
-                                          item.product_kind === "YEARLY"
-                                            ? "info"
-                                            : item.product_kind === "MONTHLY"
-                                            ? "success"
-                                            : "default"
-                                        }
-                          size="sm"
-                        >
-                                        {item.product_kind === "YEARLY"
-                                          ? "연간"
-                                          : item.product_kind === "MONTHLY"
-                                          ? "월간"
-                                          : "단품"}
-                        </Badge>
-                                      <p className="text-sm font-medium text-ink">
-                                        {item.product_name}
-                                      </p>
-                      </div>
-                                    <Button
-                                      size="sm"
-                                      variant="secondary"
-                                      onClick={() =>
-                                        handleOpenAddressChangePanel(item)
-                                      }
-                                    >
-                                      배송지 변경
-                                    </Button>
-                      </div>
-                                  {address ? (
-                                    <div className="grid grid-cols-2 gap-2 text-sm">
-                                      <div>
-                                        <span className="text-muted">
-                                          수령인:
-                                        </span>{" "}
-                                        <span className="text-ink">
-                                          {address.address_name}
-                        </span>
-                      </div>
-                                      <div>
-                                        <span className="text-muted">
-                                          연락처:
-                                        </span>{" "}
-                                        <span className="text-ink">
-                                          {address.phone}
-                                        </span>
-                    </div>
-                                      <div>
-                                        <span className="text-muted">
-                                          우편번호:
-                                        </span>{" "}
-                                        <span className="text-ink">
-                                          {address.postal_code}
-                                        </span>
-                  </div>
-                                      <div>
-                                        <span className="text-muted">
-                                          국가:
-                                        </span>{" "}
-                                        <span className="text-ink">
-                                          {address.nation}
-                                        </span>
-                </div>
-                                      <div>
-                                        <span className="text-muted">
-                                          주소:
-                                        </span>{" "}
-                                        <span className="text-ink">
-                                          {address.address1}
-                      </span>
-                    </div>
-                                      <div>
-                                        <span className="text-muted">
-                                          상세주소:
-                                        </span>{" "}
-                                        <span className="text-ink">
-                                          {address.address2 || "-"}
-                        </span>
-                      </div>
-                                      {address.address_memo && (
-                                        <div className="col-span-2">
-                                          <span className="text-muted">
-                                            배송 특이사항:
-                                          </span>{" "}
-                                          <span className="text-ink">
-                                            {address.address_memo}
-                                          </span>
-                      </div>
-                                      )}
-                      </div>
-                                  ) : (
-                                    <p className="text-sm text-muted">
-                                      배송지 정보를 찾을 수 없습니다.
-                                    </p>
-                                  )}
-                    </div>
-                              ))}
-                  </div>
-                          )}
-                </div>
-              )}
-                    </div>
-                  );
-                })()}
-
-              {detailTab === "memos" && (
-                <div className="space-y-4">
-                  <div className="p-4 bg-info-50 border border-info-200 rounded-lg">
-                  <Textarea
-                      placeholder="관리자 메모를 입력하세요..."
-                      value={newMemo}
-                      onChange={(e) => setNewMemo(e.target.value)}
-                      rows={3}
-                    />
-                    <div className="flex justify-end mt-3">
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          if (!selectedOrder || !newMemo.trim()) return;
-                          setSelectedOrder({
-                            ...selectedOrder,
-                            admin_memo: newMemo,
-                          });
-                          setNewMemo("");
-                        }}
-                        disabled={!newMemo.trim()}
-                        icon={Save}
-                      >
-                      메모 저장
-                    </Button>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-white border border-line rounded-lg">
-                    <div>
-                      <label className="text-xs text-muted uppercase tracking-wide mb-2 block">
-                        현재 관리자 메모
-                      </label>
-                      <p className="text-ink whitespace-pre-wrap">
-                        {selectedOrder.admin_memo || "메모가 없습니다."}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </Modal>
+          onClose={() => {
+            setIsDetailModalOpen(false);
+            setSelectedOrderId(null);
+          }}
+          orderId={selectedOrderId}
+        />
 
         {/* 배송지 변경 패널 */}
         <SlidePanel
@@ -2096,10 +1020,259 @@ const OrderListPage: React.FC = () => {
               address_name: "",
               phone: "",
               postal_code: "",
-              address1: "",
-              address2: "",
+              address: "",
               address_memo: "",
             });
+            setCurrentAddress(null);
+          }}
+          title="배송지 변경"
+          size="lg"
+        >
+          {selectedOrderItemForAddressChange && (
+                <div className="space-y-4">
+              <div className="p-4 bg-info-50 border border-info-200 rounded-lg">
+                <p className="text-sm text-info-800 font-medium mb-1">
+                  배송지 변경 안내
+                </p>
+                <p className="text-xs text-info-700">
+                  이미 발송된 건은 변경할 수 없으며, 미발송분부터 적용됩니다.
+                        </p>
+                        </div>
+
+              {/* 변경할 품목 */}
+                  <div className="p-4 bg-paper rounded-lg border border-line">
+                <h3 className="text-sm font-semibold text-ink mb-4 uppercase tracking-wide">
+                  변경할 품목
+                </h3>
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={
+                      selectedOrderItemForAddressChange.product_kind ===
+                      "YEARLY"
+                                  ? "info"
+                        : selectedOrderItemForAddressChange.product_kind ===
+                          "MONTHLY"
+                                  ? "success"
+                                  : "default"
+                              }
+                              size="sm"
+                            >
+                    {selectedOrderItemForAddressChange.product_kind === "YEARLY"
+                                ? "연간"
+                      : selectedOrderItemForAddressChange.product_kind ===
+                        "MONTHLY"
+                                ? "월간"
+                                : "단품"}
+                            </Badge>
+                  <p className="text-sm font-medium text-ink">
+                    {selectedOrderItemForAddressChange.product_name}
+                  </p>
+                          </div>
+                        </div>
+
+              {/* 현재 배송지 */}
+                        <div className="p-4 bg-paper rounded-lg border border-line">
+                <h3 className="text-sm font-semibold text-ink mb-4 uppercase tracking-wide">
+                  현재 배송지
+                            </h3>
+                {currentAddress ? (
+                  <div className="space-y-2">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-xs text-muted uppercase tracking-wide block mb-1">
+                                수령인
+                              </label>
+                              <p className="text-sm text-ink font-medium">
+                          {currentAddress.address_name}
+                              </p>
+                      </div>
+                            <div>
+                              <label className="text-xs text-muted uppercase tracking-wide block mb-1">
+                                연락처
+                              </label>
+                              <p className="text-sm text-ink font-medium">
+                          {currentAddress.phone}
+                              </p>
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted uppercase tracking-wide block mb-1">
+                                우편번호
+                              </label>
+                              <p className="text-sm text-ink font-medium">
+                          {currentAddress.postal_code}
+                              </p>
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted uppercase tracking-wide block mb-1">
+                                국가
+                              </label>
+                              <p className="text-sm text-ink font-medium">
+                          {currentAddress.nation || "대한민국"}
+                              </p>
+                      </div>
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted uppercase tracking-wide block mb-1">
+                                주소
+                              </label>
+                              <p className="text-sm text-ink font-medium">
+                        {currentAddress.address}
+                              </p>
+                            </div>
+                    {currentAddress.address_memo && (
+                            <div>
+                                <label className="text-xs text-muted uppercase tracking-wide block mb-1">
+                                  배송 특이사항
+                                </label>
+                                <p className="text-sm text-ink font-medium">
+                          {currentAddress.address_memo}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                ) : (
+                  <p className="text-sm text-muted">
+                    배송지 정보를 찾을 수 없습니다.
+                  </p>
+                      )}
+              </div>
+
+              {/* 새 배송지 */}
+                        <div className="p-4 bg-paper rounded-lg border border-line">
+                <h3 className="text-sm font-semibold text-ink mb-4 uppercase tracking-wide">
+                  새 배송지
+                            </h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="수령인"
+                      value={newAddress.address_name}
+                      onChange={(e) =>
+                        setNewAddress({
+                          ...newAddress,
+                          address_name: e.target.value,
+                        })
+                      }
+                      placeholder="수령인 이름을 입력하세요"
+                      required
+                    />
+                    <Input
+                      label="수령인 연락처"
+                      value={newAddress.phone}
+                      onChange={(e) =>
+                        setNewAddress({ ...newAddress, phone: e.target.value })
+                      }
+                      placeholder="연락처를 입력하세요"
+                      required
+                    />
+                    <div>
+                      <label className="block text-sm font-medium text-muted mb-2 uppercase tracking-wider text-xs">
+                        배송지 우편번호
+                        <span className="text-red-500 ml-1">*</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={newAddress.postal_code}
+                          onChange={(e) =>
+                            setNewAddress({
+                              ...newAddress,
+                              postal_code: e.target.value,
+                            })
+                          }
+                          placeholder="우편번호를 입력하세요"
+                          required
+                          readOnly
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={handlePostcodeSearch}
+                        >
+                          우편번호 검색
+                        </Button>
+                          </div>
+                    </div>
+                  </div>
+                  <Input
+                    label="배송지 주소"
+                    value={newAddress.address}
+                    onChange={(e) =>
+                      setNewAddress({ ...newAddress, address: e.target.value })
+                    }
+                    placeholder="주소를 입력하세요"
+                    required
+                    readOnly
+                  />
+                  <Textarea
+                    label="배송 특이사항"
+                    value={newAddress.address_memo}
+                    onChange={(e) =>
+                      setNewAddress({
+                        ...newAddress,
+                        address_memo: e.target.value,
+                      })
+                    }
+                    placeholder="배송 특이사항을 입력하세요"
+                    rows={2}
+                  />
+                </div>
+              </div>
+
+              <div className="p-4 bg-warning-50 border border-warning-200 rounded-lg">
+                <p className="text-sm text-warning-700">
+                  <strong>적용 범위:</strong> 미발송분부터 적용됩니다.
+                </p>
+              </div>
+
+              {/* 하단 버튼 */}
+              <div className="flex justify-end gap-2 pt-4 border-t border-line">
+                                <Button
+                  variant="ghost"
+                                  onClick={() => {
+                    setIsAddressChangePanelOpen(false);
+                    setSelectedOrderItemForAddressChange(null);
+                    setNewAddress({
+                      address_name: "",
+                      phone: "",
+                      postal_code: "",
+                      address: "",
+                      address_memo: "",
+                    });
+                  }}
+                >
+                  취소
+                </Button>
+                <Button
+                  onClick={handleConfirmAddressChange}
+                  disabled={
+                    !newAddress.address_name ||
+                    !newAddress.phone ||
+                    !newAddress.postal_code ||
+                    !newAddress.address
+                  }
+                >
+                  변경 적용
+                                </Button>
+                              </div>
+                                </div>
+          )}
+        </SlidePanel>
+
+        {/* 배송지 변경 패널 */}
+        <SlidePanel
+          isOpen={isAddressChangePanelOpen}
+          onClose={() => {
+            setIsAddressChangePanelOpen(false);
+            setSelectedOrderItemForAddressChange(null);
+            setNewAddress({
+              address_name: "",
+              phone: "",
+              postal_code: "",
+              address: "",
+              address_memo: "",
+            });
+            setCurrentAddress(null);
           }}
           title="배송지 변경"
           size="lg"
@@ -2151,11 +1324,7 @@ const OrderListPage: React.FC = () => {
                 <h3 className="text-sm font-semibold text-ink mb-4 uppercase tracking-wide">
                   현재 배송지
                 </h3>
-                {(() => {
-                  const currentAddress = getAddressById(
-                    selectedOrderItemForAddressChange.address_id
-                  );
-                  return currentAddress ? (
+                {currentAddress ? (
                     <div className="space-y-2">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -2187,27 +1356,17 @@ const OrderListPage: React.FC = () => {
                             국가
                           </label>
                           <p className="text-sm text-ink font-medium">
-                            {currentAddress.nation}
+                          {currentAddress.nation || "대한민국"}
                           </p>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="text-xs text-muted uppercase tracking-wide block mb-1">
                             주소
                           </label>
                           <p className="text-sm text-ink font-medium">
-                            {currentAddress.address1}
-                          </p>
-                        </div>
-                        <div>
-                          <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                            상세주소
-                          </label>
-                          <p className="text-sm text-ink font-medium">
-                            {currentAddress.address2 || "-"}
-                          </p>
-                        </div>
+                        {currentAddress.address}
+                      </p>
                       </div>
                       {currentAddress.address_memo && (
                         <div>
@@ -2224,8 +1383,7 @@ const OrderListPage: React.FC = () => {
                     <p className="text-sm text-muted">
                       배송지 정보를 찾을 수 없습니다.
                     </p>
-                  );
-                })()}
+                )}
               </div>
 
               {/* 새 배송지 */}
@@ -2287,21 +1445,13 @@ const OrderListPage: React.FC = () => {
             </div>
             <Input
                     label="배송지 주소"
-                    value={newAddress.address1}
+                    value={newAddress.address}
               onChange={(e) =>
-                      setNewAddress({ ...newAddress, address1: e.target.value })
+                      setNewAddress({ ...newAddress, address: e.target.value })
                     }
                     placeholder="주소를 입력하세요"
                     required
                     readOnly
-                  />
-                  <Input
-                    label="배송지 상세주소"
-                    value={newAddress.address2}
-                    onChange={(e) =>
-                      setNewAddress({ ...newAddress, address2: e.target.value })
-                    }
-                    placeholder="상세주소를 입력하세요"
                   />
                   <Textarea
                     label="배송 특이사항"
@@ -2335,8 +1485,7 @@ const OrderListPage: React.FC = () => {
                       address_name: "",
                       phone: "",
                       postal_code: "",
-                      address1: "",
-                      address2: "",
+                      address: "",
                       address_memo: "",
                     });
                   }}
@@ -2349,7 +1498,7 @@ const OrderListPage: React.FC = () => {
                     !newAddress.address_name ||
                     !newAddress.phone ||
                     !newAddress.postal_code ||
-                    !newAddress.address1
+                    !newAddress.address
                   }
                 >
                   변경 적용
@@ -2359,295 +1508,6 @@ const OrderListPage: React.FC = () => {
           )}
         </SlidePanel>
 
-        {/* 주문 상세 패널 */}
-        <SlidePanel
-          isOpen={isDetailPanelOpen}
-          onClose={() => {
-            setIsDetailPanelOpen(false);
-            setSelectedOrderForPanel(null);
-          }}
-          title={`주문 상세 - ${
-            selectedOrderForPanel?.external_order_id ||
-            `#${selectedOrderForPanel?.order_id}`
-          }`}
-          size="lg"
-        >
-          {selectedOrderForPanel && (
-          <div className="space-y-4">
-              {/* 기본 정보 */}
-              <div className="p-4 bg-paper rounded-lg border border-line">
-                <h3 className="text-sm font-semibold text-ink mb-4 uppercase tracking-wide">
-                  기본 정보
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                      외부 주문 번호
-                    </label>
-                    <p className="text-sm text-ink font-medium">
-                      {selectedOrderForPanel.external_order_id || "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                      주문 채널
-                    </label>
-                    <p className="text-sm text-ink font-medium">
-                      {ORDER_CHANNEL_LABELS[
-                        selectedOrderForPanel.order_channel as OrderChannel
-                      ] || selectedOrderForPanel.order_channel}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                      주문 상태
-                    </label>
-                    <p className="text-sm text-ink font-medium">
-                      {getOrderStatusLabel(
-                        selectedOrderForPanel.order_status as OrderStatus
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted uppercase tracking-wide block mb-1">
-                      주문 일시
-                    </label>
-                    <p className="text-sm text-ink font-medium">
-                      {new Date(selectedOrderForPanel.order_at).toLocaleString(
-                        "ko-KR"
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* 주문 품목 */}
-              {selectedOrderForPanel.order_items &&
-                selectedOrderForPanel.order_items.length > 0 && (
-                  <div className="p-4 bg-paper rounded-lg border border-line">
-                    <h3 className="text-sm font-semibold text-ink mb-4 uppercase tracking-wide">
-                      주문 품목
-                    </h3>
-                    <div className="space-y-3">
-                      {selectedOrderForPanel.order_items.map((item) => (
-                        <div
-                          key={item.order_item_id}
-                          className="p-3 border border-line rounded-lg"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <Badge
-                                variant={
-                                  item.product_kind === "YEARLY"
-                                    ? "info"
-                                    : item.product_kind === "MONTHLY"
-                                    ? "success"
-                                    : "default"
-                                }
-                                size="sm"
-                              >
-                                {item.product_kind === "YEARLY"
-                                  ? "연간"
-                                  : item.product_kind === "MONTHLY"
-                                  ? "월간"
-                                  : "단품"}
-                              </Badge>
-                              <p className="font-medium text-ink text-sm">
-                                {item.product_name}
-              </p>
-            </div>
-                            <p className="font-semibold text-ink">
-                              {item.price.toLocaleString()}원
-                            </p>
-                          </div>
-                          <div className="text-xs text-muted space-y-1">
-                            <p>상품 코드: {item.product_code}</p>
-                            <p>수량: {item.order_num}개</p>
-                            {item.subscribe_start_issue && (
-                              <p>
-                                구독기간:{" "}
-                                {formatIssue(item.subscribe_start_issue)} ~{" "}
-                                {formatIssue(item.subscribe_end_issue)}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-              {/* 금액 정보 */}
-              <div className="p-4 bg-paper rounded-lg border border-line">
-                <h3 className="text-sm font-semibold text-ink mb-4 uppercase tracking-wide">
-                  금액 정보
-                </h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted">주문금액</span>
-                    <span className="text-sm text-ink font-medium">
-                      {selectedOrderForPanel.total_amount.toLocaleString()}원
-                    </span>
-            </div>
-                  {selectedOrderForPanel.discount_amount > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted">할인금액</span>
-                      <span className="text-sm text-muted">
-                        -
-                        {selectedOrderForPanel.discount_amount.toLocaleString()}
-                        원
-                      </span>
-          </div>
-                  )}
-                  {selectedOrderForPanel.send_fee > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted">배송비</span>
-                      <span className="text-sm text-muted">
-                        +{selectedOrderForPanel.send_fee.toLocaleString()}원
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between pt-2 border-t border-line">
-                    <span className="font-semibold text-ink">
-                      최종 결제금액
-                    </span>
-                    <span className="font-bold text-accent text-lg">
-                      {selectedOrderForPanel.payment_amount.toLocaleString()}원
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 결제 정보 */}
-              <div className="p-4 bg-paper rounded-lg border border-line">
-                <h3 className="text-sm font-semibold text-ink mb-4 uppercase tracking-wide">
-                  결제 정보
-                </h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-xs text-muted uppercase tracking-wide">
-                      결제방식
-                    </span>
-                    <span className="text-sm text-ink font-medium">
-                      {selectedOrderForPanel.payment_method || "-"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-muted uppercase tracking-wide">
-                      결제상태
-                    </span>
-                    <Badge
-                      variant={
-                        selectedOrderForPanel.payment_at ? "success" : "danger"
-                      }
-                      size="sm"
-                    >
-                      {selectedOrderForPanel.payment_at ? "결제완료" : "미결제"}
-                    </Badge>
-            </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-muted uppercase tracking-wide">
-                      결제일시
-                    </span>
-                    <span className="text-sm text-ink font-medium">
-                      {selectedOrderForPanel.payment_at
-                        ? new Date(
-                            selectedOrderForPanel.payment_at
-                          ).toLocaleString("ko-KR")
-                        : "-"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 배송지 정보 */}
-              {selectedOrderForPanel.address_id && (
-                <div className="p-4 bg-paper rounded-lg border border-line">
-                  <h3 className="text-sm font-semibold text-ink mb-4 uppercase tracking-wide">
-                    배송지 정보
-                  </h3>
-                  {(() => {
-                    const address = addresses.find(
-                      (a) => a.address_id === selectedOrderForPanel.address_id
-                    );
-                    return address ? (
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-xs text-muted uppercase tracking-wide">
-                            수령인
-                          </span>
-                          <span className="text-sm text-ink font-medium">
-                            {address.address_name}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-xs text-muted uppercase tracking-wide">
-                            연락처
-                          </span>
-                          <span className="text-sm text-ink font-medium">
-                            {address.phone}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-xs text-muted uppercase tracking-wide">
-                            우편번호
-                          </span>
-                          <span className="text-sm text-ink font-medium">
-                            {address.postal_code}
-                          </span>
-                        </div>
-              <div>
-                          <span className="text-xs text-muted uppercase tracking-wide block mb-1">
-                            주소
-                          </span>
-                          <p className="text-sm text-ink font-medium">
-                            {address.address1} {address.address2}
-                          </p>
-              </div>
-                        {address.address_memo && (
-              <div>
-                            <span className="text-xs text-muted uppercase tracking-wide block mb-1">
-                              배송 메시지
-                            </span>
-                            <p className="text-sm text-ink font-medium">
-                              {address.address_memo}
-                            </p>
-              </div>
-                        )}
-            </div>
-                    ) : (
-                      <p className="text-sm text-muted">
-                        배송지 정보를 찾을 수 없습니다.
-                      </p>
-                    );
-                  })()}
-          </div>
-              )}
-
-              {/* 고객 요청사항 */}
-              {selectedOrderForPanel.request_memo && (
-                <div className="p-4 bg-paper rounded-lg border border-line">
-                  <h3 className="text-sm font-semibold text-ink mb-4 uppercase tracking-wide">
-                    고객 요청사항
-                  </h3>
-                  <p className="text-sm text-ink whitespace-pre-wrap">
-                    {selectedOrderForPanel.request_memo}
-                  </p>
-                </div>
-              )}
-
-              {/* 관리자 메모 */}
-              <div className="p-4 bg-paper rounded-lg border border-line">
-                <h3 className="text-sm font-semibold text-ink mb-4 uppercase tracking-wide">
-                  관리자 메모
-                </h3>
-                <p className="text-sm text-ink whitespace-pre-wrap">
-                  {selectedOrderForPanel.admin_memo || "메모가 없습니다."}
-                </p>
-              </div>
-            </div>
-          )}
-        </SlidePanel>
       </div>
     </div>
   );

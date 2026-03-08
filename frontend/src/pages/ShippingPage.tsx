@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useLocation } from "react-router-dom";
 import * as XLSX from "xlsx";
 import {
   Download,
@@ -15,28 +14,14 @@ import Card from "../components/common/Card";
 import Button from "../components/common/Button";
 import Table, { Column } from "../components/common/Table";
 import Pagination from "../components/common/Pagination";
+import ListPage from "../components/common/ListPage";
 import Breadcrumb from "../components/common/Breadcrumb";
+import { sendsApi } from "../api/sendsApi";
+import type { SendListResponse, SendDetailResponse } from "../types/send";
+import type { SendItemResponse } from "../types/sendItem";
 
-// 오늘 택배 데이터 인터페이스
-interface TodayCourierItem {
-  id: number;
-  date: string;
-  name: string;
-  phone: string;
-  postalCode: string;
-  address: string;
-  말씀함께: number;
-  큰글자: number;
-  꿀땅: number;
-  저학년: number;
-  고학년: number;
-  청소년: number;
-  합계: number;
-  비고: string | null;
-}
-
-// 택배 발송현황 데이터 인터페이스
-interface CourierStatusItem {
+// 발송 데이터 인터페이스
+interface SendItem {
   id: number;
   date: string;
   name: string;
@@ -55,49 +40,86 @@ interface CourierStatusItem {
   박스수?: number;
   안전봉투?: number;
   trackingNumber?: string;
+  send_id: number;
+  send_status?: string;
+  courier_company?: string | null;
 }
 
-// 오늘 택배 목업 데이터
-const mockTodayCourierData: TodayCourierItem[] = [
-  {
-    id: 1,
-    date: "2025-01-02",
-    name: "김민수",
-    phone: "",
-    postalCode: "",
-    address: "서울특별시 강남구 테헤란로 123",
+// 상품명에서 상품 종류 추출
+const getProductType = (productName: string): string | null => {
+  if (productName.includes("말씀함께[기본판]") || productName.includes("말씀함께[기본]")) {
+    return "말씀함께";
+  }
+  if (productName.includes("말씀함께[큰글자판]") || productName.includes("큰글자판")) {
+    return "큰글자";
+  }
+  if (productName.includes("꿀땅")) {
+    return "꿀땅";
+  }
+  if (productName.includes("저학년") || productName.includes("1-3학년") || productName.includes("1~3학년")) {
+    return "저학년";
+  }
+  if (productName.includes("고학년") || productName.includes("4-6학년") || productName.includes("4~6학년")) {
+    return "고학년";
+  }
+  if (productName.includes("청소년")) {
+    return "청소년";
+  }
+  return null;
+};
+
+// SendDetailResponse를 SendItem으로 변환
+const convertSendToItem = (send: SendDetailResponse): SendItem => {
+  const productCounts: Record<string, number> = {
     말씀함께: 0,
     큰글자: 0,
     꿀땅: 0,
     저학년: 0,
     고학년: 0,
     청소년: 0,
-    합계: 0,
-    비고: null,
-  },
-  {
-    id: 2,
-    date: "2025-01-02",
-    name: "김민수",
-    phone: "",
-    postalCode: "",
-    address: "",
-    말씀함께: 0,
-    큰글자: 0,
-    꿀땅: 0,
-    저학년: 0,
-    고학년: 0,
-    청소년: 0,
-    합계: 0,
-    비고: "2월호",
-  },
-];
+  };
+
+  // items에서 상품별 수량 집계
+  if (send.items) {
+    send.items.forEach((item: SendItemResponse) => {
+      const productType = getProductType(item.product_name);
+      if (productType && productCounts.hasOwnProperty(productType)) {
+        productCounts[productType] += item.send_num || 0;
+      }
+    });
+  }
+
+  const 합계 = Object.values(productCounts).reduce((sum, count) => sum + count, 0);
+
+  return {
+    id: send.send_id,
+    send_id: send.send_id,
+    date: send.send_date || "",
+    name: send.address_name,
+    phone: send.phone,
+    postalCode: send.postal_code,
+    address: send.address,
+    말씀함께: productCounts.말씀함께,
+    큰글자: productCounts.큰글자,
+    꿀땅: productCounts.꿀땅,
+    저학년: productCounts.저학년,
+    고학년: productCounts.고학년,
+    청소년: productCounts.청소년,
+    합계,
+    비고: send.send_memo || null,
+    구분: send.courier_company || undefined,
+    박스수: send.item_count || undefined,
+    안전봉투: undefined,
+    trackingNumber: send.tracking_no || undefined,
+    send_status: send.send_status,
+    courier_company: send.courier_company || undefined,
+  };
+};
 
 const ShippingPage: React.FC = () => {
-  const location = useLocation();
-  const isTodayCourier = location.pathname.includes("today-courier");
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<TodayCourierItem[] | CourierStatusItem[]>([]);
+  const [data, setData] = useState<SendItem[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
 
   // 필터 상태
   const [searchTerm, setSearchTerm] = useState("");
@@ -115,9 +137,18 @@ const ShippingPage: React.FC = () => {
   // 선택된 항목
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
+  // 검색어 변경 시 첫 페이지로 이동
+  useEffect(() => {
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+  }, [searchTerm]);
+
+  // 페이지 또는 검색어 변경 시 데이터 로드
   useEffect(() => {
     fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, searchTerm]);
 
   // 외부 클릭 시 정렬 메뉴 닫기
   useEffect(() => {
@@ -149,11 +180,47 @@ const ShippingPage: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setData(isTodayCourier ? mockTodayCourierData : mockCourierStatusData);
+      // API 파라미터 설정
+      const params: {
+        page?: number;
+        limit?: number;
+        send_status?: string | null;
+        courier?: string | null;
+        send_date?: string | null;
+        search?: string | null;
+      } = {
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchTerm || null,
+      };
+
+      const response = await sendsApi.getSends(params);
+      const sends: SendListResponse[] = response.data.data || [];
+      
+      // 각 발송의 상세 정보를 가져와서 상품별 수량 집계
+      const sendItems: SendItem[] = [];
+      for (const send of sends) {
+        try {
+          const detailResponse = await sendsApi.getSend(send.send_id);
+          const sendDetail: SendDetailResponse = detailResponse.data.data!;
+          sendItems.push(convertSendToItem(sendDetail));
+        } catch (err) {
+          console.error(`발송 ${send.send_id} 상세 정보 조회 실패:`, err);
+          // 상세 정보를 가져오지 못한 경우 기본 정보만 사용
+          sendItems.push(convertSendToItem({
+            ...send,
+            items: [],
+            item_count: send.item_count,
+          } as SendDetailResponse));
+        }
+      }
+
+      setData(sendItems);
+      setTotalItems(response.data.pagination?.total || 0);
     } catch (err: any) {
       console.error("데이터를 불러오는데 실패했습니다.", err);
       setData([]);
+      setTotalItems(0);
     } finally {
       setLoading(false);
     }
@@ -168,7 +235,7 @@ const ShippingPage: React.FC = () => {
     if (checked) {
       setSelectedItems(
         new Set(
-          filteredData.map((item: TodayCourierItem | CourierStatusItem) =>
+          filteredData.map((item: SendItem) =>
             String(item.id)
           )
         )
@@ -190,7 +257,7 @@ const ShippingPage: React.FC = () => {
 
   // 엑셀 다운로드 함수
   const handleExportExcel = (selectedOnly: boolean = false) => {
-    let dataToExport: (TodayCourierItem | CourierStatusItem)[];
+    let dataToExport: SendItem[];
 
     if (selectedOnly && selectedItems.size > 0) {
       // 선택된 항목만 다운로드
@@ -208,47 +275,25 @@ const ShippingPage: React.FC = () => {
     }
 
     // 엑셀 형식으로 변환
-    const excelData = dataToExport.map((item) => {
-      if (isTodayCourier) {
-        const todayItem = item as TodayCourierItem;
-        return {
-          날짜: todayItem.date,
-          이름: todayItem.name,
-          연락처: todayItem.phone,
-          우편번호: todayItem.postalCode,
-          주소: todayItem.address,
-          말씀함께: todayItem.말씀함께 || 0,
-          큰글자: todayItem.큰글자 || 0,
-          꿀땅: todayItem.꿀땅 || 0,
-          저학년: todayItem.저학년 || 0,
-          고학년: todayItem.고학년 || 0,
-          청소년: todayItem.청소년 || 0,
-          합계: todayItem.합계,
-          비고: todayItem.비고 || "",
-        };
-      } else {
-        const statusItem = item as CourierStatusItem;
-        return {
-          날짜: statusItem.date,
-          이름: statusItem.name,
-          연락처: statusItem.phone,
-          우편번호: statusItem.postalCode,
-          주소: statusItem.address,
-          말씀함께: statusItem.말씀함께 || 0,
-          큰글자: statusItem.큰글자 || 0,
-          꿀땅: statusItem.꿀땅 || 0,
-          저학년: statusItem.저학년 || 0,
-          고학년: statusItem.고학년 || 0,
-          청소년: statusItem.청소년 || 0,
-          합계: statusItem.합계,
-          비고: statusItem.비고 || "",
-          구분: statusItem.구분 || "",
-          박스수: statusItem.박스수 || 0,
-          안전봉투: statusItem.안전봉투 || 0,
-          송장번호: statusItem.trackingNumber || "",
-        };
-      }
-    });
+    const excelData = dataToExport.map((item) => ({
+      날짜: item.date,
+      이름: item.name,
+      연락처: item.phone,
+      우편번호: item.postalCode,
+      주소: item.address,
+      말씀함께: item.말씀함께 || 0,
+      큰글자: item.큰글자 || 0,
+      꿀땅: item.꿀땅 || 0,
+      저학년: item.저학년 || 0,
+      고학년: item.고학년 || 0,
+      청소년: item.청소년 || 0,
+      합계: item.합계,
+      비고: item.비고 || "",
+      구분: item.구분 || "",
+      박스수: item.박스수 || 0,
+      안전봉투: item.안전봉투 || 0,
+      송장번호: item.trackingNumber || "",
+    }));
 
     // 워크시트 생성
     const ws = XLSX.utils.json_to_sheet(excelData);
@@ -262,7 +307,7 @@ const ShippingPage: React.FC = () => {
     XLSX.writeFile(wb, fileName);
   };
 
-  // 필터링 및 정렬
+  // 필터링 및 정렬 (클라이언트 사이드 필터링은 검색어가 있을 때만)
   const filteredData = data
     .filter((item) => {
       if (
@@ -275,8 +320,8 @@ const ShippingPage: React.FC = () => {
       return true;
     })
     .sort((a, b) => {
-      const aVal = a[sortKey as keyof (TodayCourierItem | CourierStatusItem)];
-      const bVal = b[sortKey as keyof (TodayCourierItem | CourierStatusItem)];
+      const aVal = a[sortKey as keyof SendItem];
+      const bVal = b[sortKey as keyof SendItem];
       if (aVal === null && bVal === null) return 0;
       if (aVal === null) return 1;
       if (bVal === null) return -1;
@@ -286,171 +331,11 @@ const ShippingPage: React.FC = () => {
       return aStr < bStr ? 1 : -1;
     });
 
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-  const paginatedData = filteredData.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const paginatedData = filteredData;
 
   // 테이블 컬럼 정의
-  const columns: Column<TodayCourierItem | CourierStatusItem>[] = isTodayCourier
-    ? [
-        // 오늘 택배 컬럼
-        {
-          key: "checkbox",
-          label: "선택",
-          width: "50px",
-          align: "center",
-          render: (_, row) => (
-            <div className="flex justify-center">
-              <input
-                type="checkbox"
-                checked={selectedItems.has(String(row.id))}
-                onChange={(e) =>
-                  handleSelectItem(String(row.id), e.target.checked)
-                }
-                className="w-4 h-4 rounded border-line text-accent focus:ring-accent"
-              />
-            </div>
-          ),
-        },
-        {
-          key: "date",
-          label: "날짜",
-          sortable: true,
-          align: "center",
-          render: (_value, row) => (
-            <span className="text-sm">{row.date}</span>
-          ),
-        },
-        {
-          key: "name",
-          label: "이름",
-          sortable: true,
-          align: "center",
-          render: (_value, row) => (
-            <span className="text-sm font-medium text-ink">
-              {row.name}
-            </span>
-          ),
-        },
-        {
-          key: "phone",
-          label: "연락처",
-          align: "center",
-          render: (_value, row) => (
-            <span className="text-sm">{row.phone || "-"}</span>
-          ),
-        },
-        {
-          key: "postalCode",
-          label: "우편번호",
-          align: "center",
-          render: (_value, row) => (
-            <span className="text-sm">{row.postalCode || "-"}</span>
-          ),
-        },
-        {
-          key: "address",
-          label: "주소",
-          align: "center",
-          render: (_value, row) => (
-            <span className="text-sm">{row.address || "-"}</span>
-          ),
-        },
-        {
-          key: "말씀함께",
-          label: "말씀함께",
-          align: "center",
-          render: (_value, row) => {
-            const item = row as TodayCourierItem;
-            return (
-              <span className="text-sm">{item.말씀함께 || 0}</span>
-            );
-          },
-        },
-        {
-          key: "큰글자",
-          label: "큰글자",
-          align: "center",
-          render: (_value, row) => {
-            const item = row as TodayCourierItem;
-            return (
-              <span className="text-sm">{item.큰글자 || 0}</span>
-            );
-          },
-        },
-        {
-          key: "꿀땅",
-          label: "꿀땅",
-          align: "center",
-          render: (_value, row) => (
-            <span className="text-sm">{row.꿀땅 || 0}</span>
-          ),
-        },
-        {
-          key: "저학년",
-          label: "저학년",
-          align: "center",
-          render: (_value, row) => (
-            <span className="text-sm">{row.저학년 || 0}</span>
-          ),
-        },
-        {
-          key: "고학년",
-          label: "고학년",
-          align: "center",
-          render: (_value, row) => (
-            <span className="text-sm">{row.고학년 || 0}</span>
-          ),
-        },
-        {
-          key: "청소년",
-          label: "청소년",
-          align: "center",
-          render: (_value, row) => (
-            <span className="text-sm">{row.청소년 || 0}</span>
-          ),
-        },
-        {
-          key: "합계",
-          label: "합계",
-          align: "center",
-          render: (_value, row) => (
-            <span className="text-sm font-semibold">{row.합계}</span>
-          ),
-        },
-        {
-          key: "비고",
-          label: "비고",
-          align: "center",
-          render: (_value, row) => (
-            <span className="text-sm text-muted">
-              {row.비고 || "-"}
-            </span>
-          ),
-        },
-      ]
-    : [
-        // 택배 발송현황 컬럼
-        {
-          key: "checkbox",
-          label: "선택",
-          width: "50px",
-          align: "center",
-          render: (_, row) => (
-            <div className="flex justify-center">
-              <input
-                type="checkbox"
-                checked={selectedItems.has(String(row.id))}
-                onChange={(e) =>
-                  handleSelectItem(String(row.id), e.target.checked)
-                }
-                className="w-4 h-4 rounded border-line text-accent focus:ring-accent"
-              />
-            </div>
-          ),
-        },
+  const columns: Column<SendItem>[] = [
         {
           key: "date",
           label: "날짜",
@@ -499,23 +384,17 @@ const ShippingPage: React.FC = () => {
           key: "말씀함께",
           label: "말씀함께",
           align: "center",
-          render: (_value, row) => {
-            const item = row as CourierStatusItem;
-            return (
-              <span className="text-sm">{item.말씀함께 || 0}</span>
-            );
-          },
+          render: (_value, row) => (
+            <span className="text-sm">{row.말씀함께 || 0}</span>
+          ),
         },
         {
           key: "큰글자",
           label: "큰글자",
           align: "center",
-          render: (_value, row) => {
-            const item = row as CourierStatusItem;
-            return (
-              <span className="text-sm">{item.큰글자 || 0}</span>
-            );
-          },
+          render: (_value, row) => (
+            <span className="text-sm">{row.큰글자 || 0}</span>
+          ),
         },
         {
           key: "꿀땅",
@@ -569,58 +448,46 @@ const ShippingPage: React.FC = () => {
           key: "구분",
           label: "구분",
           align: "center",
-          render: (_value, row) => {
-            const item = row as CourierStatusItem;
-            return (
-              <span className="text-sm">{item.구분 || "-"}</span>
-            );
-          },
+          render: (_value, row) => (
+            <span className="text-sm">{row.구분 || "-"}</span>
+          ),
         },
         {
           key: "박스수",
           label: "박스수",
           align: "center",
-          render: (_value, row) => {
-            const item = row as CourierStatusItem;
-            return (
-              <span className="text-sm">{item.박스수 || 0}</span>
-            );
-          },
+          render: (_value, row) => (
+            <span className="text-sm">{row.박스수 || 0}</span>
+          ),
         },
         {
           key: "안전봉투",
           label: "안전봉투",
           align: "center",
-          render: (_value, row) => {
-            const item = row as CourierStatusItem;
-            return (
-              <span className="text-sm">{item.안전봉투 || 0}</span>
-            );
-          },
+          render: (_value, row) => (
+            <span className="text-sm">{row.안전봉투 || 0}</span>
+          ),
         },
         {
           key: "trackingNumber",
           label: "송장 번호",
           align: "center",
-          render: (_value, row) => {
-            const item = row as CourierStatusItem;
-            return (
-              <span className="text-sm font-mono">
-                {item.trackingNumber || "-"}
-              </span>
-            );
-          },
+          render: (_value, row) => (
+            <span className="text-sm font-mono">
+              {row.trackingNumber || "-"}
+            </span>
+          ),
         },
       ];
 
-  const pageTitle = isTodayCourier ? "오늘택배" : "택배발송현황";
+  const pageTitle = "발송현황";
 
   return (
     <div className="min-h-screen">
       <div className="max-w-[1600px] mx-auto px-6 py-6">
         <Breadcrumb
           items={[
-            { label: "발송 관리", path: "/shipping/today-courier" },
+            { label: "발송 관리", path: "/shipping/courier-status" },
             { label: pageTitle },
           ]}
         />
@@ -772,50 +639,29 @@ const ShippingPage: React.FC = () => {
         </Card>
 
         {/* 테이블 */}
-        <Card className="unified-card">
-          <div className="px-4 py-3 border-b border-line flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={
-                  filteredData.length > 0 &&
-                  selectedItems.size === filteredData.length
-                }
-                onChange={(e) => handleSelectAll(e.target.checked)}
-                className="w-4 h-4 rounded border-line text-accent focus:ring-accent"
-              />
-              <span className="text-sm text-muted">
-                전체 {filteredData.length}건
-              </span>
-            </div>
-            <span className="text-sm text-muted">
-              {(currentPage - 1) * itemsPerPage + 1} -{" "}
-              {Math.min(currentPage * itemsPerPage, filteredData.length)} /{" "}
-              {filteredData.length}
-            </span>
-          </div>
-
-          <Table
-            columns={columns}
-            data={paginatedData}
-            keyExtractor={(item) => String(item.id)}
-            onSort={handleSort}
-            sortKey={sortKey}
-            sortDirection={sortDirection}
-            emptyMessage="데이터가 없습니다"
-            hoverable
-          />
-
-          {totalPages > 1 && (
-            <div className="p-4 border-t border-line">
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
-            </div>
-          )}
-        </Card>
+        <ListPage
+          data={paginatedData}
+          columns={columns}
+          keyExtractor={(item) => String(item.id)}
+          onSort={handleSort}
+          sortKey={sortKey}
+          sortDirection={sortDirection}
+          emptyMessage="데이터가 없습니다"
+          hoverable
+          selectable
+          selectedItems={selectedItems}
+          onSelectAll={handleSelectAll}
+          onSelectItem={handleSelectItem}
+          allSelected={
+            filteredData.length > 0 &&
+            selectedItems.size === filteredData.length
+          }
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+        />
       </div>
     </div>
   );
