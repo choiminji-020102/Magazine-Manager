@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { tokenUtils } from "../api/axios";
 import { authAPI, LoginRequest, LogoutRequest } from "../api/authApi";
-import { AdminResponse, AdminRole } from "../api/adminsApi";
+import { AdminResponse, AdminRole } from "../types/admin";
 import { getErrorMessage } from "../utils/errorHandler";
 
 // 개발 모드에서 로그인 우회 (true로 설정하면 로그인 없이 사용 가능)

@@ -25,15 +25,18 @@ import ProductListPage from "./pages/ProductListPage";
 import ProductRegisterPage from "./pages/ProductRegisterPage";
 import OrderListPage from "./pages/OrderListPage";
 import OrderRegisterPage from "./pages/OrderRegisterPage";
+import OrderDetailPage from "./pages/OrderDetailPage";
 import SubscriptionListPage from "./pages/SubscriptionListPage";
 // import SubscriptionDetailPage from "./pages/SubscriptionDetailPage";
 import DuplicateSubscriptionPage from "./pages/DuplicateSubscriptionPage";
 import PauseManagementPage from "./pages/PauseManagementPage";
 import ShippingPage from "./pages/ShippingPage";
+import DispatchManagementPage from "./pages/DispatchManagementPage";
 import SupportListPage from "./pages/SupportListPage";
 import MessageTemplatePage from "./pages/MessageTemplatePage";
 import SettingsPage from "./pages/SettingsPage";
 import StatisticsPage from "./pages/StatisticsPage";
+import ActivityLogPage from "./pages/ActivityLogPage";
 
 interface ExpandedMenus {
   [key: string]: boolean;
@@ -112,12 +115,10 @@ const MainLayout: React.FC = () => {
       }
     } else if (path.startsWith("/shipping")) {
       setActiveMenu("shipping");
-      if (path.includes("/today-courier")) {
-        setActiveSubMenu("today-courier");
-      } else if (path.includes("/courier-status")) {
-        setActiveSubMenu("courier-status");
+      if (path.includes("/dispatch")) {
+        setActiveSubMenu("dispatch");
       } else {
-        setActiveSubMenu("today-courier");
+        setActiveSubMenu("courier-status");
       }
     } else if (path.startsWith("/support")) {
       setActiveMenu("support");
@@ -133,7 +134,7 @@ const MainLayout: React.FC = () => {
       } else if (path.includes("/profile")) {
         setActiveSubMenu("profile");
       } else {
-        setActiveSubMenu("admin");
+        setActiveSubMenu("cafe24");
       }
     } else if (path.startsWith("/statistics")) {
       setActiveMenu("statistics");
@@ -145,6 +146,20 @@ const MainLayout: React.FC = () => {
         setActiveSubMenu("shipping");
       } else {
         setActiveSubMenu("sales");
+      }
+    } else if (path.startsWith("/admin") && !path.startsWith("/admin/")) {
+      setActiveMenu("admin");
+      if (path.includes("/new") || path.includes("/register")) {
+        setActiveSubMenu("register");
+      } else {
+        setActiveSubMenu("list");
+      }
+    } else if (path.startsWith("/system")) {
+      setActiveMenu("system");
+      if (path.includes("/activity-log")) {
+        setActiveSubMenu("activity-log");
+      } else {
+        setActiveSubMenu("activity-log");
       }
     }
   }, [location.pathname]);
@@ -178,9 +193,9 @@ const MainLayout: React.FC = () => {
         duplicate: "/subscription/duplicate",
       },
       shipping: {
-        "": "/shipping/today-courier",
-        "today-courier": "/shipping/today-courier",
+        "": "/shipping/courier-status",
         "courier-status": "/shipping/courier-status",
+        dispatch: "/shipping/dispatch",
       },
       support: {
         "": "/support/list",
@@ -188,8 +203,7 @@ const MainLayout: React.FC = () => {
         "message-template": "/support/message-template",
       },
       settings: {
-        "": "/settings/admin",
-        admin: "/settings/admin",
+        "": "/settings/cafe24",
         cafe24: "/settings/cafe24",
         profile: "/settings/profile",
       },
@@ -199,6 +213,15 @@ const MainLayout: React.FC = () => {
         product: "/statistics/product",
         subscription: "/statistics/subscription",
         shipping: "/statistics/shipping",
+      },
+      admin: {
+        "": "/admin/list",
+        list: "/admin/list",
+        register: "/admin/new",
+      },
+      system: {
+        "": "/system/activity-log",
+        "activity-log": "/system/activity-log",
       },
     };
 
@@ -300,6 +323,7 @@ const MainLayout: React.FC = () => {
             />
             <Route path="/order/list" element={<OrderListPage />} />
             <Route path="/order/register" element={<OrderRegisterPage />} />
+            <Route path="/order/detail/:orderId" element={<OrderDetailPage />} />
 
             {/* 구독 관리 */}
             <Route
@@ -326,15 +350,15 @@ const MainLayout: React.FC = () => {
             {/* 발송 관리 */}
             <Route
               path="/shipping"
-              element={<Navigate to="/shipping/today-courier" replace />}
-            />
-            <Route
-              path="/shipping/today-courier"
-              element={<ShippingPage />}
+              element={<Navigate to="/shipping/courier-status" replace />}
             />
             <Route
               path="/shipping/courier-status"
               element={<ShippingPage />}
+            />
+            <Route
+              path="/shipping/dispatch"
+              element={<DispatchManagementPage />}
             />
 
             {/* 고객 지원 */}
@@ -351,11 +375,7 @@ const MainLayout: React.FC = () => {
             {/* 설정 */}
             <Route
               path="/settings"
-              element={<Navigate to="/settings/admin" replace />}
-            />
-            <Route
-              path="/settings/admin"
-              element={<SettingsPage initialTab="admin" />}
+              element={<Navigate to="/settings/cafe24" replace />}
             />
             <Route
               path="/settings/cafe24"
@@ -388,12 +408,11 @@ const MainLayout: React.FC = () => {
               element={<StatisticsPage initialTab="shipping" />}
             />
 
-            {/* 관리자 (기존) */}
+            {/* 관리자 관리 */}
             <Route
-              path="/admin"
+              path="/admin/list"
               element={
                 <AdminListPage
-                  onSelectAdmin={(id) => navigate(`/admin/${id}`)}
                   onNewAdmin={() => navigate("/admin/new")}
                 />
               }
@@ -403,12 +422,35 @@ const MainLayout: React.FC = () => {
               element={
                 <AdminDetailPage
                   adminId="new"
-                  onBack={() => navigate("/admin")}
-                  onSave={() => navigate("/admin")}
+                  onBack={() => navigate("/admin/list")}
+                  onSave={() => navigate("/admin/list")}
                 />
               }
             />
             <Route path="/admin/:id" element={<AdminDetailPageWrapper />} />
+
+            {/* 시스템 */}
+            <Route
+              path="/system"
+              element={<Navigate to="/system/activity-log" replace />}
+            />
+            <Route
+              path="/system/activity-log"
+              element={<ActivityLogPage />}
+            />
+            {/* 기존 경로 리다이렉트 */}
+            <Route
+              path="/system/admin"
+              element={<Navigate to="/admin/list" replace />}
+            />
+            <Route
+              path="/system/admin/new"
+              element={<Navigate to="/admin/new" replace />}
+            />
+            <Route
+              path="/system/admin/:id"
+              element={<AdminSystemRedirectWrapper />}
+            />
 
             {/* 기본 리다이렉트 */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -427,10 +469,16 @@ const AdminDetailPageWrapper: React.FC = () => {
   return (
     <AdminDetailPage
       adminId={id === "new" ? "new" : parseInt(id || "0", 10)}
-      onBack={() => navigate("/admin")}
-      onSave={() => navigate("/admin")}
+      onBack={() => navigate("/admin/list")}
+      onSave={() => navigate("/admin/list")}
     />
   );
+};
+
+// 기존 /system/admin 경로를 /admin으로 리다이렉트하는 래퍼
+const AdminSystemRedirectWrapper: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/admin/${id}`} replace />;
 };
 
 // 앱 컴포넌트

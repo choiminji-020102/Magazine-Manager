@@ -54,14 +54,14 @@ const Modal: React.FC<ModalProps> = ({
         {/* Modal */}
         <div
           className={cn(
-            "relative bg-panel rounded-xl shadow-2xl w-full transform transition-all border border-line",
+            "relative bg-panel rounded-xl shadow-2xl w-full transform transition-all border border-line flex flex-col h-[80vh]",
             sizes[size]
           )}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           {(title || showCloseButton) && (
-            <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-gradient-to-r from-paper to-white rounded-t-xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-gradient-to-r from-paper to-white rounded-t-xl flex-shrink-0">
               {title && (
                 <h3 className="text-lg font-semibold text-ink">{title}</h3>
               )}
@@ -78,13 +78,13 @@ const Modal: React.FC<ModalProps> = ({
           )}
 
           {/* Body */}
-          <div className="px-6 py-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+          <div className="px-6 py-4 overflow-y-auto custom-scrollbar flex-1 min-h-0">
             {children}
           </div>
 
           {/* Footer */}
           {footer && (
-            <div className="px-6 py-4 border-t border-line bg-gradient-to-r from-paper to-white flex justify-end gap-3 rounded-b-xl">
+            <div className="px-6 py-4 border-t border-line bg-gradient-to-r from-paper to-white flex justify-end gap-3 rounded-b-xl flex-shrink-0">
               {footer}
             </div>
           )}

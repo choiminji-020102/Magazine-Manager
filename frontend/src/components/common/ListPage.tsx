@@ -1,4 +1,5 @@
 import React, { ReactNode } from "react";
+import { LucideIcon } from "lucide-react";
 import Card from "./Card";
 import Table, { Column } from "./Table";
 import Pagination from "./Pagination";
@@ -7,10 +8,10 @@ import LoadingSpinner from "./LoadingSpinner";
 
 export interface BatchAction {
   label: string;
-  icon?: React.ComponentType<{ className?: string }>;
+  icon?: LucideIcon;
   onClick: () => void;
   disabled?: boolean;
-  variant?: "default" | "outline" | "ghost" | "danger";
+  variant?: "primary" | "secondary" | "outline" | "ghost" | "danger";
 }
 
 interface ListPageProps<T = any> {
@@ -115,7 +116,7 @@ const ListPage = <T extends Record<string, any>>({
             {batchActions.map((action, index) => (
               <Button
                 key={index}
-                variant={action.variant || "outline"}
+                variant={action.variant === "default" ? "primary" : (action.variant || "outline")}
                 size="sm"
                 icon={action.icon}
                 onClick={action.onClick}
@@ -124,7 +125,7 @@ const ListPage = <T extends Record<string, any>>({
                 {action.label}
               </Button>
             ))}
-            {selectedItems.size > 0 && (
+            {selectedItems.size > 0 && onSelectAll && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -233,6 +234,7 @@ const ListPage = <T extends Record<string, any>>({
                 }
               : undefined
           }
+          allSelected={allSelected}
           rowClassName={rowClassName}
         />
 
