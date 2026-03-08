@@ -23,6 +23,11 @@ export const sendsApi = {
     return api.get<PaginatedResponse<SendListResponse>>("/sends", { params });
   },
 
+  // GET /sends/order/{order_id} - 주문별 발송 목록
+  getSendsByOrder: (orderId: number) => {
+    return api.get<ResponseModel<SendListResponse[]>>(`/sends/order/${orderId}`);
+  },
+
   // GET /sends/date/{send_date} - 날짜별 발송 조회
   getSendsByDate: (sendDate: string) => {
     return api.get<ResponseModel<SendListResponse[]>>(`/sends/date/${sendDate}`);

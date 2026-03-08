@@ -10,7 +10,7 @@ import type {
 
 export const orderItemsApi = {
   // GET /orders/{order_id}/items - 주문별 품목 목록
-  getOrderItems: (orderId: number) => {
+  getItemsByOrder: (orderId: number) => {
     return api.get<ResponseModel<OrderItemDetailResponse[]>>(`/orders/${orderId}/items`);
   },
 
@@ -20,6 +20,7 @@ export const orderItemsApi = {
   },
 
   // POST /orders/{order_id}/items - 품목 추가
+  // 주의: data의 order_id는 경로 파라미터 orderId와 일치해야 하며, 경로 파라미터가 우선 사용됩니다.
   createOrderItem: (orderId: number, data: OrderItemCreate) => {
     return api.post<ResponseModel<OrderItemResponse>>(`/orders/${orderId}/items`, data);
   },

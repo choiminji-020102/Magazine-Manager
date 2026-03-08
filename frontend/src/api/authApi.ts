@@ -63,6 +63,20 @@ export const authAPI = {
   },
 
   /**
+   * 관리자 존재 여부 확인 (인증 불필요)
+   * GET /auth/check-admin-exists
+   */
+  checkAdminExists: async (): Promise<{ exists: boolean }> => {
+    try {
+      const response = await api.get<{ exists: boolean }>("/auth/check-admin-exists");
+      return response.data;
+    } catch (err) {
+      logApiError(err as any, "CHECK_ADMIN_EXISTS");
+      throw err;
+    }
+  },
+
+  /**
    * 최초 관리자 생성 (인증 불필요, 관리자가 없을 때만 사용 가능)
    * POST /auth/signup/init
    */

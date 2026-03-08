@@ -5,11 +5,9 @@ import type {
   OrderCreate,
   OrderUpdate,
   OrderResponse,
-  OrderDetailResponse,
   OrderListResponse,
   OrderStatusUpdate,
 } from "../types/order";
-import type { SendListResponse } from "../types/send";
 
 export const ordersApi = {
   // GET /orders - 주문 목록 조회
@@ -17,29 +15,19 @@ export const ordersApi = {
     return api.get<PaginatedResponse<OrderListResponse>>("/orders", { params });
   },
 
-  // GET /orders/channel/{channel} - 채널별 주문 조회
-  getOrdersByChannel: (
-    channel: string,
-    params: { page?: number; limit?: number; order_status?: string | null }
-  ) => {
-    return api.get<PaginatedResponse<OrderListResponse>>(`/orders/channel/${channel}`, {
-      params,
-    });
-  },
-
   // GET /orders/external/{external_order_id} - 외부 주문번호로 주문 조회
   getOrderByExternalId: (externalOrderId: string) => {
-    return api.get<ResponseModel<OrderDetailResponse>>(`/orders/external/${externalOrderId}`);
+    return api.get<ResponseModel<OrderResponse>>(`/orders/external/${externalOrderId}`);
   },
 
   // GET /orders/{order_id} - 주문 상세 조회
   getOrder: (orderId: number) => {
-    return api.get<ResponseModel<OrderDetailResponse>>(`/orders/${orderId}`);
+    return api.get<ResponseModel<OrderResponse>>(`/orders/${orderId}`);
   },
 
   // POST /orders - 주문 등록
   createOrder: (data: OrderCreate) => {
-    return api.post<ResponseModel<OrderDetailResponse>>("/orders", data);
+    return api.post<ResponseModel<OrderResponse>>("/orders", data);
   },
 
   // PUT /orders/{order_id} - 주문 수정
@@ -55,11 +43,6 @@ export const ordersApi = {
   // PATCH /orders/{order_id}/cancel - 주문 취소
   cancelOrder: (orderId: number) => {
     return api.patch<ResponseModel<OrderResponse>>(`/orders/${orderId}/cancel`);
-  },
-
-  // GET /orders/{order_id}/sends - 주문별 발송 목록
-  getOrderSends: (orderId: number) => {
-    return api.get<ResponseModel<SendListResponse[]>>(`/orders/${orderId}/sends`);
   },
 
   // GET /orders/customer/{customer_id} - 고객별 주문 이력 조회
