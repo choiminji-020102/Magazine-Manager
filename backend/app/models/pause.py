@@ -12,7 +12,7 @@ class Pause(Base):
     pause_issue = Column(String(20), nullable=False, comment="중단 호(202604)")
 
     reason = Column(Text, nullable=True, comment="고객 요청 사유")
-    admin_id = Column(BigInteger, ForeignKey("admins.admin_id"), nullable=True, comment="처리 관리자 ID")
+    admin_id = Column(BigInteger, ForeignKey("admins.admin_id"), nullable=False, comment="처리 관리자 ID")
     
     is_deleted = Column(Boolean, nullable=False, server_default="0", comment="삭제 여부(소프트 삭제)")
 
