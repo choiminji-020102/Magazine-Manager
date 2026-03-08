@@ -135,7 +135,7 @@ module.exports = {
         ink: "#2F3437", // 텍스트 색상 (다크 그레이)
         muted: "#787774", // 보조 텍스트 (그레이)
         paper: "#FFFFFF", // 배경색 (순수 흰색)
-        panel: "#FAFAFA", // 패널 배경 (매우 밝은 회색)
+        panel: "#FFFFFF", // 패널 배경 (흰색)
         line: "#E3E2DF", // 테두리 (베이지 그레이)
         chip: "#F7F6F3", // 칩/태그 배경
         highlight: "#EEF3F7", // 하이라이트 (연한 블루)

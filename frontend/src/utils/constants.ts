@@ -63,17 +63,6 @@ export const MENU_STRUCTURE: MenuItem[] = [
     ],
   },
   {
-    icon: RefreshCw,
-    title: "구독 관리",
-    key: "subscription",
-    subItems: [
-      { label: "구독 목록", key: "list" },
-      { label: "휴지 관리", key: "pause" },
-      { label: "중복 구독", key: "duplicate" },
-      { label: "구독 등록", key: "register" },
-    ],
-  },
-  {
     icon: Package,
     title: "상품 관리",
     key: "product",
@@ -92,12 +81,23 @@ export const MENU_STRUCTURE: MenuItem[] = [
     ],
   },
   {
+    icon: RefreshCw,
+    title: "구독 관리",
+    key: "subscription",
+    subItems: [
+      { label: "구독 목록", key: "list" },
+      { label: "휴지 관리", key: "pause" },
+      { label: "중복 구독", key: "duplicate" },
+      { label: "구독 등록", key: "register" },
+    ],
+  },
+  {
     icon: Truck,
     title: "발송 관리",
     key: "shipping",
     subItems: [
-      { label: "오늘택배", key: "today-courier" },
-      { label: "택배발송현황", key: "courier-status" },
+      { label: "발송 대상 관리", key: "dispatch" },
+      { label: "발송현황", key: "courier-status" },
     ],
   },
   {
@@ -114,7 +114,6 @@ export const MENU_STRUCTURE: MenuItem[] = [
     title: "설정",
     key: "settings",
     subItems: [
-      { label: "관리자 설정", key: "admin" },
       { label: "Cafe24 연동", key: "cafe24" },
       { label: "마이페이지", key: "profile" },
     ],
