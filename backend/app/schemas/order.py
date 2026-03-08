@@ -50,12 +50,12 @@ class OrderCustomerInput(BaseModel):
 
 # 주문 생성 시 배송지 정보
 class OrderAddressInput(BaseModel):
-    address_name: str  # 수령인 이름
-    phone: str         # 수령인 연락처
-    nation: str = "대한민국"
+    recipient_name: str   # 수령인 이름
+    recipient_phone: str  # 수령인 연락처
+    country_code: str = "KR"
     postal_code: str
     address: str
-    address_memo: Optional[str] = None
+    customer_memo: Optional[str] = None
 
 
 class OrderItemCreateInOrder(BaseModel):
@@ -148,20 +148,3 @@ class OrderListResponse(BaseModel):
     item_count: Optional[int] = 0
 
 
-class OrderDetailResponseCustomer(BaseModel):
-    customer_id: int
-    customer_name: str
-    customer_phone: str
-
-
-class OrderDetailResponseAddress(BaseModel):
-    address_id: int
-    address_name: str
-    phone: str
-    address: str
-
-
-class OrderDetailResponse(OrderResponse):
-    customer: Optional[OrderDetailResponseCustomer] = None
-    address: Optional[OrderDetailResponseAddress] = None
-    items: List[OrderItemResponse] = []

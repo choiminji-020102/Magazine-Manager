@@ -9,16 +9,17 @@ class DispatchTarget(BaseModel):
     customer_id: int
     order_channel: str
     product_code: str
+    send_product_code: str
     product_kind: str
     product_name: str
     customer_name: str
     customer_phone: str
     address_id: Optional[int] = None
-    address_name: Optional[str] = None
-    phone: Optional[str] = None
+    recipient_name: Optional[str] = None
+    recipient_phone: Optional[str] = None
     postal_code: Optional[str] = None
     address: Optional[str] = None
-    address_memo: Optional[str] = None
+    customer_memo: Optional[str] = None
 
 
 class DispatchTargetsResponse(BaseModel):
@@ -85,11 +86,11 @@ class SingleTarget(BaseModel):
     customer_name: str
     customer_phone: str
     address_id: Optional[int] = None
-    address_name: Optional[str] = None
-    phone: Optional[str] = None
+    recipient_name: Optional[str] = None
+    recipient_phone: Optional[str] = None
     postal_code: Optional[str] = None
     address: Optional[str] = None
-    address_memo: Optional[str] = None
+    customer_memo: Optional[str] = None
 
 
 class SingleTargetsResponse(BaseModel):

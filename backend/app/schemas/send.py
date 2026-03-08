@@ -4,6 +4,7 @@ from datetime import datetime, date
 from decimal import Decimal
 
 from app.schemas.address import AddressCreate
+from app.schemas.send_item import SendItemResponse
 
 
 COURIER_COMPANIES = Literal["CJ대한통운", "로젠택배", "우체국택배", "한진택배", "롯데택배"]
@@ -16,12 +17,12 @@ class SendItemInput(BaseModel):
 
 
 class SendAddressInput(BaseModel):
-    address_name: str
-    phone: str
-    nation: Optional[str] = "대한민국"
+    recipient_name: str
+    recipient_phone: str
+    country_code: Optional[str] = "KR"
     postal_code: str
     address: str
-    address_memo: Optional[str] = None
+    customer_memo: Optional[str] = None
 
 
 class SendCreate(BaseModel):
@@ -54,26 +55,6 @@ class SendTrackingUpdate(BaseModel):
     tracking_no: str
 
 
-class SendItemResponse(BaseModel):
-    send_item_id: int
-    send_id: int
-    order_item_id: int
-    product_code: str
-    send_num: int
-    purchase: int
-    product_name: str
-    unit_weight: Decimal
-    unit_width: Decimal
-    unit_length: Decimal
-    unit_height: Decimal
-    created_at: datetime
-    updated_at: datetime
-    cancelled_at: Optional[datetime] = None
-    
-    class Config:
-        from_attributes = True
-
-
 class SendResponse(BaseModel):
     send_id: int
     order_id: int
@@ -83,12 +64,12 @@ class SendResponse(BaseModel):
     tracking_no: Optional[str] = None
     send_status: str
     send_memo: Optional[str] = None
-    address_name: str
-    phone: str
-    nation: Optional[str] = None
+    recipient_name: str
+    recipient_phone: str
+    country_code: str = "KR"
     postal_code: str
     address: str
-    address_memo: Optional[str] = None
+    customer_memo: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     cancelled_at: Optional[datetime] = None
@@ -97,10 +78,13 @@ class SendResponse(BaseModel):
         from_attributes = True
 
 
+class SendListResponse(SendResponse):
+    item_count: int = 0
+
+
 class SendDetailResponse(SendResponse):
     items: List[SendItemResponse] = []
     item_count: int = 0
 
 
-class SendListResponse(SendResponse):
-    item_count: int = 0
+

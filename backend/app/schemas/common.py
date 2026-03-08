@@ -4,40 +4,29 @@ from typing import Generic, TypeVar, Optional, List
 T = TypeVar("T")
 
 
-class ResponseBase(BaseModel):
-    success: bool = True
-    message: str = "Success"
-
-
-class ResponseModel(ResponseBase, Generic[T]):
+class ResponseModel(BaseModel, Generic[T]):
+    message: str = "success"
     data: Optional[T] = None
-    # → 실제로는 success, message, data 3개 필드를 가짐
 
 
-class PaginationMeta(BaseModel):
+class PaginatedResponse(BaseModel, Generic[T]):
     total: int
     page: int
     limit: int
     total_pages: int
-
-
-class PaginatedResponse(ResponseBase, Generic[T]):
-    data: List[T]
-    pagination: PaginationMeta
-    # → 실제로는 success, message, data, pagination 4개 필드를 가짐
+    items: List[T]
 
 
 class ErrorResponse(BaseModel):
-    success: bool = False
     message: str
-    errors: Optional[dict] = None
+    detail: Optional[str] = None
 
 
 # Query parameters
 class PaginationParams(BaseModel):
     page: int = 1
     limit: int = 20
-    
+
     def get_offset(self) -> int:
         return (self.page - 1) * self.limit
 

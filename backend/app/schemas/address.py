@@ -5,29 +5,30 @@ from datetime import datetime
 
 class AddressCreate(BaseModel):
     customer_id: Optional[int] = None
-    address_name: str
-    phone: str
-    nation: Optional[str] = "대한민국"
+    recipient_name: str
+    recipient_phone: str
+    country_code: Optional[str] = "KR"
     postal_code: str
     address: str
-    address_memo: Optional[str] = None
+    customer_memo: Optional[str] = None
 
 
 class AddressUpdate(BaseModel):
-    nation: Optional[str] = None
+    country_code: Optional[str] = None
     postal_code: Optional[str] = None
-    address_memo: Optional[str] = None
+    customer_memo: Optional[str] = None
 
 
 class AddressResponse(BaseModel):
     address_id: int
     customer_id: Optional[int] = None
-    address_name: str
-    phone: str
-    nation: Optional[str] = None
+    recipient_name: str
+    recipient_phone: str
+    country_code: Optional[str] = None
     postal_code: str
     address: str
-    address_memo: Optional[str] = None
+    customer_memo: Optional[str] = None
+    admin_memo: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     
