@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Globe,
   Lock,
@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 
 import { authAPI } from "../api/authApi";
-import { AdminRole } from "../api/adminsApi";
+import { AdminRole } from "../types/admin.ts";
 import { useAuth } from "../contexts/AuthContext";
 import Input from "../components/common/Input";
 import Button from "../components/common/Button";
@@ -31,6 +31,28 @@ const InitAdminPage: React.FC<InitAdminPageProps> = ({ onBackToLogin }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  const [adminExists, setAdminExists] = useState(false);
+
+  // 페이지 진입 시 관리자 존재 여부 확인
+  useEffect(() => {
+    const checkAdmin = async () => {
+      try {
+        const result = await authAPI.checkAdminExists();
+        if (result.exists) {
+          setAdminExists(true);
+        }
+      } catch (err) {
+        // API 호출 실패 시에도 계속 진행 (네트워크 오류 등)
+        console.error("관리자 존재 여부 확인 실패:", err);
+      } finally {
+        setChecking(false);
+      }
+    };
+
+    checkAdmin();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +95,18 @@ const InitAdminPage: React.FC<InitAdminPageProps> = ({ onBackToLogin }) => {
     }
   };
 
+  // 확인 중일 때 로딩 표시
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 antialiased">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto mb-4"></div>
+          <p className="text-muted">확인 중...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 antialiased">
       <div className="w-full max-w-lg">
@@ -106,124 +140,156 @@ const InitAdminPage: React.FC<InitAdminPageProps> = ({ onBackToLogin }) => {
 
         {/* 초기화 카드 */}
         <div className="bg-white rounded-lg shadow-sm border border-line p-8">
-          <div className="mb-6 p-4 bg-chip border border-line rounded-lg">
-            <div className="flex items-start space-x-3">
-              <AlertCircle className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-muted">
-                <p className="font-semibold text-ink mb-1">
-                  최초 관리자 계정 생성
-                </p>
-                <p>
-                  시스템에 관리자가 없어 최초 관리자 계정을 생성합니다.
-                  <br />
-                  최초 관리자는 자동으로{" "}
-                  <strong>최고 관리자(SUPER_ADMIN)</strong> 권한이 부여됩니다.
-                </p>
+          {adminExists ? (
+            // 관리자가 이미 존재하는 경우: 메시지만 표시
+            <>
+              <div className="mb-6 p-4 bg-chip border border-line rounded-lg">
+                <div className="flex items-start space-x-3">
+                  <AlertCircle className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-muted">
+                    <p className="font-semibold text-ink mb-1">
+                      최초 관리자 생성 불가
+                    </p>
+                    <p>
+                      이미 관리자가 존재합니다. 최초 관리자 생성은 시스템에 관리자가 없을 때만 가능합니다.
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+              <div className="mt-6">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onBackToLogin}
+                  className="w-full"
+                >
+                  로그인 페이지로 돌아가기
+                </Button>
+              </div>
+            </>
+          ) : (
+            // 관리자가 없는 경우: 폼 표시
+            <>
+              <div className="mb-6 p-4 bg-chip border border-line rounded-lg">
+                <div className="flex items-start space-x-3">
+                  <AlertCircle className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-muted">
+                    <p className="font-semibold text-ink mb-1">
+                      최초 관리자 계정 생성
+                    </p>
+                    <p>
+                      시스템에 관리자가 없어 최초 관리자 계정을 생성합니다.
+                      <br />
+                      최초 관리자는 자동으로{" "}
+                      <strong>최고 관리자(SUPER_ADMIN)</strong> 권한이 부여됩니다.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-          {error && (
-            <div className="mb-6">
-              <Alert type="error">{error}</Alert>
-            </div>
+              {error && (
+                <div className="mb-6">
+                  <Alert type="error">{error}</Alert>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <Input
+                  id="name"
+                  type="text"
+                  label="이름"
+                  icon={User}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="이름을 입력하세요"
+                  required
+                  disabled={loading}
+                />
+
+                <Input
+                  id="email"
+                  type="email"
+                  label="이메일"
+                  icon={Mail}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="이메일을 입력하세요"
+                  required
+                  disabled={loading}
+                />
+
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    label="비밀번호"
+                    icon={Lock}
+                    iconPosition="left"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="비밀번호를 입력하세요 (8자 이상)"
+                    required
+                    disabled={loading}
+                    className="pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-[50px] text-gray-400 hover:text-gray-600 transition-colors z-10"
+                    tabIndex={-1}
+                    aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <Input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    label="비밀번호 확인"
+                    icon={Lock}
+                    iconPosition="left"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="비밀번호를 다시 입력하세요"
+                    required
+                    disabled={loading}
+                    className="pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-[50px] text-gray-400 hover:text-gray-600 transition-colors z-10"
+                    tabIndex={-1}
+                    aria-label={
+                      showConfirmPassword ? "비밀번호 숨기기" : "비밀번호 보기"
+                    }
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  loading={loading}
+                  className="w-full"
+                >
+                  최초 관리자 생성 및 로그인
+                </Button>
+              </form>
+            </>
           )}
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <Input
-              id="name"
-              type="text"
-              label="이름"
-              icon={User}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="이름을 입력하세요"
-              required
-              disabled={loading}
-            />
-
-            <Input
-              id="email"
-              type="email"
-              label="이메일"
-              icon={Mail}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="이메일을 입력하세요"
-              required
-              disabled={loading}
-            />
-
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                label="비밀번호"
-                icon={Lock}
-                iconPosition="left"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="비밀번호를 입력하세요 (8자 이상)"
-                required
-                disabled={loading}
-                className="pr-12"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-[50px] text-gray-400 hover:text-gray-600 transition-colors z-10"
-                tabIndex={-1}
-                aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
-              >
-                {showPassword ? (
-                  <EyeOff className="w-5 h-5" />
-                ) : (
-                  <Eye className="w-5 h-5" />
-                )}
-              </button>
-            </div>
-
-            <div className="relative">
-              <Input
-                id="confirmPassword"
-                type={showConfirmPassword ? "text" : "password"}
-                label="비밀번호 확인"
-                icon={Lock}
-                iconPosition="left"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="비밀번호를 다시 입력하세요"
-                required
-                disabled={loading}
-                className="pr-12"
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-[50px] text-gray-400 hover:text-gray-600 transition-colors z-10"
-                tabIndex={-1}
-                aria-label={
-                  showConfirmPassword ? "비밀번호 숨기기" : "비밀번호 보기"
-                }
-              >
-                {showConfirmPassword ? (
-                  <EyeOff className="w-5 h-5" />
-                ) : (
-                  <Eye className="w-5 h-5" />
-                )}
-              </button>
-            </div>
-
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              loading={loading}
-              className="w-full"
-            >
-              최초 관리자 생성 및 로그인
-            </Button>
-          </form>
         </div>
 
         {/* 하단 정보 */}

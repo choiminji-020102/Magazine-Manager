@@ -1,35 +1,23 @@
 import React, { useState, useEffect } from "react";
 import {
   Shield,
-  Plus,
   Package,
   ExternalLink,
   Check,
   X,
   RefreshCw,
-  Edit,
-  Trash2,
   User,
 } from "lucide-react";
 import Card from "../components/common/Card";
 import Button from "../components/common/Button";
-import Badge from "../components/common/Badge";
 import Tabs from "../components/common/Tabs";
-import Input from "../components/common/Input";
-import Modal from "../components/common/Modal";
 import Breadcrumb from "../components/common/Breadcrumb";
 import AdminDetailPage from "./AdminDetailPage";
 import { useAuth } from "../contexts/AuthContext";
 import { cafe24API, Cafe24TokenStatusResponse } from "../api/cafe24Api";
-import {
-  adminAPI,
-  AdminResponse,
-  AdminRole,
-  AdminCreate,
-} from "../api/adminsApi";
 import { formatKst } from "../utils/date";
 
-type SettingsTab = "admin" | "cafe24" | "profile";
+type SettingsTab = "cafe24" | "profile";
 
 interface SettingsPageProps {
   initialTab?: string;
@@ -43,35 +31,17 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   // initialTab 매핑: App.tsx에서 사용하는 값 -> 실제 탭 키
   const mapTab = (tab: string): SettingsTab => {
     const tabMap: Record<string, SettingsTab> = {
-      admin: "admin",
-      permission: "admin",
       profile: "profile",
       integration: "cafe24",
-      general: "admin",
       cafe24: "cafe24",
-      notification: "admin",
-      shipping: "admin",
     };
-    return tabMap[tab] || "admin";
+    return tabMap[tab] || "cafe24";
   };
 
   const [activeTab, setActiveTab] = useState<SettingsTab>(mapTab(initialTab));
   const [cafe24TokenStatus, setCafe24TokenStatus] =
     useState<Cafe24TokenStatusResponse | null>(null);
   const [loading, setLoading] = useState(false);
-
-  // 관리자 관련 상태
-  const [admins, setAdmins] = useState<AdminResponse[]>([]);
-  const [adminLoading, setAdminLoading] = useState(false);
-  const [showAdminModal, setShowAdminModal] = useState(false);
-  const [editingAdmin, setEditingAdmin] = useState<AdminResponse | null>(null);
-  const [adminForm, setAdminForm] = useState<AdminCreate>({
-    email: "",
-    plain_password: "",
-    admin_name: "",
-    admin_role: AdminRole.ADMIN,
-    is_active: true,
-  });
 
   // Cafe24 토큰 상태 조회
   const fetchCafe24Status = async () => {
@@ -89,83 +59,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     }
   };
 
-  // 관리자 목록 조회
-  const fetchAdmins = async () => {
-    setAdminLoading(true);
-    try {
-      const data = await adminAPI.getAll();
-      setAdmins(data);
-    } catch (err) {
-      console.error("관리자 목록 조회 실패:", err);
-    } finally {
-      setAdminLoading(false);
-    }
-  };
-
-  // 관리자 생성/수정
-  const handleSaveAdmin = async () => {
-    try {
-      if (editingAdmin) {
-        await adminAPI.update(editingAdmin.admin_id, adminForm);
-      } else {
-        await adminAPI.create(adminForm);
-      }
-      setShowAdminModal(false);
-      setEditingAdmin(null);
-      setAdminForm({
-        email: "",
-        plain_password: "",
-        admin_name: "",
-        admin_role: AdminRole.ADMIN,
-        is_active: true,
-      });
-      fetchAdmins();
-    } catch (err) {
-      console.error("관리자 저장 실패:", err);
-      alert("관리자 저장에 실패했습니다.");
-    }
-  };
-
-  // 관리자 삭제
-  const handleDeleteAdmin = async (adminId: number) => {
-    if (!confirm("정말 삭제하시겠습니까?")) return;
-    try {
-      await adminAPI.delete(adminId);
-      fetchAdmins();
-    } catch (err) {
-      console.error("관리자 삭제 실패:", err);
-      alert("관리자 삭제에 실패했습니다.");
-    }
-  };
-
-  // 관리자 수정 모달 열기
-  const handleEditAdmin = (admin: AdminResponse) => {
-    setEditingAdmin(admin);
-    setAdminForm({
-      email: admin.email,
-      plain_password: "",
-      admin_name: admin.admin_name,
-      admin_role: admin.admin_role,
-      is_active: admin.is_active,
-    });
-    setShowAdminModal(true);
-  };
-
-
   useEffect(() => {
     if (activeTab === "cafe24") {
       fetchCafe24Status();
-    } else if (activeTab === "admin") {
-      fetchAdmins();
     }
   }, [activeTab]);
 
   const tabs = [
-    {
-      key: "admin",
-      label: "관리자 설정",
-      icon: <Shield className="w-4 h-4" />,
-    },
     {
       key: "cafe24",
       label: "Cafe24 연동",
@@ -216,8 +116,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
       <div className="max-w-[1600px] mx-auto px-6 py-6">
         <Breadcrumb
           items={[
-            { label: "설정", path: "/settings/admin" },
-            { label: "관리자 설정" },
+            { label: "설정", path: "/settings/cafe24" },
+            { label: activeTab === "cafe24" ? "Cafe24 연동" : "마이페이지" },
           ]}
         />
         {/* 헤더 */}
@@ -229,148 +129,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
           activeTab={activeTab}
           onChange={(key) => setActiveTab(key as SettingsTab)}
         />
-
-        {/* 관리자 설정 */}
-        {activeTab === "admin" && (
-          <div className="space-y-6">
-            <Card className="unified-card">
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold text-ink mb-2">
-                  관리자 계정
-                </h2>
-              </div>
-              <div className="space-y-4">
-                {adminLoading ? (
-                  <div className="text-center py-8 text-muted">로딩 중...</div>
-                ) : admins.length === 0 ? (
-                  <div className="text-center py-8 text-muted">
-                    관리자가 없습니다
-                  </div>
-                ) : (
-                  admins.map((admin) => (
-                    <div
-                      key={admin.admin_id}
-                      className="flex items-center justify-between p-4 bg-primary-50 border border-line rounded-md"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center text-white font-semibold">
-                          {admin.admin_name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-medium text-ink">{admin.admin_name}</p>
-                          <p className="text-sm text-muted">{admin.email}</p>
-                          <p className="text-xs text-muted mt-1">
-                            {admin.admin_role} •{" "}
-                            {admin.last_login_at
-                              ? `마지막 로그인: ${new Date(
-                                  admin.last_login_at
-                                ).toLocaleDateString("ko-KR")}`
-                              : "로그인 이력 없음"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant={admin.is_active ? "success" : "default"}
-                        >
-                          {admin.is_active ? "활성" : "비활성"}
-                        </Badge>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          icon={Edit}
-                          onClick={() => handleEditAdmin(admin)}
-                          className="unified-btn-outline"
-                        >
-                          수정
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          icon={Trash2}
-                          onClick={() => handleDeleteAdmin(admin.admin_id)}
-                          className="unified-btn-outline"
-                        >
-                          삭제
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
-                <Button
-                  variant="ghost"
-                  icon={Plus}
-                  onClick={() => {
-                    setEditingAdmin(null);
-                    setAdminForm({
-                      email: "",
-                      plain_password: "",
-                      admin_name: "",
-                      admin_role: AdminRole.ADMIN,
-                      is_active: true,
-                    });
-                    setShowAdminModal(true);
-                  }}
-                  className="unified-btn-outline w-full"
-                >
-                  관리자 추가
-                </Button>
-              </div>
-            </Card>
-
-            <Card className="unified-card">
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold text-ink mb-2">
-                  권한 관리
-                </h2>
-                <p className="text-sm text-muted">
-                  각 역할별 권한을 확인합니다
-                </p>
-              </div>
-              <div className="space-y-2">
-                {[
-                  {
-                    name: "최고 관리자",
-                    key: AdminRole.SUPER_ADMIN,
-                    count: admins.filter(
-                      (a) => a.admin_role === AdminRole.SUPER_ADMIN
-                    ).length,
-                    description: "모든 권한을 가진 관리자",
-                  },
-                  {
-                    name: "일반 관리자",
-                    key: AdminRole.ADMIN,
-                    count: admins.filter((a) => a.admin_role === AdminRole.ADMIN)
-                      .length,
-                    description: "일반 관리 권한",
-                  },
-                  {
-                    name: "매니저",
-                    key: AdminRole.MANAGER,
-                    count: admins.filter((a) => a.admin_role === AdminRole.MANAGER)
-                      .length,
-                    description: "제한된 관리 권한",
-                  },
-                ].map((role) => (
-                  <div
-                    key={role.key}
-                    className="flex items-center justify-between p-4 border border-line rounded-md hover:bg-primary-50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Shield className="w-5 h-5 text-accent" />
-                      <div>
-                        <p className="font-medium text-ink">{role.name}</p>
-                        <p className="text-sm text-muted">
-                          {role.count}명 • {role.description}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
-        )}
 
         {/* Cafe24 연동 */}
         {activeTab === "cafe24" && (
@@ -552,95 +310,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         )}
       </div>
 
-      {/* 관리자 추가/수정 모달 */}
-      <Modal
-        isOpen={showAdminModal}
-        onClose={() => {
-          setShowAdminModal(false);
-          setEditingAdmin(null);
-        }}
-        title={editingAdmin ? "관리자 수정" : "관리자 추가"}
-      >
-        <div className="space-y-4">
-          <Input
-            label="이름"
-            value={adminForm.admin_name}
-            onChange={(e) =>
-              setAdminForm({ ...adminForm, admin_name: e.target.value })
-            }
-            className="unified-input"
-            required
-          />
-          <Input
-            label="이메일"
-            type="email"
-            value={adminForm.email}
-            onChange={(e) =>
-              setAdminForm({ ...adminForm, email: e.target.value })
-            }
-            className="unified-input"
-            required
-          />
-          <Input
-            label={editingAdmin ? "새 비밀번호 (변경 시에만 입력)" : "비밀번호"}
-            type="password"
-            value={adminForm.plain_password}
-            onChange={(e) =>
-              setAdminForm({ ...adminForm, plain_password: e.target.value })
-            }
-            className="unified-input"
-            required={!editingAdmin}
-          />
-          <div>
-            <label className="block text-xs font-medium text-muted mb-1.5 uppercase tracking-wider">
-              역할
-            </label>
-            <select
-              value={adminForm.admin_role}
-              onChange={(e) =>
-                setAdminForm({
-                  ...adminForm,
-                  admin_role: e.target.value as AdminRole,
-                })
-              }
-              className="unified-input w-full"
-            >
-              <option value={AdminRole.SUPER_ADMIN}>최고 관리자</option>
-              <option value={AdminRole.ADMIN}>일반 관리자</option>
-              <option value={AdminRole.MANAGER}>매니저</option>
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="is_active"
-              checked={adminForm.is_active}
-              onChange={(e) =>
-                setAdminForm({ ...adminForm, is_active: e.target.checked })
-              }
-              className="w-4 h-4 rounded border-line text-accent focus:ring-accent"
-            />
-            <label htmlFor="is_active" className="text-sm text-ink">
-              활성 상태
-            </label>
-          </div>
-          <div className="flex justify-end gap-2 pt-4">
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setShowAdminModal(false);
-                setEditingAdmin(null);
-              }}
-              className="unified-btn-outline"
-            >
-              취소
-            </Button>
-            <Button onClick={handleSaveAdmin} className="unified-btn">
-              저장
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };

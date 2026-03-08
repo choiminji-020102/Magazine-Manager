@@ -26,6 +26,7 @@ import {
 import Table, { Column } from "../components/common/Table";
 import Pagination from "../components/common/Pagination";
 import Card from "../components/common/Card";
+import ListPage from "../components/common/ListPage";
 import Button from "../components/common/Button";
 import Badge from "../components/common/Badge";
 import Modal from "../components/common/Modal";
@@ -680,23 +681,6 @@ const SubscriptionListPage: React.FC = () => {
 
   const columns: Column<Subscription>[] = [
     {
-      key: "checkbox",
-      label: "선택",
-      width: "50px",
-      align: "center",
-      render: (_, row) => (
-        <div className="flex justify-center">
-          <input
-            type="checkbox"
-            checked={selectedRows.includes(row.id)}
-            onChange={() => handleSelectRow(row.id)}
-            onClick={(e) => e.stopPropagation()}
-            className="w-4 h-4 rounded border-line text-accent focus:ring-accent"
-          />
-        </div>
-      ),
-    },
-    {
       key: "customerName",
       label: "고객명",
       align: "center",
@@ -822,55 +806,43 @@ const SubscriptionListPage: React.FC = () => {
         </div>
 
         {/* 통계 카드 */}
-        <div
-          className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 anim-rise"
-          style={{ animationDelay: "0.1s" }}
-        >
-          <div
-            className="unified-card p-5 unified-card-hover cursor-pointer"
-            onClick={() => setStatusFilter("활성")}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted mb-1">활성 구독</p>
-                <p className="text-2xl font-bold text-subscription-active-600">
-                  {stats.active}
-                </p>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-subscription-active-100 flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-subscription-active-600" />
-              </div>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-2">
+          <div className="bg-paper rounded-lg border border-line">
+            <StatCard
+              title="활성 구독"
+              value={stats.active}
+              icon={CheckCircle}
+              color="subscription-active"
+              valueColor="text-subscription-active-600"
+              onClick={() => setStatusFilter("활성")}
+            />
           </div>
-          <div
-            className="unified-card p-5 unified-card-hover cursor-pointer"
-            onClick={() => setStatusFilter("휴지중")}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted mb-1">휴지 중</p>
-                <p className="text-2xl font-bold text-subscription-pause-600">
-                  {stats.paused}
-                </p>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-subscription-pause-100 flex items-center justify-center">
-                <PauseCircle className="w-6 h-6 text-subscription-pause-600" />
-              </div>
-            </div>
+          <div className="bg-paper rounded-lg border border-line">
+            <StatCard
+              title="휴지 중"
+              value={stats.paused}
+              icon={PauseCircle}
+              color="blue"
+              valueColor="text-subscription-pause-600"
+              onClick={() => setStatusFilter("휴지중")}
+            />
           </div>
-          <div className="unified-card p-5 unified-card-hover cursor-pointer">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted mb-1">중복 구독</p>
-                <p className="text-2xl font-bold text-subscription-duplicate-600">
-                  {stats.duplicate}
-                </p>
-                <p className="text-xs text-muted mt-0.5">확인 필요</p>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-subscription-duplicate-100 flex items-center justify-center">
-                <AlertTriangle className="w-6 h-6 text-subscription-duplicate-600" />
-              </div>
-            </div>
+          <div className="bg-paper rounded-lg border border-line">
+            <StatCard
+              title="중복 구독"
+              value={stats.duplicate}
+              icon={AlertTriangle}
+              color="red"
+              valueColor="text-subscription-duplicate-600"
+            />
+          </div>
+          <div className="bg-paper rounded-lg border border-line">
+            <StatCard
+              title="전체 구독"
+              value={mockSubscriptions.length}
+              icon={Package}
+              color="accent"
+            />
           </div>
         </div>
 
@@ -1102,47 +1074,38 @@ const SubscriptionListPage: React.FC = () => {
         </Card>
 
         {/* 테이블 */}
-        <Card className="unified-card">
-          <div className="px-4 py-3 border-b border-line flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={
-                  filteredSubscriptions.length > 0 &&
-                  selectedRows.length === filteredSubscriptions.length
-                }
-                onChange={handleSelectAll}
-                className="w-4 h-4 rounded border-line text-accent focus:ring-accent"
-              />
-              <span className="text-sm text-muted">
-                전체 {filteredSubscriptions.length}건
-              </span>
-            </div>
-            <span className="text-sm text-muted">
-              {(currentPage - 1) * pageSize + 1} -{" "}
-              {Math.min(currentPage * pageSize, filteredSubscriptions.length)} /{" "}
-              {filteredSubscriptions.length}
-            </span>
-          </div>
-
-          <Table
-            columns={columns}
-            data={paginatedData}
-            keyExtractor={(item) => String(item.id)}
-            onRowClick={handleViewDetail}
-            hoverable
-          />
-
-          {totalPages > 1 && (
-            <div className="p-4 border-t border-line">
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
-            </div>
-          )}
-        </Card>
+        <ListPage
+          data={paginatedData}
+          columns={columns}
+          keyExtractor={(item) => String(item.id)}
+          onRowClick={handleViewDetail}
+          hoverable
+          selectable
+          selectedItems={new Set(selectedRows.map(String))}
+          onSelectAll={(checked) => {
+            if (checked) {
+              setSelectedRows(filteredSubscriptions.map((s) => s.id));
+            } else {
+              setSelectedRows([]);
+            }
+          }}
+          onSelectItem={(id, checked) => {
+            if (checked) {
+              setSelectedRows([...selectedRows, Number(id)]);
+            } else {
+              setSelectedRows(selectedRows.filter((r) => r !== Number(id)));
+            }
+          }}
+          allSelected={
+            filteredSubscriptions.length > 0 &&
+            selectedRows.length === filteredSubscriptions.length
+          }
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={filteredSubscriptions.length}
+          itemsPerPage={pageSize}
+        />
 
         {/* 구독 상세 모달 */}
         <Modal

@@ -26,6 +26,7 @@ import {
 import Table, { Column } from "../components/common/Table";
 import Pagination from "../components/common/Pagination";
 import Card from "../components/common/Card";
+import ListPage from "../components/common/ListPage";
 import Button from "../components/common/Button";
 import Badge from "../components/common/Badge";
 import Modal from "../components/common/Modal";
@@ -389,24 +390,6 @@ const SupportListPage: React.FC = () => {
   );
 
   const columns: Column<Inquiry>[] = [
-    {
-      key: "checkbox",
-      label: "선택",
-      width: "50px",
-      align: "center",
-      render: (_, row) => (
-        <div className="flex justify-center">
-          <input
-            type="checkbox"
-            checked={selectedItems.has(String(row.id))}
-            onChange={(e) =>
-              handleSelectItem(String(row.id), e.target.checked)
-            }
-            className="w-4 h-4 rounded border-line text-accent focus:ring-accent"
-          />
-        </div>
-      ),
-    },
     {
       key: "createdAt",
       label: "접수일시",
@@ -913,51 +896,30 @@ const SupportListPage: React.FC = () => {
         </Card>
 
         {/* 테이블 */}
-        <Card className="unified-card">
-          <div className="px-4 py-3 border-b border-line flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={
-                  filteredInquiries.length > 0 &&
-                  selectedItems.size === filteredInquiries.length
-                }
-                onChange={(e) => handleSelectAll(e.target.checked)}
-                className="w-4 h-4 rounded border-line text-accent focus:ring-accent"
-              />
-              <span className="text-sm text-muted">
-                전체 {filteredInquiries.length}건
-              </span>
-            </div>
-            <span className="text-sm text-muted">
-              {(currentPage - 1) * itemsPerPage + 1} -{" "}
-              {Math.min(currentPage * itemsPerPage, filteredInquiries.length)} /{" "}
-              {filteredInquiries.length}
-            </span>
-          </div>
-
-          <Table
-            columns={columns}
-            data={paginatedInquiries}
-            keyExtractor={(row) => String(row.id)}
-            onSort={handleSort}
-            sortKey={sortKey}
-            sortDirection={sortDirection}
-            emptyMessage="문의 내역이 없습니다"
-            hoverable
-            onRowClick={handleViewDetail}
-          />
-
-          {totalPages > 1 && (
-            <div className="p-4 border-t border-line">
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
-            </div>
-          )}
-        </Card>
+        <ListPage
+          data={paginatedInquiries}
+          columns={columns}
+          keyExtractor={(row) => String(row.id)}
+          onSort={handleSort}
+          sortKey={sortKey}
+          sortDirection={sortDirection}
+          emptyMessage="문의 내역이 없습니다"
+          hoverable
+          onRowClick={handleViewDetail}
+          selectable
+          selectedItems={selectedItems}
+          onSelectAll={handleSelectAll}
+          onSelectItem={(id, checked) => handleSelectItem(String(id), checked)}
+          allSelected={
+            filteredInquiries.length > 0 &&
+            selectedItems.size === filteredInquiries.length
+          }
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={filteredInquiries.length}
+          itemsPerPage={itemsPerPage}
+        />
 
         {/* 문의 상세 모달 */}
         <Modal
