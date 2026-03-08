@@ -7,7 +7,7 @@ from app.db.session import get_db
 from app.core.deps import require_roles
 from app.models.admin import Admin
 from app.schemas.product import ProductListQuery, ProductCreate, ProductUpdate, ProductResponse
-from app.schemas.common import ResponseModel, PaginatedResponse, PaginationMeta
+from app.schemas.common import ResponseModel, PaginatedResponse
 from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.services import product_service, activity_log_service
 

@@ -22,7 +22,7 @@ require_admin = require_roles(["SUPER_ADMIN", "ADMIN"])
 
 
 @router.get("/orders/{order_id}/items", response_model=ResponseModel[List[OrderItemDetailResponse]])
-def get_order_items(
+def get_items_by_order(
     order_id: int,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin)

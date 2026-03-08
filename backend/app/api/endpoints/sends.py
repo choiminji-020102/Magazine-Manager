@@ -48,6 +48,27 @@ def get_sends(
     )
 
 
+@router.get("/order/{order_id}", response_model=ResponseModel[List[SendListResponse]])
+def get_sends_by_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_admin)
+):
+    """주문별 발송 목록"""
+    order = order_service.get_order_by_id(db, order_id)
+    sends = send_service.get_sends_by_order(db, order_id)
+    
+    result = []
+    for send in sends:
+        item_count = send.items.filter_by(cancelled_at=None).count()
+        result.append(SendListResponse(**send.__dict__, item_count=item_count))
+    
+    return ResponseModel(
+        message="주문별 발송 목록을 조회했습니다.",
+        data=result
+    )
+
+
 @router.get("/date/{send_date}", response_model=ResponseModel[List[SendListResponse]])
 def get_sends_by_date(
     send_date: date,
@@ -112,7 +133,7 @@ def create_send(
             details={
                 "reason": "발송 등록 성공",
                 "order_id": send.order_id,
-                "address_name": send.address_name,
+                "recipient_name": send.recipient_name,
                 "item_count": len(items),
             },
             ip_address=request.client.host if request.client else None,
@@ -286,11 +307,11 @@ def export_sends_to_excel(
         Send.courier_company,
         Send.tracking_no,
         Send.send_status,
-        Send.address_name,
-        Send.phone,
+        Send.recipient_name,
+        Send.recipient_phone,
         Send.postal_code,
         Send.address,
-        Send.address_memo,
+        Send.customer_memo,
         Send.created_at,
         SendItem.send_item_id,
         SendItem.order_item_id,
@@ -348,11 +369,11 @@ def export_sends_to_excel(
             row.courier_company or "",
             row.tracking_no or "",
             row.send_status,
-            row.address_name,
-            row.phone,
+            row.recipient_name,
+            row.recipient_phone,
             row.postal_code,
             row.address,
-            row.address_memo or "",
+            row.customer_memo or "",
             row.send_item_id,
             row.order_item_id,
             row.product_code,
