@@ -18,7 +18,7 @@ class Cafe24Token(Base):
     mall_id = Column(String(100), nullable=True)
     user_id = Column(String(100), nullable=True)
 
-    scopes = Column(Text, nullable=False, server_default="[]")
+    scopes = Column(Text, nullable=False)
 
     issued_at = Column(DateTime, nullable=True)
     shop_no = Column(String(30), nullable=True)

@@ -29,7 +29,7 @@ class Product(Base):
 
     is_active = Column(Boolean, nullable=False, server_default="1", comment="판매 여부")
     
-    subscribe_start_issue = Column(String(10), nullable=False, comment="해당 상품의 호(YYYYMM). YEARLY=구독 시작 호, MONTHLY=해당 월호(예: 202503)")
+    subscribe_start_issue = Column(String(6), nullable=True, comment="해당 상품의 호(YYYYMM). YEARLY=구독 시작 호, MONTHLY=해당 월호(예: 202503)")
 
     created_at = Column(DateTime, nullable=False, server_default=func.now(), comment="생성 일시")
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now(), comment="수정 일시")

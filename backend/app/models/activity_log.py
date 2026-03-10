@@ -15,6 +15,7 @@ class ActivityAction(str, Enum):
     DEACTIVATE = "DEACTIVATE"
     RESTORE = "RESTORE"
     CANCEL = "CANCEL"
+    DISPATCH = "DISPATCH"
     LOGIN = "LOGIN"
     LOGOUT = "LOGOUT"
     SIGNUP = "SIGNUP"
@@ -37,6 +38,7 @@ class ActivityTargetType(str, Enum):
     # REFRESH_TOKEN = "REFRESH_TOKEN"
     SEND_ITEM = "SEND_ITEM"
     SEND = "SEND"
+    DISPATCH = "DISPATCH"
 
 
 class ActivityLog(Base):

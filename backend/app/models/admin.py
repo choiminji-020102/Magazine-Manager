@@ -1,7 +1,15 @@
+from enum import Enum as PyEnum
+
 from sqlalchemy import Column, BigInteger, String, Boolean, DateTime, Enum
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+
+
+class AdminRole(str, PyEnum):
+    SUPER_ADMIN = "SUPER_ADMIN"
+    ADMIN = "ADMIN"
+    MANAGER = "MANAGER"
 
 
 class Admin(Base):

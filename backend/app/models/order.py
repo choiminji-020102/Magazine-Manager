@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, String, DateTime, Integer, Text, Enum, ForeignKey
+from sqlalchemy import Column, BigInteger, String, DateTime, Integer, Text, Enum, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -16,7 +16,7 @@ class Order(Base):
     address_id = Column(BigInteger, ForeignKey("addresses.address_id"), nullable=False, comment="배송지 ID")
 
     order_channel = Column(Enum("CAFE24", "GPMALL", "OFFLINE", name="order_channel_enum"), nullable=False, comment="주문 채널")
-    order_status = Column(Enum("ORDERED", "PAID", "CANCELLED", name="order_status_enum"), nullable=False, default="ORDERED", comment="주문 상태")
+    order_status = Column(Enum("ORDERED", "PAID", "CANCELLED", name="order_status_enum"), nullable=False, server_default="ORDERED", comment="주문 상태")
     
     total_amount = Column(Integer, nullable=False, server_default="0", comment="총 주문 금액")
     discount_amount = Column(Integer, nullable=False, server_default="0", comment="할인 금액")
@@ -62,4 +62,9 @@ class Order(Base):
         foreign_keys="Send.order_id",
         back_populates="order",
         lazy="select"
+    )
+
+    __table_args__ = (
+        Index("ix_orders_customer_id", "customer_id"),
+        Index("ix_orders_order_status", "order_status"),
     )
