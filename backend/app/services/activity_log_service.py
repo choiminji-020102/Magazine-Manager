@@ -1,32 +1,36 @@
-from sqlalchemy.orm import Session
-from typing import Optional, List, Tuple
+# 표준 라이브러리
 from datetime import datetime
+from typing import List, Optional, Tuple
 
+# 서드파티 라이브러리
+from sqlalchemy.orm import Session
+
+# 로컬 애플리케이션
 from app.models.activity_log import ActivityLog
-from app.models.admin import Admin
 
 
 def create_log(
     db: Session,
-    admin: Admin,
     action: str,
     target_type: str,
+    admin_id: Optional[int] = None,
+    admin_name: Optional[str] = None,
     target_id: Optional[int] = None,
     target_name: Optional[str] = None,
     details: Optional[dict] = None,
     ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None
+    user_agent: Optional[str] = None,
 ) -> ActivityLog:
     log = ActivityLog(
-        admin_id=admin.admin_id,
-        admin_name=admin.admin_name,
+        admin_id=admin_id,
+        admin_name=admin_name,
         action=action,
         target_type=target_type,
         target_id=target_id,
         target_name=target_name,
         details=details,
         ip_address=ip_address,
-        user_agent=user_agent
+        user_agent=user_agent,
     )
     db.add(log)
     db.commit()
@@ -43,10 +47,10 @@ def get_logs(
     target_type: Optional[str] = None,
     target_id: Optional[int] = None,
     start_date: Optional[str] = None,
-    end_date: Optional[str] = None
+    end_date: Optional[str] = None,
 ) -> Tuple[List[ActivityLog], int]:
     query = db.query(ActivityLog)
-    
+
     if admin_id:
         query = query.filter(ActivityLog.admin_id == admin_id)
     if action:
@@ -60,21 +64,17 @@ def get_logs(
             start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
             query = query.filter(ActivityLog.created_at >= start_datetime)
         except ValueError:
-            # 잘못된 날짜 형식인 경우 무시
             pass
     if end_date:
         try:
             end_datetime = datetime.strptime(end_date, "%Y-%m-%d")
-            # 종료일의 23:59:59까지 포함
             end_datetime = end_datetime.replace(hour=23, minute=59, second=59)
             query = query.filter(ActivityLog.created_at <= end_datetime)
         except ValueError:
-            # 잘못된 날짜 형식인 경우 무시
             pass
-    
+
     total = query.count()
-    
     offset = (page - 1) * limit
     items = query.order_by(ActivityLog.created_at.desc()).offset(offset).limit(limit).all()
-    
+
     return items, total

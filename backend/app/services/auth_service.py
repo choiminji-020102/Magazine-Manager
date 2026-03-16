@@ -18,13 +18,14 @@ from app.core.token import (
 )
 from app.crud import admin as admin_crud, refresh_token as refresh_token_crud
 from app.models import admin as admin_model
+from app.models.admin import AdminRole
 from app.schemas import auth as auth_schema, admin as admin_schema
 
 def login(
-    login_in: auth_schema.LoginRequest, 
+    login_in: auth_schema.LoginRequest,
     req: Request,
     db: Session
-) -> auth_schema.TokenPairResponse:
+) -> tuple[auth_schema.TokenPairResponse, admin_model.Admin]:
 
     # 이메일로 관리자 조회 (존재하지 않으면 404 예외 발생)
     try:
@@ -43,9 +44,9 @@ def login(
             detail="비활성화된 계정입니다."
         )
 
-    if not verify_password(login_in.plain_password, admin.hashed_password):
+    if not verify_password(login_in.plain_password, admin.admin_password):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="이메일 또는 비밀번호가 올바르지 않습니다."
         ) # 보안상 이메일/비밀번호 오류를 구분하지 않음
     
@@ -73,7 +74,7 @@ def login(
         access_token=access_token,
         refresh_token=refresh_token,
         token_type="bearer"
-    )
+    ), admin
 
 
 def refresh(refresh_in: auth_schema.RefreshRequest, req: Request, db: Session) -> auth_schema.TokenPairResponse:
@@ -179,18 +180,21 @@ def logout(
     
 def check_admin_exists(db: Session) -> bool:
     """관리자 존재 여부 확인 (인증 불필요)"""
-    admin_count = db.query(admin_model.Admin).filter(admin_model.Admin.deleted_at.is_(None)).count()
+    admin_count = db.query(admin_model.Admin).filter(
+        admin_model.Admin.is_deleted == False,
+        admin_model.Admin.is_active == True
+    ).count()
     return admin_count > 0
 
-def init_first_admin(admin_in: admin_schema.AdminCreate, req: Request, db: Session) -> admin_schema.AdminResponse:
+def init_first_admin(admin_in: admin_schema.AdminCreate, req: Request, db: Session) -> admin_model.Admin:
     if check_admin_exists(db):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="이미 관리자가 존재합니다. 최초 관리자 생성은 시스템에 관리자가 없을 때만 가능합니다.")
     
     # 최초 관리자는 항상 SUPER_ADMIN으로 설정
-    admin_in.role = admin_model.AdminRole.SUPER_ADMIN
+    admin_in.admin_role = AdminRole.SUPER_ADMIN
     admin_in.is_active = True
     admin = admin_crud.create_admin(admin_in=admin_in, db=db)
-    
+
     return admin
 
 def change_password(
@@ -200,17 +204,17 @@ def change_password(
     db: Session
 ) -> None:
     # 현재 비밀번호 검증
-    if not verify_password(password_change_in.current_password, admin.hashed_password):
+    if not verify_password(password_change_in.current_password, admin.admin_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="현재 비밀번호가 올바르지 않습니다."
         )
-    
+
     # 새 비밀번호 강도 검증
     validate_password_strength(plain_password=password_change_in.new_password)
-    
+
     # 비밀번호 변경
-    admin.hashed_password = get_password_hash(password_change_in.new_password)
+    admin.admin_password = get_password_hash(password_change_in.new_password)
     db.commit()
     db.refresh(admin)
     

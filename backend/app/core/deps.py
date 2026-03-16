@@ -13,6 +13,7 @@ from app.core.token import decode_access_token
 from app.crud import admin as admin_crud
 from app.db.session import get_db
 from app.models import admin as admin_model
+from app.models.admin import AdminRole
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login") # 요청 헤더에서 Bearer access 토큰 파싱해줌. Authorization 헤더가 없으면 FastAPI가 자동으로 401을 던짐. 
 
@@ -56,8 +57,8 @@ def get_current_admin(
         db=db,
     )
     
-    # 삭제된 계정 차단 (read_admin_by_id에서 이미 deleted_at 확인하지만 명시적으로 체크)
-    if admin.deleted_at is not None:
+    # 삭제된 계정 차단
+    if admin.is_deleted:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="삭제된 계정입니다.",
@@ -74,7 +75,7 @@ def get_current_admin(
 
 
 def require_roles(allowed_roles: list[str]):
-    async def checker(
+    def checker(
         current_admin: admin_model.Admin = Depends(get_current_admin),
     ):
         if current_admin.admin_role not in allowed_roles:
@@ -86,6 +87,6 @@ def require_roles(allowed_roles: list[str]):
     return checker
 
 # Role shortcuts
-require_super_admin = require_roles(["SUPER_ADMIN"])
-require_admin = require_roles(["SUPER_ADMIN", "ADMIN"])
-require_manager = require_roles(["SUPER_ADMIN", "ADMIN", "MANAGER"])
+require_super_admin = require_roles([AdminRole.SUPER_ADMIN])
+require_admin = require_roles([AdminRole.SUPER_ADMIN, AdminRole.ADMIN])
+require_manager = require_roles([AdminRole.SUPER_ADMIN, AdminRole.ADMIN, AdminRole.MANAGER])
