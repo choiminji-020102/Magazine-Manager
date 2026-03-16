@@ -1,6 +1,7 @@
 from app.crud import admin as admin_crud
 from app.crud import refresh_token as refresh_token_crud
 from app.crud import cafe24_token as cafe24_token_crud
+from app.crud import product as product_crud
 from app.crud import order as order_crud
 from app.crud import order_item as order_item_crud
 from app.crud import pause as pause_crud

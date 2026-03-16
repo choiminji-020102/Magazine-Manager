@@ -1,106 +1,89 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import or_
-from typing import Optional, Tuple, List
+# 표준 라이브러리
+from typing import List, Optional, Tuple
+
+# 서드파티 라이브러리
 from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
 
+# 로컬 애플리케이션
+from app.crud import product as product_crud
 from app.models.product import Product
-from app.schemas.product import ProductCreate, ProductUpdate
+from app.schemas.product import ProductCreate, ProductListQuery, ProductStockUpdate, ProductUpdate
 
 
-def get_product_by_id(db: Session, product_id: int) -> Optional[Product]:
-    product = db.query(Product).filter(
-        Product.product_id == product_id
-    ).first()
-    if product is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="id로 상품을 찾을 수 없습니다."
-        )
-    return product
+def get_products(db: Session, query: ProductListQuery) -> Tuple[List[Product], int]:
+    return product_crud.list_products(
+        db=db,
+        page=query.page,
+        limit=query.limit,
+        product_kind=query.product_kind,
+        is_active=query.is_active,
+        search=query.search,
+        subscribe_start_issue=query.subscribe_start_issue,
+        sort_by=query.sort_by,
+        sort_order=query.sort_order,
+    )
+
+
+def get_product_by_id(db: Session, product_id: int) -> Product:
+    return product_crud.read_product_by_id(db=db, product_id=product_id)
 
 
 def get_product_by_code(db: Session, product_code: str) -> Optional[Product]:
-    product = db.query(Product).filter(
-        Product.product_code == product_code
-    ).first()
-    return product
+    return product_crud.read_product_by_code(db=db, product_code=product_code)
 
 
 def get_product_by_external_code(db: Session, code: str, channel: str) -> Optional[Product]:
-    if channel == "CAFE24":
-        return db.query(Product).filter(Product.external_product_code_cafe24 == code).first()
-    elif channel == "GPMALL":
-        return db.query(Product).filter(Product.external_product_code_gpmall == code).first()
-    return None
-
-
-def get_products(
-    db: Session,
-    page: int = 1,
-    limit: int = 20,
-    search: Optional[str] = None,
-    kind: Optional[str] = None,
-    is_active: Optional[bool] = None
-) -> Tuple[List[Product], int]:
-    query = db.query(Product)
-    
-    if search:
-        query = query.filter(
-            or_(
-                Product.product_code.like(f"%{search}%"),
-                Product.product_name.like(f"%{search}%")
-            )
-        )
-    
-    if kind:
-        query = query.filter(Product.product_kind == kind)
-    
-    if is_active is not None:
-        query = query.filter(Product.is_active == is_active)
-    
-    total = query.count()
-    
-    offset = (page - 1) * limit
-    items = query.order_by(Product.created_at.desc()).offset(offset).limit(limit).all()
-    
-    return items, total
-
-
-def get_products_by_kind(db: Session, kind: str, active_only: bool = True) -> List[Product]:
-    query = db.query(Product).filter(Product.product_kind == kind)
-    
-    if active_only:
-        query = query.filter(Product.is_active == True)
-    
-    return query.order_by(Product.product_name.asc()).all()
+    return product_crud.read_product_by_external_code(db=db, code=code, channel=channel)
 
 
 def create_product(db: Session, product_in: ProductCreate) -> Product:
-    product = Product(**product_in.model_dump())
-    db.add(product)
-    db.commit()
-    db.refresh(product)
-    return product
+    # 상품 코드 중복 검증
+    product_crud.check_code_duplicate(db=db, product_code=product_in.product_code)
+
+    # 가격 검증: 정가 >= 판매가
+    if product_in.list_price > 0 and product_in.sale_price > 0:
+        if product_in.list_price < product_in.sale_price:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="정가(list_price)는 판매가(sale_price)보다 크거나 같아야 합니다.",
+            )
+
+    return product_crud.create_product(db=db, product_in=product_in)
 
 
 def update_product(db: Session, product: Product, product_in: ProductUpdate) -> Product:
-    update_data = product_in.model_dump(exclude_unset=True)
-    
-    for field, value in update_data.items():
-        setattr(product, field, value)
-    
-    db.commit()
-    db.refresh(product)
-    return product
+    # 상품 코드 변경 시 중복 검증
+    if product_in.product_code is not None:
+        product_crud.check_code_duplicate(
+            db=db,
+            product_code=product_in.product_code,
+            exclude_product_id=product.product_id,
+        )
+
+    # 가격 검증: 정가 >= 판매가 (변경된 값 기준)
+    new_list_price = product_in.list_price if product_in.list_price is not None else product.list_price
+    new_sale_price = product_in.sale_price if product_in.sale_price is not None else product.sale_price
+    if new_list_price > 0 and new_sale_price > 0 and new_list_price < new_sale_price:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="정가(list_price)는 판매가(sale_price)보다 크거나 같아야 합니다.",
+        )
+
+    return product_crud.update_product(db=db, product=product, product_in=product_in)
+
+
+def update_stock(db: Session, product: Product, stock_in: ProductStockUpdate) -> Product:
+    return product_crud.update_stock(db=db, product=product, stock_quantity=stock_in.stock_quantity)
 
 
 def delete_product(db: Session, product: Product) -> None:
-    db.delete(product)
-    db.commit()
+    product_crud.delete_product(db=db, product=product)
 
 
-def toggle_active(db: Session, product: Product) -> Product:
-    product.is_active = not product.is_active
-    db.commit()
-    db.refresh(product)
-    return product
+def activate(db: Session, product: Product) -> Product:
+    return product_crud.set_active(db=db, product=product, is_active=True)
+
+
+def deactivate(db: Session, product: Product) -> Product:
+    return product_crud.set_active(db=db, product=product, is_active=False)
