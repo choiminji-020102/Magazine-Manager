@@ -1,15 +1,17 @@
 from app.schemas.common import (
-	ResponseModel, PaginatedResponse, PaginationMeta
+	ResponseModel, PaginatedResponse
 )
 from app.schemas.auth import (
     LoginRequest, TokenPairResponse, RefreshRequest, LogoutRequest,
     PasswordChangeRequest, TokenPayload
 )
 from app.schemas.admin import (
-    AdminCreate, AdminUpdate, AdminResponse, AdminActivateRequest, AdminPasswordChange
+    AdminCreate, AdminUpdate, AdminResponse,
+    AdminRoleUpdate, AdminPasswordChangeRequest, AdminListQuery,
 )
 from app.schemas.customer import (
-	CustomerCreate, CustomerUpdate, CustomerResponse
+    CustomerCreate, CustomerUpdate, CustomerResponse,
+    CustomerDetailResponse, CustomerListQuery, CustomerQuickSearchResponse,
 )
 from app.schemas.product import (
 	ProductCreate, ProductUpdate, ProductResponse
@@ -49,5 +51,5 @@ from app.schemas.activity_log import (
 from app.schemas.inquiry import (
     InquiryCreate, InquiryUpdate, InquiryAnswer, InquiryResponse,
     InquiryListResponse, InquiryDetailResponse,
-    CustomerQuickSearchResponse, CustomerInquiryHistoryResponse
+    CustomerInquiryHistoryResponse
 )

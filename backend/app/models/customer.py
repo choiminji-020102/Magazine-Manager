@@ -1,10 +1,17 @@
 import re
+from enum import Enum as PyEnum
 
 from sqlalchemy import Column, BigInteger, String, DateTime, Text, CHAR, Enum, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+
+
+class Channel(str, PyEnum):
+    CAFE24 = "CAFE24"
+    GPMALL = "GPMALL"
+    OFFLINE = "OFFLINE"
 
 
 class Customer(Base):
