@@ -1,43 +1,59 @@
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, Literal
+# 표준 라이브러리
 from datetime import datetime
+from typing import Optional
+
+# 서드파티 라이브러리
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+# 로컬 애플리케이션
+from app.models.admin import AdminRole
 
 
-class AdminBase(BaseModel):
-    email: EmailStr
-    admin_name: str = Field(..., max_length=50)
-    admin_role: Literal["SUPER_ADMIN", "ADMIN", "MANAGER"] = "MANAGER"
+class AdminCreate(BaseModel):
+    admin_email: EmailStr           # 필수, unique
+    admin_password: str             # 필수 (평문, 서버에서 해싱)
+    admin_name: str                 # 필수
+    admin_role: AdminRole = AdminRole.MANAGER
     is_active: bool = True
 
 
-class AdminCreate(AdminBase):
-    plain_password: str = Field(..., min_length=8)
-
-
 class AdminUpdate(BaseModel):
-    email: Optional[EmailStr] = None
-    admin_name: Optional[str] = Field(None, max_length=50)
-    admin_role: Optional[Literal["SUPER_ADMIN", "ADMIN", "MANAGER"]] = None
-    is_active: Optional[bool] = None
+    # ※ admin_role 변경은 PATCH /role, admin_password 변경은 POST /change-password,
+    #    is_active 변경은 PATCH /activate, PATCH /deactivate 로 처리
+    admin_email: Optional[EmailStr] = None
+    admin_name: Optional[str] = None
+
+
+class AdminRoleUpdate(BaseModel):
+    admin_role: AdminRole           # 필수
+
+
+class AdminPasswordChangeRequest(BaseModel):
+    current_password: str           # 현재 비밀번호 (필수)
+    new_password: str               # 새 비밀번호 (필수)
 
 
 class AdminResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     admin_id: int
-    email: str
+    admin_email: str
     admin_name: str
     admin_role: str
     is_active: bool
+    is_deleted: bool
     last_login_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
-    
-    class Config:
-        from_attributes = True
+    deleted_at: Optional[datetime] = None
 
 
-class AdminActivateRequest(BaseModel):
+class AdminListQuery(BaseModel):
+    page: int = Field(1, ge=1)
+    limit: int = Field(20, ge=1, le=100)
+    admin_role: Optional[AdminRole] = None
     is_active: Optional[bool] = None
-
-
-class AdminPasswordChange(BaseModel):
-    new_password: str = Field(..., min_length=8)
+    is_deleted: bool = False
+    search: Optional[str] = None    # admin_name 검색
+    sort_by: str = "created_at"
+    sort_order: str = "desc"

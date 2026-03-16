@@ -1,103 +1,72 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import or_
-from typing import Optional, Tuple, List
-from datetime import datetime
+# 표준 라이브러리
+from typing import List, Optional, Tuple
+
+# 서드파티 라이브러리
 from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
 
+# 로컬 애플리케이션
+from app.core.password import verify_password
+from app.crud import admin as admin_crud
 from app.models.admin import Admin
-from app.schemas.admin import AdminCreate, AdminUpdate
-from app.core.password import get_password_hash
+from app.schemas.admin import AdminCreate, AdminListQuery, AdminUpdate
 
 
-def get_admin_by_id(db: Session, admin_id: int) -> Optional[Admin]:
-    admin = db.query(Admin).filter(
-        Admin.admin_id == admin_id,
-        Admin.deleted_at.is_(None)
-    ).first()
-    if admin is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="관리자를 찾을 수 없습니다."
-        )
-    return admin
+def get_admins(db: Session, query: AdminListQuery) -> Tuple[List[Admin], int]:
+    return admin_crud.list_admins(
+        db=db,
+        page=query.page,
+        limit=query.limit,
+        admin_role=query.admin_role,
+        is_active=query.is_active,
+        is_deleted=query.is_deleted,
+        search=query.search,
+        sort_by=query.sort_by,
+        sort_order=query.sort_order,
+    )
 
 
-def get_admin_by_email(db: Session, email: str) -> Optional[Admin]:
-    admin = db.query(Admin).filter(
-        Admin.email == email,
-        Admin.deleted_at.is_(None)
-    ).first()
-    if admin is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="관리자를 찾을 수 없습니다."
-        )
-    return admin
-
-
-def get_admins(
-    db: Session,
-    page: int = 1,
-    limit: int = 20,
-    search: Optional[str] = None,
-    role: Optional[str] = None
-) -> Tuple[List[Admin], int]:
-    query = db.query(Admin).filter(Admin.deleted_at.is_(None))
-    
-    if search:
-        query = query.filter(
-            or_(
-                Admin.admin_name.like(f"%{search}%"),
-                Admin.email.like(f"%{search}%")
-            )
-        )
-    
-    if role:
-        query = query.filter(Admin.admin_role == role)
-    
-    total = query.count()
-    
-    offset = (page - 1) * limit
-    items = query.order_by(Admin.created_at.asc()).offset(offset).limit(limit).all()
-    
-    return items, total
+def get_admin_by_id(db: Session, admin_id: int) -> Admin:
+    return admin_crud.read_admin_by_id(admin_id=admin_id, db=db)
 
 
 def create_admin(db: Session, admin_in: AdminCreate) -> Admin:
-    admin = Admin(
-        email=admin_in.email,
-        hashed_password=get_password_hash(admin_in.plain_password),
-        admin_name=admin_in.admin_name,
-        admin_role=admin_in.admin_role,
-        is_active=admin_in.is_active
-    )
-    db.add(admin)
-    db.commit()
-    db.refresh(admin)
-    return admin
+    return admin_crud.create_admin(admin_in=admin_in, db=db)
 
 
-def update_admin(db: Session, admin: Admin, admin_in: AdminUpdate) -> Admin:
-    update_data = admin_in.model_dump(exclude_unset=True)
-    
-    for field, value in update_data.items():
-        setattr(admin, field, value)
-    
-    db.commit()
-    db.refresh(admin)
-    return admin
+def update_admin(db: Session, admin_id: int, admin_in: AdminUpdate) -> Admin:
+    return admin_crud.update_admin(admin_id=admin_id, admin_in=admin_in, db=db)
 
 
-def delete_admin(db: Session, admin: Admin) -> None:
-    admin.deleted_at = datetime.now()
-    db.commit()
+def update_role(db: Session, admin_id: int, admin_role: str) -> Admin:
+    return admin_crud.update_admin_role(admin_id=admin_id, admin_role=admin_role, db=db)
 
 
-def update_last_login(db: Session, admin: Admin) -> None:
-    admin.last_login_at = datetime.now()
-    db.commit()
+def activate(db: Session, admin_id: int) -> Admin:
+    return admin_crud.update_admin_active(admin_id=admin_id, is_active=True, db=db)
 
 
-def change_password(db: Session, admin: Admin, new_password: str) -> None:
-    admin.hashed_password = get_password_hash(new_password)
-    db.commit()
+def deactivate(db: Session, admin_id: int) -> Admin:
+    return admin_crud.update_admin_active(admin_id=admin_id, is_active=False, db=db)
+
+
+def delete_admin(db: Session, admin_id: int) -> None:
+    admin_crud.delete_admin(admin_id=admin_id, db=db)
+
+
+def restore_admin(db: Session, admin_id: int) -> Admin:
+    return admin_crud.restore_admin(admin_id=admin_id, db=db)
+
+
+def change_password(
+    db: Session,
+    admin: Admin,
+    current_password: str,
+    new_password: str,
+) -> None:
+    if not verify_password(current_password, admin.admin_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="현재 비밀번호가 올바르지 않습니다."
+        )
+    admin_crud.change_admin_password(admin_id=admin.admin_id, new_password=new_password, db=db)
