@@ -1,7 +1,6 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List, Literal
 from datetime import datetime, date
-from decimal import Decimal
 
 from app.schemas.address import AddressCreate
 from app.schemas.send_item import SendItemResponse
@@ -56,6 +55,8 @@ class SendTrackingUpdate(BaseModel):
 
 
 class SendResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
     send_id: int
     order_id: int
     address_id: Optional[int] = None
@@ -68,14 +69,12 @@ class SendResponse(BaseModel):
     recipient_phone: str
     country_code: str = "KR"
     postal_code: str
-    address: str
+    # DB 컬럼명은 recipient_address, 응답 필드명은 address
+    address: str = Field(validation_alias="recipient_address")
     customer_memo: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     cancelled_at: Optional[datetime] = None
-    
-    class Config:
-        from_attributes = True
 
 
 class SendListResponse(SendResponse):

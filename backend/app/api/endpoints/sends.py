@@ -15,7 +15,7 @@ from app.schemas.send import (
     SendCreate, SendUpdate, SendResponse, SendDetailResponse,
     SendListResponse, SendStatusUpdate, SendTrackingUpdate, SendItemResponse
 )
-from app.schemas.common import ResponseModel, PaginatedResponse, PaginationMeta
+from app.schemas.common import ResponseModel, PaginatedResponse
 from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.services import send_service, order_service, activity_log_service
 
@@ -39,12 +39,11 @@ def get_sends(
     items, total = send_service.get_sends(db, page, limit, send_status, courier, send_date, search)
     
     return PaginatedResponse(
-        message="발송 목록을 조회했습니다.",
-        data=[SendListResponse(**item) for item in items],
-        pagination=PaginationMeta(
-            total=total, page=page, limit=limit,
-            total_pages=math.ceil(total / limit) if total > 0 else 0
-        )
+        total=total,
+        page=page,
+        limit=limit,
+        total_pages=math.ceil(total / limit) if total > 0 else 0,
+        items=[SendListResponse(**item) for item in items],
     )
 
 

@@ -11,7 +11,7 @@ from app.schemas.inquiry import (
     InquiryListResponse, InquiryDetailResponse,
     CustomerQuickSearchResponse, CustomerInquiryHistoryResponse
 )
-from app.schemas.common import ResponseModel, PaginatedResponse, PaginationMeta
+from app.schemas.common import ResponseModel, PaginatedResponse
 from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.services import inquiry_service, customer_service, activity_log_service
 
@@ -86,13 +86,11 @@ def get_inquiries(
     )
     
     return PaginatedResponse(
-        data=[InquiryListResponse(**item) for item in items],
-        pagination=PaginationMeta(
-            total=total,
-            page=page,
-            limit=limit,
-            total_pages=math.ceil(total / limit) if total > 0 else 0
-        )
+        total=total,
+        page=page,
+        limit=limit,
+        total_pages=math.ceil(total / limit) if total > 0 else 0,
+        items=[InquiryListResponse(**item) for item in items],
     )
 
 

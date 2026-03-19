@@ -6,11 +6,10 @@ from app.db.session import get_db
 from app.core.deps import require_roles
 from app.models.admin import Admin
 from app.schemas.order_item import (
-    OrderItemCreate, 
-    OrderItemUpdate, 
-    OrderItemResponse, 
+    OrderItemCreate,
+    OrderItemUpdate,
+    OrderItemResponse,
     OrderItemDetailResponse,
-    SubscriptionUpdate
 )
 from app.schemas.common import ResponseModel
 from app.schemas.activity_log import ActivityAction, ActivityTargetType
@@ -172,51 +171,4 @@ def cancel_order_item(
     )
 
 
-@router.patch("/order-items/{order_item_id}/subscription", response_model=ResponseModel[OrderItemResponse])
-def update_subscription(
-    order_item_id: int,
-    sub_in: SubscriptionUpdate,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin)
-):
-    """구독 정보 수정"""
-    item = order_item_service.get_active_order_item_by_id(db, order_item_id)
-    
-    if item.product_kind not in ["YEARLY", "MONTHLY"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="구독 상품만 구독 정보를 수정할 수 있습니다."
-        )
-    
-    old_data = {
-        "subscribe_start_issue": item.subscribe_start_issue,
-        "subscribe_end_issue": item.subscribe_end_issue
-    }
-    
-    item = order_item_service.update_subscription(
-        db, item, sub_in.subscribe_start_issue, sub_in.subscribe_end_issue
-    )
-    
-    activity_log_service.create_log(
-        db=db,
-        admin=current_admin,
-        action=ActivityAction.UPDATE,
-        target_type=ActivityTargetType.ORDER_ITEM,
-        target_id=order_item_id,
-        details={
-            "reason": "주문 품목 구독 정보 수정 성공",
-            "before": old_data,
-            "after": {
-                "subscribe_start_issue": sub_in.subscribe_start_issue,
-                "subscribe_end_issue": sub_in.subscribe_end_issue
-            }
-        },
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent")
-    )
-    
-    return ResponseModel(
-        message="구독 정보가 수정되었습니다.",
-        data=OrderItemResponse.model_validate(item)
-    )
+# TODO: order_items 도메인 전면 수정 시 /extend, /address, /change-period 엔드포인트 추가

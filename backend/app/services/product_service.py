@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
+from app.core.utils import parse_subscribe_start_issue
 from app.crud import product as product_crud
 from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductListQuery, ProductStockUpdate, ProductUpdate
@@ -41,6 +42,30 @@ def create_product(db: Session, product_in: ProductCreate) -> Product:
     # 상품 코드 중복 검증
     product_crud.check_code_duplicate(db=db, product_code=product_in.product_code)
 
+    # product_kind와 product_code 형식 일치 검증
+    if product_in.product_kind == "YEARLY" and "+" not in product_in.product_code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="YEARLY 상품의 product_code는 '+' 구분자와 시작 호를 포함해야 합니다. 예: M1001+202604",
+        )
+    if product_in.product_kind == "MONTHLY" and "-" not in product_in.product_code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="MONTHLY 상품의 product_code는 '-' 구분자와 시작 호를 포함해야 합니다. 예: M1001-202604",
+        )
+
+    # product_code에서 subscribe_start_issue 자동 파싱
+    subscribe_start_issue = parse_subscribe_start_issue(product_in.product_code)
+
+    # 파싱된 호 형식 검증 (YYYYMM)
+    if subscribe_start_issue and (
+        len(subscribe_start_issue) != 6 or not subscribe_start_issue.isdigit()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"product_code의 호 형식이 잘못되었습니다: '{subscribe_start_issue}' (YYYYMM 형식이어야 합니다)",
+        )
+
     # 가격 검증: 정가 >= 판매가
     if product_in.list_price > 0 and product_in.sale_price > 0:
         if product_in.list_price < product_in.sale_price:
@@ -49,7 +74,9 @@ def create_product(db: Session, product_in: ProductCreate) -> Product:
                 detail="정가(list_price)는 판매가(sale_price)보다 크거나 같아야 합니다.",
             )
 
-    return product_crud.create_product(db=db, product_in=product_in)
+    return product_crud.create_product(
+        db=db, product_in=product_in, subscribe_start_issue=subscribe_start_issue
+    )
 
 
 def update_product(db: Session, product: Product, product_in: ProductUpdate) -> Product:

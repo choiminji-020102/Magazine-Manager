@@ -2,6 +2,21 @@ import re
 from typing import Optional, Tuple
 
 
+def parse_subscribe_start_issue(product_code: str) -> Optional[str]:
+    """product_code에서 구독 시작 호(YYYYMM) 추출
+
+    규칙:
+    - M1001+202601 (YEARLY)  → "202601"
+    - M1001-202601 (MONTHLY) → "202601"
+    - A5500        (단행본)  → None
+    """
+    if "+" in product_code:
+        return product_code.split("+", 1)[1] or None
+    elif "-" in product_code:
+        return product_code.split("-", 1)[1] or None
+    return None
+
+
 def format_phone_number(phone: str, country_code: str = "KR") -> Tuple[str, str]:
     """
     전화번호 포맷팅 및 뒤4자리 추출

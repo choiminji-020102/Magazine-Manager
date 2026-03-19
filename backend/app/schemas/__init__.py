@@ -1,3 +1,5 @@
+from typing import List, Optional
+
 from app.schemas.common import (
 	ResponseModel, PaginatedResponse
 )
@@ -21,11 +23,13 @@ from app.schemas.address import (
 )
 from app.schemas.order import (
     OrderCreate, OrderUpdate, OrderResponse, OrderListResponse,
-    OrderStatusUpdate, OrderItemResponse,
-    OrderItemCreateInOrder
+    OrderStatusUpdate, OrderPaymentUpdate, OrderItemCreateInOrder,
+    OrderCancelRequest,
 )
 from app.schemas.order_item import (
-    OrderItemCreate, OrderItemUpdate, SubscriptionUpdate
+    OrderItemCreate, OrderItemUpdate, OrderItemResponse,
+    OrderItemDetailResponse, OrderItemAddressUpdate,
+    OrderItemExtend, OrderItemBulkExtend,
 )
 from app.schemas.pause import (
 	PauseCreate, PauseUpdate, PauseResponse, PauseByIssueResponse
@@ -53,3 +57,14 @@ from app.schemas.inquiry import (
     InquiryListResponse, InquiryDetailResponse,
     CustomerInquiryHistoryResponse
 )
+
+
+# ── OrderDetailResponse ────────────────────────────────────────────────────────
+# customer.py가 order.py(OrderListResponse)를 import하므로 순환 참조 방지를 위해
+# 모든 스키마 import 완료 후 여기에 정의
+class OrderDetailResponse(OrderResponse):
+    """주문 상세 조회용 (모든 연관 정보 포함)"""
+    customer: Optional[CustomerResponse] = None
+    address: Optional[AddressResponse] = None
+    items: List[OrderItemResponse] = []
+    sends: List[SendResponse] = []

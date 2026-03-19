@@ -87,8 +87,13 @@ def check_code_duplicate(
         )
 
 
-def create_product(db: Session, product_in: ProductCreate) -> Product:
-    product = Product(**product_in.model_dump())
+def create_product(
+    db: Session, product_in: ProductCreate, subscribe_start_issue: Optional[str] = None
+) -> Product:
+    product = Product(
+        **product_in.model_dump(),
+        subscribe_start_issue=subscribe_start_issue,
+    )
     db.add(product)
     db.commit()
     db.refresh(product)

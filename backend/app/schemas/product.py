@@ -14,7 +14,7 @@ class ProductKind(str, Enum):
 
 
 class ProductCreate(BaseModel):
-    product_code: str                                   # 필수, unique (예: "M1001-202604")
+    product_code: str                                   # 필수, unique (예: "M1001+202604", "M1001-202604")
     product_kind: ProductKind                           # 필수 (YEARLY | MONTHLY)
     product_name: str                                   # 필수 (예: "말씀함께 2026년 4월호")
     external_product_code_cafe24: Optional[str] = None  # Cafe24 상품 코드
@@ -28,7 +28,7 @@ class ProductCreate(BaseModel):
     unit_length: Optional[float] = None                 # 세로 (mm)
     unit_height: Optional[float] = None                 # 높이/두께 (mm)
     is_active: bool = True                              # 판매 여부
-    subscribe_start_issue: Optional[str] = None         # 구독 시작 호 (YYYYMM)
+    # subscribe_start_issue는 product_code에서 자동 파싱 — 직접 입력 불가
 
 
 class ProductUpdate(BaseModel):
@@ -50,7 +50,7 @@ class ProductUpdate(BaseModel):
     unit_length: Optional[float] = None
     unit_height: Optional[float] = None
     is_active: Optional[bool] = None
-    subscribe_start_issue: Optional[str] = None
+    # subscribe_start_issue는 불변 — 수정 불가 (product_code 등록 시 자동 파싱)
 
 
 class ProductStockUpdate(BaseModel):
