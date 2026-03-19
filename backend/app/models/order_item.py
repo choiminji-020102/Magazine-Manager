@@ -28,6 +28,7 @@ class OrderItem(Base):
     subscribe_end_issue = Column(String(6), nullable=False, comment="구독 종료 호(202604) — 주문 시 1회 설정 후 절대 수정 불가")
     final_subscribe_start_issue = Column(String(6), nullable=False, comment="최종 구독 시작 호(구독 기간 앞당기기/밀기 반영)(202604)")
     final_subscribe_end_issue = Column(String(6), nullable=False, comment="최종 구독 종료 호(연장/휴지/단축 반영)(202604)")
+    paid_subscribe_end_issue = Column(String(6), nullable=False, comment="유료 구독 종료 호 — 생성 시 subscribe_end_issue와 동일, 유료 연장 시에만 갱신 (환불 계산 기준)")
     subscribe_period = Column(Integer, nullable=False, server_default="12", comment="구독 기간(개월)")
 
     last_send_issue = Column(String(6), nullable=True, comment="마지막 발송 호(YYYYMM). YEARLY/MONTHLY 모두 기록. last_send_issue == final_subscribe_end_issue 이고 해당 Send.send_status == DELIVERED 이면 구독 완전 완료")

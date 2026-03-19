@@ -1,6 +1,6 @@
 # 표준 라이브러리
-from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import List, Optional, Tuple
 
 # 서드파티 라이브러리
 from fastapi import HTTPException, status
@@ -8,38 +8,36 @@ from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
 from app.models.order_item import OrderItem
+from app.models.address import Address
 from app.schemas.order_item import OrderItemUpdate
 
 
-def read_order_item_by_id(order_item_id: int, db: Session) -> OrderItem:
-    """주문 품목 ID로 주문 품목 조회 (취소된 것 포함)"""
-    order_item = db.query(OrderItem).filter(
-        OrderItem.order_item_id == order_item_id
-    ).first()
+def read_order_item_by_id(db: Session, order_item_id: int) -> OrderItem:
+    order_item = db.query(OrderItem).filter(OrderItem.order_item_id == order_item_id).first()
     if not order_item:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문 품목을 찾을 수 없습니다."
+            detail="주문 품목을 찾을 수 없습니다.",
         )
     return order_item
 
 
-def read_active_order_item_by_id(order_item_id: int, db: Session) -> OrderItem:
-    """활성 주문 품목 ID로 주문 품목 조회 (취소되지 않은 주문 품목)"""
+def read_active_order_item_by_id(db: Session, order_item_id: int) -> OrderItem:
     order_item = db.query(OrderItem).filter(
         OrderItem.order_item_id == order_item_id,
-        OrderItem.cancelled_at.is_(None)
+        OrderItem.cancelled_at.is_(None),
     ).first()
     if not order_item:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="주문 품목을 찾을 수 없거나 취소되었습니다."
+            detail="주문 품목을 찾을 수 없거나 취소되었습니다.",
         )
     return order_item
 
 
-def read_order_items_by_order_id(order_id: int, db: Session, include_cancelled: bool = True) -> List[OrderItem]:
-    """주문 ID로 주문 품목 목록 조회"""
+def read_order_items_by_order_id(
+    db: Session, order_id: int, include_cancelled: bool = True
+) -> List[OrderItem]:
     query = db.query(OrderItem).filter(OrderItem.order_id == order_id)
     if not include_cancelled:
         query = query.filter(OrderItem.cancelled_at.is_(None))
@@ -47,124 +45,141 @@ def read_order_items_by_order_id(order_id: int, db: Session, include_cancelled: 
 
 
 def create_order_item(
+    db: Session,
     order_id: int,
+    address_id: int,
     product_code: str,
     product_kind: str,
     product_name: str,
-    address_id: int,
-    db: Session,
-    external_order_item_id: Optional[str] = None,
-    price: Optional[int] = None,
-    sale: Optional[int] = None,
+    list_price: int,
+    sale_price: int,
+    subscribe_start_issue: str,
+    subscribe_end_issue: str,
+    final_subscribe_start_issue: str,
+    final_subscribe_end_issue: str,
+    subscribe_period: int,
     order_num: int = 1,
-    subscribe_start_issue: Optional[str] = None,
-    subscribe_end_issue: Optional[str] = None,
-    subscribe_period: Optional[int] = None,
-    final_subscribe_end_issue: Optional[str] = None,
-    memo: Optional[str] = None
+    refund_amount: int = 0,
+    admin_memo: Optional[str] = None,
+    external_order_item_id: Optional[str] = None,
 ) -> OrderItem:
-    """주문 품목 생성"""
-    try:
-        order_item = OrderItem(
-            external_order_item_id=external_order_item_id,
-            order_id=order_id,
-            product_code=product_code,
-            product_kind=product_kind,
-            product_name=product_name,
-            price=price,
-            sale=sale,
-            order_num=order_num,
-            subscribe_start_issue=subscribe_start_issue,
-            subscribe_end_issue=subscribe_end_issue,
-            subscribe_period=subscribe_period,
-            final_subscribe_end_issue=final_subscribe_end_issue,
-            address_id=address_id,
-            memo=memo
-        )
-        db.add(order_item)
-        db.flush()
-        return order_item
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"주문 품목 생성 중 오류가 발생했습니다: {str(e)}"
-        )
+    order_item = OrderItem(
+        order_id=order_id,
+        address_id=address_id,
+        product_code=product_code,
+        product_kind=product_kind,
+        product_name=product_name,
+        list_price=list_price,
+        sale_price=sale_price,
+        refund_amount=refund_amount,
+        order_num=order_num,
+        subscribe_start_issue=subscribe_start_issue,
+        subscribe_end_issue=subscribe_end_issue,
+        final_subscribe_start_issue=final_subscribe_start_issue,
+        final_subscribe_end_issue=final_subscribe_end_issue,
+        paid_subscribe_end_issue=subscribe_end_issue,  # 생성 시 subscribe_end_issue와 동일
+        subscribe_period=subscribe_period,
+        admin_memo=admin_memo,
+        external_order_item_id=external_order_item_id,
+    )
+    db.add(order_item)
+    db.flush()
+    return order_item
 
 
-def update_order_item(order_item: OrderItem, item_in: OrderItemUpdate, db: Session) -> OrderItem:
-    """주문 품목 수정"""
-    update_data = item_in.model_dump(exclude_unset=True)
-    
-    # address는 별도 처리 (service에서 처리)
-    if "address" in update_data:
-        del update_data["address"]
-    
-    for field, value in update_data.items():
+def update_order_item(db: Session, order_item: OrderItem, order_item_in: OrderItemUpdate) -> OrderItem:
+    for field, value in order_item_in.model_dump(exclude_unset=True).items():
         setattr(order_item, field, value)
-    
-    try:
-        db.commit()
-        db.refresh(order_item)
-        return order_item
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"주문 품목 수정 중 오류가 발생했습니다: {str(e)}"
-        )
+    db.commit()
+    db.refresh(order_item)
+    return order_item
 
 
-def cancel_order_item(order_item: OrderItem, db: Session) -> OrderItem:
-    """주문 품목 취소"""
-    order_item.cancelled_at = datetime.now()
-    
-    try:
-        db.commit()
-        db.refresh(order_item)
-        return order_item
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"주문 품목 취소 중 오류가 발생했습니다: {str(e)}"
-        )
+def update_address(db: Session, order_item: OrderItem, address_id: int) -> OrderItem:
+    order_item.address_id = address_id
+    db.commit()
+    db.refresh(order_item)
+    return order_item
 
 
-def update_subscription(
-    order_item: OrderItem,
-    start_issue: str,
-    end_issue: str,
-    db: Session
+def extend_subscription(
+    db: Session, order_item: OrderItem, new_end_issue: str, update_paid: bool = False
 ) -> OrderItem:
-    """구독 기간 업데이트"""
-    order_item.subscribe_start_issue = start_issue
-    order_item.subscribe_end_issue = end_issue
-    
-    try:
-        db.commit()
-        db.refresh(order_item)
-        return order_item
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"구독 기간 업데이트 중 오류가 발생했습니다: {str(e)}"
-        )
+    """구독 기간 연장
+    - update_paid=False: 무상 연장 — final_subscribe_end_issue만 변경
+    - update_paid=True:  유료 연장 — final + paid_subscribe_end_issue 둘 다 변경
+    """
+    order_item.final_subscribe_end_issue = new_end_issue
+    if update_paid:
+        order_item.paid_subscribe_end_issue = new_end_issue
+    db.commit()
+    db.refresh(order_item)
+    return order_item
 
 
-def update_last_send_issue(order_item: OrderItem, issue: str, db: Session) -> OrderItem:
-    """마지막 발송 호수 업데이트"""
+def change_period(
+    db: Session, order_item: OrderItem, new_start_issue: str, new_end_issue: str
+) -> OrderItem:
+    """구독 기간 이동 — final_subscribe_start_issue + final_subscribe_end_issue 재계산"""
+    order_item.final_subscribe_start_issue = new_start_issue
+    order_item.final_subscribe_end_issue = new_end_issue
+    db.commit()
+    db.refresh(order_item)
+    return order_item
+
+
+def shorten_subscription(
+    db: Session, order_item: OrderItem, shorten_end_issue: str, refund_amount: int
+) -> OrderItem:
+    """구독 기간 단축 — final_subscribe_end_issue + refund_amount 업데이트"""
+    order_item.final_subscribe_end_issue = shorten_end_issue
+    order_item.refund_amount = refund_amount
+    db.commit()
+    db.refresh(order_item)
+    return order_item
+
+
+def cancel_order_item(db: Session, order_item: OrderItem) -> OrderItem:
+    order_item.cancelled_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(order_item)
+    return order_item
+
+
+def update_last_send_issue(db: Session, order_item: OrderItem, issue: str) -> OrderItem:
     order_item.last_send_issue = issue
-    order_item.sended_at = datetime.now()
-    
-    try:
-        db.commit()
-        db.refresh(order_item)
-        return order_item
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"마지막 발송 호수 업데이트 중 오류가 발생했습니다: {str(e)}"
-        )
+    order_item.sended_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(order_item)
+    return order_item
+
+
+def list_by_postal_code_13113(
+    db: Session,
+    page: int = 1,
+    limit: int = 20,
+    product_kind: Optional[str] = None,
+    is_cancelled: bool = False,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+) -> Tuple[List[OrderItem], int]:
+    query = (
+        db.query(OrderItem)
+        .join(Address, OrderItem.address_id == Address.address_id)
+        .filter(Address.postal_code == "13113")
+    )
+    if product_kind:
+        query = query.filter(OrderItem.product_kind == product_kind)
+    if is_cancelled:
+        query = query.filter(OrderItem.cancelled_at.isnot(None))
+    else:
+        query = query.filter(OrderItem.cancelled_at.is_(None))
+
+    allowed_sort = {"created_at", "subscribe_start_issue", "updated_at"}
+    sort_col = getattr(OrderItem, sort_by if sort_by in allowed_sort else "created_at")
+    query = query.order_by(sort_col.asc() if sort_order == "asc" else sort_col.desc())
+
+    total = query.count()
+    offset = (page - 1) * limit
+    items = query.offset(offset).limit(limit).all()
+    return items, total

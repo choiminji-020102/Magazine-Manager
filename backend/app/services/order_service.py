@@ -198,6 +198,7 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
             subscribe_end_issue=subscribe_end_issue,
             final_subscribe_start_issue=subscribe_start_issue,
             final_subscribe_end_issue=subscribe_end_issue,
+            paid_subscribe_end_issue=subscribe_end_issue,  # 생성 시 subscribe_end_issue와 동일
             subscribe_period=subscribe_period,
             admin_memo=item_in.admin_memo,
         )
@@ -420,6 +421,13 @@ def _cancel_pending_sends(db: Session, order_item_ids: List[int], now: datetime)
         )
         .all()
     )
+    cancelled_send_ids = set()
     for send in sends_to_cancel:
         send.send_status = "CANCELLED"
         send.cancelled_at = now
+        cancelled_send_ids.add(send.send_id)
+
+    # 취소된 Send에 연결된 SendItem도 함께 취소
+    for si in send_items:
+        if si.send_id in cancelled_send_ids:
+            si.cancelled_at = now
