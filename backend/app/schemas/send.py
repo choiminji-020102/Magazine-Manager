@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List, Literal
 from datetime import datetime, date
 
@@ -20,7 +20,7 @@ class SendAddressInput(BaseModel):
     recipient_phone: str
     country_code: Optional[str] = "KR"
     postal_code: str
-    address: str
+    recipient_address: str
     customer_memo: Optional[str] = None
 
 
@@ -55,7 +55,7 @@ class SendTrackingUpdate(BaseModel):
 
 
 class SendResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    model_config = ConfigDict(from_attributes=True)
 
     send_id: int
     order_id: int
@@ -69,8 +69,7 @@ class SendResponse(BaseModel):
     recipient_phone: str
     country_code: str = "KR"
     postal_code: str
-    # DB 컬럼명은 recipient_address, 응답 필드명은 address
-    address: str = Field(validation_alias="recipient_address")
+    recipient_address: str
     customer_memo: Optional[str] = None
     created_at: datetime
     updated_at: datetime

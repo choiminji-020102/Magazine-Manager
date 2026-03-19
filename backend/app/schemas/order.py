@@ -37,7 +37,7 @@ class OrderAddressInput(BaseModel):
     recipient_phone: str
     country_code: str = "KR"
     postal_code: str
-    address: str
+    recipient_address: str
     customer_memo: Optional[str] = None
 
 
@@ -71,7 +71,7 @@ class OrderCreate(BaseModel):
     order_status: OrderStatus = OrderStatus.ORDERED
 
     discount_amount: int = 0
-    send_fee: int = 0
+    send_fee: Optional[int] = None          # 미입력 시 자동 설정 (MONTHLY: 3300, YEARLY: 0)
     payment_method: Optional[str] = None
 
     customer_memo: Optional[str] = None

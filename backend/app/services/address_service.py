@@ -22,7 +22,7 @@ def find_address(
     customer_id: Optional[int],
     recipient_name: str,
     recipient_phone: str,
-    address: str
+    recipient_address: str
 ) -> Optional[Address]:
     """동일 주소 검색 (customer_id + 수령인 + 연락처 + 주소)"""
     formatted_phone, _ = format_phone_number(recipient_phone)
@@ -30,7 +30,7 @@ def find_address(
     query = db.query(Address).filter(
         Address.recipient_name == recipient_name,
         Address.recipient_phone == formatted_phone,
-        Address.address == address
+        Address.recipient_address == recipient_address
     )
     
     if customer_id is not None:
@@ -84,7 +84,7 @@ def find_or_create_address(db: Session, address_in: AddressCreate) -> Address:
         address_in.customer_id,
         address_in.recipient_name,
         formatted_phone,
-        address_in.address
+        address_in.recipient_address
     )
     
     if existing:

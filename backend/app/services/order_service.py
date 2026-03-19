@@ -94,7 +94,7 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
                 recipient_phone=order_in.address.recipient_phone,
                 country_code=order_in.address.country_code,
                 postal_code=order_in.address.postal_code,
-                address=order_in.address.address,
+                recipient_address=order_in.address.recipient_address,
                 customer_memo=order_in.address.customer_memo,
             ),
         )
@@ -131,7 +131,18 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
         * item_in.order_num
         for item_in in order_in.items
     )
-    payment_amount = total_amount - order_in.discount_amount + order_in.send_fee
+
+    # send_fee: 미입력 시 product_kind 기반 자동 설정 (MONTHLY: 3300, YEARLY: 0)
+    if order_in.send_fee is not None:
+        send_fee = order_in.send_fee
+    else:
+        has_monthly = any(
+            product_map[item_in.product_code].product_kind == "MONTHLY"
+            for item_in in order_in.items
+        )
+        send_fee = 3300 if has_monthly else 0
+
+    payment_amount = total_amount - order_in.discount_amount + send_fee
 
     # ── 6. 주문 생성 ──────────────────────────────────────────────────────────
     order = order_crud.create_order(
@@ -144,7 +155,7 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
         total_amount=total_amount,
         payment_amount=payment_amount,
         discount_amount=order_in.discount_amount,
-        send_fee=order_in.send_fee,
+        send_fee=send_fee,
         payment_method=order_in.payment_method,
         customer_memo=order_in.customer_memo,
         admin_memo=order_in.admin_memo,
@@ -301,6 +312,9 @@ def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) 
                 if remaining > 0:
                     refund_per_issue = item.sale_price // item.subscribe_period
                     total_refund += refund_per_issue * remaining * item.order_num
+
+        # 배송비 환불 (YEARLY는 0원이므로 실질적으로 MONTHLY 취소 시에만 적용)
+        total_refund += order.send_fee or 0
 
     # ── 3. 취소 사유를 admin_memo에 추가 기록 ────────────────────────────────
     cancel_note = f"[취소] {cancel_request.admin_memo}"

@@ -97,14 +97,14 @@ def create_send(db: Session, send_in: SendCreate) -> Send:
         recipient_phone = send_in.address.recipient_phone
         country_code = send_in.address.country_code or "KR"
         postal_code = send_in.address.postal_code
-        address_str = send_in.address.address
+        address_str = send_in.address.recipient_address
         customer_memo = send_in.address.customer_memo
     elif address:
         recipient_name = address.recipient_name
         recipient_phone = address.recipient_phone
         country_code = address.country_code or "KR"
         postal_code = address.postal_code
-        address_str = address.address
+        address_str = address.recipient_address
         customer_memo = address.customer_memo
     else:
         recipient_name = ""
@@ -128,7 +128,7 @@ def create_send(db: Session, send_in: SendCreate) -> Send:
         recipient_phone=recipient_phone,
         country_code=country_code,
         postal_code=postal_code,
-        address=address_str,
+        recipient_address=address_str,
         customer_memo=customer_memo
     )
     
@@ -169,7 +169,7 @@ def update_send(db: Session, send: Send, send_in: SendUpdate) -> Send:
         send.recipient_phone = send_in.address.recipient_phone
         send.country_code = send_in.address.country_code or send.country_code
         send.postal_code = send_in.address.postal_code
-        send.address = send_in.address.address
+        send.recipient_address = send_in.address.recipient_address
         send.customer_memo = send_in.address.customer_memo
     
     return send_crud.update_send(send=send, send_in=send_in, db=db)

@@ -50,7 +50,7 @@ def create_send(
     recipient_phone: str = "",
     country_code: str = "KR",
     postal_code: str = "",
-    address: str = "",
+    recipient_address: str = "",
     customer_memo: Optional[str] = None
 ) -> Send:
     """발송 생성"""
@@ -67,7 +67,7 @@ def create_send(
             recipient_phone=recipient_phone,
             country_code=country_code,
             postal_code=postal_code,
-            address=address,
+            recipient_address=recipient_address,
             customer_memo=customer_memo
         )
         db.add(send)
@@ -85,9 +85,8 @@ def update_send(send: Send, send_in: SendUpdate, db: Session) -> Send:
     """발송 수정"""
     update_data = send_in.model_dump(exclude_unset=True)
     
-    # address는 별도 처리 (service에서 처리)
-    if "address" in update_data:
-        del update_data["address"]
+    # address(SendAddressInput)는 service에서 별도 처리 후 제거
+    update_data.pop("address", None)
     
     for field, value in update_data.items():
         setattr(send, field, value)

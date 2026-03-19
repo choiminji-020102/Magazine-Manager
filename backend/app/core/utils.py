@@ -8,7 +8,7 @@ def parse_subscribe_start_issue(product_code: str) -> Optional[str]:
     규칙:
     - M1001+202601 (YEARLY)  → "202601"
     - M1001-202601 (MONTHLY) → "202601"
-    - A5500        (단행본)  → None
+    - 구분자 없음             → None
     """
     if "+" in product_code:
         return product_code.split("+", 1)[1] or None
