@@ -90,12 +90,12 @@ def check_email_duplicate(admin_email: str, db: Session, exclude_admin_id: Optio
 
 
 def create_admin(admin_in: admin_schema.AdminCreate, db: Session) -> admin_model.Admin:
-    check_email_duplicate(admin_email=admin_in.admin_email, db=db)
-    validate_password_strength(plain_password=admin_in.admin_password)
+    check_email_duplicate(admin_email=admin_in.email, db=db)
+    validate_password_strength(plain_password=admin_in.plain_password)
 
     new_admin = admin_model.Admin(
-        admin_email=admin_in.admin_email,
-        admin_password=get_password_hash(admin_in.admin_password),
+        admin_email=admin_in.email,
+        admin_password=get_password_hash(admin_in.plain_password),
         admin_name=admin_in.admin_name,
         admin_role=admin_in.admin_role,
         is_active=admin_in.is_active,
@@ -109,11 +109,14 @@ def create_admin(admin_in: admin_schema.AdminCreate, db: Session) -> admin_model
 def update_admin(admin_id: int, admin_in: admin_schema.AdminUpdate, db: Session) -> admin_model.Admin:
     existing_admin = read_admin_by_id(admin_id=admin_id, db=db)
 
-    if admin_in.admin_email is not None:
-        check_email_duplicate(admin_email=admin_in.admin_email, db=db, exclude_admin_id=admin_id)
-        existing_admin.admin_email = admin_in.admin_email
+    if admin_in.email is not None:
+        check_email_duplicate(admin_email=admin_in.email, db=db, exclude_admin_id=admin_id)
+        existing_admin.admin_email = admin_in.email
     if admin_in.admin_name is not None:
         existing_admin.admin_name = admin_in.admin_name
+    if admin_in.plain_password is not None:
+        validate_password_strength(plain_password=admin_in.plain_password)
+        existing_admin.admin_password = get_password_hash(admin_in.plain_password)
 
     db.commit()
     db.refresh(existing_admin)

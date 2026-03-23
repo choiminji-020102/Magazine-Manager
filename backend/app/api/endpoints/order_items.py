@@ -112,7 +112,7 @@ def get_order_item(
 
 @router.post(
     "/order-items",
-    response_model=ResponseModel[OrderItemResponse],
+    response_model=ResponseModel[OrderItemDetailResponse],
     status_code=status.HTTP_201_CREATED,
 )
 def create_order_item(
@@ -143,7 +143,7 @@ def create_order_item(
 
     return ResponseModel(
         message="주문 품목이 추가되었습니다.",
-        data=OrderItemResponse.model_validate(item),
+        data=_build_detail_response(db, item),
     )
 
 
@@ -151,7 +151,7 @@ def create_order_item(
 
 @router.put(
     "/order-items/{order_item_id}",
-    response_model=ResponseModel[OrderItemResponse],
+    response_model=ResponseModel[OrderItemDetailResponse],
 )
 def update_order_item(
     order_item_id: int,
@@ -186,7 +186,7 @@ def update_order_item(
 
     return ResponseModel(
         message="주문 품목이 수정되었습니다.",
-        data=OrderItemResponse.model_validate(updated),
+        data=_build_detail_response(db, updated),
     )
 
 
@@ -231,7 +231,7 @@ def update_order_item_address(
 
 @router.post(
     "/order-items/{order_item_id}/extend",
-    response_model=ResponseModel[OrderItemResponse],
+    response_model=ResponseModel[OrderItemDetailResponse],
 )
 def extend_subscription(
     order_item_id: int,
@@ -266,7 +266,7 @@ def extend_subscription(
 
     return ResponseModel(
         message="구독 기간이 연장되었습니다.",
-        data=OrderItemResponse.model_validate(updated),
+        data=_build_detail_response(db, updated),
     )
 
 
@@ -311,7 +311,7 @@ def batch_extend_subscription(
 
 @router.post(
     "/order-items/{order_item_id}/change-period",
-    response_model=ResponseModel[OrderItemResponse],
+    response_model=ResponseModel[OrderItemDetailResponse],
 )
 def change_period(
     order_item_id: int,
@@ -349,7 +349,7 @@ def change_period(
 
     return ResponseModel(
         message="구독 기간이 이동되었습니다.",
-        data=OrderItemResponse.model_validate(updated),
+        data=_build_detail_response(db, updated),
     )
 
 
@@ -367,7 +367,7 @@ def shorten_calculate(
 ):
     """구독 기간 단축 — 환불액 미리 계산 (DB 변경 없음)"""
     order_item = order_item_service.get_active_order_item_by_id(db, order_item_id)
-    result = order_item_service.shorten_calculate(db, order_item, shorten_in)
+    result = order_item_service.shorten_calculate(order_item, shorten_in)
 
     return ResponseModel(
         message="환불액이 계산되었습니다.",
@@ -377,7 +377,7 @@ def shorten_calculate(
 
 @router.post(
     "/order-items/{order_item_id}/shorten/confirm",
-    response_model=ResponseModel[OrderItemResponse],
+    response_model=ResponseModel[OrderItemDetailResponse],
 )
 def shorten_confirm(
     order_item_id: int,
@@ -412,7 +412,7 @@ def shorten_confirm(
 
     return ResponseModel(
         message="구독 기간이 단축되었습니다.",
-        data=OrderItemResponse.model_validate(updated),
+        data=_build_detail_response(db, updated),
     )
 
 

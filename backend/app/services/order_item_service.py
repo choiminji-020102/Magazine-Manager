@@ -190,7 +190,12 @@ def update_address(
                 detail="배송지를 찾을 수 없습니다.",
             )
     else:
-        new_address = address_service.find_or_create_address(db, address_in.new_address)
+        # customer_id를 order에서 자동 주입 (프론트에서 누락 방지)
+        order = db.query(Order).filter(Order.order_id == order_item.order_id).first()
+        new_address_data = address_in.new_address.model_copy(
+            update={"customer_id": order.customer_id}
+        )
+        new_address, _ = address_service.find_or_create_address(db, new_address_data)
 
     new_address_id = new_address.address_id
 
@@ -215,7 +220,7 @@ def update_address(
             pending_issues.append(issue)
             pending_send_ids.add(si.send_id)
 
-    if not pending_issues:
+    if not pending_issues and already_shipped_issues:
         return OrderItemAddressUpdateResponse(
             can_change=False,
             already_shipped_issues=sorted(set(already_shipped_issues)),
@@ -356,7 +361,6 @@ def change_period(
 
 
 def shorten_calculate(
-    db: Session,
     order_item: OrderItem,
     shorten_in: SubscriptionShortenCalculateRequest,
 ) -> SubscriptionShortenCalculateResponse:
@@ -495,6 +499,7 @@ def convert_to_send_product_code(product_code: str, product_kind: str, issue: st
 def find_subscription_targets(
     db: Session,
     issue: str,
+    product_kind: Optional[str] = None,
     product_code: Optional[str] = None,
     base_code: Optional[str] = None,
 ) -> List[dict]:
@@ -504,6 +509,12 @@ def find_subscription_targets(
         .filter(Pause.pause_issue == issue, Pause.deleted_at.is_(None))
         .subquery()
     )
+
+    # product_kind 지정 시 해당 종류만, 미지정 시 YEARLY+MONTHLY 모두
+    if product_kind:
+        kind_filter = OrderItem.product_kind == product_kind
+    else:
+        kind_filter = OrderItem.product_kind.in_(["YEARLY", "MONTHLY"])
 
     query = (
         db.query(
@@ -522,13 +533,10 @@ def find_subscription_targets(
         .join(Customer, Order.customer_id == Customer.customer_id)
         .outerjoin(Address, OrderItem.address_id == Address.address_id)
         .filter(
-            OrderItem.product_kind.in_(["YEARLY", "MONTHLY"]),
+            kind_filter,
             OrderItem.cancelled_at.is_(None),
             OrderItem.final_subscribe_start_issue <= issue,
-            or_(
-                OrderItem.final_subscribe_end_issue >= issue,
-                OrderItem.final_subscribe_end_issue.is_(None),
-            ),
+            OrderItem.final_subscribe_end_issue >= issue,
             or_(
                 OrderItem.last_send_issue.is_(None),
                 OrderItem.last_send_issue < issue,

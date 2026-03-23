@@ -10,18 +10,18 @@ from app.models.admin import AdminRole
 
 
 class AdminCreate(BaseModel):
-    admin_email: EmailStr           # 필수, unique
-    admin_password: str             # 필수 (평문, 서버에서 해싱)
+    email: EmailStr                 # 필수, unique
+    plain_password: str             # 필수 (평문, 서버에서 해싱)
     admin_name: str                 # 필수
     admin_role: AdminRole = AdminRole.MANAGER
     is_active: bool = True
 
 
 class AdminUpdate(BaseModel):
-    # ※ admin_role 변경은 PATCH /role, admin_password 변경은 POST /change-password,
-    #    is_active 변경은 PATCH /activate, PATCH /deactivate 로 처리
-    admin_email: Optional[EmailStr] = None
+    # ※ admin_role 변경은 PATCH /role, 비밀번호 변경은 PATCH /password 로 처리
+    email: Optional[EmailStr] = None
     admin_name: Optional[str] = None
+    plain_password: Optional[str] = None
 
 
 class AdminRoleUpdate(BaseModel):
@@ -37,7 +37,7 @@ class AdminResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     admin_id: int
-    admin_email: str
+    email: str = Field(validation_alias="admin_email")
     admin_name: str
     admin_role: str
     is_active: bool

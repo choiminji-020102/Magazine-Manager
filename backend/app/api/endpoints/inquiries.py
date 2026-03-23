@@ -149,19 +149,19 @@ def create_inquiry(
     
     activity_log_service.create_log(
         db=db,
-        admin=current_admin,
         action=ActivityAction.CREATE,
         target_type=ActivityTargetType.INQUIRY,
+        admin_id=current_admin.admin_id,
+        admin_name=current_admin.admin_name,
         target_id=inquiry.inquiry_id,
+        target_name=customer.customer_name,
         details={
-            "reason": "문의 등록 성공",
             "customer_id": inquiry.customer_id,
-            "customer_name": customer.customer_name,
             "inquiry_type": inquiry.inquiry_type,
-            "inquiry_category": inquiry.inquiry_category
+            "inquiry_category": inquiry.inquiry_category,
         },
         ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent")
+        user_agent=request.headers.get("user-agent"),
     )
     
     return ResponseModel(
@@ -198,13 +198,15 @@ def update_inquiry(
     
     activity_log_service.create_log(
         db=db,
-        admin=current_admin,
         action=ActivityAction.UPDATE,
         target_type=ActivityTargetType.INQUIRY,
+        admin_id=current_admin.admin_id,
+        admin_name=current_admin.admin_name,
         target_id=inquiry_id,
-        details={"reason": "문의 수정 성공", "before": old_data, "after": inquiry_in.model_dump(exclude_unset=True)},
+        target_name=inquiry.inquiry_category,
+        details={"before": old_data, "after": inquiry_in.model_dump(exclude_unset=True)},
         ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent")
+        user_agent=request.headers.get("user-agent"),
     )
     
     return ResponseModel(
@@ -237,13 +239,15 @@ def answer_inquiry(
     
     activity_log_service.create_log(
         db=db,
-        admin=current_admin,
         action=ActivityAction.ANSWER,
         target_type=ActivityTargetType.INQUIRY,
+        admin_id=current_admin.admin_id,
+        admin_name=current_admin.admin_name,
         target_id=inquiry_id,
-        details={"reason": "문의 답변 성공", "status": answer_in.inquiry_status},
+        target_name=inquiry.inquiry_category,
+        details={"inquiry_status": answer_in.inquiry_status},
         ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent")
+        user_agent=request.headers.get("user-agent"),
     )
     
     return ResponseModel(
@@ -274,13 +278,15 @@ def delete_inquiry(
     
     activity_log_service.create_log(
         db=db,
-        admin=current_admin,
         action=ActivityAction.DELETE,
         target_type=ActivityTargetType.INQUIRY,
+        admin_id=current_admin.admin_id,
+        admin_name=current_admin.admin_name,
         target_id=inquiry_id,
-        details={"reason": "문의 삭제 성공", "customer_id": customer_id},
+        target_name=None,
+        details={"customer_id": customer_id},
         ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent")
+        user_agent=request.headers.get("user-agent"),
     )
     
     return ResponseModel(message="문의가 삭제되었습니다.")

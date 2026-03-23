@@ -103,7 +103,7 @@ def create_customer(
     return ResponseModel(message="고객이 등록되었습니다.", data=customer)
 
 
-@router.put("/{customer_id}", response_model=ResponseModel[CustomerResponse])
+@router.put("/{customer_id}", response_model=ResponseModel[CustomerDetailResponse])
 def update_customer(
     customer_id: int,
     customer_in: CustomerUpdate,
@@ -119,9 +119,11 @@ def update_customer(
         "customer_email": existing.customer_email,
     }
 
-    customer = customer_service.update_customer(
+    customer_service.update_customer(
         db=db, customer_id=customer_id, customer_in=customer_in
     )
+    # 수정 후 전체 정보(주문·배송지 포함) 재조회
+    customer = customer_service.get_customer_by_id(db=db, customer_id=customer_id)
 
     activity_log_service.create_log(
         db=db,
@@ -129,7 +131,7 @@ def update_customer(
         target_type=ActivityTargetType.CUSTOMER,
         admin_id=current_admin.admin_id,
         admin_name=current_admin.admin_name,
-        target_id=customer.customer_id,
+        target_id=customer_id,
         target_name=customer.customer_name,
         details={"before": old_data, "after": customer_in.model_dump(exclude_unset=True)},
         ip_address=req.client.host if req.client else None,

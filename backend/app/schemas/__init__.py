@@ -13,7 +13,7 @@ from app.schemas.admin import (
 )
 from app.schemas.customer import (
     CustomerCreate, CustomerUpdate, CustomerResponse,
-    CustomerDetailResponse, CustomerListQuery, CustomerQuickSearchResponse,
+    CustomerDetailResponse, CustomerListQuery,
 )
 from app.schemas.product import (
 	ProductCreate, ProductUpdate, ProductResponse
@@ -29,14 +29,14 @@ from app.schemas.order import (
 from app.schemas.order_item import (
     OrderItemCreate, OrderItemUpdate, OrderItemResponse,
     OrderItemDetailResponse, OrderItemAddressUpdate,
-    OrderItemExtend, OrderItemBulkExtend,
+    SubscriptionExtendRequest, SubscriptionBatchExtendRequest,
 )
 from app.schemas.pause import (
 	PauseCreate, PauseUpdate, PauseResponse, PauseByIssueResponse
 )
 from app.schemas.send import (
     SendCreate, SendUpdate, SendResponse, SendDetailResponse,
-    SendListResponse, SendStatusUpdate, SendTrackingUpdate
+    SendStatusUpdate, SendTrackingUpdate,
 )
 from app.schemas.send_item import (
 	SendItemCreate, SendItemUpdate, SendItemResponse
