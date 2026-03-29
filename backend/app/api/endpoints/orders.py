@@ -35,7 +35,7 @@ def get_orders(
         page=query.page,
         limit=query.limit,
         total_pages=math.ceil(total / query.limit) if total > 0 else 0,
-        items=[OrderListResponse(**item) for item in items],
+        items=items,
     )
 
 

@@ -20,6 +20,13 @@ class OrderStatus(str, Enum):
     CANCELLED = "CANCELLED"
 
 
+class PaymentMethod(str, Enum):
+    CARD = "CARD"
+    TRANSFER = "TRANSFER"
+    CASH = "CASH"
+    DEPOSIT = "DEPOSIT"
+
+
 # ── 주문 생성용 인라인 입력 ────────────────────────────────────────────────────
 
 class OrderCustomerInput(BaseModel):
@@ -72,7 +79,7 @@ class OrderCreate(BaseModel):
 
     discount_amount: int = 0
     send_fee: Optional[int] = None          # 미입력 시 자동 설정 (MONTHLY: 3300, YEARLY: 0)
-    payment_method: Optional[str] = None
+    payment_method: PaymentMethod           # 필수 — 오프라인 주문 등록 시 결제 방법 지정
 
     customer_memo: Optional[str] = None
     admin_memo: Optional[str] = None
@@ -97,7 +104,7 @@ class OrderUpdate(BaseModel):
     discount_amount: Optional[int] = None
     refund_amount: Optional[int] = None
     send_fee: Optional[int] = None
-    payment_method: Optional[str] = None
+    payment_method: Optional[PaymentMethod] = None
     customer_memo: Optional[str] = None
     admin_memo: Optional[str] = None
     payment_at: Optional[datetime] = None
@@ -114,7 +121,7 @@ class OrderCancelRequest(BaseModel):
 
 class OrderPaymentUpdate(BaseModel):
     """결제 완료 처리"""
-    payment_method: Optional[str] = None
+    payment_method: Optional[PaymentMethod] = None
     payment_at: Optional[datetime] = None   # 미입력 시 현재 시각
 
 
@@ -132,7 +139,7 @@ class OrderResponse(BaseModel):
     refund_amount: int = 0
     send_fee: int = 0
     payment_amount: int
-    payment_method: Optional[str] = None
+    payment_method: Optional[PaymentMethod] = None
     customer_memo: Optional[str] = None
     admin_memo: Optional[str] = None
     order_at: datetime
@@ -160,7 +167,7 @@ class OrderListResponse(BaseModel):
     refund_amount: int = 0
     send_fee: int = 0
     payment_amount: int
-    payment_method: Optional[str] = None
+    payment_method: Optional[PaymentMethod] = None
     order_at: datetime
     payment_at: Optional[datetime] = None
     cancelled_at: Optional[datetime] = None
@@ -179,7 +186,7 @@ class OrderListQuery(BaseModel):
     external_order_id: Optional[str] = None     # 외부 주문 ID 검색
     customer_search: Optional[str] = None       # 주문자 이름/연락처
     recipient_search: Optional[str] = None      # 수령인 이름/연락처
-    payment_method: Optional[str] = None
+    payment_method: Optional[PaymentMethod] = None
     admin_memo: Optional[str] = None
     sort_by: str = "created_at"                 # created_at | order_at | payment_at | updated_at
     sort_order: str = "desc"                    # asc | desc
@@ -196,7 +203,7 @@ class OrderListQuery(BaseModel):
         external_order_id: Optional[str] = Query(None),
         customer_search: Optional[str] = Query(None),
         recipient_search: Optional[str] = Query(None),
-        payment_method: Optional[str] = Query(None),
+        payment_method: Optional[PaymentMethod] = Query(None),
         admin_memo: Optional[str] = Query(None),
         sort_by: str = Query("created_at"),
         sort_order: str = Query("desc"),

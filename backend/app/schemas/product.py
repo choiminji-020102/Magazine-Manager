@@ -17,7 +17,6 @@ class ProductCreate(BaseModel):
     product_code: str                                   # 필수, unique (예: "M1001+202604", "M1001-202604")
     product_kind: ProductKind                           # 필수 (YEARLY | MONTHLY)
     product_name: str                                   # 필수 (예: "말씀함께 2026년 4월호")
-    external_product_code_cafe24: Optional[str] = None  # Cafe24 상품 코드
     external_product_code_gpmall: Optional[str] = None  # 갓피플몰 상품 코드
     list_price: int = 0                                 # 정가 (원)
     sale_price: int = 0                                 # 판매가/할인가 (원)
@@ -39,7 +38,6 @@ class ProductUpdate(BaseModel):
     product_code: Optional[str] = None
     product_kind: Optional[ProductKind] = None
     product_name: Optional[str] = None
-    external_product_code_cafe24: Optional[str] = None
     external_product_code_gpmall: Optional[str] = None
     list_price: Optional[int] = None
     sale_price: Optional[int] = None
@@ -62,7 +60,6 @@ class ProductResponse(BaseModel):
     product_code: str
     product_kind: str
     product_name: str
-    external_product_code_cafe24: Optional[str] = None
     external_product_code_gpmall: Optional[str] = None
     list_price: int
     sale_price: int

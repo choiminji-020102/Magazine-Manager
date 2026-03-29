@@ -19,6 +19,7 @@ from app.schemas.order_item import (
     OrderItemCreate,
     OrderItemDetailResponse,
     OrderItemLastSendIssueUpdate,
+    OrderItemListQuery,
     OrderItemPostalCode13113Query,
     OrderItemResponse,
     OrderItemUpdate,
@@ -27,6 +28,7 @@ from app.schemas.order_item import (
     SubscriptionBatchExtendResponse,
     SubscriptionChangePeriodRequest,
     SubscriptionExtendRequest,
+    SubscriptionListItem,
     SubscriptionShortenCalculateRequest,
     SubscriptionShortenCalculateResponse,
     SubscriptionShortenConfirmRequest,
@@ -48,6 +50,28 @@ def _build_detail_response(db: Session, order_item) -> OrderItemDetailResponse:
 
 
 # ── 조회 ──────────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/order-items",
+    response_model=PaginatedResponse[SubscriptionListItem],
+)
+def list_order_items(
+    query: OrderItemListQuery = Depends(OrderItemListQuery.as_query_params),
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_manager),
+):
+    """구독 목록 조회 (고객 정보 포함)"""
+    items, total = order_item_service.list_order_items(db, query)
+    total_pages = (total + query.limit - 1) // query.limit
+
+    return PaginatedResponse(
+        total=total,
+        page=query.page,
+        limit=query.limit,
+        total_pages=total_pages,
+        items=items,
+    )
+
 
 @router.get(
     "/order-items/postal-code/13113",

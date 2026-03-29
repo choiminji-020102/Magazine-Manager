@@ -1,6 +1,5 @@
 # 표준 라이브러리
 from datetime import datetime
-from decimal import Decimal
 from typing import Optional
 
 # 서드파티 라이브러리
@@ -27,10 +26,10 @@ class SendItemResponse(BaseModel):
     issue: str
     send_num: int
     cost_price: int
-    unit_weight: Optional[Decimal] = None
-    unit_width: Optional[Decimal] = None
-    unit_length: Optional[Decimal] = None
-    unit_height: Optional[Decimal] = None
+    unit_weight: Optional[float] = None
+    unit_width: Optional[float] = None
+    unit_length: Optional[float] = None
+    unit_height: Optional[float] = None
     admin_memo: Optional[str] = None
     cancelled_at: Optional[datetime] = None
     created_at: datetime

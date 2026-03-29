@@ -80,13 +80,42 @@ def create_product(db: Session, product_in: ProductCreate) -> Product:
 
 
 def update_product(db: Session, product: Product, product_in: ProductUpdate) -> Product:
-    # 상품 코드 변경 시 중복 검증
+    new_subscribe_start_issue = None
+
+    # 상품 코드 변경 시 중복 검증 + subscribe_start_issue 재파싱
     if product_in.product_code is not None:
         product_crud.check_code_duplicate(
             db=db,
             product_code=product_in.product_code,
             exclude_product_id=product.product_id,
         )
+
+        # product_kind 결정 (변경이 없으면 기존 값 사용)
+        effective_kind = product_in.product_kind if product_in.product_kind is not None else product.product_kind
+
+        # product_kind와 product_code 구분자 일치 검증
+        if effective_kind == "YEARLY" and "+" not in product_in.product_code:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="YEARLY 상품의 product_code는 '+' 구분자와 시작 호를 포함해야 합니다. 예: M1001+202604",
+            )
+        if effective_kind == "MONTHLY" and "-" not in product_in.product_code:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="MONTHLY 상품의 product_code는 '-' 구분자와 시작 호를 포함해야 합니다. 예: M1001-202604",
+            )
+
+        # product_code에서 subscribe_start_issue 재파싱
+        new_subscribe_start_issue = parse_subscribe_start_issue(product_in.product_code)
+
+        # 파싱된 호 형식 검증 (YYYYMM)
+        if new_subscribe_start_issue and (
+            len(new_subscribe_start_issue) != 6 or not new_subscribe_start_issue.isdigit()
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"product_code의 호 형식이 잘못되었습니다: '{new_subscribe_start_issue}' (YYYYMM 형식이어야 합니다)",
+            )
 
     # 가격 검증: 정가 >= 판매가 (변경된 값 기준)
     new_list_price = product_in.list_price if product_in.list_price is not None else product.list_price
@@ -97,7 +126,12 @@ def update_product(db: Session, product: Product, product_in: ProductUpdate) -> 
             detail="정가(list_price)는 판매가(sale_price)보다 크거나 같아야 합니다.",
         )
 
-    return product_crud.update_product(db=db, product=product, product_in=product_in)
+    return product_crud.update_product(
+        db=db,
+        product=product,
+        product_in=product_in,
+        subscribe_start_issue=new_subscribe_start_issue,
+    )
 
 
 def update_stock(db: Session, product: Product, stock_in: ProductStockUpdate) -> Product:

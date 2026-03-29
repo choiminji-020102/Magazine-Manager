@@ -23,6 +23,7 @@ from app.schemas.order_item import (
     OrderItemAddressUpdateResponse,
     OrderItemCancelRequest,
     OrderItemCreate,
+    OrderItemListQuery,
     OrderItemUpdate,
     OrderItemPostalCode13113Query,
     SubscriptionBatchExtendRequest,
@@ -30,10 +31,12 @@ from app.schemas.order_item import (
     SubscriptionBatchExtendResultItem,
     SubscriptionChangePeriodRequest,
     SubscriptionExtendRequest,
+    SubscriptionListItem,
     SubscriptionShortenCalculateRequest,
     SubscriptionShortenCalculateResponse,
     SubscriptionShortenConfirmRequest,
 )
+from app.schemas.dispatch import DispatchTarget
 from app.services import address_service
 
 
@@ -100,6 +103,33 @@ def get_non_deleted_pauses(db: Session, order_item_id: int) -> List[Pause]:
         .order_by(Pause.pause_issue)
         .all()
     )
+
+
+def list_order_items(
+    db: Session, query: OrderItemListQuery
+) -> Tuple[List[SubscriptionListItem], int]:
+    """구독 목록 조회 (고객 정보 포함)"""
+    rows, total = order_item_crud.list_order_items(
+        db,
+        page=query.page,
+        limit=query.limit,
+        product_kind=query.product_kind,
+        product_code=query.product_code,
+        customer_search=query.customer_search,
+        is_cancelled=query.is_cancelled,
+        end_issue_from=query.end_issue_from,
+        end_issue_to=query.end_issue_to,
+        sort_by=query.sort_by,
+        sort_order=query.sort_order,
+    )
+    items = []
+    for order_item, customer_name, customer_phone, order_channel in rows:
+        item = SubscriptionListItem.model_validate(order_item)
+        item.customer_name = customer_name
+        item.customer_phone = customer_phone
+        item.order_channel = order_channel
+        items.append(item)
+    return items, total
 
 
 def list_postal_code_13113(
@@ -502,7 +532,7 @@ def find_subscription_targets(
     product_kind: Optional[str] = None,
     product_code: Optional[str] = None,
     base_code: Optional[str] = None,
-) -> List[dict]:
+) -> List[DispatchTarget]:
     """발송 대상 품목 조회 (YEARLY/MONTHLY, 취소·휴지·발송완료 제외)"""
     pause_subquery = (
         db.query(Pause.order_item_id)
@@ -525,6 +555,7 @@ def find_subscription_targets(
             Customer.customer_phone,
             Address.recipient_name,
             Address.recipient_phone,
+            Address.country_code,
             Address.postal_code,
             Address.recipient_address,
             Address.customer_memo,
@@ -555,30 +586,27 @@ def find_subscription_targets(
     targets = []
     for row in results:
         (
-            item, customer_id, order_channel, customer_name, customer_phone,
-            recipient_name, recipient_phone, postal_code, recipient_address, customer_memo,
+            item, _customer_id, _order_channel, _customer_name, _customer_phone,
+            recipient_name, recipient_phone, country_code, postal_code, recipient_address, customer_memo,
         ) = row
 
-        send_product_code = convert_to_send_product_code(item.product_code, item.product_kind, issue)
-
-        targets.append({
-            "order_item_id": item.order_item_id,
-            "order_id": item.order_id,
-            "customer_id": customer_id,
-            "order_channel": order_channel,
-            "product_code": item.product_code,
-            "send_product_code": send_product_code,
-            "product_kind": item.product_kind,
-            "product_name": item.product_name,
-            "order_num": item.order_num,
-            "customer_name": customer_name,
-            "customer_phone": customer_phone,
-            "address_id": item.address_id,
-            "recipient_name": recipient_name,
-            "recipient_phone": recipient_phone,
-            "postal_code": postal_code,
-            "recipient_address": recipient_address,
-            "customer_memo": customer_memo,
-        })
+        targets.append(DispatchTarget(
+            order_item_id=item.order_item_id,
+            order_id=item.order_id,
+            product_code=item.product_code,
+            product_kind=item.product_kind,
+            product_name=item.product_name,
+            order_num=item.order_num,
+            subscribe_start_issue=item.subscribe_start_issue,
+            final_subscribe_end_issue=item.final_subscribe_end_issue,
+            last_send_issue=item.last_send_issue,
+            address_id=item.address_id,
+            recipient_name=recipient_name,
+            recipient_phone=recipient_phone,
+            country_code=country_code,
+            postal_code=postal_code,
+            recipient_address=recipient_address,
+            customer_memo=customer_memo,
+        ))
 
     return targets

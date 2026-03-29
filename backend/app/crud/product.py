@@ -64,9 +64,7 @@ def read_product_by_code(db: Session, product_code: str) -> Optional[Product]:
 
 
 def read_product_by_external_code(db: Session, code: str, channel: str) -> Optional[Product]:
-    if channel == "CAFE24":
-        return db.query(Product).filter(Product.external_product_code_cafe24 == code).first()
-    elif channel == "GPMALL":
+    if channel == "GPMALL":
         return db.query(Product).filter(Product.external_product_code_gpmall == code).first()
     return None
 
@@ -100,9 +98,17 @@ def create_product(
     return product
 
 
-def update_product(db: Session, product: Product, product_in: ProductUpdate) -> Product:
+def update_product(
+    db: Session,
+    product: Product,
+    product_in: ProductUpdate,
+    subscribe_start_issue: Optional[str] = None,
+) -> Product:
     for field, value in product_in.model_dump(exclude_unset=True).items():
         setattr(product, field, value)
+    # product_code 변경 시 subscribe_start_issue 재설정
+    if subscribe_start_issue is not None:
+        product.subscribe_start_issue = subscribe_start_issue
     db.commit()
     db.refresh(product)
     return product

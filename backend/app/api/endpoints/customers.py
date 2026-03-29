@@ -20,6 +20,7 @@ from app.schemas.customer import (
     CustomerUpdate,
 )
 from app.schemas.common import PaginatedResponse, ResponseModel
+from app.schemas.order import OrderResponse as OrderResp
 from app.services import activity_log_service, customer_service
 
 router = APIRouter(prefix="/customers", tags=["고객"])
@@ -75,7 +76,11 @@ def get_customer(
 ):
     """고객 상세 조회 (주문·배송지 포함)"""
     customer = customer_service.get_customer_by_id(db=db, customer_id=customer_id)
-    return ResponseModel(data=customer)
+    data = CustomerDetailResponse.model_validate(customer)
+    # ORM relationship 이름(orders)과 스키마 필드명(recent_orders) 불일치 → 명시적 매핑 (최근 5건, 주문일 DESC)
+    sorted_orders = sorted(customer.orders, key=lambda o: o.order_at, reverse=True)[:5]
+    data.recent_orders = [OrderResp.model_validate(o) for o in sorted_orders]
+    return ResponseModel(data=data)
 
 
 @router.post("", response_model=ResponseModel[CustomerResponse], status_code=status.HTTP_201_CREATED)

@@ -12,7 +12,7 @@ from app.models.address import Address
 from app.models.customer import Customer
 from app.models.order import Order
 from app.models.order_item import OrderItem
-from app.schemas.order import OrderUpdate
+from app.schemas.order import OrderListResponse, OrderUpdate
 
 
 def list_orders(
@@ -30,7 +30,7 @@ def list_orders(
     admin_memo: Optional[str] = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
-) -> Tuple[List[dict], int]:
+) -> Tuple[List[OrderListResponse], int]:
     """주문 목록 조회 (고객·배송지 정보 JOIN 포함)"""
     from app.core.utils import format_phone_number
 
@@ -105,26 +105,26 @@ def list_orders(
             OrderItem.order_id == order.order_id,
             OrderItem.cancelled_at.is_(None),
         ).count()
-        items.append({
-            "order_id": order.order_id,
-            "customer_id": order.customer_id,
-            "customer_name": customer_name,
-            "customer_phone": customer_phone,
-            "external_order_id": order.external_order_id,
-            "address_id": order.address_id,
-            "order_channel": order.order_channel,
-            "order_status": order.order_status,
-            "total_amount": order.total_amount,
-            "discount_amount": order.discount_amount,
-            "refund_amount": order.refund_amount,
-            "send_fee": order.send_fee,
-            "payment_amount": order.payment_amount,
-            "payment_method": order.payment_method,
-            "order_at": order.order_at,
-            "payment_at": order.payment_at,
-            "cancelled_at": order.cancelled_at,
-            "item_count": item_count,
-        })
+        items.append(OrderListResponse(
+            order_id=order.order_id,
+            customer_id=order.customer_id,
+            customer_name=customer_name,
+            customer_phone=customer_phone,
+            external_order_id=order.external_order_id,
+            address_id=order.address_id,
+            order_channel=order.order_channel,
+            order_status=order.order_status,
+            total_amount=order.total_amount,
+            discount_amount=order.discount_amount,
+            refund_amount=order.refund_amount,
+            send_fee=order.send_fee,
+            payment_amount=order.payment_amount,
+            payment_method=order.payment_method,
+            order_at=order.order_at,
+            payment_at=order.payment_at,
+            cancelled_at=order.cancelled_at,
+            item_count=item_count,
+        ))
     return items, total
 
 

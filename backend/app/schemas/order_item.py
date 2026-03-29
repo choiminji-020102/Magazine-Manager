@@ -178,7 +178,56 @@ class OrderItemDetailResponse(OrderItemResponse):
     pauses: List[PauseInfo] = []
 
 
+# ── 구독 목록 응답 스키마 ─────────────────────────────────────────────────────
+
+class SubscriptionListItem(OrderItemResponse):
+    """구독 목록 조회용 — 고객 정보 + 주문 채널 추가"""
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
+    order_channel: Optional[str] = None
+
+
 # ── 목록 쿼리 스키마 ──────────────────────────────────────────────────────────
+
+class OrderItemListQuery(BaseModel):
+    page: int = Field(1, ge=1)
+    limit: int = Field(20, ge=1, le=100)
+    product_kind: Optional[str] = None
+    product_code: Optional[str] = None
+    customer_search: Optional[str] = None       # 고객명 or 연락처
+    is_cancelled: Optional[bool] = None         # None=전체, True=취소만, False=활성만
+    end_issue_from: Optional[str] = None        # final_subscribe_end_issue >=
+    end_issue_to: Optional[str] = None          # final_subscribe_end_issue <=
+    sort_by: str = "created_at"
+    sort_order: str = "desc"
+
+    @classmethod
+    def as_query_params(
+        cls,
+        page: int = Query(1, ge=1),
+        limit: int = Query(20, ge=1, le=100),
+        product_kind: Optional[str] = Query(None),
+        product_code: Optional[str] = Query(None),
+        customer_search: Optional[str] = Query(None),
+        is_cancelled: Optional[bool] = Query(None),
+        end_issue_from: Optional[str] = Query(None),
+        end_issue_to: Optional[str] = Query(None),
+        sort_by: str = Query("created_at"),
+        sort_order: str = Query("desc"),
+    ):
+        return cls(
+            page=page,
+            limit=limit,
+            product_kind=product_kind,
+            product_code=product_code,
+            customer_search=customer_search,
+            is_cancelled=is_cancelled,
+            end_issue_from=end_issue_from,
+            end_issue_to=end_issue_to,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
+
 
 class OrderItemPostalCode13113Query(BaseModel):
     page: int = Field(1, ge=1)

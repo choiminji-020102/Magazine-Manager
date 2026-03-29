@@ -65,8 +65,8 @@ def get_yearly_targets(
         term = query.recipient_search.lower()
         targets = [
             t for t in targets
-            if (t["recipient_name"] and term in t["recipient_name"].lower())
-            or (t["recipient_phone"] and term in t["recipient_phone"])
+            if (t.recipient_name and term in t.recipient_name.lower())
+            or (t.recipient_phone and term in t.recipient_phone)
         ]
 
     total_count = len(targets)
@@ -76,13 +76,13 @@ def get_yearly_targets(
 
     product_summary: dict = {}
     for t in targets:
-        product_summary[t["product_code"]] = product_summary.get(t["product_code"], 0) + 1
+        product_summary[t.product_code] = product_summary.get(t.product_code, 0) + 1
 
     return ResponseModel(
         message="YEARLY 발송 대상 목록을 조회했습니다.",
         data=DispatchTargetsResponse(
             issue=query.issue,
-            targets=[DispatchTarget(**t) for t in paged],
+            targets=paged,
             total_count=total_count,
             page=query.page,
             limit=query.limit,
@@ -114,8 +114,8 @@ def get_monthly_targets(
         term = query.recipient_search.lower()
         targets = [
             t for t in targets
-            if (t["recipient_name"] and term in t["recipient_name"].lower())
-            or (t["recipient_phone"] and term in t["recipient_phone"])
+            if (t.recipient_name and term in t.recipient_name.lower())
+            or (t.recipient_phone and term in t.recipient_phone)
         ]
 
     total_count = len(targets)
@@ -125,13 +125,13 @@ def get_monthly_targets(
 
     product_summary: dict = {}
     for t in targets:
-        product_summary[t["product_code"]] = product_summary.get(t["product_code"], 0) + 1
+        product_summary[t.product_code] = product_summary.get(t.product_code, 0) + 1
 
     return ResponseModel(
         message="MONTHLY 발송 대상 목록을 조회했습니다.",
         data=DispatchTargetsResponse(
             issue=query.issue,
-            targets=[DispatchTarget(**t) for t in paged],
+            targets=paged,
             total_count=total_count,
             page=query.page,
             limit=query.limit,
@@ -174,12 +174,12 @@ def get_dispatch_summary(
     # 상품별 현황 집계
     product_map: dict = {}
     for t in all_targets:
-        code = t["product_code"]
-        name = t["product_name"]
+        code = t.product_code
+        name = t.product_name
         if code not in product_map:
             product_map[code] = {"product_code": code, "product_name": name, "total": 0, "dispatched": 0, "pending": 0}
         product_map[code]["total"] += 1
-        if t["order_item_id"] in dispatched_ids:
+        if t.order_item_id in dispatched_ids:
             product_map[code]["dispatched"] += 1
         else:
             product_map[code]["pending"] += 1

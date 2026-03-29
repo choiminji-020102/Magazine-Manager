@@ -4,9 +4,12 @@ from typing import List, Optional, Tuple
 
 # 서드파티 라이브러리
 from fastapi import HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
+from app.models.order import Order
+from app.models.customer import Customer
 from app.models.order_item import OrderItem
 from app.models.address import Address
 from app.schemas.order_item import OrderItemUpdate
@@ -152,6 +155,58 @@ def update_last_send_issue(db: Session, order_item: OrderItem, issue: str) -> Or
     db.commit()
     db.refresh(order_item)
     return order_item
+
+
+def list_order_items(
+    db: Session,
+    page: int = 1,
+    limit: int = 20,
+    product_kind: Optional[str] = None,
+    product_code: Optional[str] = None,
+    customer_search: Optional[str] = None,
+    is_cancelled: Optional[bool] = None,
+    end_issue_from: Optional[str] = None,
+    end_issue_to: Optional[str] = None,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+) -> Tuple[List, int]:
+    """구독 목록 조회 — Customer/Order 조인 포함"""
+    query = (
+        db.query(OrderItem, Customer.customer_name, Customer.customer_phone, Order.order_channel)
+        .join(Order, OrderItem.order_id == Order.order_id)
+        .join(Customer, Order.customer_id == Customer.customer_id)
+    )
+
+    if product_kind:
+        query = query.filter(OrderItem.product_kind == product_kind)
+    if product_code:
+        query = query.filter(OrderItem.product_code == product_code)
+    if customer_search:
+        query = query.filter(
+            or_(
+                Customer.customer_name.ilike(f"%{customer_search}%"),
+                Customer.customer_phone.ilike(f"%{customer_search}%"),
+            )
+        )
+    if is_cancelled is True:
+        query = query.filter(OrderItem.cancelled_at.isnot(None))
+    elif is_cancelled is False:
+        query = query.filter(OrderItem.cancelled_at.is_(None))
+    # is_cancelled is None → 전체
+
+    if end_issue_from:
+        query = query.filter(OrderItem.final_subscribe_end_issue >= end_issue_from)
+    if end_issue_to:
+        query = query.filter(OrderItem.final_subscribe_end_issue <= end_issue_to)
+
+    allowed_sort = {"created_at", "subscribe_start_issue", "final_subscribe_end_issue", "updated_at"}
+    sort_col = getattr(OrderItem, sort_by if sort_by in allowed_sort else "created_at")
+    query = query.order_by(sort_col.asc() if sort_order == "asc" else sort_col.desc())
+
+    total = query.count()
+    offset = (page - 1) * limit
+    rows = query.offset(offset).limit(limit).all()
+    return rows, total
 
 
 def list_by_postal_code_13113(

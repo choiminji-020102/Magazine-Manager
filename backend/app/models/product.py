@@ -13,7 +13,6 @@ class Product(Base):
     product_kind = Column(Enum("YEARLY", "MONTHLY", name="product_kind_enum"), nullable=False, comment="상품종류")
     product_name = Column(String(255), nullable=False, comment="상품명")
     
-    external_product_code_cafe24 = Column(String(50), nullable=True, comment="Cafe24 코드")
     external_product_code_gpmall = Column(String(50), nullable=True, comment="갓피플몰 코드")
 
     list_price = Column(Integer, nullable=False, server_default="0", comment="정가")

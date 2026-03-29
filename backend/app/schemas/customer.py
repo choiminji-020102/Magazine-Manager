@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 # 로컬 애플리케이션
 from app.models.customer import Channel
 from app.schemas.address import AddressResponse
-from app.schemas.order import OrderListResponse
+from app.schemas.order import OrderResponse
 
 
 class CustomerCreate(BaseModel):
@@ -47,7 +47,7 @@ class CustomerResponse(BaseModel):
 
 class CustomerDetailResponse(CustomerResponse):
     """고객 상세 조회 응답 (주문·배송지 포함)"""
-    recent_orders: List[OrderListResponse] = []
+    recent_orders: List[OrderResponse] = []
     addresses: List[AddressResponse] = []
 
 

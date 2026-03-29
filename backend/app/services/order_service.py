@@ -15,11 +15,11 @@ from app.models.product import Product
 from app.models.send import Send
 from app.models.send_item import SendItem
 from app.schemas.order import (
-    OrderCancelRequest, OrderCreate, OrderListQuery, OrderPaymentUpdate, OrderUpdate,
+    OrderCancelRequest, OrderCreate, OrderListQuery, OrderListResponse, OrderPaymentUpdate, OrderUpdate,
 )
 
 
-def get_orders(db: Session, query: OrderListQuery) -> Tuple[List[dict], int]:
+def get_orders(db: Session, query: OrderListQuery) -> Tuple[List[OrderListResponse], int]:
     return order_crud.list_orders(
         db=db,
         page=query.page,
