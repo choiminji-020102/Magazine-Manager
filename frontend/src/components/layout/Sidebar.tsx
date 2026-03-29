@@ -1,127 +1,174 @@
-import React from "react";
-import { Globe, BookOpen } from "lucide-react";
+import { useState, useEffect } from "react";
+import { NavLink, useLocation } from "react-router-dom";
+import {
+  LayoutDashboard,
+  ShoppingCart,
+  Truck,
+  Users,
+  Box,
+  BookOpen,
+  MessageSquare,
+  Shield,
+  Activity,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { cn } from "@/utils/cn";
+import { useAuth } from "@/contexts/AuthContext";
 
-import { MENU_STRUCTURE, ROLE_CONFIG } from "../../utils/constants";
-import { AdminResponse } from "../../api/adminsApi";
-import SidebarMenu from "./SidebarMenu";
-
-interface ExpandedMenus {
-  [key: string]: boolean;
+interface NavItem {
+  label: string;
+  path: string;
+  icon: React.ComponentType<{ className?: string }>;
+  requireSuperAdmin?: boolean;
 }
 
-interface SidebarProps {
-  activeMenu: string;
-  activeSubMenu: string;
-  expandedMenus: ExpandedMenus;
-  onMenuClick: (menuKey: string, subMenuKey?: string) => void;
-  onToggleMenu: (menuKey: string) => void;
-  currentUser: AdminResponse | null;
-  onNavigateToProfile: () => void;
+interface NavGroup {
+  group?: string;
+  items: NavItem[];
 }
 
-const Sidebar: React.FC<SidebarProps> = ({
-  activeMenu,
-  activeSubMenu,
-  expandedMenus,
-  onMenuClick,
-  onToggleMenu,
-  currentUser,
-  onNavigateToProfile,
-}) => {
-  const handleLogoClick = () => {
-    onMenuClick("dashboard", "");
-  };
+const navigation: NavGroup[] = [
+  {
+    items: [
+      { label: "대시보드", path: "/", icon: LayoutDashboard },
+    ],
+  },
+  {
+    group: "업무",
+    items: [
+      { label: "주문 목록", path: "/orders", icon: ShoppingCart },
+      { label: "구독 목록", path: "/subscriptions", icon: BookOpen },
+      { label: "발송 관리", path: "/shipping", icon: Truck },
+    ],
+  },
+  {
+    group: "데이터",
+    items: [
+      { label: "고객 목록", path: "/customers", icon: Users },
+      { label: "상품 목록", path: "/products", icon: Box },
+    ],
+  },
+  {
+    group: "운영",
+    items: [
+      { label: "문의 관리", path: "/inquiries", icon: MessageSquare },
+      {
+        label: "관리자 관리",
+        path: "/admins",
+        icon: Shield,
+        requireSuperAdmin: true,
+      },
+      { label: "활동 로그", path: "/activity-logs", icon: Activity },
+    ],
+  },
+  {
+    items: [
+      { label: "설정", path: "/settings", icon: Settings },
+    ],
+  },
+];
+
+export function Sidebar() {
+  const [collapsed, setCollapsed] = useState(() => {
+    return localStorage.getItem("sidebar_collapsed") === "true";
+  });
+  const { currentAdmin } = useAuth();
+  const location = useLocation();
+
+  useEffect(() => {
+    localStorage.setItem("sidebar_collapsed", String(collapsed));
+  }, [collapsed]);
+
+  const isSuperAdmin = currentAdmin?.admin_role === "SUPER_ADMIN";
 
   return (
-    <div className="w-56 bg-white border-r border-line flex flex-col z-20 flex-shrink-0">
-      {/* 로고 영역 */}
-      <div className="p-5 border-b border-line bg-gradient-to-r from-paper to-white">
-        <button
-          onClick={handleLogoClick}
-          className="cursor-pointer hover:opacity-80 transition-opacity text-left w-full flex items-center gap-3"
-          aria-label="대시보드로 이동"
-        >
-          <img
-            src="/logo.png"
-            alt="목자의 지혜"
-            className="h-14 w-auto object-contain"
-            onError={(e) => {
-              // 이미지가 없을 경우 기본 아이콘 표시
-              const target = e.target as HTMLImageElement;
-              target.style.display = "none";
-              const parent = target.parentElement;
-              if (parent) {
-                const fallback = parent.querySelector(
-                  ".logo-fallback"
-                ) as HTMLElement;
-                if (fallback) fallback.style.display = "flex";
-              }
-            }}
-          />
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-accent to-accent-light flex items-center justify-center shadow-sm hidden logo-fallback">
-            <BookOpen className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-ink">목자의 지혜</h1>
-            <p className="text-xs text-muted">매거진 관리 시스템</p>
-          </div>
-        </button>
+    <aside
+      className={cn(
+        "flex flex-col h-screen bg-slate-50 border-r border-gray-200 transition-all duration-200 flex-shrink-0",
+        collapsed ? "w-[52px]" : "w-[220px]"
+      )}
+    >
+      {/* 로고 */}
+      <div className={cn("flex items-center h-14 border-b border-gray-200 px-3", !collapsed && "px-4")}>
+        {!collapsed && (
+          <span className="text-sm font-semibold text-gray-800 truncate">
+            목자의 지혜
+          </span>
+        )}
+        {collapsed && (
+          <span className="text-sm font-semibold text-gray-800">M</span>
+        )}
       </div>
 
-      {/* 관리자 프로필 */}
-      {currentUser && (
-        <div className="p-4 border-b border-line">
-          <button
-            onClick={onNavigateToProfile}
-            className="w-full flex items-center space-x-3 p-3 rounded-lg hover:bg-paper transition-colors group"
-          >
-            <div className="w-10 h-10 bg-gradient-to-br from-accent to-accent-light rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 shadow-sm group-hover:shadow-md transition-shadow">
-              {currentUser.admin_name.charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0 text-left">
-              <p className="text-sm font-semibold text-ink truncate">
-                {currentUser.admin_name}
-              </p>
-              <p className="text-xs text-muted truncate">
-                {ROLE_CONFIG[currentUser.admin_role]?.label ||
-                  currentUser.admin_role}
-              </p>
-            </div>
-          </button>
-        </div>
-      )}
+      {/* 네비게이션 */}
+      <nav className="flex-1 overflow-y-auto py-2">
+        {navigation.map((group, gi) => {
+          const visibleItems = group.items.filter(
+            (item) => !item.requireSuperAdmin || isSuperAdmin
+          );
+          if (visibleItems.length === 0) return null;
 
-      {/* 메뉴 */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
-        <div className="pb-2 px-3 text-[11px] text-muted font-semibold uppercase tracking-wider">
-          메인 메뉴
-        </div>
+          return (
+            <div key={gi} className="mb-1">
+              {group.group && !collapsed && (
+                <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                  {group.group}
+                </div>
+              )}
+              {group.group && collapsed && gi > 0 && (
+                <div className="my-1 mx-2 h-px bg-gray-200" />
+              )}
+              {visibleItems.map((item) => {
+                const Icon = item.icon;
+                const isActive =
+                  item.path === "/"
+                    ? location.pathname === "/"
+                    : location.pathname.startsWith(item.path);
 
-        {MENU_STRUCTURE.map((menu) => (
-          <SidebarMenu
-            key={menu.key}
-            icon={menu.icon}
-            title={menu.title}
-            menuKey={menu.key}
-            activeMenu={activeMenu}
-            activeSubMenu={activeSubMenu}
-            expandedMenus={expandedMenus}
-            onMenuClick={onMenuClick}
-            onToggleMenu={onToggleMenu}
-            subItems={menu.subItems}
-          />
-        ))}
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    className={cn(
+                      "flex items-center gap-2.5 px-3 py-2 mx-1.5 rounded-md text-sm transition-colors",
+                      collapsed && "justify-center px-0 mx-1",
+                      isActive
+                        ? "bg-blue-50 text-blue-700 font-medium"
+                        : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"
+                    )}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    <Icon className={cn("flex-shrink-0", collapsed ? "h-4.5 w-4.5" : "h-4 w-4")} />
+                    {!collapsed && <span className="truncate">{item.label}</span>}
+                  </NavLink>
+                );
+              })}
+            </div>
+          );
+        })}
       </nav>
 
-      {/* 하단 */}
-      <div className="p-4 border-t border-line bg-paper/50">
-        <button className="w-full text-left px-3 py-2 rounded-lg hover:bg-white flex items-center space-x-3 text-sm font-medium text-muted transition-colors">
-          <Globe className="w-4 h-4 text-accent" />
-          <span>한국어 (KOR)</span>
+      {/* 접기/펼치기 버튼 */}
+      <div className="border-t border-gray-200 py-2 px-2">
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className={cn(
+            "flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors",
+            collapsed && "justify-center"
+          )}
+        >
+          {collapsed ? (
+            <ChevronRight className="h-3.5 w-3.5" />
+          ) : (
+            <>
+              <ChevronLeft className="h-3.5 w-3.5" />
+              <span>접기</span>
+            </>
+          )}
         </button>
       </div>
-    </div>
+    </aside>
   );
-};
-
-export default Sidebar;
+}

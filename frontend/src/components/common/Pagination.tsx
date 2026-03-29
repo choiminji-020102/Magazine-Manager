@@ -1,129 +1,93 @@
-import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface PaginationProps {
-  currentPage: number;
+  page: number;
   totalPages: number;
+  total: number;
+  limit: number;
   onPageChange: (page: number) => void;
-  className?: string;
-  pageSize?: number;
-  onPageSizeChange?: (size: number) => void;
-  totalItems?: number;
 }
 
-const Pagination: React.FC<PaginationProps> = ({
-  currentPage,
+export function Pagination({
+  page,
   totalPages,
+  total,
+  limit,
   onPageChange,
-  className = "",
-  pageSize,
-  onPageSizeChange,
-  totalItems,
-}) => {
+}: PaginationProps) {
+  const start = (page - 1) * limit + 1;
+  const end = Math.min(page * limit, total);
+
+  // 페이지 번호 범위 계산 (최대 5개)
   const getPageNumbers = () => {
-    const pages: (number | string)[] = [];
-    const maxVisible = 7;
+    const delta = 2;
+    const pages: (number | "...")[] = [];
+    const left = Math.max(1, page - delta);
+    const right = Math.min(totalPages, page + delta);
 
-    if (totalPages <= maxVisible) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      if (currentPage <= 3) {
-        for (let i = 1; i <= 5; i++) {
-          pages.push(i);
-        }
-        pages.push("...");
-        pages.push(totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(1);
-        pages.push("...");
-        for (let i = totalPages - 4; i <= totalPages; i++) {
-          pages.push(i);
-        }
-      } else {
-        pages.push(1);
-        pages.push("...");
-        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
-          pages.push(i);
-        }
-        pages.push("...");
-        pages.push(totalPages);
-      }
+    if (left > 1) {
+      pages.push(1);
+      if (left > 2) pages.push("...");
     }
-
+    for (let i = left; i <= right; i++) pages.push(i);
+    if (right < totalPages) {
+      if (right < totalPages - 1) pages.push("...");
+      pages.push(totalPages);
+    }
     return pages;
   };
 
-  return (
-    <div className={`flex items-center justify-between py-3 ${className}`}>
-      <div className="flex items-center gap-4">
-        <div className="text-sm text-muted">
-          {totalItems !== undefined ? (
-            <>총 {totalItems.toLocaleString()}건</>
-          ) : (
-            <>
-              페이지 {currentPage} / {totalPages}
-            </>
-          )}
-        </div>
-        {pageSize !== undefined && onPageSizeChange && (
-          <select
-            value={pageSize}
-            onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="text-sm border border-line rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-accent"
-          >
-            <option value={10}>10개씩</option>
-            <option value={20}>20개씩</option>
-            <option value={50}>50개씩</option>
-            <option value={100}>100개씩</option>
-          </select>
-        )}
+  if (totalPages <= 1) {
+    return (
+      <div className="flex items-center justify-end px-3 py-2 text-xs text-gray-500">
+        총 {total.toLocaleString()}건
       </div>
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          className="p-2 rounded-md hover:bg-neutral-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          aria-label="이전 페이지"
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </button>
+    );
+  }
 
-        {getPageNumbers().map((page, index) =>
-          typeof page === "number" ? (
-            <button
-              key={index}
-              onClick={() => onPageChange(page)}
-              className={`min-w-[32px] h-8 px-2 rounded-md text-sm font-medium transition-colors ${
-                currentPage === page
-                  ? "bg-accent text-white"
-                  : "hover:bg-neutral-100 text-ink"
-              }`}
-            >
-              {page}
-            </button>
-          ) : (
-            <span
-              key={index}
-              className="min-w-[32px] h-8 flex items-center justify-center text-sm text-muted"
-            >
-              {page}
+  return (
+    <div className="flex items-center justify-between px-3 py-2.5 border-t border-gray-200">
+      <span className="text-xs text-gray-500">
+        {start.toLocaleString()}–{end.toLocaleString()} / {total.toLocaleString()}건
+      </span>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => onPageChange(page - 1)}
+          disabled={page <= 1}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        {getPageNumbers().map((p, i) =>
+          p === "..." ? (
+            <span key={i} className="px-1 text-xs text-gray-400">
+              ...
             </span>
+          ) : (
+            <button
+              key={p}
+              onClick={() => onPageChange(p as number)}
+              className={
+                p === page
+                  ? "h-7 w-7 rounded-md text-xs font-medium bg-blue-600 text-white"
+                  : "h-7 w-7 rounded-md text-xs text-gray-600 hover:bg-gray-100"
+              }
+            >
+              {p}
+            </button>
           )
         )}
-
-        <button
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          className="p-2 rounded-md hover:bg-neutral-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          aria-label="다음 페이지"
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => onPageChange(page + 1)}
+          disabled={page >= totalPages}
         >
-          <ChevronRight className="w-4 h-4" />
-        </button>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );
-};
-
-export default Pagination;
+}

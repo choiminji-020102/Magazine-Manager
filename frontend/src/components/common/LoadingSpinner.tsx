@@ -1,33 +1,24 @@
-import React from "react";
-
-type SpinnerSize = "sm" | "md" | "lg";
+import { cn } from "@/utils/cn";
 
 interface LoadingSpinnerProps {
-  size?: SpinnerSize;
+  size?: "sm" | "md" | "lg";
   className?: string;
 }
 
-const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
-  size = "md",
-  className,
-}) => {
-  const sizes: Record<SpinnerSize, string> = {
-    sm: "w-4 h-4",
-    md: "w-8 h-8",
-    lg: "w-12 h-12",
-  };
+export function LoadingSpinner({ size = "md", className }: LoadingSpinnerProps) {
+  const sizeClass = {
+    sm: "h-4 w-4 border-2",
+    md: "h-6 w-6 border-2",
+    lg: "h-8 w-8 border-[3px]",
+  }[size];
 
   return (
-    <div className={`flex items-center justify-center ${className}`}>
-      <div
-        className={`${sizes[size]} border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin`}
-        role="status"
-        aria-label="로딩 중"
-      >
-        <span className="sr-only">로딩 중...</span>
-      </div>
-    </div>
+    <div
+      className={cn(
+        "animate-spin rounded-full border-gray-200 border-t-blue-600",
+        sizeClass,
+        className
+      )}
+    />
   );
-};
-
-export default LoadingSpinner;
+}
