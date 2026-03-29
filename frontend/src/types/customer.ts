@@ -6,10 +6,13 @@ export interface CustomerListQuery {
   page: number;
   limit: number;
   search?: string | null;
-  channel?: string | null;
-  sort: string;
-  order: string;
-  deleted_only?: boolean | null;
+  create_channel?: CustomerChannel | null;
+  is_active?: boolean | null;
+  is_deleted?: boolean | null;
+  phone_num4?: string | null;
+  admin_memo?: string | null;
+  sort_by?: string;
+  sort_order?: string;
 }
 
 export interface CustomerCreate {
@@ -21,10 +24,16 @@ export interface CustomerCreate {
 }
 
 export interface CustomerUpdate {
-  customer_name?: string | null;
+  create_channel?: CustomerChannel | null;
   customer_phone?: string | null;
   customer_email?: string | null;
+  customer_name?: string | null;
   admin_memo?: string | null;
+}
+
+export interface CustomerDetailResponse extends CustomerResponse {
+  recent_orders: import("./order").OrderResponse[];
+  addresses: import("./address").AddressResponse[];
 }
 
 export interface CustomerResponse {
@@ -36,6 +45,8 @@ export interface CustomerResponse {
   create_channel: string;
   admin_memo?: string | null;
   last_order_at?: string | null;
+  is_active: boolean;
+  is_deleted: boolean;
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;

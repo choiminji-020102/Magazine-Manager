@@ -1,30 +1,40 @@
-// Address 관련 타입
+// Address 관련 타입 (백엔드 스키마 기준)
 
 export interface AddressCreate {
-  customer_id?: number | null;
-  address_name: string;
-  phone: string;
-  nation?: string | null;
-  postal_code: string;
-  address: string;
-  address_memo?: string | null;
+  customer_id: number;
+  recipient_name: string;       // 불변
+  recipient_phone: string;      // 불변
+  country_code?: string;        // 기본값: "KR", 불변
+  postal_code: string;          // 불변
+  recipient_address: string;    // 불변
+  customer_memo?: string | null;
+  admin_memo?: string | null;
 }
 
 export interface AddressUpdate {
-  nation?: string | null;
+  admin_memo?: string | null;   // 수정 가능한 유일한 필드
+}
+
+export interface AddressListQuery {
+  page?: number;
+  limit?: number;
+  customer_id?: number | null;
   postal_code?: string | null;
-  address_memo?: string | null;
+  country_code?: string | null;
+  sort_by?: string;
+  sort_order?: string;
 }
 
 export interface AddressResponse {
   address_id: number;
-  customer_id?: number | null;
-  address_name: string;
-  phone: string;
-  nation?: string | null;
+  customer_id: number;
+  recipient_name: string;
+  recipient_phone: string;
+  country_code: string;
   postal_code: string;
-  address: string;
-  address_memo?: string | null;
+  recipient_address: string;
+  customer_memo?: string | null;
+  admin_memo?: string | null;
   created_at: string;
   updated_at: string;
 }

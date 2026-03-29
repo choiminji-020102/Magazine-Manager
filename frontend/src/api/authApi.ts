@@ -6,9 +6,8 @@ import type {
   RefreshRequest,
   LogoutRequest,
   PasswordChangeRequest,
-  AdminCreate,
-  AdminResponse,
 } from "../types/auth";
+import type { AdminCreate, AdminResponse } from "../types/admin";
 
 // Re-export for backward compatibility
 export type {

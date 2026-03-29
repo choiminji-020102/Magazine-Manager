@@ -18,10 +18,14 @@ export interface AdminCreate extends AdminBase {
 }
 
 export interface AdminUpdate {
+  // ⚠️ admin_role 변경은 PATCH /role, 활성화/비활성화는 PATCH /activate|deactivate 사용
   email?: string | null;
   admin_name?: string | null;
-  admin_role?: AdminRole | null;
-  is_active?: boolean | null;
+  plain_password?: string | null;
+}
+
+export interface AdminRoleUpdate {
+  admin_role: AdminRole;
 }
 
 export interface AdminResponse {
@@ -30,15 +34,25 @@ export interface AdminResponse {
   admin_name: string;
   admin_role: string;
   is_active: boolean;
+  is_deleted: boolean;
   last_login_at?: string | null;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
 }
 
-export interface AdminActivateRequest {
-  is_active?: boolean | null;
-}
-
-export interface AdminPasswordChange {
+export interface AdminPasswordChangeRequest {
+  current_password: string;
   new_password: string;
+}
+
+export interface AdminListQuery {
+  page?: number;
+  limit?: number;
+  admin_role?: AdminRole | null;
+  is_active?: boolean | null;
+  is_deleted?: boolean;
+  search?: string | null;
+  sort_by?: string;
+  sort_order?: string;
 }

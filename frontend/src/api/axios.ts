@@ -32,11 +32,11 @@ export const tokenUtils = {
 
 // Axios 인스턴스 생성
 const api: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
+  baseURL: import.meta.env.VITE_API_BASE_URL || "",
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 10000,
+  timeout: 15000,
 });
 
 // 토큰 갱신 중인지 추적

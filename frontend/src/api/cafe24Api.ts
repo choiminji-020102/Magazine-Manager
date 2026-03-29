@@ -243,6 +243,25 @@ export const cafe24API = {
   },
 
   /**
+   * Cafe24 주문 가져오기 (수동 임포트)
+   * POST /api/cafe24/orders/import
+   * 결과: { imported_count: number, skipped_count: number, last_synced_at: string }
+   */
+  importOrders: async (): Promise<{
+    imported_count: number;
+    skipped_count: number;
+    last_synced_at: string;
+  }> => {
+    try {
+      const response = await api.post("/cafe24/orders/import");
+      return response.data.data;
+    } catch (err) {
+      logApiError(err as any, "CAFE24_IMPORT_ORDERS");
+      throw err;
+    }
+  },
+
+  /**
    * Cafe24 주문 상태 변경
    * PUT /cafe24/admin/orders/{order_id}?mall_id=
    */

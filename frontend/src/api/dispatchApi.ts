@@ -5,50 +5,103 @@ import type {
   DispatchGenerateRequest,
   DispatchGenerateResponse,
   DispatchSummaryResponse,
-  SingleTargetsResponse,
+  DispatchTrackingUploadResponse,
 } from "../types/dispatch";
 
 export const dispatchApi = {
-  // GET /dispatch/issue/{issue}/targets - 호수별 발송 대상 조회 (YEARLY/MONTHLY)
-  getDispatchTargets: (
-    issue: string,
-    params?: { product_code?: string | null; base_code?: string | null }
-  ) => {
-    return api.get<ResponseModel<DispatchTargetsResponse>>(`/dispatch/issue/${issue}/targets`, {
-      params,
-    });
+  // GET /dispatches/yearly/targets - YEARLY 발송 대상 조회
+  getYearlyTargets: (params: {
+    issue: string;
+    product_code?: string | null;
+    recipient_search?: string | null;
+    page?: number;
+    limit?: number;
+  }) => {
+    return api.get<ResponseModel<DispatchTargetsResponse>>(
+      "/dispatches/yearly/targets",
+      { params }
+    );
   },
 
-  // POST /dispatch/issue/{issue}/generate - 호수별 발송 일괄 생성 (YEARLY/MONTHLY)
-  generateDispatch: (issue: string, data: DispatchGenerateRequest) => {
+  // GET /dispatches/monthly/targets - MONTHLY 발송 대상 조회
+  getMonthlyTargets: (params: {
+    issue: string;
+    product_code?: string | null;
+    recipient_search?: string | null;
+    page?: number;
+    limit?: number;
+  }) => {
+    return api.get<ResponseModel<DispatchTargetsResponse>>(
+      "/dispatches/monthly/targets",
+      { params }
+    );
+  },
+
+  // GET /dispatches/summary - 발송 현황 요약
+  getDispatchSummary: (issue: string) => {
+    return api.get<ResponseModel<DispatchSummaryResponse>>(
+      "/dispatches/summary",
+      { params: { issue } }
+    );
+  },
+
+  // POST /dispatches/yearly/generate - YEARLY 발송 일괄 처리
+  generateYearlyDispatch: (data: DispatchGenerateRequest) => {
     return api.post<ResponseModel<DispatchGenerateResponse>>(
-      `/dispatch/issue/${issue}/generate`,
+      "/dispatches/yearly/generate",
       data
     );
   },
 
-  // GET /dispatch/issue/{issue}/summary - 호수별 발송 현황 요약 (YEARLY/MONTHLY)
-  getDispatchSummary: (
-    issue: string,
-    params?: { product_code?: string | null; base_code?: string | null }
-  ) => {
-    return api.get<ResponseModel<DispatchSummaryResponse>>(`/dispatch/issue/${issue}/summary`, {
-      params,
-    });
-  },
-
-  // GET /dispatch/single/{product_code}/targets - SINGLE 상품 발송 대상 조회
-  getSingleTargets: (productCode: string) => {
-    return api.get<ResponseModel<SingleTargetsResponse>>(
-      `/dispatch/single/${productCode}/targets`
+  // POST /dispatches/monthly/generate - MONTHLY 발송 일괄 처리
+  generateMonthlyDispatch: (data: DispatchGenerateRequest) => {
+    return api.post<ResponseModel<DispatchGenerateResponse>>(
+      "/dispatches/monthly/generate",
+      data
     );
   },
 
-  // POST /dispatch/single/{product_code}/generate - SINGLE 상품 발송 일괄 생성
-  generateSingleDispatch: (productCode: string, data: DispatchGenerateRequest) => {
-    return api.post<ResponseModel<DispatchGenerateResponse>>(
-      `/dispatch/single/${productCode}/generate`,
-      data
+  // GET /dispatches/yearly/export - YEARLY 엑셀 다운로드
+  exportYearlyDispatch: (issue: string) => {
+    return api.get("/dispatches/yearly/export", {
+      params: { issue },
+      responseType: "blob",
+    });
+  },
+
+  // GET /dispatches/monthly/export - MONTHLY 엑셀 다운로드
+  exportMonthlyDispatch: (issue: string) => {
+    return api.get("/dispatches/monthly/export", {
+      params: { issue },
+      responseType: "blob",
+    });
+  },
+
+  // POST /dispatches/yearly/upload-tracking - YEARLY 송장 업로드
+  uploadYearlyTracking: (issue: string, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.post<ResponseModel<DispatchTrackingUploadResponse>>(
+      "/dispatches/yearly/upload-tracking",
+      formData,
+      {
+        params: { issue },
+        headers: { "Content-Type": "multipart/form-data" },
+      }
+    );
+  },
+
+  // POST /dispatches/monthly/upload-tracking - MONTHLY 송장 업로드
+  uploadMonthlyTracking: (issue: string, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.post<ResponseModel<DispatchTrackingUploadResponse>>(
+      "/dispatches/monthly/upload-tracking",
+      formData,
+      {
+        params: { issue },
+        headers: { "Content-Type": "multipart/form-data" },
+      }
     );
   },
 };

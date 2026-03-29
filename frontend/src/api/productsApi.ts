@@ -4,6 +4,7 @@ import type {
   ProductListQuery,
   ProductCreate,
   ProductUpdate,
+  ProductStockUpdate,
   ProductResponse,
 } from "../types/product";
 
@@ -38,8 +39,18 @@ export const productsApi = {
     return api.delete<ResponseModel<void>>(`/products/${productId}`);
   },
 
-  // PATCH /products/{product_id}/activate - 상품 활성화/비활성화
+  // PATCH /products/{product_id}/activate - 상품 활성화
   activateProduct: (productId: number) => {
-    return api.patch<ResponseModel<{ is_active: boolean }>>(`/products/${productId}/activate`);
+    return api.patch<ResponseModel<ProductResponse>>(`/products/${productId}/activate`);
+  },
+
+  // PATCH /products/{product_id}/deactivate - 상품 비활성화
+  deactivateProduct: (productId: number) => {
+    return api.patch<ResponseModel<ProductResponse>>(`/products/${productId}/deactivate`);
+  },
+
+  // PATCH /products/{product_id}/stock - 재고 수정
+  updateStock: (productId: number, data: ProductStockUpdate) => {
+    return api.patch<ResponseModel<ProductResponse>>(`/products/${productId}/stock`, data);
   },
 };

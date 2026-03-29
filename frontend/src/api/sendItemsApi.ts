@@ -23,8 +23,8 @@ export const sendItemsApi = {
     return api.put<ResponseModel<SendItemResponse>>(`/send-items/${sendItemId}`, data);
   },
 
-  // DELETE /send-items/{send_item_id} - 발송 품목 삭제
-  deleteSendItem: (sendItemId: number) => {
-    return api.delete<ResponseModel<void>>(`/send-items/${sendItemId}`);
+  // POST /send-items/{send_item_id}/cancel - 발송 품목 취소
+  cancelSendItem: (sendItemId: number) => {
+    return api.post<ResponseModel<SendItemResponse>>(`/send-items/${sendItemId}/cancel`);
   },
 };

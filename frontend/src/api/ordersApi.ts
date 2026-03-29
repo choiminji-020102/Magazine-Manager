@@ -6,7 +6,10 @@ import type {
   OrderUpdate,
   OrderResponse,
   OrderListResponse,
+  OrderDetailResponse,
   OrderStatusUpdate,
+  OrderCancelRequest,
+  OrderPaymentUpdate,
 } from "../types/order";
 
 export const ordersApi = {
@@ -20,9 +23,14 @@ export const ordersApi = {
     return api.get<ResponseModel<OrderResponse>>(`/orders/external/${externalOrderId}`);
   },
 
-  // GET /orders/{order_id} - 주문 상세 조회
+  // GET /orders/customer/{customer_id} - 고객별 주문 이력
+  getOrdersByCustomer: (customerId: number) => {
+    return api.get<ResponseModel<OrderResponse[]>>(`/orders/customer/${customerId}`);
+  },
+
+  // GET /orders/{order_id} - 주문 상세 조회 (고객·배송지·품목·발송 포함)
   getOrder: (orderId: number) => {
-    return api.get<ResponseModel<OrderResponse>>(`/orders/${orderId}`);
+    return api.get<ResponseModel<OrderDetailResponse>>(`/orders/${orderId}`);
   },
 
   // POST /orders - 주문 등록
@@ -40,13 +48,13 @@ export const ordersApi = {
     return api.patch<ResponseModel<OrderResponse>>(`/orders/${orderId}/status`, data);
   },
 
-  // PATCH /orders/{order_id}/cancel - 주문 취소
-  cancelOrder: (orderId: number) => {
-    return api.patch<ResponseModel<OrderResponse>>(`/orders/${orderId}/cancel`);
+  // POST /orders/{order_id}/payment - 결제 완료 처리
+  completePayment: (orderId: number, data?: OrderPaymentUpdate) => {
+    return api.post<ResponseModel<OrderResponse>>(`/orders/${orderId}/payment`, data ?? {});
   },
 
-  // GET /orders/customer/{customer_id} - 고객별 주문 이력 조회
-  getOrdersByCustomer: (customerId: number) => {
-    return api.get<ResponseModel<OrderResponse[]>>(`/orders/customer/${customerId}`);
+  // POST /orders/{order_id}/cancel - 주문 취소
+  cancelOrder: (orderId: number, data: OrderCancelRequest) => {
+    return api.post<ResponseModel<OrderResponse>>(`/orders/${orderId}/cancel`, data);
   },
 };

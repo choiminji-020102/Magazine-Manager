@@ -5,7 +5,6 @@ import type {
   SendUpdate,
   SendResponse,
   SendDetailResponse,
-  SendListResponse,
   SendStatusUpdate,
   SendTrackingUpdate,
 } from "../types/send";
@@ -16,21 +15,23 @@ export const sendsApi = {
     page?: number;
     limit?: number;
     send_status?: string | null;
-    courier?: string | null;
-    send_date?: string | null;
-    search?: string | null;
+    courier_company?: string | null;
+    tracking_no?: string | null;
+    official_send_date?: string | null;
+    start_date?: string | null;
+    end_date?: string | null;
+    is_cancelled?: boolean | null;
+    recipient_search?: string | null;
+    postal_code?: string | null;
+    sort_by?: string;
+    sort_order?: string;
   }) => {
-    return api.get<PaginatedResponse<SendListResponse>>("/sends", { params });
+    return api.get<PaginatedResponse<SendResponse>>("/sends", { params });
   },
 
-  // GET /sends/order/{order_id} - 주문별 발송 목록
+  // GET /orders/{order_id}/sends - 주문별 발송 목록
   getSendsByOrder: (orderId: number) => {
-    return api.get<ResponseModel<SendListResponse[]>>(`/sends/order/${orderId}`);
-  },
-
-  // GET /sends/date/{send_date} - 날짜별 발송 조회
-  getSendsByDate: (sendDate: string) => {
-    return api.get<ResponseModel<SendListResponse[]>>(`/sends/date/${sendDate}`);
+    return api.get<ResponseModel<SendResponse[]>>(`/orders/${orderId}/sends`);
   },
 
   // GET /sends/{send_id} - 발송 상세 조회
@@ -45,7 +46,7 @@ export const sendsApi = {
 
   // PUT /sends/{send_id} - 발송 수정
   updateSend: (sendId: number, data: SendUpdate) => {
-    return api.put<ResponseModel<SendResponse>>(`/sends/${sendId}`, data);
+    return api.put<ResponseModel<SendDetailResponse>>(`/sends/${sendId}`, data);
   },
 
   // PATCH /sends/{send_id}/status - 발송 상태 변경
@@ -53,18 +54,35 @@ export const sendsApi = {
     return api.patch<ResponseModel<SendResponse>>(`/sends/${sendId}/status`, data);
   },
 
+  // POST /sends/{send_id}/waiting - YEARLY 배송 대기 전환
+  waitingSend: (sendId: number) => {
+    return api.post<ResponseModel<SendResponse>>(`/sends/${sendId}/waiting`);
+  },
+
   // PATCH /sends/{send_id}/tracking - 운송장 정보 등록
   updateTracking: (sendId: number, data: SendTrackingUpdate) => {
     return api.patch<ResponseModel<SendResponse>>(`/sends/${sendId}/tracking`, data);
   },
 
-  // PATCH /sends/{send_id}/cancel - 발송 취소
+  // POST /sends/{send_id}/cancel - 발송 취소
   cancelSend: (sendId: number) => {
-    return api.patch<ResponseModel<SendResponse>>(`/sends/${sendId}/cancel`);
+    return api.post<ResponseModel<SendResponse>>(`/sends/${sendId}/cancel`);
+  },
+
+  // GET /sends/postal-code/13113 - 우편번호 13113 발송 목록
+  getSendsPostalCode13113: (params?: {
+    page?: number;
+    limit?: number;
+    send_status?: string | null;
+    official_send_date?: string | null;
+    sort_by?: string;
+    sort_order?: string;
+  }) => {
+    return api.get<PaginatedResponse<SendResponse>>("/sends/postal-code/13113", { params });
   },
 
   // GET /sends/export/excel - 발송 데이터 엑셀 다운로드
-  exportSendsToExcel: (params?: { send_date?: string | null; send_status?: string | null }) => {
+  exportSendsToExcel: (params?: { official_send_date?: string | null; send_status?: string | null }) => {
     return api.get("/sends/export/excel", {
       params,
       responseType: "blob",

@@ -1,97 +1,83 @@
-// Dispatch 관련 타입
+// Dispatch 관련 타입 (새 백엔드 스키마 기준)
 
 export interface DispatchTarget {
   order_item_id: number;
   order_id: number;
-  customer_id: number;
-  order_channel: string;
   product_code: string;
-  send_product_code: string;
-  product_kind: string;
   product_name: string;
-  customer_name: string;
-  customer_phone: string;
+  product_kind: string;
+  order_num: number;
+  subscribe_start_issue: string;
+  final_subscribe_end_issue?: string | null;
+  last_send_issue?: string | null;
+  // 배송지 정보
   address_id?: number | null;
-  address_name?: string | null;
-  phone?: string | null;
+  recipient_name?: string | null;
+  recipient_phone?: string | null;
+  country_code?: string | null;
   postal_code?: string | null;
-  address?: string | null;
-  address_memo?: string | null;
+  recipient_address?: string | null;
+  customer_memo?: string | null;
 }
 
 export interface DispatchTargetsResponse {
   issue: string;
-  product_code?: string | null;
-  base_code?: string | null;
-  count: number;
   targets: DispatchTarget[];
+  total_count: number;
+  page: number;
+  limit: number;
+  total_pages: number;
+  product_summary: Record<string, number>; // {product_code: count}
 }
 
 export interface DispatchGenerateRequest {
-  product_code?: string | null;
-  base_code?: string | null;
-  send_date?: string | null;
+  issue: string;
+  official_send_date?: string | null;
+  order_item_ids: number[];
 }
 
-export interface DispatchCreatedItem {
-  send_id: number;
+export interface DispatchGenerateResult {
   order_item_id: number;
-  customer_name: string;
-  send_product_code: string;
-}
-
-export interface DispatchErrorItem {
-  order_item_id: number;
-  customer_name: string;
-  error: string;
+  success: boolean;
+  send_id?: number | null;
+  message?: string | null;
 }
 
 export interface DispatchGenerateResponse {
   issue: string;
-  total_targets: number;
-  created_count: number;
-  error_count: number;
-  created: DispatchCreatedItem[];
-  errors: DispatchErrorItem[];
+  total_requested: number;
+  success_count: number;
+  fail_count: number;
+  results: DispatchGenerateResult[];
 }
 
-export interface SubscriptionStats {
-  total_subscriptions: number;
-  yearly_count: number;
-  monthly_count: number;
-  sent_count: number;
+export interface DispatchProductStat {
+  product_code: string;
+  product_name: string;
+  total: number;
+  dispatched: number;
+  pending: number;
 }
 
 export interface DispatchSummaryResponse {
   issue: string;
-  product_code?: string | null;
-  base_code?: string | null;
-  statistics: SubscriptionStats;
+  total_target_count: number;
+  dispatched_count: number;
   pending_count: number;
+  by_product: DispatchProductStat[];
+  by_status: Record<string, number>;
 }
 
-export interface SingleTarget {
-  order_item_id: number;
-  order_id: number;
-  customer_id: number;
-  order_channel: string;
-  product_code: string;
-  send_product_code: string;
-  product_kind: string;
-  product_name: string;
-  order_num: number;
-  customer_name: string;
-  customer_phone: string;
-  address_id?: number | null;
-  address_name?: string | null;
-  phone?: string | null;
-  postal_code?: string | null;
-  address?: string | null;
-  address_memo?: string | null;
+export interface DispatchTrackingUploadResult {
+  send_id: number;
+  success: boolean;
+  message?: string | null;
 }
 
-export interface SingleTargetsResponse {
-  product_code: string;
-  count: number;
-  targets: SingleTarget[];
+export interface DispatchTrackingUploadResponse {
+  issue: string;
+  total: number;
+  success_count: number;
+  fail_count: number;
+  results: DispatchTrackingUploadResult[];
 }

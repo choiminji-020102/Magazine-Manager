@@ -2,7 +2,7 @@
 
 export interface InquiryCreate {
   customer_id: number;
-  inquiry_type: string;
+  inquiry_type?: string;  // 기본값: "PHONE"
   inquiry_category?: string | null;
   title?: string | null;
   content?: string | null;
@@ -23,7 +23,7 @@ export interface InquiryUpdate {
 
 export interface InquiryAnswer {
   answer: string;
-  inquiry_status: string;
+  inquiry_status?: string;  // 기본값: "COMPLETED"
 }
 
 export interface InquiryResponse {

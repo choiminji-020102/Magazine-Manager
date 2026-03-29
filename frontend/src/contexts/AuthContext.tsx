@@ -24,6 +24,8 @@ const DEV_ADMIN: AdminResponse = {
   last_login_at: null,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
+  is_deleted: false,
+  deleted_at: null,
 };
 
 // AuthContext 타입 정의
