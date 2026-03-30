@@ -622,6 +622,9 @@ function SendStatusTab() {
   const [trackingTarget, setTrackingTarget] = useState<SendResponse | null>(null);
   const [trackingForm, setTrackingForm] = useState({ tracking_no: "", courier_company: "CJ대한통운" });
   const [excelLoading, setExcelLoading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
+  const [batchStatusOpen, setBatchStatusOpen] = useState(false);
+  const [batchStatus, setBatchStatus] = useState("WAITING");
   const limit = 20;
 
   const handleRowClick = useCallback((row: SendResponse) => {
@@ -683,6 +686,20 @@ function SendStatusTab() {
       setCancelTarget(null);
     },
     onError: () => toast.error("발송 취소 실패"),
+  });
+
+  const batchStatusMutation = useMutation({
+    mutationFn: async (targetStatus: string) => {
+      const ids = Array.from(selectedIds) as number[];
+      await Promise.all(ids.map((id) => sendsApi.updateSendStatus(id, { send_status: targetStatus })));
+    },
+    onSuccess: () => {
+      toast.success(`${selectedIds.size}건 상태가 변경되었습니다.`);
+      queryClient.invalidateQueries({ queryKey: ["sends"] });
+      setSelectedIds(new Set());
+      setBatchStatusOpen(false);
+    },
+    onError: () => toast.error("일괄 상태 변경 실패"),
   });
 
   const { data, isLoading } = useQuery({
@@ -831,18 +848,37 @@ function SendStatusTab() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        left={<span className="text-sm text-gray-500">총 {data?.total ?? 0}건</span>}
+        left={
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-500">총 {data?.total ?? 0}건</span>
+            {selectedIds.size > 0 && (
+              <span className="text-sm text-blue-600 font-medium">{selectedIds.size}건 선택됨</span>
+            )}
+          </div>
+        }
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={handleExcelDownload}
-            disabled={excelLoading}
-          >
-            {excelLoading ? <LoadingSpinner size="sm" /> : <Download className="h-3.5 w-3.5" />}
-            엑셀 다운로드
-          </Button>
+          <div className="flex items-center gap-2">
+            {selectedIds.size > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50"
+                onClick={() => setBatchStatusOpen(true)}
+              >
+                일괄 상태변경 ({selectedIds.size})
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={handleExcelDownload}
+              disabled={excelLoading}
+            >
+              {excelLoading ? <LoadingSpinner size="sm" /> : <Download className="h-3.5 w-3.5" />}
+              엑셀 다운로드
+            </Button>
+          </div>
         }
       />
 
@@ -950,6 +986,8 @@ function SendStatusTab() {
             activeRowId={selectedSendId}
             isLoading={isLoading}
             emptyMessage="발송 내역이 없습니다."
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
           />
         </div>
       </div>
@@ -1021,6 +1059,45 @@ function SendStatusTab() {
               disabled={trackingMutation.isPending || !trackingForm.tracking_no.trim()}
             >
               등록
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 일괄 상태변경 다이얼로그 */}
+      <Dialog open={batchStatusOpen} onOpenChange={(o) => !o && setBatchStatusOpen(false)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>일괄 상태변경</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <p className="text-sm text-gray-600">
+              선택된 <span className="font-semibold">{selectedIds.size}건</span>의 발송 상태를 변경합니다.
+            </p>
+            <div>
+              <Label className="text-xs font-medium text-gray-600">변경할 상태</Label>
+              <Select value={batchStatus} onValueChange={setBatchStatus}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="WAITING">배송 대기</SelectItem>
+                  <SelectItem value="SHIPPING">배송 중</SelectItem>
+                  <SelectItem value="DELIVERED">배송 완료</SelectItem>
+                  <SelectItem value="CANCELLED">취소</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setBatchStatusOpen(false)}>취소</Button>
+            <Button
+              size="sm"
+              onClick={() => batchStatusMutation.mutate(batchStatus)}
+              disabled={batchStatusMutation.isPending}
+            >
+              {batchStatusMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+              변경
             </Button>
           </DialogFooter>
         </DialogContent>
