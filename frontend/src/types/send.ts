@@ -37,7 +37,7 @@ export interface SendUpdate {
 }
 
 export interface SendStatusUpdate {
-  send_status: string;  // WAITING | SHIPPING | DELIVERED | CANCELLED
+  send_status: string;  // SHIPPING | DELIVERED | CANCELLED
   tracking_no?: string | null;
   courier_company?: string | null;
 }
@@ -88,4 +88,19 @@ export interface SendListQuery {
   postal_code?: string | null;
   sort_by?: string;
   sort_order?: string;
+}
+
+// 일괄 상태 전환
+
+export interface SendBatchStatusResult {
+  send_id: number;
+  success: boolean;
+  message?: string | null;
+}
+
+export interface SendBatchStatusResponse {
+  total: number;
+  success_count: number;
+  fail_count: number;
+  results: SendBatchStatusResult[];
 }

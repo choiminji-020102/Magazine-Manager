@@ -263,7 +263,7 @@ def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) 
     """
     주문 취소 — 취소 규칙:
     - MONTHLY 상품이 SHIPPING/DELIVERED 상태면 주문 전체 취소 불가
-    - PREPARING/WAITING 상태인 Send만 취소 처리
+    - PREPARING 상태인 Send만 취소 처리
     - YEARLY 배송 후: 잔여 회차 기준 환불액 계산
     - MONTHLY 배송 전: 전액 환불
     - YEARLY 배송 전: 전액 환불
@@ -321,7 +321,7 @@ def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) 
     cancel_note = f"[취소] {cancel_request.admin_memo}"
     order.admin_memo = f"{order.admin_memo}\n{cancel_note}" if order.admin_memo else cancel_note
 
-    # ── 4. PREPARING/WAITING 상태 Send 취소 ──────────────────────────────────
+    # ── 4. PREPARING 상태 Send 취소 ──────────────────────────────────────────
     _cancel_pending_sends(db, [item.order_item_id for item in active_items], now)
 
     # ── 5. 품목 일괄 취소 ─────────────────────────────────────────────────────
@@ -399,7 +399,7 @@ def _count_delivered_issues(db: Session, order_item_id: int) -> int:
 
 
 def _cancel_pending_sends(db: Session, order_item_ids: List[int], now: datetime) -> None:
-    """PREPARING/WAITING 상태 Send 취소 처리"""
+    """PREPARING 상태 Send 취소 처리"""
     if not order_item_ids:
         return
     send_items = (
@@ -417,7 +417,7 @@ def _cancel_pending_sends(db: Session, order_item_ids: List[int], now: datetime)
         db.query(Send)
         .filter(
             Send.send_id.in_(send_ids),
-            Send.send_status.in_(["PREPARING", "WAITING"]),
+            Send.send_status.in_(["PREPARING"]),
         )
         .all()
     )

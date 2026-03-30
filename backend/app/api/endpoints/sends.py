@@ -17,6 +17,9 @@ from app.models.send_item import SendItem
 from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.schemas.common import PaginatedResponse, ResponseModel
 from app.schemas.send import (
+    SendBatchStatusRequest,
+    SendBatchStatusResponse,
+    SendBatchStatusResult,
     SendCreate,
     SendDetailResponse,
     SendListQuery,
@@ -26,6 +29,7 @@ from app.schemas.send import (
     SendUpdate,
 )
 from app.schemas.send_item import SendItemResponse
+from app.crud import send as send_crud
 from app.services import activity_log_service, order_service, send_service
 
 router = APIRouter(tags=["발송"])
@@ -368,40 +372,6 @@ def update_send_status(
     )
 
 
-@router.post(
-    "/sends/{send_id}/waiting",
-    response_model=ResponseModel[SendResponse],
-)
-def waiting_send(
-    send_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin),
-):
-    """YEARLY 정기구독 배송 대기 전환 (자체배송 자동 설정)"""
-    send = send_service.get_send_by_id(db, send_id)
-
-    updated = send_service.waiting_send(db, send)
-
-    activity_log_service.create_log(
-        db=db,
-        action=ActivityAction.UPDATE,
-        target_type=ActivityTargetType.SEND,
-        admin_id=current_admin.admin_id,
-        admin_name=current_admin.admin_name,
-        target_id=send_id,
-        target_name=send.recipient_name,
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-        details={"before": {"send_status": "PREPARING"}, "after": {"send_status": "WAITING"}},
-    )
-
-    return ResponseModel(
-        message="배송 대기 상태로 전환되었습니다.",
-        data=SendResponse.model_validate(updated),
-    )
-
-
 @router.patch(
     "/sends/{send_id}/tracking",
     response_model=ResponseModel[SendResponse],
@@ -476,5 +446,125 @@ def cancel_send(
     return ResponseModel(
         message="발송이 취소되었습니다.",
         data=SendResponse.model_validate(cancelled),
+    )
+
+
+# ── 일괄 상태 전환 ──────────────────────────────────────────────────────────
+
+@router.post(
+    "/sends/batch/shipping",
+    response_model=ResponseModel[SendBatchStatusResponse],
+)
+def batch_shipping(
+    req: SendBatchStatusRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_admin),
+):
+    """PREPARING 상태 발송을 일괄 SHIPPING 전환"""
+    results = []
+    success_count = 0
+    for send_id in req.send_ids:
+        try:
+            send = send_crud.read_send_by_id(db, send_id)
+            if send.send_status != "PREPARING":
+                results.append(SendBatchStatusResult(
+                    send_id=send_id, success=False,
+                    message=f"PREPARING 상태가 아닙니다. 현재: {send.send_status}",
+                ))
+                continue
+            send_crud.update_send_status(db, send, "SHIPPING",
+                                         courier_company=send.courier_company,
+                                         tracking_no=send.tracking_no)
+            results.append(SendBatchStatusResult(send_id=send_id, success=True))
+            success_count += 1
+        except Exception as e:
+            results.append(SendBatchStatusResult(
+                send_id=send_id, success=False, message=str(e),
+            ))
+
+    activity_log_service.create_log(
+        db=db,
+        action=ActivityAction.UPDATE,
+        target_type=ActivityTargetType.SEND,
+        admin_id=current_admin.admin_id,
+        admin_name=current_admin.admin_name,
+        target_id=None,
+        target_name=f"일괄 배송중 전환 ({success_count}건)",
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        details={
+            "total": len(req.send_ids),
+            "success_count": success_count,
+            "fail_count": len(req.send_ids) - success_count,
+        },
+    )
+
+    return ResponseModel(
+        message=f"{success_count}건 배송중으로 전환되었습니다.",
+        data=SendBatchStatusResponse(
+            total=len(req.send_ids),
+            success_count=success_count,
+            fail_count=len(req.send_ids) - success_count,
+            results=results,
+        ),
+    )
+
+
+@router.post(
+    "/sends/batch/delivered",
+    response_model=ResponseModel[SendBatchStatusResponse],
+)
+def batch_delivered(
+    req: SendBatchStatusRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_admin),
+):
+    """SHIPPING 상태 발송을 일괄 DELIVERED 전환"""
+    results = []
+    success_count = 0
+    for send_id in req.send_ids:
+        try:
+            send = send_crud.read_send_by_id(db, send_id)
+            if send.send_status != "SHIPPING":
+                results.append(SendBatchStatusResult(
+                    send_id=send_id, success=False,
+                    message=f"SHIPPING 상태가 아닙니다. 현재: {send.send_status}",
+                ))
+                continue
+            send_crud.update_send_status(db, send, "DELIVERED")
+            results.append(SendBatchStatusResult(send_id=send_id, success=True))
+            success_count += 1
+        except Exception as e:
+            results.append(SendBatchStatusResult(
+                send_id=send_id, success=False, message=str(e),
+            ))
+
+    activity_log_service.create_log(
+        db=db,
+        action=ActivityAction.UPDATE,
+        target_type=ActivityTargetType.SEND,
+        admin_id=current_admin.admin_id,
+        admin_name=current_admin.admin_name,
+        target_id=None,
+        target_name=f"일괄 배송완료 전환 ({success_count}건)",
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        details={
+            "total": len(req.send_ids),
+            "success_count": success_count,
+            "fail_count": len(req.send_ids) - success_count,
+        },
+    )
+
+    return ResponseModel(
+        message=f"{success_count}건 배송완료로 전환되었습니다.",
+        data=SendBatchStatusResponse(
+            total=len(req.send_ids),
+            success_count=success_count,
+            fail_count=len(req.send_ids) - success_count,
+            results=results,
+        ),
     )
 

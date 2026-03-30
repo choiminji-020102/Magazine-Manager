@@ -157,13 +157,22 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
   const [trackingForm, setTrackingForm] = useState({ tracking_no: "", courier_company: "CJ대한통운" });
   const [sendCancelTarget, setSendCancelTarget] = useState<number | null>(null);
 
-  const sendWaitingMutation = useMutation({
-    mutationFn: (sendId: number) => sendsApi.waitingSend(sendId),
+  const sendShippingMutation = useMutation({
+    mutationFn: (sendId: number) => sendsApi.batchShipping([sendId]),
     onSuccess: () => {
-      toast.success("대기 전환되었습니다.");
+      toast.success("배송중으로 전환되었습니다.");
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
     },
-    onError: () => toast.error("대기 전환 실패"),
+    onError: () => toast.error("상태 전환 실패"),
+  });
+
+  const sendDeliveredMutation = useMutation({
+    mutationFn: (sendId: number) => sendsApi.batchDelivered([sendId]),
+    onSuccess: () => {
+      toast.success("배송완료로 전환되었습니다.");
+      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+    },
+    onError: () => toast.error("상태 전환 실패"),
   });
 
   const sendTrackingMutation = useMutation({
@@ -590,10 +599,18 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                       <DropdownMenuContent align="end">
                         {send.send_status === "PREPARING" && (
                           <DropdownMenuItem
-                            onClick={() => sendWaitingMutation.mutate(send.send_id)}
-                            disabled={sendWaitingMutation.isPending}
+                            onClick={() => sendShippingMutation.mutate(send.send_id)}
+                            disabled={sendShippingMutation.isPending}
                           >
-                            대기 전환
+                            배송중 전환
+                          </DropdownMenuItem>
+                        )}
+                        {send.send_status === "SHIPPING" && (
+                          <DropdownMenuItem
+                            onClick={() => sendDeliveredMutation.mutate(send.send_id)}
+                            disabled={sendDeliveredMutation.isPending}
+                          >
+                            배송완료 전환
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem
@@ -607,13 +624,17 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                         >
                           운송장 등록
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                          onClick={() => setSendCancelTarget(send.send_id)}
-                        >
-                          발송 취소
-                        </DropdownMenuItem>
+                        {send.send_status === "PREPARING" && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                              onClick={() => setSendCancelTarget(send.send_id)}
+                            >
+                              발송 취소
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   )}

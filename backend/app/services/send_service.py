@@ -171,22 +171,6 @@ def update_send_status(db: Session, send: Send, status_in: SendStatusUpdate) -> 
     )
 
 
-def waiting_send(db: Session, send: Send) -> Send:
-    """YEARLY 정기구독 배송 대기 전환 (자체배송 자동 설정)"""
-    if send.send_status != "PREPARING":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"PREPARING 상태인 발송만 WAITING으로 전환할 수 있습니다. 현재 상태: {send.send_status}",
-        )
-    return send_crud.update_send_status(
-        db=db,
-        send=send,
-        send_status="WAITING",
-        courier_company="자체배송",
-        tracking_no="자체배송",
-    )
-
-
 def update_tracking(db: Session, send: Send, tracking_no: str, courier_company: str) -> Send:
     """운송장 정보 등록 → SHIPPING 전환"""
     return send_crud.update_tracking(
@@ -198,10 +182,15 @@ def update_tracking(db: Session, send: Send, tracking_no: str, courier_company: 
 
 
 def cancel_send(db: Session, send: Send) -> Send:
-    """발송 취소 (연관 SendItem도 취소)"""
+    """발송 취소 (PREPARING 상태에서만 가능, 연관 SendItem도 취소)"""
     if send.send_status == "CANCELLED":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="이미 취소된 발송입니다.",
+        )
+    if send.send_status != "PREPARING":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"발송 전(PREPARING) 상태에서만 취소할 수 있습니다. 현재 상태: {send.send_status}",
         )
     return send_crud.cancel_send(db=db, send=send)

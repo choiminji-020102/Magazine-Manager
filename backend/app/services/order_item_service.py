@@ -261,11 +261,11 @@ def update_address(
     # 품목 배송지 변경
     order_item.address_id = new_address_id
 
-    # PREPARING/WAITING Send 스냅샷 동기화
+    # PREPARING Send 스냅샷 동기화
     if pending_send_ids:
         sends = db.query(Send).filter(Send.send_id.in_(pending_send_ids)).all()
         for send in sends:
-            if send.send_status in ("PREPARING", "WAITING"):
+            if send.send_status == "PREPARING":
                 send.address_id = new_address_id
                 send.recipient_name = new_address.recipient_name
                 send.recipient_phone = new_address.recipient_phone
@@ -455,7 +455,7 @@ def cancel_order_item(
     order_item: OrderItem,
     cancel_in: OrderItemCancelRequest,
 ) -> OrderItem:
-    """품목 취소 (MONTHLY 배송 후 차단, 환불액 자동 계산, PREPARING/WAITING Send 취소)"""
+    """품목 취소 (MONTHLY 배송 후 차단, 환불액 자동 계산, PREPARING Send 취소)"""
     send_items = _get_active_send_items(db, order_item.order_item_id)
 
     # MONTHLY: SHIPPING/DELIVERED 존재 시 취소 불가
@@ -489,10 +489,10 @@ def cancel_order_item(
         else:
             refund_amount = 0
 
-    # PREPARING/WAITING Send 취소
+    # PREPARING Send 취소
     now = datetime.now(timezone.utc)
     for si in send_items:
-        if si.send.send_status in ("PREPARING", "WAITING"):
+        if si.send.send_status == "PREPARING":
             si.send.send_status = "CANCELLED"
             si.send.cancelled_at = now
             si.cancelled_at = now
@@ -540,6 +540,18 @@ def find_subscription_targets(
         .subquery()
     )
 
+    # 이미 해당 issue로 활성 SendItem이 존재하는 order_item_id 제외
+    already_sent_subquery = (
+        db.query(SendItem.order_item_id)
+        .join(Send, SendItem.send_id == Send.send_id)
+        .filter(
+            SendItem.issue == issue,
+            SendItem.cancelled_at.is_(None),
+            Send.cancelled_at.is_(None),
+        )
+        .subquery()
+    )
+
     # product_kind 지정 시 해당 종류만, 미지정 시 YEARLY+MONTHLY 모두
     if product_kind:
         kind_filter = OrderItem.product_kind == product_kind
@@ -573,6 +585,7 @@ def find_subscription_targets(
                 OrderItem.last_send_issue < issue,
             ),
             ~OrderItem.order_item_id.in_(pause_subquery),
+            ~OrderItem.order_item_id.in_(already_sent_subquery),
         )
     )
 

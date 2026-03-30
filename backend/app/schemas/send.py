@@ -53,9 +53,29 @@ class SendUpdate(BaseModel):
 
 
 class SendStatusUpdate(BaseModel):
-    send_status: str                            # WAITING | SHIPPING | DELIVERED | CANCELLED
+    send_status: str                            # SHIPPING | DELIVERED | CANCELLED
     tracking_no: Optional[str] = None          # SHIPPING 변경 시 필수 (MONTHLY)
     courier_company: Optional[str] = None
+
+
+class SendBatchStatusRequest(BaseModel):
+    """일괄 상태 전환 요청"""
+    send_ids: List[int]
+
+
+class SendBatchStatusResult(BaseModel):
+    """일괄 상태 전환 단건 결과"""
+    send_id: int
+    success: bool
+    message: Optional[str] = None
+
+
+class SendBatchStatusResponse(BaseModel):
+    """일괄 상태 전환 응답"""
+    total: int
+    success_count: int
+    fail_count: int
+    results: List[SendBatchStatusResult]
 
 
 class SendTrackingUpdate(BaseModel):
@@ -110,6 +130,7 @@ class SendListQuery(BaseModel):
     is_cancelled: Optional[bool] = None
     recipient_search: Optional[str] = None      # 수령인 이름/연락처
     postal_code: Optional[str] = None
+    issue: Optional[str] = None                 # SendItem.issue 기준 필터 (YYYYMM)
     sort_by: str = "created_at"
     sort_order: str = "desc"
 
@@ -127,6 +148,7 @@ class SendListQuery(BaseModel):
         is_cancelled: Optional[bool] = Query(None),
         recipient_search: Optional[str] = Query(None),
         postal_code: Optional[str] = Query(None),
+        issue: Optional[str] = Query(None),
         sort_by: str = Query("created_at"),
         sort_order: str = Query("desc"),
     ):
@@ -142,6 +164,7 @@ class SendListQuery(BaseModel):
             is_cancelled=is_cancelled,
             recipient_search=recipient_search,
             postal_code=postal_code,
+            issue=issue,
             sort_by=sort_by,
             sort_order=sort_order,
         )

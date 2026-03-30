@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
 from app.models.send import Send
+from app.models.send_item import SendItem
 from app.schemas.send import SendListQuery, SendUpdate
 
 
@@ -60,6 +61,10 @@ def list_sends(db: Session, query: SendListQuery) -> Tuple[List[Send], int]:
         )
     if query.postal_code:
         q = q.filter(Send.postal_code == query.postal_code)
+    if query.issue:
+        q = q.join(SendItem, Send.send_id == SendItem.send_id).filter(
+            SendItem.issue == query.issue
+        ).distinct()
 
     allowed_sort = {
         "created_at", "updated_at", "official_send_date",
@@ -125,13 +130,7 @@ def update_send_status(
     now = datetime.now(timezone.utc)
     send.send_status = send_status
 
-    if send_status == "WAITING":
-        send.prepared_at = now
-        if courier_company:
-            send.courier_company = courier_company
-        if tracking_no:
-            send.tracking_no = tracking_no
-    elif send_status == "SHIPPING":
+    if send_status == "SHIPPING":
         send.shipped_at = now
         if tracking_no:
             send.tracking_no = tracking_no
@@ -182,3 +181,26 @@ def cancel_send(db: Session, send: Send) -> Send:
     db.commit()
     db.refresh(send)
     return send
+
+
+def auto_deliver_shipped_sends(db: Session, days: int = 3) -> int:
+    """SHIPPING 상태에서 N일 경과한 발송을 자동 DELIVERED 전환. 전환 건수 반환."""
+    from datetime import timedelta
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    sends = (
+        db.query(Send)
+        .filter(
+            Send.send_status == "SHIPPING",
+            Send.shipped_at <= cutoff,
+        )
+        .all()
+    )
+    now = datetime.now(timezone.utc)
+    for send in sends:
+        send.send_status = "DELIVERED"
+        send.delivered_at = now
+
+    if sends:
+        db.commit()
+    return len(sends)

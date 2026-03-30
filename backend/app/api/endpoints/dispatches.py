@@ -312,6 +312,13 @@ def _process_dispatch(
                 customer_memo=addr.customer_memo,
             )
 
+            # 배송사 자동 설정
+            if product_kind == "YEARLY":
+                send.courier_company = "자체배송"
+                send.tracking_no = "자체배송"
+            elif product_kind == "MONTHLY":
+                send.courier_company = "CJ대한통운"
+
             # SendItem 생성
             send_item_crud.create_send_item(
                 db=db,
@@ -461,7 +468,7 @@ def generate_monthly_dispatch(
 
 def _build_dispatch_excel(db: Session, issue: str, product_kind: str) -> io.BytesIO:
     """기출유 제출용 엑셀 파일 생성 (YEARLY 우편 / MONTHLY 택배 공통)"""
-    # issue의 해당 product_kind Send + SendItem 조회 (PREPARING/WAITING, 미취소)
+    # issue의 해당 product_kind Send + SendItem 조회 (PREPARING, 미취소)
     rows = (
         db.query(Send, SendItem)
         .join(SendItem, Send.send_id == SendItem.send_id)
@@ -470,7 +477,7 @@ def _build_dispatch_excel(db: Session, issue: str, product_kind: str) -> io.Byte
             SendItem.issue == issue,
             SendItem.cancelled_at.is_(None),
             Send.cancelled_at.is_(None),
-            Send.send_status.in_(["PREPARING", "WAITING"]),
+            Send.send_status == "PREPARING",
             OrderItem.product_kind == product_kind,
         )
         .order_by(Send.send_id.asc(), SendItem.send_item_id.asc())

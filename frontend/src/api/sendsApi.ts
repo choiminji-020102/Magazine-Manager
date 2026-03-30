@@ -7,6 +7,7 @@ import type {
   SendDetailResponse,
   SendStatusUpdate,
   SendTrackingUpdate,
+  SendBatchStatusResponse,
 } from "../types/send";
 
 export const sendsApi = {
@@ -23,6 +24,7 @@ export const sendsApi = {
     is_cancelled?: boolean | null;
     recipient_search?: string | null;
     postal_code?: string | null;
+    issue?: string | null;
     sort_by?: string;
     sort_order?: string;
   }) => {
@@ -54,9 +56,14 @@ export const sendsApi = {
     return api.patch<ResponseModel<SendResponse>>(`/sends/${sendId}/status`, data);
   },
 
-  // POST /sends/{send_id}/waiting - YEARLY 배송 대기 전환
-  waitingSend: (sendId: number) => {
-    return api.post<ResponseModel<SendResponse>>(`/sends/${sendId}/waiting`);
+  // POST /sends/batch/shipping - 일괄 배송중 전환
+  batchShipping: (sendIds: number[]) => {
+    return api.post<ResponseModel<SendBatchStatusResponse>>("/sends/batch/shipping", { send_ids: sendIds });
+  },
+
+  // POST /sends/batch/delivered - 일괄 배송완료 전환
+  batchDelivered: (sendIds: number[]) => {
+    return api.post<ResponseModel<SendBatchStatusResponse>>("/sends/batch/delivered", { send_ids: sendIds });
   },
 
   // PATCH /sends/{send_id}/tracking - 운송장 정보 등록
