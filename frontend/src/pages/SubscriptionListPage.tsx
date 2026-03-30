@@ -19,6 +19,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DataTable, type ColumnDef } from "@/components/common/DataTable";
 import { FilterBar } from "@/components/common/FilterBar";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -26,11 +27,13 @@ import { Pagination } from "@/components/common/Pagination";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { orderItemsApi } from "@/api/orderItemsApi";
+import { pausesApi } from "@/api/pausesApi";
 import SubscriptionDetailPanel from "./subscription/SubscriptionDetailPanel";
 import { toast } from "@/hooks/use-toast";
-import { formatAmount, formatPhone, formatIssue } from "@/utils/format";
+import { formatAmount, formatDate, formatPhone, formatIssue } from "@/utils/format";
 import { PRODUCT_KIND_LABEL } from "@/utils/constants";
 import type { SubscriptionListItem } from "@/types/orderItem";
+import type { PauseResponse, PauseByIssueResponse } from "@/types/pause";
 
 const PRODUCT_KIND_OPTIONS = [
   { value: "_all", label: "전체 종류" },
@@ -45,6 +48,32 @@ const CANCELLED_OPTIONS = [
 ];
 
 export default function SubscriptionListPage() {
+  return (
+    <div className="flex-1 min-h-0 flex flex-col">
+      <Tabs defaultValue="subscriptions" className="flex-1 overflow-hidden flex flex-col">
+        <div className="px-5 pt-3 bg-white border-b border-gray-200 flex-shrink-0">
+          <TabsList>
+            <TabsTrigger value="subscriptions">구독 목록</TabsTrigger>
+            <TabsTrigger value="pauses">휴지 내역</TabsTrigger>
+          </TabsList>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <TabsContent value="subscriptions" className="h-full m-0 overflow-hidden flex flex-col">
+            <SubscriptionListTab />
+          </TabsContent>
+          <TabsContent value="pauses" className="h-full m-0 overflow-hidden flex flex-col">
+            <PauseListTab />
+          </TabsContent>
+        </div>
+      </Tabs>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// 탭 1: 구독 목록 (기존 내용)
+// ─────────────────────────────────────────────
+function SubscriptionListTab() {
   const [page, setPage] = useState(1);
   const [productKind, setProductKind] = useState("");
   const [cancelledFilter, setCancelledFilter] = useState("");
@@ -154,12 +183,10 @@ export default function SubscriptionListPage() {
     batchExtendMutation.mutate();
   };
 
-  // 전체 선택/해제 (취소된 항목 제외)
   const allIds = data?.items.filter((i) => !i.cancelled_at).map((i) => i.order_item_id) ?? [];
   const allSelected = allIds.length > 0 && allIds.every((id) => selectedIds.has(id));
   const someSelected = allIds.some((id) => selectedIds.has(id));
 
-  // 선택된 항목 중 활성/취소 건 분리
   const activeSelectedIds = (data?.items ?? [])
     .filter((i) => selectedIds.has(i.order_item_id) && !i.cancelled_at)
     .map((i) => i.order_item_id);
@@ -322,7 +349,7 @@ export default function SubscriptionListPage() {
   ];
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col">
+    <>
       <PageHeader
         left={<span className="text-sm text-gray-500">총 {data?.total ?? 0}건</span>}
         actions={
@@ -514,6 +541,232 @@ export default function SubscriptionListPage() {
           <SubscriptionDetailPanel item={selectedItem} onClose={handlePanelClose} />
         )}
       </SlidingPanel>
-    </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────
+// 탭 2: 휴지 내역
+// ─────────────────────────────────────────────
+function PauseListTab() {
+  const [page, setPage] = useState(1);
+  const [issueFilter, setIssueFilter] = useState("");
+  const [showDeleted, setShowDeleted] = useState(false);
+  const limit = 20;
+
+  const debouncedIssue = useDebounce(issueFilter, 300);
+  const isIssueMode = debouncedIssue.length === 6;
+
+  // 호별 조회 (YYYYMM 정확히 입력 시)
+  const { data: byIssueRes, isLoading: byIssueLoading } = useQuery({
+    queryKey: ["pauses-by-issue", debouncedIssue],
+    queryFn: () => pausesApi.getPausesByIssue(debouncedIssue).then((r) => r.data),
+    enabled: isIssueMode,
+  });
+
+  // 전체 목록 조회 (기본)
+  const { data: listRes, isLoading: listLoading } = useQuery({
+    queryKey: ["pauses", page, limit, debouncedIssue, showDeleted],
+    queryFn: () =>
+      pausesApi.getPauses({
+        page,
+        limit,
+        pause_issue: debouncedIssue || null,
+        is_deleted: showDeleted ? undefined : false,
+      }).then((r) => r.data),
+    enabled: !isIssueMode,
+  });
+
+  const isLoading = isIssueMode ? byIssueLoading : listLoading;
+
+  // 호별 조회 컬럼 (고객 정보 포함)
+  const byIssueColumns: ColumnDef<PauseByIssueResponse>[] = [
+    {
+      key: "customer",
+      header: "고객",
+      cell: (row) => (
+        <div>
+          <div className="text-[13px] font-medium text-gray-900">{row.customer_name ?? "-"}</div>
+          <div className="text-xs text-gray-400 font-mono">{formatPhone(row.customer_phone)}</div>
+        </div>
+      ),
+    },
+    {
+      key: "product_name",
+      header: "상품",
+      cell: (row) => (
+        <span className="text-xs text-gray-700">{row.product_name ?? "-"}</span>
+      ),
+    },
+    {
+      key: "pause_issue",
+      header: "휴지 호",
+      cell: (row) => (
+        <span className="text-xs font-mono text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+          {formatIssue(row.pause_issue)}
+        </span>
+      ),
+      width: "w-24",
+    },
+    {
+      key: "reason",
+      header: "사유",
+      cell: (row) => (
+        <span className="text-xs text-gray-500">{row.reason ?? "-"}</span>
+      ),
+    },
+    {
+      key: "status",
+      header: "상태",
+      cell: (row) => (
+        row.is_deleted
+          ? <span className="text-[11px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">복구됨</span>
+          : <span className="text-[11px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">휴지</span>
+      ),
+      width: "w-20",
+    },
+    {
+      key: "created_at",
+      header: "등록일",
+      cell: (row) => (
+        <span className="text-xs text-gray-400">{formatDate(row.created_at)}</span>
+      ),
+      width: "w-24",
+    },
+  ];
+
+  // 전체 목록 컬럼
+  const listColumns: ColumnDef<PauseResponse>[] = [
+    {
+      key: "order_item_id",
+      header: "품목 ID",
+      cell: (row) => (
+        <span className="text-xs font-mono text-gray-400">#{row.order_item_id}</span>
+      ),
+      width: "w-24",
+    },
+    {
+      key: "pause_issue",
+      header: "휴지 호",
+      cell: (row) => (
+        <span className="text-xs font-mono text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+          {formatIssue(row.pause_issue)}
+        </span>
+      ),
+      width: "w-28",
+    },
+    {
+      key: "reason",
+      header: "사유",
+      cell: (row) => (
+        <span className="text-xs text-gray-500">{row.reason ?? "-"}</span>
+      ),
+    },
+    {
+      key: "status",
+      header: "상태",
+      cell: (row) => (
+        row.is_deleted
+          ? <span className="text-[11px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">복구됨</span>
+          : <span className="text-[11px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">휴지</span>
+      ),
+      width: "w-20",
+    },
+    {
+      key: "created_at",
+      header: "등록일",
+      cell: (row) => (
+        <span className="text-xs text-gray-400">{formatDate(row.created_at)}</span>
+      ),
+      width: "w-24",
+    },
+  ];
+
+  const byIssueItems = byIssueRes?.data ?? [];
+  const listItems = listRes?.items ?? [];
+
+  const totalCount = isIssueMode ? byIssueItems.length : (listRes?.total ?? 0);
+
+  return (
+    <>
+      <PageHeader
+        left={
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-500">총 {totalCount}건</span>
+            {isIssueMode && (
+              <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                {formatIssue(debouncedIssue)} 호 조회 중
+              </span>
+            )}
+          </div>
+        }
+      />
+
+      <FilterBar
+        basic={
+          <>
+            <Input
+              className="w-36"
+              placeholder="호 검색 (YYYYMM)"
+              maxLength={6}
+              value={issueFilter}
+              onChange={(e) => { setIssueFilter(e.target.value.replace(/\D/g, "")); setPage(1); }}
+            />
+            {!isIssueMode && (
+              <button
+                onClick={() => { setShowDeleted((v) => !v); setPage(1); }}
+                className={`text-xs px-2.5 py-1.5 rounded border transition-colors whitespace-nowrap ${
+                  showDeleted
+                    ? "bg-gray-100 border-gray-300 text-gray-600 font-medium"
+                    : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                }`}
+              >
+                복구된 휴지 포함
+              </button>
+            )}
+          </>
+        }
+        hasActiveFilters={!!(issueFilter || showDeleted)}
+        onReset={() => { setIssueFilter(""); setShowDeleted(false); setPage(1); }}
+        chips={[
+          ...(issueFilter ? [{ label: `호: ${issueFilter}`, onRemove: () => { setIssueFilter(""); setPage(1); } }] : []),
+          ...(showDeleted ? [{ label: "복구된 휴지 포함", onRemove: () => { setShowDeleted(false); setPage(1); } }] : []),
+        ]}
+      />
+
+      <div className="flex-1 overflow-hidden bg-white">
+        <div className="h-full overflow-y-auto">
+          {isIssueMode ? (
+            <DataTable
+              columns={byIssueColumns}
+              data={byIssueItems}
+              getRowId={(row) => row.pause_id}
+              isLoading={isLoading}
+              emptyMessage={`${formatIssue(debouncedIssue)} 호 휴지 내역이 없습니다.`}
+            />
+          ) : (
+            <DataTable
+              columns={listColumns}
+              data={listItems}
+              getRowId={(row) => row.pause_id}
+              isLoading={isLoading}
+              emptyMessage="휴지 내역이 없습니다."
+            />
+          )}
+        </div>
+      </div>
+
+      {!isIssueMode && listRes && (
+        <div className="bg-white border-t border-gray-200">
+          <Pagination
+            page={page}
+            totalPages={listRes.total_pages}
+            total={listRes.total}
+            limit={limit}
+            onPageChange={setPage}
+          />
+        </div>
+      )}
+    </>
   );
 }
