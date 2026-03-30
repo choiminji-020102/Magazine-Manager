@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { X, MoreHorizontal, Edit2 } from "lucide-react";
+import { useDebounce } from "@/hooks/useDebounce";
+import { X, MoreHorizontal, Edit2, Plus } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,11 +20,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { ordersApi } from "@/api/ordersApi";
 import { orderItemsApi } from "@/api/orderItemsApi";
+import { sendsApi } from "@/api/sendsApi";
+import { productsApi } from "@/api/productsApi";
 import { toast } from "@/hooks/use-toast";
 import { formatAmount, formatDate, formatDateTime, formatPhone, formatIssue } from "@/utils/format";
 import { PAYMENT_METHOD_LABEL, PAYMENT_METHOD_OPTIONS } from "@/utils/constants";
@@ -142,6 +152,44 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     onError: () => toast.error("주문 취소 실패"),
   });
 
+  // 발송 액션 상태
+  const [sendTrackingTarget, setSendTrackingTarget] = useState<number | null>(null);
+  const [trackingForm, setTrackingForm] = useState({ tracking_no: "", courier_company: "CJ대한통운" });
+  const [sendCancelTarget, setSendCancelTarget] = useState<number | null>(null);
+
+  const sendWaitingMutation = useMutation({
+    mutationFn: (sendId: number) => sendsApi.waitingSend(sendId),
+    onSuccess: () => {
+      toast.success("대기 전환되었습니다.");
+      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+    },
+    onError: () => toast.error("대기 전환 실패"),
+  });
+
+  const sendTrackingMutation = useMutation({
+    mutationFn: (sendId: number) => sendsApi.updateTracking(sendId, {
+      tracking_no: trackingForm.tracking_no,
+      courier_company: trackingForm.courier_company,
+    }),
+    onSuccess: () => {
+      toast.success("운송장이 등록되었습니다.");
+      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+      setSendTrackingTarget(null);
+      setTrackingForm({ tracking_no: "", courier_company: "CJ대한통운" });
+    },
+    onError: () => toast.error("운송장 등록 실패"),
+  });
+
+  const sendCancelMutation = useMutation({
+    mutationFn: (sendId: number) => sendsApi.cancelSend(sendId),
+    onSuccess: () => {
+      toast.success("발송이 취소되었습니다.");
+      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+      setSendCancelTarget(null);
+    },
+    onError: () => toast.error("발송 취소 실패"),
+  });
+
   // 품목 취소
   const [cancelItemMemo, setCancelItemMemo] = useState("");
   const cancelItemMutation = useMutation({
@@ -157,6 +205,50 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       setCancelItemMemo("");
     },
     onError: () => toast.error("품목 취소 실패"),
+  });
+
+  // 품목 추가
+  const [addItemOpen, setAddItemOpen] = useState(false);
+  const [addItemForm, setAddItemForm] = useState({
+    product_code: "",
+    subscribe_start_issue: "",
+    subscribe_period: 12,
+    order_num: 1,
+    sale_price: "" as string | number,
+    admin_memo: "",
+  });
+  const [productSearch, setProductSearch] = useState("");
+  const [productDropdownOpen, setProductDropdownOpen] = useState(false);
+  const productSearchDebounced = useDebounce(productSearch, 300);
+  const productDropdownRef = useRef<HTMLDivElement>(null);
+
+  const { data: productSearchRes } = useQuery({
+    queryKey: ["products-search", productSearchDebounced],
+    queryFn: () => productsApi.getProducts({ page: 1, limit: 10, search: productSearchDebounced || null }).then((r) => r.data),
+    enabled: productDropdownOpen && productSearchDebounced.length >= 1,
+  });
+
+  const addItemMutation = useMutation({
+    mutationFn: () =>
+      orderItemsApi.createOrderItem({
+        order_id: orderId,
+        address_id: order!.address_id,
+        product_code: addItemForm.product_code,
+        order_num: addItemForm.order_num,
+        sale_price: addItemForm.sale_price !== "" ? Number(addItemForm.sale_price) : null,
+        subscribe_start_issue: addItemForm.subscribe_start_issue,
+        subscribe_period: addItemForm.subscribe_period,
+        admin_memo: addItemForm.admin_memo || null,
+      }),
+    onSuccess: () => {
+      toast.success("품목이 추가되었습니다.");
+      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      setAddItemOpen(false);
+      setAddItemForm({ product_code: "", subscribe_start_issue: "", subscribe_period: 12, order_num: 1, sale_price: "", admin_memo: "" });
+      setProductSearch("");
+    },
+    onError: () => toast.error("품목 추가 실패"),
   });
 
   const openModal = (type: ModalType, item: ActiveItem) => {
@@ -452,6 +544,19 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
 
           {/* 주문품목 탭 */}
           <TabsContent value="items" className="m-0 p-4 space-y-3">
+            {order.order_status !== "CANCELLED" && (
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 text-xs"
+                  onClick={() => setAddItemOpen(true)}
+                >
+                  <Plus className="h-3 w-3" />
+                  품목 추가
+                </Button>
+              </div>
+            )}
             {order.items?.map((item) => (
               <OrderItemCard
                 key={item.order_item_id}
@@ -471,8 +576,47 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             {order.sends?.map((send) => (
               <div key={send.send_id} className="border border-gray-100 rounded-lg overflow-hidden">
                 <div className="flex items-center justify-between px-3.5 py-2 bg-gray-50 border-b border-gray-100">
-                  <StatusBadge type="send_status" value={send.send_status} />
-                  <span className="text-xs text-gray-400 font-mono">#{send.send_id}</span>
+                  <div className="flex items-center gap-2">
+                    <StatusBadge type="send_status" value={send.send_status} />
+                    <span className="text-xs text-gray-400 font-mono">#{send.send_id}</span>
+                  </div>
+                  {send.send_status !== "CANCELLED" && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon-sm">
+                          <MoreHorizontal className="h-3.5 w-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {send.send_status === "PREPARING" && (
+                          <DropdownMenuItem
+                            onClick={() => sendWaitingMutation.mutate(send.send_id)}
+                            disabled={sendWaitingMutation.isPending}
+                          >
+                            대기 전환
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSendTrackingTarget(send.send_id);
+                            setTrackingForm({
+                              tracking_no: send.tracking_no ?? "",
+                              courier_company: send.courier_company ?? "CJ대한통운",
+                            });
+                          }}
+                        >
+                          운송장 등록
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                          onClick={() => setSendCancelTarget(send.send_id)}
+                        >
+                          발송 취소
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
                 <div className="px-3.5 py-3 space-y-2">
                   {send.tracking_no ? (
@@ -655,6 +799,209 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
           orderId={orderId}
         />
       )}
+
+      {/* 운송장 등록 다이얼로그 */}
+      <Dialog open={sendTrackingTarget !== null} onOpenChange={(o) => { if (!o) { setSendTrackingTarget(null); setTrackingForm({ tracking_no: "", courier_company: "CJ대한통운" }); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>운송장 등록</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div>
+              <Label className="text-xs font-medium text-gray-600">택배사</Label>
+              <Select
+                value={trackingForm.courier_company}
+                onValueChange={(v) => setTrackingForm((f) => ({ ...f, courier_company: v }))}
+              >
+                <SelectTrigger className="mt-1 h-8 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CJ대한통운">CJ대한통운</SelectItem>
+                  <SelectItem value="자체배송">자체배송</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-gray-600">
+                운송장 번호 <span className="text-red-500 ml-0.5">*</span>
+              </Label>
+              <Input
+                className="mt-1 h-8 text-sm font-mono"
+                placeholder="운송장 번호 입력"
+                value={trackingForm.tracking_no}
+                onChange={(e) => setTrackingForm((f) => ({ ...f, tracking_no: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => { setSendTrackingTarget(null); setTrackingForm({ tracking_no: "", courier_company: "CJ대한통운" }); }}>
+              취소
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => sendTrackingTarget && sendTrackingMutation.mutate(sendTrackingTarget)}
+              disabled={!trackingForm.tracking_no || sendTrackingMutation.isPending}
+            >
+              {sendTrackingMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+              등록
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 발송 취소 확인 모달 */}
+      <ConfirmModal
+        open={sendCancelTarget !== null}
+        onClose={() => setSendCancelTarget(null)}
+        onConfirm={() => sendCancelTarget && sendCancelMutation.mutate(sendCancelTarget)}
+        title="발송 취소"
+        description="이 발송을 취소합니다. 취소 후에는 되돌릴 수 없습니다."
+        confirmLabel="발송 취소"
+        variant="destructive"
+        isLoading={sendCancelMutation.isPending}
+      />
+
+      {/* 품목 추가 다이얼로그 */}
+      <Dialog open={addItemOpen} onOpenChange={(o) => {
+        if (!o) {
+          setAddItemOpen(false);
+          setAddItemForm({ product_code: "", subscribe_start_issue: "", subscribe_period: 12, order_num: 1, sale_price: "", admin_memo: "" });
+          setProductSearch("");
+          setProductDropdownOpen(false);
+        }
+      }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>품목 추가</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            {/* 상품 검색 */}
+            <div>
+              <Label className="text-xs font-medium text-gray-600">
+                상품 코드 <span className="text-red-500 ml-0.5">*</span>
+              </Label>
+              <div className="relative mt-1" ref={productDropdownRef}>
+                <Input
+                  className="h-8 text-sm"
+                  placeholder="상품코드 또는 이름 검색"
+                  value={productSearch || addItemForm.product_code}
+                  onChange={(e) => {
+                    setProductSearch(e.target.value);
+                    setAddItemForm((f) => ({ ...f, product_code: e.target.value }));
+                    setProductDropdownOpen(true);
+                  }}
+                  onFocus={() => setProductDropdownOpen(true)}
+                />
+                {productDropdownOpen && productSearchRes?.items && productSearchRes.items.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                    {productSearchRes.items.map((p) => (
+                      <button
+                        key={p.product_id}
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 border-b border-gray-50 last:border-0"
+                        onClick={() => {
+                          setAddItemForm((f) => ({
+                            ...f,
+                            product_code: p.product_code,
+                            sale_price: p.sale_price,
+                          }));
+                          setProductSearch("");
+                          setProductDropdownOpen(false);
+                        }}
+                      >
+                        <div className="font-medium text-gray-900">{p.product_code}</div>
+                        <div className="text-gray-400">{p.product_name}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {addItemForm.product_code && !productDropdownOpen && (
+                <p className="text-xs text-blue-600 mt-0.5">선택됨: {addItemForm.product_code}</p>
+              )}
+            </div>
+
+            {/* 구독 시작 호 */}
+            <div>
+              <Label className="text-xs font-medium text-gray-600">
+                구독 시작 호 <span className="text-red-500 ml-0.5">*</span>
+              </Label>
+              <Input
+                className="mt-1 h-8 text-sm font-mono"
+                placeholder="YYYYMM (예: 202604)"
+                maxLength={6}
+                value={addItemForm.subscribe_start_issue}
+                onChange={(e) => setAddItemForm((f) => ({ ...f, subscribe_start_issue: e.target.value.replace(/\D/g, "") }))}
+              />
+            </div>
+
+            {/* 구독 기간 */}
+            <div>
+              <Label className="text-xs font-medium text-gray-600">구독 기간 (개월)</Label>
+              <Input
+                className="mt-1 h-8 text-sm"
+                type="number"
+                min={1}
+                value={addItemForm.subscribe_period}
+                onChange={(e) => setAddItemForm((f) => ({ ...f, subscribe_period: parseInt(e.target.value) || 1 }))}
+              />
+            </div>
+
+            {/* 수량 */}
+            <div>
+              <Label className="text-xs font-medium text-gray-600">수량</Label>
+              <Input
+                className="mt-1 h-8 text-sm"
+                type="number"
+                min={1}
+                value={addItemForm.order_num}
+                onChange={(e) => setAddItemForm((f) => ({ ...f, order_num: parseInt(e.target.value) || 1 }))}
+              />
+            </div>
+
+            {/* 판매가 */}
+            <div>
+              <Label className="text-xs font-medium text-gray-600">판매가 (선택, 미입력 시 정가)</Label>
+              <Input
+                className="mt-1 h-8 text-sm"
+                type="number"
+                min={0}
+                placeholder="원 단위"
+                value={addItemForm.sale_price}
+                onChange={(e) => setAddItemForm((f) => ({ ...f, sale_price: e.target.value }))}
+              />
+            </div>
+
+            {/* 관리자 메모 */}
+            <div>
+              <Label className="text-xs font-medium text-gray-600">관리자 메모</Label>
+              <Input
+                className="mt-1 h-8 text-sm"
+                placeholder="내부 메모 (선택)"
+                value={addItemForm.admin_memo}
+                onChange={(e) => setAddItemForm((f) => ({ ...f, admin_memo: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => {
+              setAddItemOpen(false);
+              setProductSearch("");
+              setProductDropdownOpen(false);
+            }}>
+              취소
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => addItemMutation.mutate()}
+              disabled={!addItemForm.product_code || addItemForm.subscribe_start_issue.length !== 6 || addItemMutation.isPending}
+            >
+              {addItemMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+              추가
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
