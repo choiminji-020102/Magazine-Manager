@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Download, Upload, RefreshCw, MoreHorizontal, Edit2, X, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Download, Upload, RefreshCw, MoreHorizontal, Edit2, X } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1492,7 +1492,7 @@ function SendDetailPanel({ sendId, onClose }: { sendId: number; onClose: () => v
 }
 
 // ─────────────────────────────────────────────
-// 탭 3: MONTHLY 엑셀
+// 탭 3: 기출유 연동
 // ─────────────────────────────────────────────
 function MonthlyExcelTab() {
   const [issue, setIssue] = useState(currentIssue());
@@ -1505,13 +1505,6 @@ function MonthlyExcelTab() {
   const [uploading, setUploading] = useState<"monthly" | "yearly" | null>(null);
 
   const isValidIssue = issue.length === 6;
-
-  // 오후 3시 마감 경고 계산
-  const now = new Date();
-  const totalMinutes = now.getHours() * 60 + now.getMinutes();
-  const deadlineStatus =
-    totalMinutes >= 15 * 60 ? "passed" :
-    totalMinutes >= 14 * 60 + 30 ? "warning" : "ok";
 
   const handleDownload = async (type: "monthly" | "yearly") => {
     if (!isValidIssue) { toast.error("발송 호를 입력하세요. (YYYYMM)"); return; }
@@ -1555,77 +1548,52 @@ function MonthlyExcelTab() {
   };
 
   return (
-    <div className="p-6 max-w-2xl space-y-5">
+    <div className="p-6 max-w-xl space-y-5">
 
-      {/* 발송 호 + 마감 경고 */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5 flex items-center gap-6">
-        <div>
-          <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-2">발송 호</div>
-          <div className="flex items-center gap-3">
-            <Input
-              className="w-28 font-mono text-base"
-              placeholder="YYYYMM"
-              maxLength={6}
-              value={issue}
-              onChange={(e) => { setIssue(e.target.value.replace(/\D/g, "")); setUploadResult(null); }}
-            />
-            {isValidIssue ? (
-              <span className="text-2xl font-bold text-gray-800 tracking-tight">{formatIssue(issue)}</span>
-            ) : (
-              <span className="text-sm text-gray-300">연도+월 6자리 입력</span>
-            )}
-          </div>
-        </div>
-
-        {/* 오후 3시 마감 경고 */}
-        {deadlineStatus === "warning" && (
-          <div className="ml-auto flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-            <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <div className="text-xs font-semibold text-amber-800">기출유 전송 마감 임박</div>
-              <div className="text-xs text-amber-600 mt-0.5">오후 3시까지 기출유에 전송해야 합니다.</div>
-            </div>
-          </div>
-        )}
-        {deadlineStatus === "passed" && (
-          <div className="ml-auto flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-            <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <div className="text-xs font-semibold text-red-700">기출유 전송 마감 초과</div>
-              <div className="text-xs text-red-500 mt-0.5">오후 3시 마감이 지났습니다.</div>
-            </div>
-          </div>
+      {/* 발송 호 선택 */}
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-medium text-gray-700 whitespace-nowrap">발송 호</span>
+        <Input
+          className="w-28"
+          placeholder="YYYYMM"
+          maxLength={6}
+          value={issue}
+          onChange={(e) => { setIssue(e.target.value.replace(/\D/g, "")); setUploadResult(null); }}
+        />
+        {isValidIssue && (
+          <span className="text-sm text-blue-600 font-medium">{formatIssue(issue)}</span>
         )}
       </div>
 
-      {/* MONTHLY 섹션 */}
-      <div className="bg-white border border-amber-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-3.5 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
+      {/* MONTHLY 단편 카드 */}
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
           <div>
-            <div className="text-sm font-semibold text-amber-900">MONTHLY 단편</div>
-            <div className="text-xs text-amber-600 mt-0.5">기출유(기관출판유통) 시스템 연동</div>
+            <div className="text-sm font-semibold text-gray-800">MONTHLY 단편</div>
+            <div className="text-xs text-gray-400 mt-0.5">기출유(기관출판유통) 엑셀 연동</div>
           </div>
-          <span className="text-[11px] font-semibold text-amber-700 bg-amber-100 border border-amber-200 px-2.5 py-1 rounded-full">
+          <span className="text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
             오후 3시 마감
           </span>
         </div>
 
         <div className="divide-y divide-gray-100">
-          {/* Step 1: 엑셀 다운로드 */}
-          <div className="px-5 py-4 flex items-start gap-4">
-            <div className="w-6 h-6 rounded-full bg-amber-100 text-amber-700 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</div>
+          {/* Step 1 */}
+          <div className="px-4 py-3.5 flex items-start gap-3">
+            <StepNum num={1} />
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-sm font-medium text-gray-800">엑셀 다운로드</div>
+                  <div className="text-xs font-semibold text-gray-700">기출유 엑셀 다운로드</div>
                   <div className="text-xs text-gray-400 mt-0.5">
-                    PREPARING 상태인 단편 주문을 기출유 형식(.xlsx)으로 내려받습니다.
+                    배송 준비 중(PREPARING)인 단편 주문을 기출유 형식으로 다운로드합니다.
+                    <br />오른쪽 끝에 기출유가 송장번호를 기입할 칸이 포함됩니다.
                   </div>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1.5 flex-shrink-0 border-amber-200 text-amber-700 hover:bg-amber-50"
+                  className="gap-1.5 flex-shrink-0"
                   onClick={() => handleDownload("monthly")}
                   disabled={monthlyDownloading || !isValidIssue}
                 >
@@ -1636,30 +1604,31 @@ function MonthlyExcelTab() {
             </div>
           </div>
 
-          {/* Step 2: 기출유 전송 (수동) */}
-          <div className="px-5 py-4 flex items-start gap-4 bg-gray-50/60">
-            <div className="w-6 h-6 rounded-full bg-amber-100 text-amber-700 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</div>
+          {/* Step 2 (수동) */}
+          <div className="px-4 py-3.5 flex items-start gap-3 bg-gray-50/50">
+            <StepNum num={2} />
             <div className="flex-1">
-              <div className="text-sm font-medium text-gray-800">기출유 전송 <span className="text-xs text-gray-400 font-normal ml-1">수동 작업</span></div>
-              <div className="text-xs text-gray-400 mt-0.5">
-                다운로드한 엑셀을 기출유 담당자에게 직접 전송합니다.
+              <div className="flex items-center gap-2">
+                <div className="text-xs font-semibold text-gray-700">기출유 전송</div>
+                <span className="text-[11px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">수동</span>
               </div>
-              <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 font-medium">
-                <AlertTriangle className="h-3 w-3" />
-                오후 3시 이전까지 전송 필수
+              <div className="text-xs text-gray-400 mt-0.5">
+                다운받은 엑셀을 기출유 담당자에게 직접 전송합니다.
+                기출유가 송장번호를 기입 후 회신합니다.
               </div>
             </div>
           </div>
 
-          {/* Step 3: 송장 업로드 */}
-          <div className="px-5 py-4 flex items-start gap-4">
-            <div className="w-6 h-6 rounded-full bg-amber-100 text-amber-700 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</div>
+          {/* Step 3 */}
+          <div className="px-4 py-3.5 flex items-start gap-3">
+            <StepNum num={3} />
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-sm font-medium text-gray-800">송장번호 업로드</div>
+                  <div className="text-xs font-semibold text-gray-700">기출유 송장 업로드</div>
                   <div className="text-xs text-gray-400 mt-0.5">
-                    기출유에서 수신한 송장번호 엑셀을 업로드합니다. 자동으로 CJ대한통운 + 발송 중으로 전환됩니다.
+                    기출유 회신 엑셀을 업로드합니다.
+                    <br />CJ대한통운 + 송장번호가 자동 적용되고 <span className="text-gray-600 font-medium">배송 중</span>으로 전환됩니다.
                   </div>
                 </div>
                 <label className={!isValidIssue ? "pointer-events-none" : ""}>
@@ -1673,7 +1642,7 @@ function MonthlyExcelTab() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="gap-1.5 flex-shrink-0 border-amber-200 text-amber-700 hover:bg-amber-50"
+                    className="gap-1.5 flex-shrink-0"
                     disabled={uploading === "monthly" || !isValidIssue}
                     onClick={(e) => {
                       if (!isValidIssue) { e.preventDefault(); return; }
@@ -1690,21 +1659,21 @@ function MonthlyExcelTab() {
         </div>
       </div>
 
-      {/* YEARLY 섹션 */}
-      <div className="bg-white border border-blue-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-3.5 bg-blue-50 border-b border-blue-200">
-          <div className="text-sm font-semibold text-blue-900">YEARLY 정기구독</div>
-          <div className="text-xs text-blue-600 mt-0.5">자체배송 송장 처리</div>
+      {/* YEARLY 정기구독 카드 */}
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+          <div className="text-sm font-semibold text-gray-800">YEARLY 정기구독</div>
+          <div className="text-xs text-gray-400 mt-0.5">자체배송 송장 처리</div>
         </div>
 
         <div className="divide-y divide-gray-100">
-          {/* Step 1: 엑셀 다운로드 */}
-          <div className="px-5 py-4 flex items-start gap-4">
-            <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</div>
+          {/* Step 1 */}
+          <div className="px-4 py-3.5 flex items-start gap-3">
+            <StepNum num={1} />
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-sm font-medium text-gray-800">엑셀 다운로드</div>
+                  <div className="text-xs font-semibold text-gray-700">YEARLY 엑셀 다운로드</div>
                   <div className="text-xs text-gray-400 mt-0.5">
                     해당 호의 정기구독 발송 목록을 엑셀로 다운로드합니다.
                   </div>
@@ -1723,15 +1692,16 @@ function MonthlyExcelTab() {
             </div>
           </div>
 
-          {/* Step 2: 송장 업로드 */}
-          <div className="px-5 py-4 flex items-start gap-4">
-            <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</div>
+          {/* Step 2 */}
+          <div className="px-4 py-3.5 flex items-start gap-3">
+            <StepNum num={2} />
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-sm font-medium text-gray-800">송장번호 업로드</div>
+                  <div className="text-xs font-semibold text-gray-700">송장 업로드</div>
                   <div className="text-xs text-gray-400 mt-0.5">
-                    송장번호가 기입된 엑셀을 업로드합니다. 자동으로 발송 중으로 전환됩니다.
+                    자체배송 처리 후 <span className="text-gray-600 font-medium">배송 대기</span>로 전환됩니다.
+                    <br />매월 5일에 자동으로 <span className="text-gray-600 font-medium">배송 중</span>으로 변경됩니다.
                   </div>
                 </div>
                 <label className={!isValidIssue ? "pointer-events-none" : ""}>
@@ -1764,72 +1734,57 @@ function MonthlyExcelTab() {
 
       {/* 업로드 결과 */}
       {uploadResult && (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="px-5 py-3.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {uploadResult.data?.fail_count === 0 ? (
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-              ) : (
-                <AlertTriangle className="h-4 w-4 text-amber-500" />
-              )}
-              <span className="text-sm font-semibold text-gray-700">
-                업로드 결과 —{" "}
-                <span className={uploadResult.type === "monthly" ? "text-amber-700" : "text-blue-700"}>
-                  {uploadResult.type === "monthly" ? "MONTHLY 단편" : "YEARLY 정기구독"}
-                </span>
-              </span>
-            </div>
-            <button onClick={() => setUploadResult(null)} className="text-gray-400 hover:text-gray-600 p-0.5 rounded">
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              업로드 결과 — {uploadResult.type === "monthly" ? "MONTHLY 단편" : "YEARLY 정기구독"}
+            </span>
+            <button onClick={() => setUploadResult(null)} className="text-gray-400 hover:text-gray-600">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
-          <div className="p-5">
-            {/* 통계 */}
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="text-center rounded-lg bg-gray-50 border border-gray-100 py-3">
-                <div className="text-2xl font-bold text-gray-800">{uploadResult.data?.total ?? 0}</div>
-                <div className="text-xs text-gray-500 mt-0.5">전체</div>
+          <div className="p-4">
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              <div className="text-center bg-gray-50 rounded-lg py-2.5">
+                <div className="text-lg font-semibold text-gray-900">{uploadResult.data?.total ?? 0}</div>
+                <div className="text-xs text-gray-500">전체</div>
               </div>
-              <div className="text-center rounded-lg bg-green-50 border border-green-100 py-3">
-                <div className="text-2xl font-bold text-green-700">{uploadResult.data?.success_count ?? 0}</div>
-                <div className="text-xs text-green-600 mt-0.5">성공</div>
+              <div className="text-center bg-green-50 rounded-lg py-2.5">
+                <div className="text-lg font-semibold text-green-700">{uploadResult.data?.success_count ?? 0}</div>
+                <div className="text-xs text-green-600">성공</div>
               </div>
-              <div className="text-center rounded-lg bg-red-50 border border-red-100 py-3">
-                <div className="text-2xl font-bold text-red-600">{uploadResult.data?.fail_count ?? 0}</div>
-                <div className="text-xs text-red-500 mt-0.5">실패</div>
+              <div className="text-center bg-red-50 rounded-lg py-2.5">
+                <div className="text-lg font-semibold text-red-600">{uploadResult.data?.fail_count ?? 0}</div>
+                <div className="text-xs text-red-500">실패</div>
               </div>
             </div>
-
-            {/* 실패 목록 */}
             {(uploadResult.data?.fail_count ?? 0) > 0 && (
-              <div>
-                <div className="text-xs font-semibold text-gray-500 mb-2">실패 목록</div>
-                <div className="border border-red-100 rounded-lg overflow-hidden">
-                  <div className="grid grid-cols-[80px_1fr] bg-red-50 border-b border-red-100 px-3 py-1.5">
-                    <div className="text-[11px] font-semibold text-red-600">발송 번호</div>
-                    <div className="text-[11px] font-semibold text-red-600">사유</div>
-                  </div>
-                  <div className="max-h-40 overflow-y-auto divide-y divide-red-50">
-                    {uploadResult.data?.results
-                      ?.filter((r) => !r.success)
-                      .map((r) => (
-                        <div key={r.send_id} className="grid grid-cols-[80px_1fr] px-3 py-2">
-                          <div className="text-xs font-mono text-gray-700">#{r.send_id}</div>
-                          <div className="text-xs text-red-600">{r.message ?? "알 수 없는 오류"}</div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
+              <div className="text-xs text-red-500 space-y-0.5 max-h-28 overflow-y-auto bg-red-50 rounded-lg p-2.5">
+                {uploadResult.data?.results
+                  ?.filter((r) => !r.success)
+                  .map((r) => (
+                    <div key={r.send_id} className="flex gap-2">
+                      <span className="font-mono text-gray-500 flex-shrink-0">#{r.send_id}</span>
+                      <span>{r.message ?? "알 수 없는 오류"}</span>
+                    </div>
+                  ))}
               </div>
             )}
-
             {(uploadResult.data?.fail_count ?? 0) === 0 && (
-              <p className="text-xs text-green-600 text-center py-1">모든 송장번호가 성공적으로 처리되었습니다.</p>
+              <p className="text-xs text-green-600 text-center py-0.5">모든 송장번호가 성공적으로 처리되었습니다.</p>
             )}
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function StepNum({ num }: { num: number }) {
+  return (
+    <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+      {num}
+    </span>
   );
 }
 
