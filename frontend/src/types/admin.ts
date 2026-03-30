@@ -18,10 +18,9 @@ export interface AdminCreate extends AdminBase {
 }
 
 export interface AdminUpdate {
-  // ⚠️ admin_role 변경은 PATCH /role, 활성화/비활성화는 PATCH /activate|deactivate 사용
+  // ⚠️ admin_role 변경은 PATCH /role, 비밀번호 변경은 POST /change-password 사용
   email?: string | null;
   admin_name?: string | null;
-  plain_password?: string | null;
 }
 
 export interface AdminRoleUpdate {

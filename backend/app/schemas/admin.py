@@ -18,10 +18,9 @@ class AdminCreate(BaseModel):
 
 
 class AdminUpdate(BaseModel):
-    # ※ admin_role 변경은 PATCH /role, 비밀번호 변경은 PATCH /password 로 처리
+    # ※ admin_role 변경은 PATCH /role, 비밀번호 변경은 POST /change-password 로 처리
     email: Optional[EmailStr] = None
     admin_name: Optional[str] = None
-    plain_password: Optional[str] = None
 
 
 class AdminRoleUpdate(BaseModel):

@@ -61,8 +61,6 @@ function AdminListContent() {
   const [toggleTarget, setToggleTarget] = useState<AdminResponse | null>(null);
   const [editTarget, setEditTarget] = useState<AdminResponse | null>(null);
   const [editForm, setEditForm] = useState({ admin_name: "", email: "" });
-  const [pwTarget, setPwTarget] = useState<AdminResponse | null>(null);
-  const [pwForm, setPwForm] = useState({ new_password: "" });
   const [showDeleted, setShowDeleted] = useState(false);
 
   // 관리자 생성 폼 상태
@@ -138,17 +136,6 @@ function AdminListContent() {
       setEditTarget(null);
     },
     onError: () => toast.error("수정 실패"),
-  });
-
-  const changePwMutation = useMutation({
-    mutationFn: ({ adminId, newPassword }: { adminId: number; newPassword: string }) =>
-      adminsApi.updateAdmin(adminId, { plain_password: newPassword }),
-    onSuccess: () => {
-      toast.success("비밀번호가 변경되었습니다.");
-      setPwTarget(null);
-      setPwForm({ new_password: "" });
-    },
-    onError: () => toast.error("비밀번호 변경 실패"),
   });
 
   const roleMutation = useMutation({
@@ -247,15 +234,6 @@ function AdminListContent() {
                 }}
               >
                 정보 수정
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setPwTarget(row);
-                  setPwForm({ new_password: "" });
-                }}
-              >
-                비밀번호 변경
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               {/* 권한 변경 */}
@@ -472,28 +450,6 @@ function AdminListContent() {
         </DialogContent>
       </Dialog>
 
-      {/* 비밀번호 변경 모달 */}
-      <Dialog open={!!pwTarget} onOpenChange={(open) => !open && setPwTarget(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{pwTarget?.admin_name} 비밀번호 변경</DialogTitle>
-          </DialogHeader>
-          <div className="py-1">
-            <Label>새 비밀번호 <span className="text-red-500 ml-0.5">*</span></Label>
-            <Input className="mt-1" type="password" value={pwForm.new_password}
-              onChange={(e) => setPwForm({ new_password: e.target.value })} />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPwTarget(null)}>취소</Button>
-            <Button
-              onClick={() => pwTarget && changePwMutation.mutate({ adminId: pwTarget.admin_id, newPassword: pwForm.new_password })}
-              disabled={changePwMutation.isPending || pwForm.new_password.length < 4}
-            >
-              변경
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

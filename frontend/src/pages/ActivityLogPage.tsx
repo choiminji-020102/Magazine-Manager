@@ -30,10 +30,12 @@ const ACTION_OPTIONS = [
   { value: "DELETE", label: "삭제" },
   { value: "ACTIVATE", label: "활성화" },
   { value: "DEACTIVATE", label: "비활성화" },
+  { value: "RESTORE", label: "복구" },
   { value: "CANCEL", label: "취소" },
   { value: "DISPATCH", label: "발송" },
   { value: "LOGIN", label: "로그인" },
   { value: "LOGOUT", label: "로그아웃" },
+  { value: "SIGNUP", label: "가입" },
   { value: "ANSWER", label: "답변" },
 ];
 
