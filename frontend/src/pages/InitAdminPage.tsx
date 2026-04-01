@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Eye, EyeOff } from "lucide-react";
 import { authAPI } from "@/api/authApi";
 import { getErrorMessage } from "@/utils/errorHandler";
 
@@ -18,6 +19,8 @@ export default function InitAdminPage() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
   const {
     register,
@@ -109,15 +112,25 @@ export default function InitAdminPage() {
               <Label htmlFor="admin_password" className="text-sm text-gray-700 mb-1.5 block">
                 비밀번호
               </Label>
-              <Input
-                id="admin_password"
-                type="password"
-                placeholder="8자 이상, 영문+숫자+특수문자 포함"
-                {...register("admin_password", {
-                  required: "비밀번호를 입력해주세요.",
-                  minLength: { value: 8, message: "비밀번호는 8자 이상이어야 합니다." },
-                })}
-              />
+              <div className="relative">
+                <Input
+                  id="admin_password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="8자 이상, 영문+숫자+특수문자 포함"
+                  className="pr-9"
+                  {...register("admin_password", {
+                    required: "비밀번호를 입력해주세요.",
+                    minLength: { value: 8, message: "비밀번호는 8자 이상이어야 합니다." },
+                  })}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
               {errors.admin_password && (
                 <p className="text-xs text-red-500 mt-1">{errors.admin_password.message}</p>
               )}
@@ -127,15 +140,25 @@ export default function InitAdminPage() {
               <Label htmlFor="admin_password_confirm" className="text-sm text-gray-700 mb-1.5 block">
                 비밀번호 확인
               </Label>
-              <Input
-                id="admin_password_confirm"
-                type="password"
-                placeholder="비밀번호 재입력"
-                {...register("admin_password_confirm", {
-                  required: "비밀번호 확인을 입력해주세요.",
-                  validate: (v) => v === password || "비밀번호가 일치하지 않습니다.",
-                })}
-              />
+              <div className="relative">
+                <Input
+                  id="admin_password_confirm"
+                  type={showPasswordConfirm ? "text" : "password"}
+                  placeholder="비밀번호 재입력"
+                  className="pr-9"
+                  {...register("admin_password_confirm", {
+                    required: "비밀번호 확인을 입력해주세요.",
+                    validate: (v) => v === password || "비밀번호가 일치하지 않습니다.",
+                  })}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPasswordConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
               {errors.admin_password_confirm && (
                 <p className="text-xs text-red-500 mt-1">{errors.admin_password_confirm.message}</p>
               )}
