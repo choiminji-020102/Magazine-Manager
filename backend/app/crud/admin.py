@@ -164,6 +164,7 @@ def restore_admin(admin_id: int, db: Session) -> admin_model.Admin:
             detail=f"ID {admin_id}에 해당하는 삭제된 관리자를 찾을 수 없습니다."
         )
     admin.is_deleted = False
+    admin.is_active = True
     admin.deleted_at = None
     db.commit()
     db.refresh(admin)
