@@ -78,11 +78,16 @@ def read_admin_by_email(admin_email: str, db: Session) -> admin_model.Admin:
 def check_email_duplicate(admin_email: str, db: Session, exclude_admin_id: Optional[int] = None) -> None:
     query = db.query(admin_model.Admin).filter(
         admin_model.Admin.admin_email == admin_email,
-        admin_model.Admin.is_deleted == False,
     )
     if exclude_admin_id is not None:
         query = query.filter(admin_model.Admin.admin_id != exclude_admin_id)
-    if query.first():
+    existing = query.first()
+    if existing:
+        if existing.is_deleted:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"이메일 {admin_email}은(는) 삭제된 관리자가 사용 중입니다. 해당 관리자를 복구하거나 다른 이메일을 사용해주세요."
+            )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"이메일 {admin_email}은(는) 이미 사용 중입니다."
