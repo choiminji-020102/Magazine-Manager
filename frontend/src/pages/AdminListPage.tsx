@@ -32,6 +32,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { adminsApi } from "@/api/adminsApi";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/utils/errorHandler";
 import { formatDateTime } from "@/utils/format";
 import { ADMIN_ROLE_LABEL } from "@/utils/constants";
 import type { AdminResponse } from "@/types/admin";
@@ -91,7 +92,7 @@ function AdminListContent() {
       setCreateOpen(false);
       setForm({ email: "", admin_name: "", plain_password: "", admin_role: "ADMIN", is_active: true });
     },
-    onError: () => toast.error("관리자 등록 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const toggleMutation = useMutation({
@@ -104,7 +105,7 @@ function AdminListContent() {
       queryClient.invalidateQueries({ queryKey: ["admins"] });
       setToggleTarget(null);
     },
-    onError: () => toast.error("처리 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const deleteMutation = useMutation({
@@ -114,7 +115,7 @@ function AdminListContent() {
       queryClient.invalidateQueries({ queryKey: ["admins"] });
       setDeleteTarget(null);
     },
-    onError: () => toast.error("삭제 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const restoreMutation = useMutation({
@@ -124,7 +125,7 @@ function AdminListContent() {
       queryClient.invalidateQueries({ queryKey: ["admins"] });
       setRestoreTarget(null);
     },
-    onError: () => toast.error("복구 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const updateAdminMutation = useMutation({
@@ -135,7 +136,7 @@ function AdminListContent() {
       queryClient.invalidateQueries({ queryKey: ["admins"] });
       setEditTarget(null);
     },
-    onError: () => toast.error("수정 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const roleMutation = useMutation({
