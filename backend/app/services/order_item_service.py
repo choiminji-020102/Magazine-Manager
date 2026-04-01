@@ -1,5 +1,5 @@
 # 표준 라이브러리
-from datetime import date, datetime, timezone
+from datetime import date
 from typing import List, Optional, Tuple
 
 # 서드파티 라이브러리
@@ -8,7 +8,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
-from app.core.utils import calculate_subscribe_end_issue
+from app.core.utils import calculate_subscribe_end_issue, now_kst
 from app.crud import order_item as order_item_crud
 from app.models.address import Address
 from app.models.customer import Customer
@@ -490,7 +490,7 @@ def cancel_order_item(
             refund_amount = 0
 
     # PREPARING Send 취소
-    now = datetime.now(timezone.utc)
+    now = now_kst()
     for si in send_items:
         if si.send.send_status == "PREPARING":
             si.send.send_status = "CANCELLED"

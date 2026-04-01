@@ -1,5 +1,5 @@
 # 표준 라이브러리
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import List, Optional, Tuple
 
 # 서드파티 라이브러리
@@ -8,6 +8,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
+from app.core.utils import now_kst
 from app.models.address import Address
 from app.models.customer import Customer
 from app.models.order import Order
@@ -259,7 +260,7 @@ def set_order_status(
 
 def cancel_order_items(db: Session, order_id: int) -> None:
     """주문 내 모든 미취소 품목을 일괄 취소"""
-    now = datetime.now(timezone.utc)
+    now = now_kst()
     db.query(OrderItem).filter(
         OrderItem.order_id == order_id,
         OrderItem.cancelled_at.is_(None),

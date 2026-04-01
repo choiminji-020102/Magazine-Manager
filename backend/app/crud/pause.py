@@ -1,5 +1,4 @@
 # 표준 라이브러리
-from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 # 서드파티 라이브러리
@@ -7,6 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
+from app.core.utils import now_kst
 from app.models.pause import Pause
 from app.schemas.pause import PauseUpdate
 
@@ -108,7 +108,7 @@ def update_pause(db: Session, pause: Pause, pause_in: PauseUpdate) -> Pause:
 
 def soft_delete_pause(db: Session, pause: Pause) -> Pause:
     pause.is_deleted = True
-    pause.deleted_at = datetime.now(timezone.utc)
+    pause.deleted_at = now_kst()
     db.commit()
     db.refresh(pause)
     return pause

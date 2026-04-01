@@ -1,5 +1,14 @@
 import re
+from datetime import datetime, timezone, timedelta
 from typing import Optional, Tuple
+
+# MySQL 서버(Cafe24)가 KST 기준이므로 Python에서도 KST로 통일
+KST = timezone(timedelta(hours=9))
+
+
+def now_kst() -> datetime:
+    """현재 한국 시간(KST) 반환 — DB의 func.now()와 동일한 시간대"""
+    return datetime.now(KST)
 
 
 def parse_subscribe_start_issue(product_code: str) -> Optional[str]:

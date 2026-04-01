@@ -1,8 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from typing import Optional, List, Tuple
-from datetime import datetime
-
+from app.core.utils import now_kst
 from app.models.inquiry import Inquiry
 from app.models.customer import Customer
 from app.models.admin import Admin
@@ -114,7 +113,7 @@ def answer_inquiry(
     inquiry.inquiry_status = status
     inquiry.handled_by = admin_id
     if status == "COMPLETED":
-        inquiry.handled_at = datetime.now()
+        inquiry.handled_at = now_kst()
     db.commit()
     db.refresh(inquiry)
     return inquiry

@@ -1,12 +1,10 @@
-# 표준 라이브러리
-from datetime import datetime, timezone
-
 # 서드파티 라이브러리
 from fastapi import HTTPException, status, Request
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
 from app.core.password import verify_password, get_password_hash, validate_password_strength
+from app.core.utils import now_kst
 from app.core.token import (
     decode_access_token,
     decode_refresh_token,
@@ -66,7 +64,7 @@ def login(
         db=db
     )
     # 마지막 로그인 시간 업데이트
-    admin.last_login_at = datetime.now(timezone.utc)
+    admin.last_login_at = now_kst()
     db.commit()
     db.refresh(admin)
 

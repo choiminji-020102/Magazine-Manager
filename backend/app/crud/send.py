@@ -1,5 +1,5 @@
 # 표준 라이브러리
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from typing import List, Optional, Tuple
 
 # 서드파티 라이브러리
@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
+from app.core.utils import now_kst
 from app.models.send import Send
 from app.models.send_item import SendItem
 from app.schemas.send import SendListQuery, SendUpdate
@@ -127,7 +128,7 @@ def update_send_status(
     courier_company: Optional[str] = None,
 ) -> Send:
     """발송 상태 변경 + 상태별 타임스탬프 자동 설정"""
-    now = datetime.now(timezone.utc)
+    now = now_kst()
     send.send_status = send_status
 
     if send_status == "SHIPPING":
@@ -156,7 +157,7 @@ def update_tracking(
     send.tracking_no = tracking_no
     send.courier_company = courier_company
     send.send_status = "SHIPPING"
-    send.shipped_at = datetime.now(timezone.utc)
+    send.shipped_at = now_kst()
     db.commit()
     db.refresh(send)
     return send
@@ -166,7 +167,7 @@ def cancel_send(db: Session, send: Send) -> Send:
     """발송 취소 (연관 SendItem도 취소)"""
     from app.models.send_item import SendItem
 
-    now = datetime.now(timezone.utc)
+    now = now_kst()
     send.send_status = "CANCELLED"
     send.cancelled_at = now
 
@@ -187,7 +188,7 @@ def auto_deliver_shipped_sends(db: Session, days: int = 3) -> int:
     """SHIPPING 상태에서 N일 경과한 발송을 자동 DELIVERED 전환. 전환 건수 반환."""
     from datetime import timedelta
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff = now_kst() - timedelta(days=days)
     sends = (
         db.query(Send)
         .filter(
@@ -196,7 +197,7 @@ def auto_deliver_shipped_sends(db: Session, days: int = 3) -> int:
         )
         .all()
     )
-    now = datetime.now(timezone.utc)
+    now = now_kst()
     for send in sends:
         send.send_status = "DELIVERED"
         send.delivered_at = now

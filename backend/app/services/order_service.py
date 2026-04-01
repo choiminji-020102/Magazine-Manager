@@ -1,5 +1,5 @@
 # 표준 라이브러리
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import List, Optional, Tuple
 
 # 서드파티 라이브러리
@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
-from app.core.utils import calculate_subscribe_end_issue, format_phone_number
+from app.core.utils import calculate_subscribe_end_issue, format_phone_number, now_kst
 from app.crud import order as order_crud
 from app.models.order import Order
 from app.models.order_item import OrderItem
@@ -208,7 +208,7 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
     from app.models.customer import Customer
     customer = db.query(Customer).filter(Customer.customer_id == customer_id).first()
     if customer:
-        customer.last_order_at = datetime.now(timezone.utc)
+        customer.last_order_at = now_kst()
 
     db.commit()
     db.refresh(order)
@@ -226,7 +226,7 @@ def update_order(db: Session, order: Order, order_in: OrderUpdate) -> Order:
 
 def update_order_status(db: Session, order: Order, order_status: str) -> Order:
     """주문 상태 변경 (PAID → payment_at 자동 설정)"""
-    now = datetime.now(timezone.utc)
+    now = now_kst()
     payment_at = now if order_status == "PAID" and not order.payment_at else None
     return order_crud.set_order_status(
         db=db,
@@ -248,7 +248,7 @@ def process_payment(db: Session, order: Order, payment_in: OrderPaymentUpdate) -
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="이미 결제 완료된 주문입니다.",
         )
-    now = datetime.now(timezone.utc)
+    now = now_kst()
     # 상태·결제일·결제방법을 한 번에 설정 후 commit
     order.order_status = "PAID"
     order.payment_at = payment_in.payment_at or now
@@ -293,7 +293,7 @@ def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) 
             )
 
     # ── 2. 환불액 계산 ────────────────────────────────────────────────────────
-    now = datetime.now(timezone.utc)
+    now = now_kst()
 
     if cancel_request.refund_amount is not None:
         # 관리자가 직접 환불액 지정

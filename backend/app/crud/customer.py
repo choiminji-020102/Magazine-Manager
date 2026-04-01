@@ -1,5 +1,4 @@
 # 표준 라이브러리
-from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 # 서드파티 라이브러리
@@ -8,7 +7,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
-from app.core.utils import format_phone_number
+from app.core.utils import format_phone_number, now_kst
 from app.models.customer import Customer
 from app.schemas.customer import CustomerCreate, CustomerUpdate
 
@@ -151,7 +150,7 @@ def delete_customer(customer_id: int, db: Session) -> None:
     customer = read_customer_by_id(customer_id=customer_id, db=db)
     customer.is_deleted = True
     customer.is_active = False
-    customer.deleted_at = datetime.now(timezone.utc)
+    customer.deleted_at = now_kst()
     db.commit()
 
 

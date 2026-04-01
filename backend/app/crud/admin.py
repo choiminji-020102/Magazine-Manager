@@ -1,5 +1,4 @@
 # 표준 라이브러리
-from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 # 서드파티 라이브러리
@@ -9,6 +8,7 @@ from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
 from app.core.password import get_password_hash, validate_password_strength
+from app.core.utils import now_kst
 from app.models import admin as admin_model
 from app.schemas import admin as admin_schema
 
@@ -143,7 +143,7 @@ def delete_admin(admin_id: int, db: Session) -> None:
     admin = read_admin_by_id(admin_id=admin_id, db=db)
     admin.is_deleted = True
     admin.is_active = False
-    admin.deleted_at = datetime.now(timezone.utc)
+    admin.deleted_at = now_kst()
     db.commit()
 
 

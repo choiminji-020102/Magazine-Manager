@@ -1,5 +1,4 @@
 # 표준 라이브러리
-from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 # 서드파티 라이브러리
@@ -8,6 +7,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
+from app.core.utils import now_kst
 from app.models.order import Order
 from app.models.customer import Customer
 from app.models.order_item import OrderItem
@@ -143,7 +143,7 @@ def shorten_subscription(
 
 
 def cancel_order_item(db: Session, order_item: OrderItem) -> OrderItem:
-    order_item.cancelled_at = datetime.now(timezone.utc)
+    order_item.cancelled_at = now_kst()
     db.commit()
     db.refresh(order_item)
     return order_item
@@ -151,7 +151,7 @@ def cancel_order_item(db: Session, order_item: OrderItem) -> OrderItem:
 
 def update_last_send_issue(db: Session, order_item: OrderItem, issue: str) -> OrderItem:
     order_item.last_send_issue = issue
-    order_item.sended_at = datetime.now(timezone.utc)
+    order_item.sended_at = now_kst()
     db.commit()
     db.refresh(order_item)
     return order_item

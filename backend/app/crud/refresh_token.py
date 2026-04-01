@@ -7,6 +7,7 @@ from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
+from app.core.utils import now_kst
 from app.models import refresh_token as refresh_token_model
 
 
@@ -48,7 +49,7 @@ def exists_refresh_token(admin_id: int, token: str, db: Session) -> bool:
 def revoke_refresh_token(token: str, db: Session) -> None:
     refresh_token = read_refresh_token_by_token(token, db)
     try:
-        refresh_token.revoked_at = datetime.now(timezone.utc)
+        refresh_token.revoked_at = now_kst()
         db.commit()
         db.refresh(refresh_token)
     except Exception as e:
@@ -68,7 +69,7 @@ def revoke_all_tokens_by_admin_id(admin_id: int, db: Session) -> None:
                 refresh_token_model.RefreshToken.revoked_at.is_(None)
             )
         ).update(
-            {"revoked_at": datetime.now(timezone.utc)},
+            {"revoked_at": now_kst()},
             synchronize_session=False  # 성능 향상을 위해 세션 동기화 비활성화
         )
         db.commit()
