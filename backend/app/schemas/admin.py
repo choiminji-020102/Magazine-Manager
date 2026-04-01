@@ -10,11 +10,11 @@ from app.models.admin import AdminRole
 
 
 class AdminCreate(BaseModel):
-    email: EmailStr                 # 필수, unique
-    plain_password: str             # 필수 (평문, 서버에서 해싱)
     admin_name: str                 # 필수
     admin_role: AdminRole = AdminRole.MANAGER
+    email: EmailStr                 # 필수, unique
     is_active: bool = True
+    plain_password: str             # 필수 (평문, 서버에서 해싱)
 
 
 class AdminUpdate(BaseModel):
