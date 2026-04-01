@@ -1,18 +1,2 @@
-export const formatKst = (
-  value?: string | null,
-  fallback: string = "-"
-): string => {
-  if (!value) {
-    return fallback;
-  }
-
-  const hasTimezone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(value);
-  const normalized = hasTimezone ? value : `${value}Z`;
-  const date = new Date(normalized);
-
-  if (Number.isNaN(date.getTime())) {
-    return fallback;
-  }
-
-  return date.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
-};
+// 날짜 유틸은 format.ts의 formatDate/formatDateTime으로 통일
+// 이 파일은 하위 호환을 위해 유지 (사용처 없음)
