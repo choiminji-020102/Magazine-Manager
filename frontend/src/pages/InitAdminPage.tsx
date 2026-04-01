@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authAPI } from "@/api/authApi";
+import { getErrorMessage } from "@/utils/errorHandler";
 
 interface InitAdminForm {
   admin_name: string;
@@ -46,8 +47,8 @@ export default function InitAdminPage() {
         is_active: true,
       });
       navigate("/login", { replace: true });
-    } catch {
-      setError("관리자 계정 생성에 실패했습니다.");
+    } catch (err) {
+      setError(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -111,7 +112,7 @@ export default function InitAdminPage() {
               <Input
                 id="admin_password"
                 type="password"
-                placeholder="8자 이상"
+                placeholder="8자 이상, 영문+숫자+특수문자 포함"
                 {...register("admin_password", {
                   required: "비밀번호를 입력해주세요.",
                   minLength: { value: 8, message: "비밀번호는 8자 이상이어야 합니다." },
