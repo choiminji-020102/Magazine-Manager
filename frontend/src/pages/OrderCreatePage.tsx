@@ -34,6 +34,7 @@ interface OrderItem {
   order_num: number;
   sale_price: number;
   subscribe_period?: number;
+  admin_memo?: string;
 }
 
 export default function OrderCreatePage() {
@@ -179,6 +180,7 @@ export default function OrderCreatePage() {
       order_num: item.order_num,
       sale_price: item.sale_price,
       subscribe_period: item.subscribe_period,
+      admin_memo: item.admin_memo || null,
     }));
 
     const payload: OrderCreate = {
@@ -634,6 +636,23 @@ export default function OrderCreatePage() {
                           />
                         </div>
                       )}
+                    </div>
+                    <div className="mt-2">
+                      <Label className="text-xs">품목 메모</Label>
+                      <Input
+                        className="mt-1 h-7 text-xs"
+                        placeholder="품목별 메모 (선택)"
+                        value={item.admin_memo ?? ""}
+                        onChange={(e) =>
+                          setOrderItems((prev) =>
+                            prev.map((i) =>
+                              i.product.product_id === item.product.product_id
+                                ? { ...i, admin_memo: e.target.value }
+                                : i
+                            )
+                          )
+                        }
+                      />
                     </div>
                   </div>
                 ))}
