@@ -42,12 +42,12 @@ class ProductUpdate(BaseModel):
     list_price: Optional[int] = None
     sale_price: Optional[int] = None
     cost_price: Optional[int] = None
-    stock_quantity: Optional[int] = None
+    # stock_quantity → PATCH /stock 으로만 변경
+    # is_active → PATCH /activate, /deactivate 로만 변경
     unit_weight: Optional[float] = None
     unit_width: Optional[float] = None
     unit_length: Optional[float] = None
     unit_height: Optional[float] = None
-    is_active: Optional[bool] = None
     # subscribe_start_issue는 불변 — 수정 불가 (product_code 등록 시 자동 파싱)
 
 

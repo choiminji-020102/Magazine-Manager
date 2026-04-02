@@ -41,12 +41,12 @@ export interface ProductUpdate {
   list_price?: number | null;
   sale_price?: number | null;
   cost_price?: number | null;
-  stock_quantity?: number | null;
+  // stock_quantity → PATCH /stock 으로만 변경
+  // is_active → PATCH /activate, /deactivate 로만 변경
   unit_weight?: number | null;
   unit_width?: number | null;
   unit_length?: number | null;
   unit_height?: number | null;
-  is_active?: boolean | null;
   // subscribe_start_issue는 불변 — 수정 불가
 }
 
