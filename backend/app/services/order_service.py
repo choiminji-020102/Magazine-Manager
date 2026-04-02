@@ -86,7 +86,7 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
     address_id = order_in.address_id
 
     if not address_id:
-        addr = address_service.find_or_create_address(
+        addr, _ = address_service.find_or_create_address(
             db,
             AddressCreate(
                 customer_id=customer_id,
