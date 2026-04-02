@@ -577,6 +577,7 @@ def find_subscription_targets(
         .outerjoin(Address, OrderItem.address_id == Address.address_id)
         .filter(
             kind_filter,
+            Order.order_status == "PAID",
             OrderItem.cancelled_at.is_(None),
             OrderItem.final_subscribe_start_issue <= issue,
             OrderItem.final_subscribe_end_issue >= issue,
