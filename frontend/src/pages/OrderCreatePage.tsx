@@ -695,7 +695,7 @@ export default function OrderCreatePage() {
                     type="number"
                     min={0}
                     className="w-24 h-6 text-xs"
-                    value={discountAmount}
+                    value={discountAmount || ""}
                     onChange={(e) => setDiscountAmount(parseInt(e.target.value) || 0)}
                   />
                   <span className="text-xs">원</span>
