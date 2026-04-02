@@ -19,6 +19,7 @@ import { productsApi } from "@/api/productsApi";
 import { ordersApi } from "@/api/ordersApi";
 import { toast } from "@/hooks/use-toast";
 import { formatAmount, formatPhone } from "@/utils/format";
+import { nowKstISO } from "@/utils/date";
 import { PAYMENT_METHOD_OPTIONS } from "@/utils/constants";
 import type { CustomerResponse } from "@/types/customer";
 import type { AddressResponse } from "@/types/address";
@@ -188,7 +189,7 @@ export default function OrderCreatePage() {
       admin_memo: adminMemo || null,
       ...(isPaidOnCreate && {
         order_status: "PAID",
-        payment_at: new Date().toISOString(),
+        payment_at: nowKstISO(),
       }),
     };
 
