@@ -119,9 +119,6 @@ def update_admin(admin_id: int, admin_in: admin_schema.AdminUpdate, db: Session)
         existing_admin.admin_email = admin_in.email
     if admin_in.admin_name is not None:
         existing_admin.admin_name = admin_in.admin_name
-    if admin_in.plain_password is not None:
-        validate_password_strength(plain_password=admin_in.plain_password)
-        existing_admin.admin_password = get_password_hash(admin_in.plain_password)
 
     db.commit()
     db.refresh(existing_admin)
