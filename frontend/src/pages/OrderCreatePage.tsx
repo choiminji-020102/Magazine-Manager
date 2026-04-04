@@ -63,6 +63,8 @@ export default function OrderCreatePage() {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentMethodError, setPaymentMethodError] = useState(false);
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [sendFee, setSendFee] = useState(0);
+  const [sendFeeManual, setSendFeeManual] = useState(false);
   const [adminMemo, setAdminMemo] = useState("");
 
   // 즉시 결제완료 등록
@@ -161,11 +163,19 @@ export default function OrderCreatePage() {
     setOrderItems((prev) => prev.filter((i) => i.product.product_id !== productId));
   };
 
+  // 품목 변경 시 배송비 기본값 자동 설정 (수동 입력 안 했을 때만)
+  useEffect(() => {
+    if (!sendFeeManual) {
+      const hasMonthly = orderItems.some((i) => i.product.product_kind === "MONTHLY");
+      setSendFee(hasMonthly ? 3300 : 0);
+    }
+  }, [orderItems, sendFeeManual]);
+
   const totalAmount = orderItems.reduce(
     (sum, item) => sum + item.sale_price * item.order_num,
     0
   );
-  const paymentAmount = totalAmount - discountAmount;
+  const paymentAmount = totalAmount - discountAmount + sendFee;
 
   const handleSubmit = () => {
     // 필수 필드 검증
@@ -188,6 +198,7 @@ export default function OrderCreatePage() {
       order_channel: channel,
       payment_method: paymentMethod as PaymentMethod,
       discount_amount: discountAmount,
+      send_fee: sendFee,
       admin_memo: adminMemo || null,
       ...(isPaidOnCreate && {
         order_status: "PAID",
@@ -717,6 +728,23 @@ export default function OrderCreatePage() {
                     className="w-24 h-6 text-xs"
                     value={discountAmount || ""}
                     onChange={(e) => setDiscountAmount(parseInt(e.target.value) || 0)}
+                  />
+                  <span className="text-xs">원</span>
+                </div>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500">배송비</span>
+                <div className="flex items-center gap-1">
+                  <span>+</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    className="w-24 h-6 text-xs"
+                    value={sendFee || ""}
+                    onChange={(e) => {
+                      setSendFeeManual(true);
+                      setSendFee(parseInt(e.target.value) || 0);
+                    }}
                   />
                   <span className="text-xs">원</span>
                 </div>
