@@ -372,6 +372,9 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
               <InfoRow label="고객명" value={order.customer?.customer_name} />
               <InfoRow label="연락처" value={formatPhone(order.customer?.customer_phone)} />
               <InfoRow label="이메일" value={order.customer?.customer_email} />
+              {order.customer?.admin_memo && (
+                <InfoRow label="관리자메모" value={order.customer.admin_memo} />
+              )}
             </Section>
 
             {/* 배송지 정보 */}
@@ -388,6 +391,9 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
               />
               {order.address?.customer_memo && (
                 <InfoRow label="배송 메모" value={order.address.customer_memo} />
+              )}
+              {order.address?.admin_memo && (
+                <InfoRow label="관리자메모" value={order.address.admin_memo} />
               )}
             </Section>
 
@@ -640,6 +646,28 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                   )}
                 </div>
                 <div className="px-3.5 py-3 space-y-2">
+                  {/* 수령인 정보 */}
+                  <div className="flex items-start gap-3">
+                    <span className="text-xs text-gray-400 w-24 flex-shrink-0">수령인</span>
+                    <span className="text-xs text-gray-700">{send.recipient_name} / {formatPhone(send.recipient_phone)}</span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="text-xs text-gray-400 w-24 flex-shrink-0">주소</span>
+                    <span className="text-xs text-gray-700">({send.postal_code}) {send.recipient_address}</span>
+                  </div>
+                  {send.customer_memo && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-xs text-gray-400 w-24 flex-shrink-0">배송메모</span>
+                      <span className="text-xs text-gray-700">{send.customer_memo}</span>
+                    </div>
+                  )}
+                  {send.admin_memo && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-xs text-gray-400 w-24 flex-shrink-0">관리자메모</span>
+                      <span className="text-xs text-gray-700">{send.admin_memo}</span>
+                    </div>
+                  )}
+                  {/* 운송장 */}
                   {send.tracking_no ? (
                     <div className="flex items-start gap-3">
                       <span className="text-xs text-gray-400 w-24 flex-shrink-0">운송장</span>
@@ -648,22 +676,35 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                   ) : (
                     <div className="text-xs text-gray-300">운송장 미등록</div>
                   )}
+                  {/* 타임스탬프 */}
                   {send.official_send_date && (
                     <div className="flex items-start gap-3">
                       <span className="text-xs text-gray-400 w-24 flex-shrink-0">발송예정일</span>
                       <span className="text-xs text-gray-700">{formatDate(send.official_send_date)}</span>
                     </div>
                   )}
+                  {send.prepared_at && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-xs text-gray-400 w-24 flex-shrink-0">준비완료</span>
+                      <span className="text-xs text-gray-700">{formatDateTime(send.prepared_at)}</span>
+                    </div>
+                  )}
                   {send.shipped_at && (
                     <div className="flex items-start gap-3">
                       <span className="text-xs text-gray-400 w-24 flex-shrink-0">배송시작</span>
-                      <span className="text-xs text-gray-700">{formatDate(send.shipped_at)}</span>
+                      <span className="text-xs text-gray-700">{formatDateTime(send.shipped_at)}</span>
                     </div>
                   )}
                   {send.delivered_at && (
                     <div className="flex items-start gap-3">
                       <span className="text-xs text-gray-400 w-24 flex-shrink-0">배송완료</span>
-                      <span className="text-xs text-gray-700">{formatDate(send.delivered_at)}</span>
+                      <span className="text-xs text-gray-700">{formatDateTime(send.delivered_at)}</span>
+                    </div>
+                  )}
+                  {send.cancelled_at && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-xs text-gray-400 w-24 flex-shrink-0">취소일시</span>
+                      <span className="text-xs text-red-600">{formatDateTime(send.cancelled_at)}</span>
                     </div>
                   )}
                 </div>
@@ -1131,10 +1172,14 @@ function OrderItemCard({
 
         {isYearly && (
           <>
+            <div className="text-gray-400">원래 시작호</div>
+            <div className="text-gray-700">{formatIssue(item.subscribe_start_issue)}</div>
+
             <div className="text-gray-400">구독 기간</div>
             <div className="text-gray-700">
               {formatIssue(item.final_subscribe_start_issue)} ~{" "}
               {formatIssue(item.final_subscribe_end_issue)}
+              <span className="text-gray-400 ml-1">({item.subscribe_period}개월)</span>
             </div>
             {item.paid_subscribe_end_issue && item.paid_subscribe_end_issue !== item.subscribe_end_issue && (
               <>
@@ -1151,6 +1196,13 @@ function OrderItemCard({
           </>
         )}
 
+        {item.sended_at && (
+          <>
+            <div className="text-gray-400">발송일시</div>
+            <div className="text-gray-700">{formatDateTime(item.sended_at)}</div>
+          </>
+        )}
+
         {isCancelled && item.refund_amount > 0 && (
           <>
             <div className="text-gray-400">환불금액</div>
@@ -1158,6 +1210,22 @@ function OrderItemCard({
           </>
         )}
       </div>
+
+      {/* 품목별 배송지 */}
+      {item.address && (
+        <div className="mt-2.5 pt-2.5 border-t border-gray-100 text-xs space-y-1">
+          <div className="font-medium text-gray-500">배송지</div>
+          <div className="text-gray-700">
+            {item.address.recipient_name} / {formatPhone(item.address.recipient_phone)}
+          </div>
+          <div className="text-gray-700">
+            ({item.address.postal_code}) {item.address.recipient_address}
+          </div>
+          {item.address.customer_memo && (
+            <div className="text-gray-400">배송메모: {item.address.customer_memo}</div>
+          )}
+        </div>
+      )}
 
       {/* 휴지 목록 */}
       {isYearly && item.pauses && item.pauses.length > 0 && (
