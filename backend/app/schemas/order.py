@@ -110,10 +110,6 @@ class OrderUpdate(BaseModel):
     payment_at: Optional[datetime] = None
 
 
-class OrderStatusUpdate(BaseModel):
-    status: OrderStatus
-
-
 class OrderCancelRequest(BaseModel):
     admin_memo: str                         # 취소 사유, 필수
     refund_amount: Optional[int] = None     # 미입력 시 자동 계산

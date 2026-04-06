@@ -84,10 +84,6 @@ export interface OrderUpdate {
   payment_at?: string | null;
 }
 
-export interface OrderStatusUpdate {
-  status: string;
-}
-
 export interface OrderCancelRequest {
   admin_memo: string;           // 취소 사유 필수
   refund_amount?: number | null;

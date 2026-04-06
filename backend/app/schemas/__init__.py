@@ -23,7 +23,7 @@ from app.schemas.address import (
 )
 from app.schemas.order import (
     OrderCreate, OrderUpdate, OrderResponse, OrderListResponse,
-    OrderStatusUpdate, OrderPaymentUpdate, OrderItemCreateInOrder,
+    OrderPaymentUpdate, OrderItemCreateInOrder,
     OrderCancelRequest,
 )
 from app.schemas.order_item import (

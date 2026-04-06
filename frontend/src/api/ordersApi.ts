@@ -7,7 +7,6 @@ import type {
   OrderResponse,
   OrderListResponse,
   OrderDetailResponse,
-  OrderStatusUpdate,
   OrderCancelRequest,
   OrderPaymentUpdate,
 } from "../types/order";
@@ -41,11 +40,6 @@ export const ordersApi = {
   // PUT /orders/{order_id} - 주문 수정
   updateOrder: (orderId: number, data: OrderUpdate) => {
     return api.put<ResponseModel<OrderResponse>>(`/orders/${orderId}`, data);
-  },
-
-  // PATCH /orders/{order_id}/status - 주문 상태 변경
-  updateOrderStatus: (orderId: number, data: OrderStatusUpdate) => {
-    return api.patch<ResponseModel<OrderResponse>>(`/orders/${orderId}/status`, data);
   },
 
   // POST /orders/{order_id}/payment - 결제 완료 처리

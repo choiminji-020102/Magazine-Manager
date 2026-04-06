@@ -224,18 +224,6 @@ def update_order(db: Session, order: Order, order_in: OrderUpdate) -> Order:
     return order_crud.update_order(db=db, order=order, order_in=order_in)
 
 
-def update_order_status(db: Session, order: Order, order_status: str) -> Order:
-    """주문 상태 변경 (PAID → payment_at 자동 설정)"""
-    now = now_kst()
-    payment_at = now if order_status == "PAID" and not order.payment_at else None
-    return order_crud.set_order_status(
-        db=db,
-        order=order,
-        order_status=order_status,
-        payment_at=payment_at,
-    )
-
-
 def process_payment(db: Session, order: Order, payment_in: OrderPaymentUpdate) -> Order:
     """결제 완료 처리 (ORDERED → PAID)"""
     if order.order_status == "CANCELLED":

@@ -15,7 +15,7 @@ from app.schemas import OrderDetailResponse
 from app.schemas.common import PaginatedResponse, ResponseModel
 from app.schemas.order import (
     OrderCancelRequest, OrderCreate, OrderListQuery, OrderListResponse,
-    OrderPaymentUpdate, OrderResponse, OrderStatusUpdate, OrderUpdate,
+    OrderPaymentUpdate, OrderResponse, OrderUpdate,
 )
 from app.services import activity_log_service, customer_service, order_service
 
@@ -142,47 +142,6 @@ def update_order(
     )
 
     return ResponseModel(message="주문이 수정되었습니다.", data=OrderResponse.model_validate(order))
-
-
-@router.patch("/{order_id}/status", response_model=ResponseModel[OrderResponse])
-def update_order_status(
-    order_id: int,
-    status_in: OrderStatusUpdate,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin),
-):
-    """주문 상태 변경"""
-    order = order_service.get_order_by_id(db, order_id)
-
-    if order.order_status == "CANCELLED":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="취소된 주문의 상태는 변경할 수 없습니다.",
-        )
-    if status_in.status == "CANCELLED":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="취소는 POST /{order_id}/cancel 엔드포인트를 사용해주세요.",
-        )
-
-    before_status = order.order_status
-    order = order_service.update_order_status(db, order, status_in.status)
-
-    activity_log_service.create_log(
-        db=db,
-        action=ActivityAction.UPDATE,
-        target_type=ActivityTargetType.ORDER,
-        admin_id=current_admin.admin_id,
-        admin_name=current_admin.admin_name,
-        target_id=order_id,
-        target_name=f"주문 #{order_id}",
-        details={"before": {"order_status": before_status}, "after": {"order_status": order.order_status}},
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-    )
-
-    return ResponseModel(message="주문 상태가 변경되었습니다.", data=OrderResponse.model_validate(order))
 
 
 @router.post("/{order_id}/payment", response_model=ResponseModel[OrderResponse])
