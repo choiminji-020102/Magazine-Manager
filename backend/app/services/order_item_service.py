@@ -8,7 +8,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
-from app.core.utils import calculate_subscribe_end_issue, now_kst
+from app.core.utils import calculate_subscribe_end_issue, count_issue_diff, now_kst
 from app.crud import order_item as order_item_crud
 from app.models.address import Address
 from app.models.customer import Customer
@@ -42,11 +42,7 @@ from app.services import address_service
 
 # ── 헬퍼 ──────────────────────────────────────────────────────────────────────
 
-def _count_issue_diff(start_issue: str, end_issue: str) -> int:
-    """두 호(YYYYMM) 간의 개월 수 차이 (end - start)"""
-    y1, m1 = int(start_issue[:4]), int(start_issue[4:6])
-    y2, m2 = int(end_issue[:4]), int(end_issue[4:6])
-    return (y2 - y1) * 12 + (m2 - m1)
+_count_issue_diff = count_issue_diff  # 기존 내부 호출 호환
 
 
 def _add_months_to_issue(issue: str, months: int) -> str:
@@ -308,7 +304,8 @@ def extend_subscription(
     current_end = order_item.final_subscribe_end_issue
 
     if extend_in.extend_months:
-        new_end = _add_months_to_issue(current_end, extend_in.extend_months)
+        extend_months = extend_in.extend_months
+        new_end = _add_months_to_issue(current_end, extend_months)
     else:
         new_end = extend_in.extend_end_issue
         if new_end <= current_end:
@@ -316,9 +313,11 @@ def extend_subscription(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"연장 종료 호({new_end})는 현재 종료 호({current_end})보다 커야 합니다.",
             )
+        extend_months = _count_issue_diff(current_end, new_end)
 
     return order_item_crud.extend_subscription(
-        db=db, order_item=order_item, new_end_issue=new_end, update_paid=extend_in.is_paid
+        db=db, order_item=order_item, new_end_issue=new_end,
+        extend_months=extend_months, update_paid=extend_in.is_paid,
     )
 
 
@@ -341,7 +340,8 @@ def batch_extend_subscription(
             new_end = _add_months_to_issue(prev_end, batch_in.extend_months)
             # 일괄 연장은 무상 연장만 지원
             order_item_crud.extend_subscription(
-                db=db, order_item=order_item, new_end_issue=new_end, update_paid=False
+                db=db, order_item=order_item, new_end_issue=new_end,
+                extend_months=batch_in.extend_months, update_paid=False,
             )
 
             results.append(SubscriptionBatchExtendResultItem(
@@ -405,7 +405,8 @@ def shorten_calculate(
         )
 
     shorten_count = _count_issue_diff(shorten_end, current_end)
-    unit_price = order_item.sale_price / order_item.subscribe_period
+    paid_period = _count_issue_diff(order_item.subscribe_start_issue, order_item.paid_subscribe_end_issue) + 1
+    unit_price = order_item.sale_price / paid_period
     refund_amount = int(shorten_count * unit_price * order_item.order_num)
 
     return SubscriptionShortenCalculateResponse(
@@ -437,7 +438,8 @@ def shorten_confirm(
         )
 
     shorten_count = _count_issue_diff(shorten_end, current_end)
-    unit_price = order_item.sale_price / order_item.subscribe_period
+    paid_period = _count_issue_diff(order_item.subscribe_start_issue, order_item.paid_subscribe_end_issue) + 1
+    unit_price = order_item.sale_price / paid_period
     refund_amount = int(shorten_count * unit_price * order_item.order_num)
 
     return order_item_crud.shorten_subscription(

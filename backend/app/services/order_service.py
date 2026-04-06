@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
-from app.core.utils import calculate_subscribe_end_issue, format_phone_number, now_kst
+from app.core.utils import calculate_subscribe_end_issue, count_issue_diff, format_phone_number, now_kst
 from app.crud import order as order_crud
 from app.models.order import Order
 from app.models.order_item import OrderItem
@@ -295,11 +295,12 @@ def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) 
             if delivered_count == 0:
                 # 배송 전: 전액 환불
                 total_refund += item.sale_price * item.order_num
-            elif item.product_kind == "YEARLY" and item.subscribe_period:
-                # YEARLY 배송 후: 잔여 회차 환불
-                remaining = item.subscribe_period - delivered_count
+            elif item.product_kind == "YEARLY" and item.paid_subscribe_end_issue:
+                # YEARLY 배송 후: 잔여 회차 환불 (유료 구독 기간 기준)
+                paid_period = count_issue_diff(item.subscribe_start_issue, item.paid_subscribe_end_issue) + 1
+                remaining = paid_period - delivered_count
                 if remaining > 0:
-                    refund_per_issue = item.sale_price // item.subscribe_period
+                    refund_per_issue = item.sale_price // paid_period
                     total_refund += refund_per_issue * remaining * item.order_num
 
         # 배송비 환불 (YEARLY는 0원이므로 실질적으로 MONTHLY 취소 시에만 적용)

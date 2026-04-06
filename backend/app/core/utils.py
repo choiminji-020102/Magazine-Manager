@@ -137,6 +137,13 @@ def extract_phone_num4(phone: str) -> str:
     return digits[-4:] if len(digits) >= 4 else digits
 
 
+def count_issue_diff(start_issue: str, end_issue: str) -> int:
+    """두 호(YYYYMM) 간의 개월 수 차이 (end - start)"""
+    y1, m1 = int(start_issue[:4]), int(start_issue[4:6])
+    y2, m2 = int(end_issue[:4]), int(end_issue[4:6])
+    return (y2 - y1) * 12 + (m2 - m1)
+
+
 def calculate_subscribe_end_issue(start_issue: str, period: int) -> str:
     """
     구독 시작호와 기간으로 종료호 계산

@@ -106,13 +106,17 @@ def update_address(db: Session, order_item: OrderItem, address_id: int) -> Order
 
 
 def extend_subscription(
-    db: Session, order_item: OrderItem, new_end_issue: str, update_paid: bool = False
+    db: Session, order_item: OrderItem, new_end_issue: str,
+    extend_months: int = 0, update_paid: bool = False,
 ) -> OrderItem:
     """구독 기간 연장
+    - extend_months: subscribe_period에 더할 개월 수
     - update_paid=False: 무상 연장 — final_subscribe_end_issue만 변경
     - update_paid=True:  유료 연장 — final + paid_subscribe_end_issue 둘 다 변경
     """
     order_item.final_subscribe_end_issue = new_end_issue
+    if extend_months > 0:
+        order_item.subscribe_period += extend_months
     if update_paid:
         order_item.paid_subscribe_end_issue = new_end_issue
     db.commit()
