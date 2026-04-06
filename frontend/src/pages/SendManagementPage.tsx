@@ -31,13 +31,12 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { dispatchApi } from "@/api/dispatchApi";
 import { sendsApi } from "@/api/sendsApi";
 import { sendItemsApi } from "@/api/sendItemsApi";
-import { orderItemsApi } from "@/api/orderItemsApi";
+
 import { toast } from "@/hooks/use-toast";
 import { formatDate, formatDateTime, formatIssue, formatPhone, formatAmount } from "@/utils/format";
 import type { DispatchGenerateResponse, DispatchTrackingUploadResponse, DispatchTarget } from "@/types/dispatch";
 import type { SendResponse, SendDetailResponse, SendUpdate, SendBatchStatusResponse } from "@/types/send";
 import type { SendItemResponse } from "@/types/sendItem";
-import type { OrderItemResponse } from "@/types/orderItem";
 
 function currentIssue() {
   const d = new Date();
@@ -997,6 +996,7 @@ function MonthlyTab() {
 // ─────────────────────────────────────────────
 function PostalCode13113Tab() {
   const queryClient = useQueryClient();
+  const [dispatchIssue, setDispatchIssue] = useState(currentIssue());
   const [sendStatus, setSendStatus] = useState("");
   const [sendPage, setSendPage] = useState(1);
   const [recipientSearch, setRecipientSearch] = useState("");
@@ -1008,13 +1008,15 @@ function PostalCode13113Tab() {
   const limit = 20;
 
   const debouncedRecipientSearch = useDebounce(recipientSearch, 300);
+  const isValidIssue = dispatchIssue.length === 6;
 
-  // 13113 품목 목록 (미발송 대상 참고용)
-  const { data: itemsRes, isLoading: itemsLoading } = useQuery({
-    queryKey: ["postal13113-items"],
-    queryFn: () => orderItemsApi.getPostalCode13113({ page: 1, limit: 100, is_cancelled: false }).then((r) => r.data),
+  // 13113 미발송 대상 조회
+  const { data: targetsRes, isLoading: targetsLoading } = useQuery({
+    queryKey: ["postal13113-targets", dispatchIssue],
+    queryFn: () => dispatchApi.getPostalCode13113Targets({ issue: dispatchIssue, limit: 500 }).then((r) => r.data),
+    enabled: isValidIssue,
   });
-  const items13113 = itemsRes?.items ?? [];
+  const targets: DispatchTarget[] = targetsRes?.data?.targets ?? [];
 
   // 13113 발송 목록
   const { data: sendsData, isLoading: sendsLoading } = useQuery({
@@ -1065,63 +1067,41 @@ function PostalCode13113Tab() {
 
   const sendColumns = makeSendColumns(queryClient, "sends-postal13113", setCancelTarget, false);
 
-  // 품목 테이블 컬럼
-  const itemColumns: ColumnDef<OrderItemResponse>[] = [
-    {
-      key: "order_item_id",
-      header: "품목번호",
-      cell: (row) => <span className="font-mono text-xs text-gray-400">#{row.order_item_id}</span>,
-      width: "w-20",
-    },
-    {
-      key: "product_name",
-      header: "상품명",
-      cell: (row) => (
-        <div>
-          <div className="text-[13px] font-medium text-gray-900">{row.product_name}</div>
-          <div className="text-xs text-gray-400">{row.product_code}</div>
-        </div>
-      ),
-    },
-    {
-      key: "address",
-      header: "배송지",
-      cell: (row) => row.address ? (
-        <div className="text-xs text-gray-600">
-          <div>{row.address.recipient_name} {formatPhone(row.address.recipient_phone)}</div>
-          <div className="text-gray-400">({row.address.postal_code}) {row.address.recipient_address}</div>
-        </div>
-      ) : <span className="text-xs text-gray-400">-</span>,
-    },
-    {
-      key: "subscribe",
-      header: "구독기간",
-      cell: (row) => (
-        <span className="text-xs text-gray-600">
-          {formatIssue(row.final_subscribe_start_issue)} ~ {formatIssue(row.final_subscribe_end_issue)}
-        </span>
-      ),
-    },
-  ];
-
   return (
     <div className="flex flex-col h-full overflow-y-auto">
-      {/* ── 섹션 1: 13113 품목 목록 ── */}
-      <div className="flex-shrink-0 border-b border-gray-200">
-        <div className="px-5 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
-          <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">13113 품목</h3>
-          <span className="text-xs text-gray-400">{items13113.length}건</span>
-        </div>
-        <div className="max-h-[280px] overflow-y-auto bg-white">
-          <DataTable
-            columns={itemColumns}
-            data={items13113}
-            getRowId={(row) => row.order_item_id}
-            isLoading={itemsLoading}
-            emptyMessage="우편번호 13113 품목이 없습니다."
-          />
-        </div>
+      {/* 발송 호 입력 */}
+      <div className="px-5 py-3 bg-white border-b border-gray-200 flex items-center gap-3 flex-shrink-0">
+        <span className="text-xs font-medium text-gray-500 whitespace-nowrap">발송 호</span>
+        <Input
+          className="w-24 h-8 text-sm"
+          placeholder="YYYYMM"
+          maxLength={6}
+          value={dispatchIssue}
+          onChange={(e) => setDispatchIssue(e.target.value.replace(/\D/g, ""))}
+        />
+        {isValidIssue && (
+          <span className="text-sm text-blue-600 font-medium">{formatIssue(dispatchIssue)}</span>
+        )}
       </div>
+
+      {/* ── 섹션 1: 미발송 대상 ── */}
+      {isValidIssue && (
+        <div className="flex-shrink-0 border-b border-gray-200">
+          <div className="px-5 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
+            <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">미발송 대상</h3>
+            <span className="text-xs text-gray-400">{targets.length}건</span>
+          </div>
+          <div className="max-h-[280px] overflow-y-auto bg-white">
+            <DataTable
+              columns={targetColumns}
+              data={targets}
+              getRowId={(row) => row.order_item_id}
+              isLoading={targetsLoading}
+              emptyMessage={`${isValidIssue ? formatIssue(dispatchIssue) + " " : ""}우편번호 13113 미발송 대상이 없습니다.`}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ── 섹션 2: 발송 현황 ── */}
       <div className="flex-shrink-0">

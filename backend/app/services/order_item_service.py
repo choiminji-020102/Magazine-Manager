@@ -534,6 +534,7 @@ def find_subscription_targets(
     product_kind: Optional[str] = None,
     product_code: Optional[str] = None,
     base_code: Optional[str] = None,
+    postal_code: Optional[str] = None,
 ) -> List[DispatchTarget]:
     """발송 대상 품목 조회 (YEARLY/MONTHLY, 취소·휴지·발송완료 제외)"""
     pause_subquery = (
@@ -596,6 +597,8 @@ def find_subscription_targets(
         query = query.filter(OrderItem.product_code == product_code)
     if base_code:
         query = query.filter(OrderItem.product_code.like(f"{base_code}%"))
+    if postal_code:
+        query = query.filter(Address.postal_code == postal_code)
 
     results = query.order_by(Customer.customer_name.asc()).all()
 
