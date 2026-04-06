@@ -31,11 +31,13 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { dispatchApi } from "@/api/dispatchApi";
 import { sendsApi } from "@/api/sendsApi";
 import { sendItemsApi } from "@/api/sendItemsApi";
+import { orderItemsApi } from "@/api/orderItemsApi";
 import { toast } from "@/hooks/use-toast";
 import { formatDate, formatDateTime, formatIssue, formatPhone, formatAmount } from "@/utils/format";
 import type { DispatchGenerateResponse, DispatchTrackingUploadResponse, DispatchTarget } from "@/types/dispatch";
 import type { SendResponse, SendDetailResponse, SendUpdate, SendBatchStatusResponse } from "@/types/send";
 import type { SendItemResponse } from "@/types/sendItem";
+import type { OrderItemResponse } from "@/types/orderItem";
 
 function currentIssue() {
   const d = new Date();
@@ -53,6 +55,7 @@ export default function SendManagementPage() {
           <TabsList>
             <TabsTrigger value="yearly">정기구독</TabsTrigger>
             <TabsTrigger value="monthly">단편</TabsTrigger>
+            <TabsTrigger value="postal13113">13113</TabsTrigger>
           </TabsList>
         </div>
         <div className="flex-1 overflow-hidden">
@@ -61,6 +64,9 @@ export default function SendManagementPage() {
           </TabsContent>
           <TabsContent value="monthly" className="h-full m-0">
             <MonthlyTab />
+          </TabsContent>
+          <TabsContent value="postal13113" className="h-full m-0">
+            <PostalCode13113Tab />
           </TabsContent>
         </div>
       </Tabs>
@@ -982,6 +988,245 @@ function MonthlyTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// 13113 탭 (우편번호 13113 발송)
+// ─────────────────────────────────────────────
+function PostalCode13113Tab() {
+  const queryClient = useQueryClient();
+  const [sendStatus, setSendStatus] = useState("");
+  const [sendPage, setSendPage] = useState(1);
+  const [recipientSearch, setRecipientSearch] = useState("");
+  const [sendSelectedIds, setSendSelectedIds] = useState<Set<string | number>>(new Set());
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [selectedSendId, setSelectedSendId] = useState<number | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<number | null>(null);
+  const [batchResult, setBatchResult] = useState<SendBatchStatusResponse | null>(null);
+  const limit = 20;
+
+  const debouncedRecipientSearch = useDebounce(recipientSearch, 300);
+
+  // 13113 품목 목록 (미발송 대상 참고용)
+  const { data: itemsRes, isLoading: itemsLoading } = useQuery({
+    queryKey: ["postal13113-items"],
+    queryFn: () => orderItemsApi.getPostalCode13113({ page: 1, limit: 500, is_cancelled: false }).then((r) => r.data),
+  });
+  const items13113 = itemsRes?.items ?? [];
+
+  // 13113 발송 목록
+  const { data: sendsData, isLoading: sendsLoading } = useQuery({
+    queryKey: ["sends-postal13113", sendPage, limit, sendStatus, debouncedRecipientSearch],
+    queryFn: () =>
+      sendsApi.getSendsPostalCode13113({
+        page: sendPage,
+        limit,
+        send_status: sendStatus || null,
+      }).then((r) => r.data),
+  });
+
+  // 일괄 배송중 전환
+  const batchShippingMutation = useMutation({
+    mutationFn: () => sendsApi.batchShipping(Array.from(sendSelectedIds) as number[]),
+    onSuccess: (res) => {
+      const result = res.data?.data;
+      if (result) setBatchResult(result);
+      toast.success(`${result?.success_count ?? 0}건 배송중으로 전환`);
+      queryClient.invalidateQueries({ queryKey: ["sends-postal13113"] });
+      setSendSelectedIds(new Set());
+    },
+    onError: () => toast.error("상태 전환 실패"),
+  });
+
+  // 일괄 배송완료 전환
+  const batchDeliveredMutation = useMutation({
+    mutationFn: () => sendsApi.batchDelivered(Array.from(sendSelectedIds) as number[]),
+    onSuccess: (res) => {
+      const result = res.data?.data;
+      if (result) setBatchResult(result);
+      toast.success(`${result?.success_count ?? 0}건 배송완료로 전환`);
+      queryClient.invalidateQueries({ queryKey: ["sends-postal13113"] });
+      setSendSelectedIds(new Set());
+    },
+    onError: () => toast.error("상태 전환 실패"),
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (sendId: number) => sendsApi.cancelSend(sendId),
+    onSuccess: () => {
+      toast.success("발송이 취소되었습니다.");
+      queryClient.invalidateQueries({ queryKey: ["sends-postal13113"] });
+      setCancelTarget(null);
+    },
+    onError: () => toast.error("발송 취소 실패"),
+  });
+
+  const sendColumns = makeSendColumns(queryClient, "sends-postal13113", setCancelTarget, false);
+
+  // 품목 테이블 컬럼
+  const itemColumns: ColumnDef<OrderItemResponse>[] = [
+    {
+      key: "order_item_id",
+      header: "품목번호",
+      cell: (row) => <span className="font-mono text-xs text-gray-400">#{row.order_item_id}</span>,
+      width: "w-20",
+    },
+    {
+      key: "product_name",
+      header: "상품명",
+      cell: (row) => (
+        <div>
+          <div className="text-[13px] font-medium text-gray-900">{row.product_name}</div>
+          <div className="text-xs text-gray-400">{row.product_code}</div>
+        </div>
+      ),
+    },
+    {
+      key: "address",
+      header: "배송지",
+      cell: (row) => row.address ? (
+        <div className="text-xs text-gray-600">
+          <div>{row.address.recipient_name} {formatPhone(row.address.recipient_phone)}</div>
+          <div className="text-gray-400">({row.address.postal_code}) {row.address.recipient_address}</div>
+        </div>
+      ) : <span className="text-xs text-gray-400">-</span>,
+    },
+    {
+      key: "subscribe",
+      header: "구독기간",
+      cell: (row) => (
+        <span className="text-xs text-gray-600">
+          {formatIssue(row.final_subscribe_start_issue)} ~ {formatIssue(row.final_subscribe_end_issue)}
+        </span>
+      ),
+    },
+  ];
+
+  return (
+    <div className="flex flex-col h-full overflow-y-auto">
+      {/* ── 섹션 1: 13113 품목 목록 ── */}
+      <div className="flex-shrink-0 border-b border-gray-200">
+        <div className="px-5 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
+          <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">13113 품목</h3>
+          <span className="text-xs text-gray-400">{items13113.length}건</span>
+        </div>
+        <div className="max-h-[280px] overflow-y-auto bg-white">
+          <DataTable
+            columns={itemColumns}
+            data={items13113}
+            getRowId={(row) => row.order_item_id}
+            isLoading={itemsLoading}
+            emptyMessage="우편번호 13113 품목이 없습니다."
+          />
+        </div>
+      </div>
+
+      {/* ── 섹션 2: 발송 현황 ── */}
+      <div className="flex-shrink-0">
+        <PageHeader
+          left={
+            <div className="flex items-center gap-3">
+              <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">발송 현황</h3>
+              <span className="text-sm text-gray-500">{sendsData?.total ?? 0}건</span>
+              {sendSelectedIds.size > 0 && (
+                <span className="text-sm text-blue-600 font-medium">{sendSelectedIds.size}건 선택됨</span>
+              )}
+            </div>
+          }
+          actions={
+            sendSelectedIds.size > 0 ? (
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={() => batchShippingMutation.mutate()}
+                  disabled={batchShippingMutation.isPending}
+                >
+                  {batchShippingMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+                  배송중 전환 ({sendSelectedIds.size})
+                </Button>
+                <Button
+                  size="sm"
+                  className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => batchDeliveredMutation.mutate()}
+                  disabled={batchDeliveredMutation.isPending}
+                >
+                  {batchDeliveredMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+                  배송완료 전환 ({sendSelectedIds.size})
+                </Button>
+              </div>
+            ) : undefined
+          }
+        />
+
+        {/* 상태 필터 */}
+        <div className="px-5 py-2 bg-white border-b border-gray-100 flex items-center gap-1.5">
+          <span className="text-xs text-gray-400 mr-1">상태</span>
+          {SEND_STATUS_FLOW.map((s, i) => (
+            <span key={s.value} className="flex items-center gap-1.5">
+              {i > 0 && i < 3 && <span className="text-gray-300 text-xs">→</span>}
+              <button
+                onClick={() => { setSendStatus(sendStatus === s.value ? "" : s.value); setSendPage(1); }}
+                className={`text-xs px-2.5 py-1 rounded border transition-colors ${
+                  sendStatus === s.value
+                    ? "bg-blue-50 border-blue-300 text-blue-700 font-medium"
+                    : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                }`}
+              >
+                {s.label}
+              </button>
+            </span>
+          ))}
+        </div>
+
+        <FilterBar
+          basic={
+            <Input className="w-40" placeholder="수령인 검색" value={recipientSearch}
+              onChange={(e) => { setRecipientSearch(e.target.value); setSendPage(1); }} />
+          }
+          hasActiveFilters={!!recipientSearch}
+          onReset={() => { setRecipientSearch(""); setSendPage(1); }}
+          chips={recipientSearch ? [{ label: `수령인: ${recipientSearch}`, onRemove: () => { setRecipientSearch(""); setSendPage(1); } }] : []}
+        />
+      </div>
+
+      <div className="flex-1 min-h-[200px] overflow-hidden bg-white">
+        <div className="h-full overflow-y-auto">
+          <DataTable
+            columns={sendColumns}
+            data={sendsData?.items ?? []}
+            getRowId={(row) => row.send_id}
+            onRowClick={(row) => { setSelectedSendId(row.send_id); setPanelOpen(true); }}
+            activeRowId={selectedSendId}
+            isLoading={sendsLoading}
+            emptyMessage="우편번호 13113 발송 내역이 없습니다."
+            selectedIds={sendSelectedIds}
+            onSelectionChange={setSendSelectedIds}
+          />
+        </div>
+      </div>
+
+      {sendsData && (
+        <div className="bg-white border-t border-gray-200 flex-shrink-0">
+          <Pagination page={sendPage} totalPages={sendsData.total_pages} total={sendsData.total} limit={limit} onPageChange={setSendPage} />
+        </div>
+      )}
+
+      <SlidingPanel open={panelOpen} onClose={() => { setPanelOpen(false); setTimeout(() => setSelectedSendId(null), 250); }} width={520}>
+        {selectedSendId && <SendDetailPanel sendId={selectedSendId} onClose={() => { setPanelOpen(false); setTimeout(() => setSelectedSendId(null), 250); }} />}
+      </SlidingPanel>
+
+      <ConfirmModal
+        open={cancelTarget !== null}
+        onClose={() => setCancelTarget(null)}
+        onConfirm={() => cancelTarget !== null && cancelMutation.mutate(cancelTarget)}
+        title="발송 취소" description="이 발송을 취소합니다." confirmLabel="취소 처리" variant="destructive"
+        isLoading={cancelMutation.isPending}
+      />
+
+      <ResultDialog title="일괄 상태 전환 완료" result={batchResult} onClose={() => setBatchResult(null)} />
     </div>
   );
 }
