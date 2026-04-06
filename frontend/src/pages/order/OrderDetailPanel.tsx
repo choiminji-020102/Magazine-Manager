@@ -196,7 +196,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       toast.success("배송지가 변경되었습니다. (모든 품목 일괄 변경)");
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
-      queryClient.invalidateQueries({ queryKey: ["customerAddresses", order?.customer_id] });
       handleAddressClose();
     },
     onError: () => toast.error("배송지 변경 실패"),
