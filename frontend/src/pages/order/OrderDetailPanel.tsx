@@ -36,7 +36,8 @@ import { sendsApi } from "@/api/sendsApi";
 import { productsApi } from "@/api/productsApi";
 import { toast } from "@/hooks/use-toast";
 import { formatAmount, formatDate, formatDateTime, formatPhone, formatIssue } from "@/utils/format";
-import { PAYMENT_METHOD_LABEL, PAYMENT_METHOD_OPTIONS } from "@/utils/constants";
+import { PAYMENT_METHOD_LABEL, PAYMENT_METHOD_OPTIONS, CHANNEL_LABEL, CHANNEL_OPTIONS } from "@/utils/constants";
+import { addressesApi } from "@/api/addressesApi";
 import type { OrderItemDetailResponse } from "@/types/orderItem";
 import { PaymentMethod } from "@/types/order";
 import { SubscriptionExtendModal } from "./modals/SubscriptionExtendModal";
@@ -66,12 +67,19 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
   // 주문 수정 모드
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({
+    order_channel: "" as string,
     payment_method: "" as string,
     discount_amount: 0,
+    refund_amount: 0,
     send_fee: 0,
+    payment_at: "" as string,
     customer_memo: "",
     admin_memo: "",
   });
+  // 배송지 변경
+  const [addressChangeOpen, setAddressChangeOpen] = useState(false);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
+  const [addressConfirmOpen, setAddressConfirmOpen] = useState(false);
 
   // 품목별 모달 상태
   const [activeModal, setActiveModal] = useState<ModalType>(null);
@@ -89,9 +97,12 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
   useEffect(() => {
     if (order) {
       setEditForm({
+        order_channel: order.order_channel ?? "",
         payment_method: order.payment_method ?? "",
         discount_amount: order.discount_amount,
+        refund_amount: order.refund_amount,
         send_fee: order.send_fee,
+        payment_at: order.payment_at ? order.payment_at.slice(0, 16) : "",
         customer_memo: order.customer_memo ?? "",
         admin_memo: order.admin_memo ?? "",
       });
@@ -125,9 +136,12 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
   const updateMutation = useMutation({
     mutationFn: () =>
       ordersApi.updateOrder(orderId, {
+        order_channel: editForm.order_channel || undefined,
         payment_method: (editForm.payment_method || null) as PaymentMethod | null,
         discount_amount: editForm.discount_amount,
+        refund_amount: editForm.refund_amount,
         send_fee: editForm.send_fee,
+        payment_at: editForm.payment_at || null,
         customer_memo: editForm.customer_memo || null,
         admin_memo: editForm.admin_memo || null,
       }),
@@ -138,6 +152,28 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       setEditMode(false);
     },
     onError: () => toast.error("주문 수정 실패"),
+  });
+
+  // 고객 배송지 목록 조회
+  const { data: customerAddresses } = useQuery({
+    queryKey: ["customerAddresses", order?.customer_id],
+    queryFn: () => addressesApi.getAddressesByCustomer(order!.customer_id).then((r) => r.data),
+    enabled: !!order?.customer_id && addressChangeOpen,
+  });
+
+  // 배송지 변경 mutation
+  const addressChangeMutation = useMutation({
+    mutationFn: (addressId: number) =>
+      ordersApi.updateOrder(orderId, { address_id: addressId }),
+    onSuccess: () => {
+      toast.success("배송지가 변경되었습니다. (모든 품목 일괄 변경)");
+      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      setAddressChangeOpen(false);
+      setAddressConfirmOpen(false);
+      setSelectedAddressId(null);
+    },
+    onError: () => toast.error("배송지 변경 실패"),
   });
 
   const cancelMutation = useMutation({
@@ -378,7 +414,11 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             </Section>
 
             {/* 배송지 정보 */}
-            <Section title="배송지">
+            <Section title="배송지" action={editMode ? (
+              <Button variant="outline" size="sm" className="h-6 text-xs px-2" onClick={() => setAddressChangeOpen(true)}>
+                배송지 변경
+              </Button>
+            ) : undefined}>
               <InfoRow label="수령인" value={order.address?.recipient_name} />
               <InfoRow label="연락처" value={formatPhone(order.address?.recipient_phone)} />
               <InfoRow
@@ -401,37 +441,34 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             <Section title="금액">
               <InfoRow label="상품금액" value={formatAmount(order.total_amount)} />
               {editMode ? (
-                <>
-                  <div className="flex items-center justify-between py-0.5">
-                    <span className="text-xs text-gray-500 w-20 flex-shrink-0">할인금액</span>
-                    <Input
-                      type="number"
-                      min={0}
-                      className="h-7 text-xs w-32"
-                      value={editForm.discount_amount}
-                      onChange={(e) => setEditForm((f) => ({ ...f, discount_amount: parseInt(e.target.value) || 0 }))}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between py-0.5">
-                    <span className="text-xs text-gray-500 w-20 flex-shrink-0">배송비</span>
-                    <Input
-                      type="number"
-                      min={0}
-                      className="h-7 text-xs w-32"
-                      value={editForm.send_fee}
-                      onChange={(e) => setEditForm((f) => ({ ...f, send_fee: parseInt(e.target.value) || 0 }))}
-                    />
-                  </div>
-                </>
+                <EditRow label="할인금액">
+                  <Input
+                    type="number"
+                    min={0}
+                    className="h-7 text-xs flex-1"
+                    value={editForm.discount_amount}
+                    onChange={(e) => setEditForm((f) => ({ ...f, discount_amount: parseInt(e.target.value) || 0 }))}
+                  />
+                </EditRow>
               ) : (
-                <>
-                  {order.discount_amount > 0 && (
-                    <InfoRow label="할인금액" value={`-${formatAmount(order.discount_amount)}`} />
-                  )}
-                  {order.send_fee > 0 && (
-                    <InfoRow label="배송비" value={formatAmount(order.send_fee)} />
-                  )}
-                </>
+                order.discount_amount > 0 && (
+                  <InfoRow label="할인금액" value={`-${formatAmount(order.discount_amount)}`} />
+                )
+              )}
+              {editMode ? (
+                <EditRow label="배송비">
+                  <Input
+                    type="number"
+                    min={0}
+                    className="h-7 text-xs flex-1"
+                    value={editForm.send_fee}
+                    onChange={(e) => setEditForm((f) => ({ ...f, send_fee: parseInt(e.target.value) || 0 }))}
+                  />
+                </EditRow>
+              ) : (
+                order.send_fee > 0 && (
+                  <InfoRow label="배송비" value={formatAmount(order.send_fee)} />
+                )
               )}
               <InfoRow
                 label="결제금액"
@@ -441,24 +478,54 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                   </span>
                 }
               />
-              {order.refund_amount > 0 && (
-                <InfoRow
-                  label="환불금액"
-                  value={<span className="text-red-600">-{formatAmount(order.refund_amount)}</span>}
-                />
+              {editMode ? (
+                <EditRow label="환불금액">
+                  <Input
+                    type="number"
+                    min={0}
+                    className="h-7 text-xs flex-1"
+                    value={editForm.refund_amount}
+                    onChange={(e) => setEditForm((f) => ({ ...f, refund_amount: parseInt(e.target.value) || 0 }))}
+                  />
+                </EditRow>
+              ) : (
+                order.refund_amount > 0 && (
+                  <InfoRow
+                    label="환불금액"
+                    value={<span className="text-red-600">-{formatAmount(order.refund_amount)}</span>}
+                  />
+                )
               )}
             </Section>
 
             {/* 결제 정보 */}
             <Section title="결제 정보">
               {editMode ? (
-                <div className="flex items-center justify-between py-0.5">
-                  <span className="text-xs text-gray-500 w-20 flex-shrink-0">결제방법</span>
+                <EditRow label="주문채널">
+                  <Select
+                    value={editForm.order_channel}
+                    onValueChange={(v) => setEditForm((f) => ({ ...f, order_channel: v }))}
+                  >
+                    <SelectTrigger className="h-7 text-xs flex-1">
+                      <SelectValue placeholder="선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CHANNEL_OPTIONS.map((c) => (
+                        <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </EditRow>
+              ) : (
+                <InfoRow label="주문채널" value={CHANNEL_LABEL[order.order_channel] ?? order.order_channel} />
+              )}
+              {editMode ? (
+                <EditRow label="결제방법">
                   <Select
                     value={editForm.payment_method}
                     onValueChange={(v) => setEditForm((f) => ({ ...f, payment_method: v }))}
                   >
-                    <SelectTrigger className="h-7 text-xs w-32">
+                    <SelectTrigger className="h-7 text-xs flex-1">
                       <SelectValue placeholder="선택" />
                     </SelectTrigger>
                     <SelectContent>
@@ -467,13 +534,24 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
+                </EditRow>
               ) : (
                 <InfoRow label="결제방법" value={order.payment_method ? PAYMENT_METHOD_LABEL[order.payment_method] ?? order.payment_method : undefined} />
               )}
               <InfoRow label="주문일시" value={formatDateTime(order.order_at)} />
-              {order.payment_at && (
-                <InfoRow label="결제일시" value={formatDateTime(order.payment_at)} />
+              {editMode ? (
+                <EditRow label="결제일시">
+                  <Input
+                    type="datetime-local"
+                    className="h-7 text-xs flex-1"
+                    value={editForm.payment_at}
+                    onChange={(e) => setEditForm((f) => ({ ...f, payment_at: e.target.value }))}
+                  />
+                </EditRow>
+              ) : (
+                order.payment_at && (
+                  <InfoRow label="결제일시" value={formatDateTime(order.payment_at)} />
+                )
               )}
               {order.cancelled_at && (
                 <InfoRow label="취소일시" value={formatDateTime(order.cancelled_at)} />
@@ -486,26 +564,22 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             {/* 메모 */}
             {editMode ? (
               <Section title="메모">
-                <div className="space-y-2">
-                  <div>
-                    <Label className="text-xs text-gray-500">고객 메모</Label>
-                    <Input
-                      className="mt-1 h-8 text-xs"
-                      value={editForm.customer_memo}
-                      onChange={(e) => setEditForm((f) => ({ ...f, customer_memo: e.target.value }))}
-                      placeholder="고객 메모"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-gray-500">관리자 메모</Label>
-                    <Input
-                      className="mt-1 h-8 text-xs"
-                      value={editForm.admin_memo}
-                      onChange={(e) => setEditForm((f) => ({ ...f, admin_memo: e.target.value }))}
-                      placeholder="관리자 메모"
-                    />
-                  </div>
-                </div>
+                <EditRow label="고객메모">
+                  <Input
+                    className="h-7 text-xs flex-1"
+                    value={editForm.customer_memo}
+                    onChange={(e) => setEditForm((f) => ({ ...f, customer_memo: e.target.value }))}
+                    placeholder="고객 메모"
+                  />
+                </EditRow>
+                <EditRow label="관리자메모">
+                  <Input
+                    className="h-7 text-xs flex-1"
+                    value={editForm.admin_memo}
+                    onChange={(e) => setEditForm((f) => ({ ...f, admin_memo: e.target.value }))}
+                    placeholder="관리자 메모"
+                  />
+                </EditRow>
               </Section>
             ) : (
               (order.customer_memo || order.admin_memo) && (
@@ -537,9 +611,12 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                   onClick={() => {
                     setEditMode(false);
                     setEditForm({
+                      order_channel: order.order_channel ?? "",
                       payment_method: order.payment_method ?? "",
                       discount_amount: order.discount_amount,
+                      refund_amount: order.refund_amount,
                       send_fee: order.send_fee,
+                      payment_at: order.payment_at ? order.payment_at.slice(0, 16) : "",
                       customer_memo: order.customer_memo ?? "",
                       admin_memo: order.admin_memo ?? "",
                     });
@@ -753,6 +830,70 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
         }
         confirmLabel="결제완료"
         isLoading={paymentMutation.isPending}
+      />
+
+      {/* 배송지 변경 다이얼로그 */}
+      <Dialog open={addressChangeOpen} onOpenChange={(o) => { if (!o) { setAddressChangeOpen(false); setSelectedAddressId(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>배송지 변경</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {customerAddresses?.data?.length ? (
+              customerAddresses.data.map((addr) => (
+                <label
+                  key={addr.address_id}
+                  className={`block border rounded-lg p-3 cursor-pointer transition-colors ${
+                    selectedAddressId === addr.address_id
+                      ? "border-blue-500 bg-blue-50"
+                      : addr.address_id === order?.address_id
+                      ? "border-gray-300 bg-gray-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="address"
+                    className="sr-only"
+                    checked={selectedAddressId === addr.address_id}
+                    onChange={() => setSelectedAddressId(addr.address_id)}
+                  />
+                  <div className="text-sm font-medium">{addr.recipient_name} <span className="text-gray-400 font-normal">{formatPhone(addr.recipient_phone)}</span></div>
+                  <div className="text-xs text-gray-500 mt-0.5">({addr.postal_code}) {addr.recipient_address}</div>
+                  {addr.address_id === order?.address_id && (
+                    <span className="text-xs text-blue-600 mt-1 inline-block">현재 배송지</span>
+                  )}
+                </label>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-4">등록된 배송지가 없습니다.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => { setAddressChangeOpen(false); setSelectedAddressId(null); }}>
+              취소
+            </Button>
+            <Button
+              size="sm"
+              disabled={!selectedAddressId || selectedAddressId === order?.address_id}
+              onClick={() => setAddressConfirmOpen(true)}
+            >
+              변경
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 배송지 변경 경고 모달 */}
+      <ConfirmModal
+        open={addressConfirmOpen}
+        onClose={() => setAddressConfirmOpen(false)}
+        onConfirm={() => { if (selectedAddressId) addressChangeMutation.mutate(selectedAddressId); }}
+        title="배송지 일괄 변경"
+        description="이 주문의 모든 품목 배송지가 선택한 배송지로 일괄 변경됩니다. 계속하시겠습니까?"
+        confirmLabel="일괄 변경"
+        variant="destructive"
+        isLoading={addressChangeMutation.isPending}
       />
 
       {/* 주문 취소 확인 모달 */}
@@ -1069,13 +1210,24 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
 }
 
 // 섹션 컴포넌트
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div className="border border-gray-100 rounded-lg overflow-hidden">
-      <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100">
+      <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{title}</h3>
+        {action}
       </div>
       <div className="px-3.5 py-3 space-y-2.5">{children}</div>
+    </div>
+  );
+}
+
+// 편집 행 컴포넌트 (InfoRow와 동일한 레이아웃)
+function EditRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs text-gray-400 w-24 flex-shrink-0">{label}</span>
+      {children}
     </div>
   );
 }

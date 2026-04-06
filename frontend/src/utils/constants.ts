@@ -42,6 +42,12 @@ export const CHANNEL_COLOR: Record<string, string> = {
   OFFLINE: "bg-gray-100 text-gray-600",
 };
 
+export const CHANNEL_OPTIONS = [
+  { value: "CAFE24", label: "Cafe24" },
+  { value: "GPMALL", label: "갓피플몰" },
+  { value: "OFFLINE", label: "오프라인" },
+];
+
 // ── 상품 종류 ──────────────────────────────────────────────────────────────────
 
 export const PRODUCT_KIND_LABEL: Record<string, string> = {
