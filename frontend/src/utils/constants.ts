@@ -52,7 +52,7 @@ export const CHANNEL_OPTIONS = [
 
 export const PRODUCT_KIND_LABEL: Record<string, string> = {
   YEARLY: "정기구독",
-  MONTHLY: "단편",
+  MONTHLY: "단품",
 };
 
 export const PRODUCT_KIND_COLOR: Record<string, string> = {

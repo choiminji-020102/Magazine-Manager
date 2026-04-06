@@ -38,7 +38,7 @@ import type { PauseResponse, PauseByIssueResponse } from "@/types/pause";
 const PRODUCT_KIND_OPTIONS = [
   { value: "_all", label: "전체 종류" },
   { value: "YEARLY", label: "정기구독" },
-  { value: "MONTHLY", label: "단편" },
+  { value: "MONTHLY", label: "단품" },
 ];
 
 const CANCELLED_OPTIONS = [

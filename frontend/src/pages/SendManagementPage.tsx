@@ -54,7 +54,7 @@ export default function SendManagementPage() {
         <div className="px-5 py-3 bg-white border-b border-gray-200">
           <TabsList>
             <TabsTrigger value="yearly">정기구독</TabsTrigger>
-            <TabsTrigger value="monthly">단편</TabsTrigger>
+            <TabsTrigger value="monthly">단품</TabsTrigger>
             <TabsTrigger value="postal13113">13113</TabsTrigger>
           </TabsList>
         </div>
@@ -615,7 +615,7 @@ function YearlyTab() {
 }
 
 // ─────────────────────────────────────────────
-// 단편 탭
+// 단품 탭
 // PREPARING → SHIPPING (기출유 송장 업로드) → DELIVERED (2-3일 후)
 // ─────────────────────────────────────────────
 function MonthlyTab() {
@@ -936,7 +936,7 @@ function MonthlyTab() {
         onClose={() => setGenerateConfirmOpen(false)}
         onConfirm={() => generateMutation.mutate()}
         title="발송 생성"
-        description={`${formatIssue(dispatchIssue)} 단편 ${generateCount}건의 발송을 생성합니다.`}
+        description={`${formatIssue(dispatchIssue)} 단품 ${generateCount}건의 발송을 생성합니다.`}
         confirmLabel="발송 생성"
         isLoading={generateMutation.isPending}
       />
