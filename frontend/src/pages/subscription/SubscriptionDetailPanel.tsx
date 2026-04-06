@@ -494,16 +494,16 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
       <div className="px-5 py-4 border-b border-gray-200 bg-white flex-shrink-0">
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-base font-semibold text-gray-900 truncate">
-                {item.product_name}
-              </span>
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="font-mono text-xs text-gray-400">주문 #{item.order_id}</span>
               <StatusBadge type="product_kind" value={item.product_kind} />
               {isCancelled && (
                 <span className="text-xs text-red-500 font-medium">취소됨</span>
               )}
             </div>
-            <p className="text-xs text-gray-400 mt-0.5">품목 #{item.order_item_id}</p>
+            <div className="text-base font-semibold text-gray-900 truncate">
+              {item.product_name}
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -591,10 +591,26 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
           {item.order_channel && (
             <InfoRow label="채널" value={<StatusBadge type="channel" value={item.order_channel} />} />
           )}
+        </Section>
+
+        {/* 배송지 */}
+        <Section title="배송지">
+          <InfoRow label="수령인" value={detail?.address?.recipient_name} />
+          <InfoRow label="연락처" value={formatPhone(detail?.address?.recipient_phone)} />
           <InfoRow
-            label="주문 ID"
-            value={<span className="font-mono text-xs text-gray-500">#{item.order_id}</span>}
+            label="주소"
+            value={
+              detail?.address
+                ? `(${detail.address.postal_code}) ${detail.address.recipient_address}`
+                : null
+            }
           />
+          {detail?.address?.customer_memo && (
+            <InfoRow label="배송 메모" value={detail.address.customer_memo} />
+          )}
+          {detail?.address?.admin_memo && (
+            <InfoRow label="관리자메모" value={detail.address.admin_memo} />
+          )}
         </Section>
 
         {/* 상품 */}
@@ -608,6 +624,12 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
               label="환불액"
               value={<span className="text-red-600">{formatAmount(detail?.refund_amount ?? item.refund_amount)}</span>}
             />
+          )}
+          {(detail?.sended_at ?? item.sended_at) && (
+            <InfoRow label="발송일시" value={formatDateTime(detail?.sended_at ?? item.sended_at!)} />
+          )}
+          {(detail?.admin_memo ?? item.admin_memo) && (
+            <InfoRow label="관리자메모" value={detail?.admin_memo ?? item.admin_memo} />
           )}
         </Section>
 
