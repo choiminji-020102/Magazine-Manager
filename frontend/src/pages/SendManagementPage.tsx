@@ -1012,7 +1012,7 @@ function PostalCode13113Tab() {
   // 13113 품목 목록 (미발송 대상 참고용)
   const { data: itemsRes, isLoading: itemsLoading } = useQuery({
     queryKey: ["postal13113-items"],
-    queryFn: () => orderItemsApi.getPostalCode13113({ page: 1, limit: 500, is_cancelled: false }).then((r) => r.data),
+    queryFn: () => orderItemsApi.getPostalCode13113({ page: 1, limit: 100, is_cancelled: false }).then((r) => r.data),
   });
   const items13113 = itemsRes?.items ?? [];
 
