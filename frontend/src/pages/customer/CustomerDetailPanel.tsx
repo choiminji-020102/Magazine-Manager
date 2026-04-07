@@ -235,34 +235,38 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
 
         {/* 액션 버튼 */}
         <div className="flex items-center gap-2 mt-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (!editMode && customer) {
-                setEditForm({
-                  customer_name: customer.customer_name,
-                  customer_phone: customer.customer_phone,
-                  customer_email: customer.customer_email ?? "",
-                  create_channel: customer.create_channel,
-                  admin_memo: customer.admin_memo ?? "",
-                });
-              }
-              setEditMode(!editMode);
-            }}
-            className={`gap-1 ${editMode ? "bg-blue-50 border-blue-300 text-blue-700" : ""}`}
-          >
-            <Edit2 className="h-3 w-3" />
-            {editMode ? "취소" : "수정"}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setDeactivateConfirm(true)}
-            className={customer.is_active ? "text-amber-600 border-amber-200 hover:bg-amber-50" : ""}
-          >
-            {customer.is_active ? "비활성화" : "활성화"}
-          </Button>
+          {!customer.is_deleted && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (!editMode && customer) {
+                    setEditForm({
+                      customer_name: customer.customer_name,
+                      customer_phone: customer.customer_phone,
+                      customer_email: customer.customer_email ?? "",
+                      create_channel: customer.create_channel,
+                      admin_memo: customer.admin_memo ?? "",
+                    });
+                  }
+                  setEditMode(!editMode);
+                }}
+                className={`gap-1 ${editMode ? "bg-blue-50 border-blue-300 text-blue-700" : ""}`}
+              >
+                <Edit2 className="h-3 w-3" />
+                {editMode ? "취소" : "수정"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDeactivateConfirm(true)}
+                className={customer.is_active ? "text-amber-600 border-amber-200 hover:bg-amber-50" : ""}
+              >
+                {customer.is_active ? "비활성화" : "활성화"}
+              </Button>
+            </>
+          )}
           <Button
             variant="outline"
             size="sm"
