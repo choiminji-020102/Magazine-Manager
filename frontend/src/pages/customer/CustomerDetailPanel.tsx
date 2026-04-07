@@ -24,6 +24,7 @@ import { ordersApi } from "@/api/ordersApi";
 import { inquiriesApi } from "@/api/inquiriesApi";
 import { addressesApi } from "@/api/addressesApi";
 import { toast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/utils/errorHandler";
 import { formatDate, formatPhone, formatAmount } from "@/utils/format";
 import { PAYMENT_METHOD_LABEL } from "@/utils/constants";
 import type { AddressResponse } from "@/types/address";
@@ -111,7 +112,7 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       setEditMode(false);
     },
-    onError: () => toast.error("수정 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const deactivateMutation = useMutation({
@@ -125,7 +126,7 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       setDeactivateConfirm(false);
     },
-    onError: () => toast.error("처리 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const deleteMutation = useMutation({
@@ -142,7 +143,7 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
       setDeleteConfirm(false);
       if (!customer?.is_deleted) onClose();
     },
-    onError: () => toast.error("처리 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const createAddressMutation = useMutation({
@@ -162,7 +163,7 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
       setAddAddressMode(false);
       setAddressForm(EMPTY_ADDRESS_FORM);
     },
-    onError: () => toast.error("배송지 추가 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const deleteAddressMutation = useMutation({
@@ -172,7 +173,7 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
       queryClient.invalidateQueries({ queryKey: ["customer", customerId] });
       setDeleteAddressId(null);
     },
-    onError: () => toast.error("배송지 삭제 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const updateAddressMemoMutation = useMutation({
@@ -182,7 +183,7 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
       toast.success("메모가 저장되었습니다.");
       queryClient.invalidateQueries({ queryKey: ["customer", customerId] });
     },
-    onError: () => toast.error("메모 저장 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   if (isLoading) {
