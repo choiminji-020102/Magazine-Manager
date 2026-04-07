@@ -29,7 +29,7 @@ import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { customersApi } from "@/api/customersApi";
 import { toast } from "@/hooks/use-toast";
-import { formatDate, formatPhone } from "@/utils/format";
+import { formatDate, formatPhone, formatPhoneInput } from "@/utils/format";
 import type { CustomerResponse, CustomerChannel } from "@/types/customer";
 import CustomerDetailPanel from "./customer/CustomerDetailPanel";
 
@@ -348,10 +348,10 @@ export default function CustomerListPage() {
               </Label>
               <Input
                 className={`mt-1 h-8 text-sm font-mono ${createErrors.customer_phone ? "border-red-500" : ""}`}
-                placeholder="01012345678"
+                placeholder="010-0000-0000"
                 value={createForm.customer_phone}
                 onChange={(e) => {
-                  setCreateForm((f) => ({ ...f, customer_phone: e.target.value }));
+                  setCreateForm((f) => ({ ...f, customer_phone: formatPhoneInput(e.target.value) }));
                   if (e.target.value.trim()) setCreateErrors((prev) => ({ ...prev, customer_phone: false }));
                 }}
               />

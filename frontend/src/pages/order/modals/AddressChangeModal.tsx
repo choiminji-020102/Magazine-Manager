@@ -14,7 +14,7 @@ import { AddressSearchField } from "@/components/common/AddressSearchField";
 import { addressesApi } from "@/api/addressesApi";
 import { orderItemsApi } from "@/api/orderItemsApi";
 import { toast } from "@/hooks/use-toast";
-import { formatPhone } from "@/utils/format";
+import { formatPhone, formatPhoneInput } from "@/utils/format";
 import type { OrderItemResponse } from "@/types/orderItem";
 import type { AddressResponse } from "@/types/address";
 
@@ -200,7 +200,7 @@ export function AddressChangeModal({ open, onClose, item, orderId, customerId }:
                     className="mt-1"
                     value={newAddr.recipient_phone}
                     onChange={(e) =>
-                      setNewAddr((p) => ({ ...p, recipient_phone: e.target.value }))
+                      setNewAddr((p) => ({ ...p, recipient_phone: formatPhoneInput(e.target.value) }))
                     }
                     placeholder="010-0000-0000"
                   />

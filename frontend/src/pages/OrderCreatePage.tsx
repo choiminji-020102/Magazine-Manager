@@ -18,7 +18,7 @@ import { customersApi } from "@/api/customersApi";
 import { productsApi } from "@/api/productsApi";
 import { ordersApi } from "@/api/ordersApi";
 import { toast } from "@/hooks/use-toast";
-import { formatAmount, formatPhone } from "@/utils/format";
+import { formatAmount, formatPhone, formatPhoneInput } from "@/utils/format";
 import { nowKstISO } from "@/utils/date";
 import { PAYMENT_METHOD_OPTIONS } from "@/utils/constants";
 import type { CustomerResponse } from "@/types/customer";
@@ -466,7 +466,7 @@ export default function OrderCreatePage() {
                       className="mt-1"
                       value={newAddress.recipient_phone}
                       onChange={(e) =>
-                        setNewAddress((p) => ({ ...p, recipient_phone: e.target.value }))
+                        setNewAddress((p) => ({ ...p, recipient_phone: formatPhoneInput(e.target.value) }))
                       }
                       placeholder="010-0000-0000"
                     />

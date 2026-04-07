@@ -32,6 +32,18 @@ export function formatPhone(phone: string | null | undefined): string {
 }
 
 /**
+ * 전화번호 입력용 실시간 포맷팅
+ * 숫자만 추출 후 하이픈 자동 삽입 (입력 중 + 붙여넣기 대응)
+ * "01012345678" → "010-1234-5678"
+ */
+export function formatPhoneInput(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+}
+
+/**
  * 날짜 문자열 → "2026-04-01" (DB가 KST로 저장하므로 변환 없이 그대로 표시)
  */
 export function formatDate(

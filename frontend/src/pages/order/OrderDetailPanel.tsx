@@ -35,7 +35,7 @@ import { orderItemsApi } from "@/api/orderItemsApi";
 import { sendsApi } from "@/api/sendsApi";
 import { productsApi } from "@/api/productsApi";
 import { toast } from "@/hooks/use-toast";
-import { formatAmount, formatDate, formatDateTime, formatPhone, formatIssue } from "@/utils/format";
+import { formatAmount, formatDate, formatDateTime, formatPhone, formatPhoneInput, formatIssue } from "@/utils/format";
 import { PAYMENT_METHOD_LABEL, PAYMENT_METHOD_OPTIONS, CHANNEL_LABEL, CHANNEL_OPTIONS } from "@/utils/constants";
 import { addressesApi } from "@/api/addressesApi";
 import { AddressSearchField } from "@/components/common/AddressSearchField";
@@ -970,7 +970,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                     <Input
                       className="mt-1"
                       value={newAddr.recipient_phone}
-                      onChange={(e) => setNewAddr((p) => ({ ...p, recipient_phone: e.target.value }))}
+                      onChange={(e) => setNewAddr((p) => ({ ...p, recipient_phone: formatPhoneInput(e.target.value) }))}
                       placeholder="010-0000-0000"
                     />
                   </div>

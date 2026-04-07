@@ -30,7 +30,7 @@ import { pausesApi } from "@/api/pausesApi";
 import { addressesApi } from "@/api/addressesApi";
 import { sendsApi } from "@/api/sendsApi";
 import { toast } from "@/hooks/use-toast";
-import { formatAmount, formatPhone, formatIssue, formatDate, formatDateTime } from "@/utils/format";
+import { formatAmount, formatPhone, formatPhoneInput, formatIssue, formatDate, formatDateTime } from "@/utils/format";
 import type { SubscriptionListItem } from "@/types/orderItem";
 import type { OrderItemAddressUpdate } from "@/types/orderItem";
 import type { PauseResponse } from "@/types/pause";
@@ -1081,7 +1081,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
                       className={`mt-1 h-8 text-xs ${newAddrErrors.recipient_phone ? "border-red-500" : ""}`}
                       placeholder="01012345678"
                       value={newAddr.recipient_phone}
-                      onChange={(e) => { setNewAddr(p => ({ ...p, recipient_phone: e.target.value })); setNewAddrErrors(p => ({ ...p, recipient_phone: false })); }}
+                      onChange={(e) => { setNewAddr(p => ({ ...p, recipient_phone: formatPhoneInput(e.target.value) })); setNewAddrErrors(p => ({ ...p, recipient_phone: false })); }}
                     />
                     {newAddrErrors.recipient_phone && <p className="text-xs text-red-500 mt-0.5">필수 항목</p>}
                   </div>

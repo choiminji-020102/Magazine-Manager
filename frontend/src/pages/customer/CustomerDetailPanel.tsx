@@ -25,7 +25,7 @@ import { inquiriesApi } from "@/api/inquiriesApi";
 import { addressesApi } from "@/api/addressesApi";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
-import { formatDate, formatPhone, formatAmount } from "@/utils/format";
+import { formatDate, formatPhone, formatPhoneInput, formatAmount } from "@/utils/format";
 import { PAYMENT_METHOD_LABEL } from "@/utils/constants";
 import type { AddressResponse } from "@/types/address";
 import type { OrderResponse } from "@/types/order";
@@ -319,7 +319,7 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
                     <Input
                       className="mt-1 h-8 text-sm"
                       value={editForm.customer_phone}
-                      onChange={(e) => setEditForm((f) => ({ ...f, customer_phone: e.target.value }))}
+                      onChange={(e) => setEditForm((f) => ({ ...f, customer_phone: formatPhoneInput(e.target.value) }))}
                     />
                   </div>
                   <div>
@@ -452,9 +452,9 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
                     <Label className="text-xs text-gray-600">연락처 <span className="text-red-500">*</span></Label>
                     <Input
                       className="mt-1 h-8 text-sm font-mono"
-                      placeholder="01012345678"
+                      placeholder="010-0000-0000"
                       value={addressForm.recipient_phone}
-                      onChange={(e) => setAddressForm((f) => ({ ...f, recipient_phone: e.target.value }))}
+                      onChange={(e) => setAddressForm((f) => ({ ...f, recipient_phone: formatPhoneInput(e.target.value) }))}
                     />
                   </div>
                 </div>

@@ -33,7 +33,7 @@ import { sendsApi } from "@/api/sendsApi";
 import { sendItemsApi } from "@/api/sendItemsApi";
 
 import { toast } from "@/hooks/use-toast";
-import { formatDate, formatDateTime, formatIssue, formatPhone, formatAmount } from "@/utils/format";
+import { formatDate, formatDateTime, formatIssue, formatPhone, formatPhoneInput, formatAmount } from "@/utils/format";
 import type { DispatchGenerateResponse, DispatchTrackingUploadResponse, DispatchTarget } from "@/types/dispatch";
 import type { SendResponse, SendDetailResponse, SendUpdate, SendBatchStatusResponse } from "@/types/send";
 import type { SendItemResponse } from "@/types/sendItem";
@@ -1363,7 +1363,7 @@ function SendDetailPanel({ sendId, onClose }: { sendId: number; onClose: () => v
                   <div>
                     <Label className="text-xs">연락처</Label>
                     <Input className="mt-1" value={editForm.recipient_phone ?? ""}
-                      onChange={(e) => setEditForm((f) => ({ ...f, recipient_phone: e.target.value }))} />
+                      onChange={(e) => setEditForm((f) => ({ ...f, recipient_phone: formatPhoneInput(e.target.value) }))} />
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
