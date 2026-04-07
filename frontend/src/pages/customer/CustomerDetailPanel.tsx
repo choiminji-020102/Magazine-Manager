@@ -368,11 +368,10 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
             <Section title="고객 정보">
               <InfoRow label="고객명" value={customer.customer_name} />
               <InfoRow label="연락처" value={formatPhone(customer.customer_phone)} />
-              {customer.customer_email && (
-                <InfoRow label="이메일" value={customer.customer_email} />
-              )}
+              <InfoRow label="이메일" value={customer.customer_email || "-"} />
               <InfoRow label="채널" value={<StatusBadge type="channel" value={customer.create_channel} />} />
               <InfoRow label="최근 주문" value={customer.last_order_at ? formatDate(customer.last_order_at) : "-"} />
+              <InfoRow label="관리자 메모" value={customer.admin_memo || "-"} />
             </Section>
             <Section title="시스템">
               <InfoRow label="등록일" value={formatDate(customer.created_at)} />
@@ -381,11 +380,6 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
                 <InfoRow label="삭제일" value={formatDate(customer.deleted_at)} />
               )}
             </Section>
-            {customer.admin_memo && (
-              <Section title="관리자 메모">
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{customer.admin_memo}</p>
-              </Section>
-            )}
           </TabsContent>
 
           {/* 주문내역 탭 */}
