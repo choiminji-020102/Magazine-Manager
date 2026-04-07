@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/useDebounce";
+import { getErrorMessage } from "@/utils/errorHandler";
 import { Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -65,9 +66,25 @@ export default function CustomerListPage() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState(EMPTY_CREATE_FORM);
+  const [createErrors, setCreateErrors] = useState<Record<string, boolean>>({});
   const [sortBy, setSortBy] = useState("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [showDeleted, setShowDeleted] = useState(false);
+
+  const handleCreate = () => {
+    const errors: Record<string, boolean> = {};
+    if (!createForm.customer_name.trim()) errors.customer_name = true;
+    if (!createForm.customer_phone.trim()) errors.customer_phone = true;
+    setCreateErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      const fields = [];
+      if (errors.customer_name) fields.push("이름");
+      if (errors.customer_phone) fields.push("연락처");
+      toast.error(`${fields.join(", ")}을(를) 입력해주세요.`);
+      return;
+    }
+    createMutation.mutate();
+  };
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -83,8 +100,9 @@ export default function CustomerListPage() {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       setCreateOpen(false);
       setCreateForm(EMPTY_CREATE_FORM);
+      setCreateErrors({});
     },
-    onError: () => toast.error("고객 등록 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const debouncedSearch = useDebounce(search, 300);
@@ -301,7 +319,7 @@ export default function CustomerListPage() {
       )}
 
       {/* 고객 등록 모달 */}
-      <Dialog open={createOpen} onOpenChange={(o) => { if (!o) { setCreateOpen(false); setCreateForm(EMPTY_CREATE_FORM); } }}>
+      <Dialog open={createOpen} onOpenChange={(o) => { if (!o) { setCreateOpen(false); setCreateForm(EMPTY_CREATE_FORM); setCreateErrors({}); } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>고객 등록</DialogTitle>
@@ -312,22 +330,34 @@ export default function CustomerListPage() {
                 이름 <span className="text-red-500">*</span>
               </Label>
               <Input
-                className="mt-1 h-8 text-sm"
+                className={`mt-1 h-8 text-sm ${createErrors.customer_name ? "border-red-500" : ""}`}
                 placeholder="홍길동"
                 value={createForm.customer_name}
-                onChange={(e) => setCreateForm((f) => ({ ...f, customer_name: e.target.value }))}
+                onChange={(e) => {
+                  setCreateForm((f) => ({ ...f, customer_name: e.target.value }));
+                  if (e.target.value.trim()) setCreateErrors((prev) => ({ ...prev, customer_name: false }));
+                }}
               />
+              {createErrors.customer_name && (
+                <p className="text-xs text-red-500 mt-1">이름을 입력해주세요.</p>
+              )}
             </div>
             <div>
               <Label className="text-xs font-medium text-gray-600">
                 연락처 <span className="text-red-500">*</span>
               </Label>
               <Input
-                className="mt-1 h-8 text-sm font-mono"
+                className={`mt-1 h-8 text-sm font-mono ${createErrors.customer_phone ? "border-red-500" : ""}`}
                 placeholder="01012345678"
                 value={createForm.customer_phone}
-                onChange={(e) => setCreateForm((f) => ({ ...f, customer_phone: e.target.value }))}
+                onChange={(e) => {
+                  setCreateForm((f) => ({ ...f, customer_phone: e.target.value }));
+                  if (e.target.value.trim()) setCreateErrors((prev) => ({ ...prev, customer_phone: false }));
+                }}
               />
+              {createErrors.customer_phone && (
+                <p className="text-xs text-red-500 mt-1">연락처를 입력해주세요.</p>
+              )}
             </div>
             <div>
               <Label className="text-xs font-medium text-gray-600">이메일</Label>
@@ -366,13 +396,13 @@ export default function CustomerListPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => { setCreateOpen(false); setCreateForm(EMPTY_CREATE_FORM); }}>
+            <Button variant="ghost" size="sm" onClick={() => { setCreateOpen(false); setCreateForm(EMPTY_CREATE_FORM); setCreateErrors({}); }}>
               취소
             </Button>
             <Button
               size="sm"
-              onClick={() => createMutation.mutate()}
-              disabled={!createForm.customer_name || !createForm.customer_phone || createMutation.isPending}
+              onClick={handleCreate}
+              disabled={createMutation.isPending}
             >
               {createMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
               등록
