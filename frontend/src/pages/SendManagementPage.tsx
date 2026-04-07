@@ -426,6 +426,11 @@ function YearlyTab() {
   const sendColumns = makeSendColumns(queryClient, "sends-yearly", setCancelTarget, false);
   const generateCount = targetSelectedIds.size > 0 ? targetSelectedIds.size : targets.length;
 
+  // 선택된 건들의 상태별 건수
+  const selectedSends = (sendsData?.items ?? []).filter((s) => sendSelectedIds.has(s.send_id));
+  const preparingCount = selectedSends.filter((s) => s.send_status === "PREPARING").length;
+  const shippingCount = selectedSends.filter((s) => s.send_status === "SHIPPING").length;
+
   return (
     <div className="flex flex-col h-full overflow-y-auto">
       {/* 발송 호 입력 */}
@@ -499,27 +504,27 @@ function YearlyTab() {
                 {downloading ? <LoadingSpinner size="sm" /> : <Download className="h-3.5 w-3.5" />}
                 기출유 엑셀
               </Button>
-              {sendSelectedIds.size > 0 && (
-                <>
-                  <Button
-                    size="sm"
-                    className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
-                    onClick={() => batchShippingMutation.mutate()}
-                    disabled={batchShippingMutation.isPending}
-                  >
-                    {batchShippingMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-                    기출유 전송 완료 ({sendSelectedIds.size})
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
-                    onClick={() => batchDeliveredMutation.mutate()}
-                    disabled={batchDeliveredMutation.isPending}
-                  >
-                    {batchDeliveredMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-                    배송완료 전환 ({sendSelectedIds.size})
-                  </Button>
-                </>
+              {preparingCount > 0 && (
+                <Button
+                  size="sm"
+                  className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={() => batchShippingMutation.mutate()}
+                  disabled={batchShippingMutation.isPending}
+                >
+                  {batchShippingMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+                  배송중 전환 ({preparingCount})
+                </Button>
+              )}
+              {shippingCount > 0 && (
+                <Button
+                  size="sm"
+                  className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => batchDeliveredMutation.mutate()}
+                  disabled={batchDeliveredMutation.isPending}
+                >
+                  {batchDeliveredMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+                  배송완료 전환 ({shippingCount})
+                </Button>
               )}
             </div>
           }
@@ -757,6 +762,11 @@ function MonthlyTab() {
   });
 
   const sendColumns = makeSendColumns(queryClient, "sends-monthly", setCancelTarget, true);
+
+  // 선택된 건들의 상태별 건수
+  const selectedSends = (sendsData?.items ?? []).filter((s) => sendSelectedIds.has(s.send_id));
+  const preparingCount = selectedSends.filter((s) => s.send_status === "PREPARING").length;
+  const shippingCount = selectedSends.filter((s) => s.send_status === "SHIPPING").length;
   const generateCount = targetSelectedIds.size > 0 ? targetSelectedIds.size : targets.length;
 
   return (
@@ -847,19 +857,19 @@ function MonthlyTab() {
                   송장 업로드
                 </Button>
               </label>
-              {sendSelectedIds.size > 0 && (
-                <>
-                  <Button size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
-                    onClick={() => batchShippingMutation.mutate()} disabled={batchShippingMutation.isPending}>
-                    {batchShippingMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-                    기출유 전송 완료 ({sendSelectedIds.size})
-                  </Button>
-                  <Button size="sm" className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
-                    onClick={() => batchDeliveredMutation.mutate()} disabled={batchDeliveredMutation.isPending}>
-                    {batchDeliveredMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-                    배송완료 전환 ({sendSelectedIds.size})
-                  </Button>
-                </>
+              {preparingCount > 0 && (
+                <Button size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={() => batchShippingMutation.mutate()} disabled={batchShippingMutation.isPending}>
+                  {batchShippingMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+                  배송중 전환 ({preparingCount})
+                </Button>
+              )}
+              {shippingCount > 0 && (
+                <Button size="sm" className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => batchDeliveredMutation.mutate()} disabled={batchDeliveredMutation.isPending}>
+                  {batchDeliveredMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+                  배송완료 전환 ({shippingCount})
+                </Button>
               )}
             </div>
           }
@@ -1067,6 +1077,11 @@ function PostalCode13113Tab() {
 
   const sendColumns = makeSendColumns(queryClient, "sends-postal13113", setCancelTarget, false);
 
+  // 선택된 건들의 상태별 건수
+  const selectedSends = (sendsData?.items ?? []).filter((s) => sendSelectedIds.has(s.send_id));
+  const preparingCount = selectedSends.filter((s) => s.send_status === "PREPARING").length;
+  const shippingCount = selectedSends.filter((s) => s.send_status === "SHIPPING").length;
+
   return (
     <div className="flex flex-col h-full overflow-y-auto">
       {/* 발송 호 입력 */}
@@ -1116,26 +1131,30 @@ function PostalCode13113Tab() {
             </div>
           }
           actions={
-            sendSelectedIds.size > 0 ? (
+            (preparingCount > 0 || shippingCount > 0) ? (
               <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
-                  onClick={() => batchShippingMutation.mutate()}
-                  disabled={batchShippingMutation.isPending}
-                >
-                  {batchShippingMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-                  배송중 전환 ({sendSelectedIds.size})
-                </Button>
-                <Button
-                  size="sm"
-                  className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
-                  onClick={() => batchDeliveredMutation.mutate()}
-                  disabled={batchDeliveredMutation.isPending}
-                >
-                  {batchDeliveredMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-                  배송완료 전환 ({sendSelectedIds.size})
-                </Button>
+                {preparingCount > 0 && (
+                  <Button
+                    size="sm"
+                    className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={() => batchShippingMutation.mutate()}
+                    disabled={batchShippingMutation.isPending}
+                  >
+                    {batchShippingMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+                    배송중 전환 ({preparingCount})
+                  </Button>
+                )}
+                {shippingCount > 0 && (
+                  <Button
+                    size="sm"
+                    className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+                    onClick={() => batchDeliveredMutation.mutate()}
+                    disabled={batchDeliveredMutation.isPending}
+                  >
+                    {batchDeliveredMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+                    배송완료 전환 ({shippingCount})
+                  </Button>
+                )}
               </div>
             ) : undefined
           }
