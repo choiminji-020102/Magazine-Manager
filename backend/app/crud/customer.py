@@ -166,6 +166,7 @@ def restore_customer(customer_id: int, db: Session) -> Customer:
         )
     customer.is_deleted = False
     customer.deleted_at = None
+    customer.is_active = True
     db.commit()
     db.refresh(customer)
     return customer
