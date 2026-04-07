@@ -29,6 +29,8 @@ import {
 import { DataTable, type ColumnDef } from "@/components/common/DataTable";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { SlidingPanel } from "@/components/common/SlidingPanel";
+import { AdminDetailPanel } from "./admin/AdminDetailPanel";
 import { adminsApi } from "@/api/adminsApi";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -63,6 +65,8 @@ function AdminListContent() {
   const [editTarget, setEditTarget] = useState<AdminResponse | null>(null);
   const [editForm, setEditForm] = useState({ admin_name: "", email: "" });
   const [showDeleted, setShowDeleted] = useState(false);
+  const [selectedAdmin, setSelectedAdmin] = useState<AdminResponse | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
 
   // 관리자 생성 폼 상태
   const [form, setForm] = useState({
@@ -310,6 +314,8 @@ function AdminListContent() {
             columns={columns}
             data={data?.items ?? []}
             getRowId={(row) => row.admin_id}
+            onRowClick={(row) => { setSelectedAdmin(row); setPanelOpen(true); }}
+            activeRowId={selectedAdmin?.admin_id}
             isLoading={isLoading}
             emptyMessage="관리자가 없습니다."
           />
@@ -420,6 +426,16 @@ function AdminListContent() {
         confirmLabel="복구"
         isLoading={restoreMutation.isPending}
       />
+
+      {/* 상세 패널 */}
+      <SlidingPanel open={panelOpen} onClose={() => { setPanelOpen(false); setTimeout(() => setSelectedAdmin(null), 250); }}>
+        {selectedAdmin && (
+          <AdminDetailPanel
+            admin={(data?.items ?? []).find((a) => a.admin_id === selectedAdmin.admin_id) ?? selectedAdmin}
+            onClose={() => { setPanelOpen(false); setTimeout(() => setSelectedAdmin(null), 250); }}
+          />
+        )}
+      </SlidingPanel>
 
       {/* 관리자 정보 수정 모달 */}
       <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
