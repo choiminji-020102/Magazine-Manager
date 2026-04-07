@@ -8,7 +8,7 @@ export interface CustomerListQuery {
   search?: string | null;
   create_channel?: CustomerChannel | null;
   is_active?: boolean | null;
-  is_deleted?: boolean | null;
+  is_deleted?: boolean;
   phone_num4?: string | null;
   admin_memo?: string | null;
   sort_by?: string;
