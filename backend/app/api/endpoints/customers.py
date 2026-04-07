@@ -15,7 +15,6 @@ from app.schemas.customer import (
     CustomerCreate,
     CustomerDetailResponse,
     CustomerListQuery,
-    CustomerQuickSearchResponse,
     CustomerResponse,
     CustomerUpdate,
 )
@@ -24,17 +23,6 @@ from app.schemas.order import OrderResponse as OrderResp
 from app.services import activity_log_service, customer_service
 
 router = APIRouter(prefix="/customers", tags=["고객"])
-
-
-@router.get("/search/phone", response_model=ResponseModel[List[CustomerQuickSearchResponse]])
-def search_by_phone(
-    phone_num4: str = Query(..., max_length=4, description="연락처 뒤 4자리"),
-    db: Session = Depends(get_db),
-    current_admin: admin_model.Admin = Depends(require_admin),
-):
-    """연락처 뒤 4자리로 고객 빠른 검색"""
-    results = customer_service.search_by_phone_num4(db=db, phone_num4=phone_num4)
-    return ResponseModel(data=results)
 
 
 @router.get("", response_model=PaginatedResponse[CustomerResponse])

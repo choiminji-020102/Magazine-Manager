@@ -64,7 +64,3 @@ def delete_customer(db: Session, customer_id: int) -> None:
 
 def restore_customer(db: Session, customer_id: int) -> Customer:
     return customer_crud.restore_customer(customer_id=customer_id, db=db)
-
-
-def search_by_phone_num4(db: Session, phone_num4: str) -> List[Customer]:
-    return customer_crud.search_by_phone_num4(phone_num4=phone_num4, db=db)

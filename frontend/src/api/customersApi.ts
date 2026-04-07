@@ -9,11 +9,6 @@ import type {
 } from "../types/customer";
 
 export const customersApi = {
-  // GET /customers/search/phone?phone_num4=XXXX - 연락처 뒤 4자리 빠른 검색
-  searchByPhone: (phoneNum4: string) => {
-    return api.get<ResponseModel<CustomerResponse[]>>("/customers/search/phone", { params: { phone_num4: phoneNum4 } });
-  },
-
   // GET /customers - 고객 목록 조회
   getCustomers: (params: CustomerListQuery) => {
     return api.get<PaginatedResponse<CustomerResponse>>("/customers", { params });

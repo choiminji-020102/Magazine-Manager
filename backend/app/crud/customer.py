@@ -169,10 +169,3 @@ def restore_customer(customer_id: int, db: Session) -> Customer:
     db.commit()
     db.refresh(customer)
     return customer
-
-
-def search_by_phone_num4(phone_num4: str, db: Session) -> List[Customer]:
-    return db.query(Customer).filter(
-        Customer.customer_phone_num4 == phone_num4,
-        Customer.is_deleted == False,
-    ).all()
