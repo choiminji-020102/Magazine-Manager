@@ -55,11 +55,11 @@ def list_customers(
     return items, total
 
 
-def read_customer_by_id(customer_id: int, db: Session) -> Customer:
-    customer = db.query(Customer).filter(
-        Customer.customer_id == customer_id,
-        Customer.is_deleted == False,
-    ).first()
+def read_customer_by_id(customer_id: int, db: Session, include_deleted: bool = False) -> Customer:
+    query = db.query(Customer).filter(Customer.customer_id == customer_id)
+    if not include_deleted:
+        query = query.filter(Customer.is_deleted == False)
+    customer = query.first()
     if not customer:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

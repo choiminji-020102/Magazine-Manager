@@ -26,8 +26,8 @@ def get_customers(db: Session, query: CustomerListQuery) -> Tuple[List[Customer]
     )
 
 
-def get_customer_by_id(db: Session, customer_id: int) -> Customer:
-    return customer_crud.read_customer_by_id(customer_id=customer_id, db=db)
+def get_customer_by_id(db: Session, customer_id: int, include_deleted: bool = False) -> Customer:
+    return customer_crud.read_customer_by_id(customer_id=customer_id, db=db, include_deleted=include_deleted)
 
 
 def get_customer_by_phone(db: Session, phone: str) -> Optional[Customer]:

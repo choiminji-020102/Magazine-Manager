@@ -301,7 +301,7 @@ def get_customer_inquiries(
     current_admin: Admin = Depends(require_admin)
 ):
     """고객별 문의 목록"""
-    customer = customer_service.get_customer_by_id(db, customer_id)
+    customer = customer_service.get_customer_by_id(db, customer_id, include_deleted=True)
     
     if customer is None:
         raise HTTPException(

@@ -75,8 +75,8 @@ def get_customer(
     db: Session = Depends(get_db),
     current_admin: admin_model.Admin = Depends(require_admin),
 ):
-    """고객 상세 조회 (주문·배송지 포함)"""
-    customer = customer_service.get_customer_by_id(db=db, customer_id=customer_id)
+    """고객 상세 조회 (주문·배송지 포함, 삭제된 고객도 조회 가능)"""
+    customer = customer_service.get_customer_by_id(db=db, customer_id=customer_id, include_deleted=True)
     data = CustomerDetailResponse.model_validate(customer)
     # ORM relationship 이름(orders)과 스키마 필드명(recent_orders) 불일치 → 명시적 매핑 (최근 5건, 주문일 DESC)
     sorted_orders = sorted(customer.orders, key=lambda o: o.order_at, reverse=True)[:5]
