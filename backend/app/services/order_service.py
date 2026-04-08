@@ -314,8 +314,16 @@ def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) 
         if total_refund < 0:
             total_refund = 0
 
-        # 환불금이 결제금을 초과하면 계산 오류 → 에러
-        if total_refund > order.payment_amount:
+        # 환불금 검증
+        all_monthly = all(item.product_kind == "MONTHLY" for item in active_items)
+        if all_monthly and total_refund != order.payment_amount:
+            # 단품 전액 환불은 결제금과 반드시 일치해야 함
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"환불금({total_refund:,}원)이 결제금({order.payment_amount:,}원)과 일치하지 않습니다. 관리자에게 문의하세요.",
+            )
+        elif total_refund > order.payment_amount:
+            # 정기구독 부분 환불은 결제금을 초과할 수 없음
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"환불금({total_refund:,}원)이 결제금({order.payment_amount:,}원)을 초과합니다. 관리자에게 문의하세요.",
