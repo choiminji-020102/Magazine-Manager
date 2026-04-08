@@ -314,6 +314,13 @@ def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) 
         if total_refund < 0:
             total_refund = 0
 
+        # 환불금이 결제금을 초과하면 계산 오류 → 에러
+        if total_refund > order.payment_amount:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"환불금({total_refund:,}원)이 결제금({order.payment_amount:,}원)을 초과합니다. 관리자에게 문의하세요.",
+            )
+
     # ── 3. 취소 사유를 admin_memo에 추가 기록 ────────────────────────────────
     cancel_note = f"[취소] {cancel_request.admin_memo}"
     order.admin_memo = f"{order.admin_memo}\n{cancel_note}" if order.admin_memo else cancel_note
