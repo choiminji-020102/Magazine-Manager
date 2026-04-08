@@ -4,7 +4,7 @@
 
 # 서드파티 라이브러리
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, ExpiredSignatureError
 from sqlalchemy.orm import Session
 
@@ -15,20 +15,16 @@ from app.db.session import get_db
 from app.models import admin as admin_model
 from app.models.admin import AdminRole
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login") # 요청 헤더에서 Bearer access 토큰 파싱해줌. Authorization 헤더가 없으면 FastAPI가 자동으로 401을 던짐. 
+bearer_scheme = HTTPBearer() # 요청 헤더에서 Bearer access 토큰 파싱. Authorization 헤더가 없으면 자동 401.
 
 def get_current_admin(
-    access_token: str = Depends(oauth2_scheme),
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> admin_model.Admin:
-    if not access_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Access Token이 필요합니다.",
-        )
+    access_token = credentials.credentials
     try:
         payload = decode_access_token(
-            access_token, 
+            access_token,
             verify_exp=True
         )
     except ExpiredSignatureError:
