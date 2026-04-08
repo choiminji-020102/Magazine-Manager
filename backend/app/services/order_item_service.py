@@ -1,5 +1,4 @@
 # 표준 라이브러리
-from datetime import date
 from typing import List, Optional, Tuple
 
 # 서드파티 라이브러리
@@ -228,22 +227,15 @@ def update_address(
     # 활성 SendItem 조회
     send_items = _get_active_send_items(db, order_item.order_item_id)
 
-    today = date.today()
     already_shipped_issues: List[str] = []
     pending_issues: List[str] = []
     pending_send_ids: set = set()
 
     for si in send_items:
-        issue = si.issue
-        y, m = int(issue[:4]), int(issue[4:6])
-        issue_first_day = date(y, m, 1)
-
         if si.send.send_status in ("SHIPPING", "DELIVERED"):
-            already_shipped_issues.append(issue)
-        elif today >= issue_first_day:
-            already_shipped_issues.append(issue)
+            already_shipped_issues.append(si.issue)
         else:
-            pending_issues.append(issue)
+            pending_issues.append(si.issue)
             pending_send_ids.add(si.send_id)
 
     if not pending_issues and already_shipped_issues:
