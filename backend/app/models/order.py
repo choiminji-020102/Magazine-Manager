@@ -22,7 +22,7 @@ class Order(Base):
     discount_amount = Column(Integer, nullable=False, server_default="0", comment="할인 금액")
     refund_amount = Column(Integer, nullable=False, server_default="0", comment="환불 금액")
     send_fee = Column(Integer, nullable=False, server_default="0", comment="배송비")
-    payment_amount = Column(Integer, nullable=False, server_default="0", comment="결제 금액")
+    payment_amount = Column(Integer, nullable=False, server_default="0", comment="결제 금액 (결제 예정/완료 금액 = total_amount - discount_amount - refund_amount + send_fee)")
 
     payment_method = Column(String(30), nullable=True, comment="결제 방법")
     

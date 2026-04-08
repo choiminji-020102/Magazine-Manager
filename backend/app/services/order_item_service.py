@@ -469,8 +469,10 @@ def cancel_order_item(
                 detail="이미 배송이 시작된 MONTHLY 상품은 취소할 수 없습니다.",
             )
 
-    # 환불액 계산
-    if cancel_in.refund_amount is not None:
+    # 환불액 계산 (결제 전 취소: 돈을 받지 않았으므로 환불금 0)
+    if order_item.order.order_status == "ORDERED":
+        refund_amount = 0
+    elif cancel_in.refund_amount is not None:
         refund_amount = cancel_in.refund_amount
     elif order_item.product_kind == "MONTHLY":
         refund_amount = order_item.sale_price * order_item.order_num

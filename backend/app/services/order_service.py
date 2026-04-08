@@ -283,7 +283,10 @@ def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) 
     # ── 2. 환불액 계산 ────────────────────────────────────────────────────────
     now = now_kst()
 
-    if cancel_request.refund_amount is not None:
+    if order.order_status == "ORDERED":
+        # 결제 전 취소: 돈을 받지 않았으므로 환불금 0
+        total_refund = 0
+    elif cancel_request.refund_amount is not None:
         # 관리자가 직접 환불액 지정
         total_refund = cancel_request.refund_amount
     else:
