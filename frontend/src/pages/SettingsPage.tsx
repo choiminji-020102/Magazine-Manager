@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { authAPI } from "@/api/authApi";
 import { cafe24API } from "@/api/cafe24Api";
 import { toast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/utils/errorHandler";
 
 export default function SettingsPage() {
   const { currentAdmin } = useAuth();
@@ -55,7 +56,7 @@ function AccountSettings(_props: { adminId?: number }) {
       setNewPassword("");
       setConfirmPassword("");
     },
-    onError: () => toast.error("비밀번호 변경 실패. 현재 비밀번호를 확인하세요."),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const handleSubmit = (e: React.FormEvent) => {

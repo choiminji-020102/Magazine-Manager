@@ -208,6 +208,13 @@ def change_password(
             detail="현재 비밀번호가 올바르지 않습니다."
         )
 
+    # 새 비밀번호가 기존 비밀번호와 동일한지 검증
+    if verify_password(password_change_in.new_password, admin.admin_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="새 비밀번호는 현재 비밀번호와 다르게 설정해주세요."
+        )
+
     # 새 비밀번호 강도 검증
     validate_password_strength(plain_password=password_change_in.new_password)
 
