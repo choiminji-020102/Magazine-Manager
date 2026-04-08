@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { authAPI } from "@/api/authApi";
+import { getErrorMessage } from "@/utils/errorHandler";
 
 interface LoginForm {
   email: string;
@@ -47,8 +48,8 @@ export default function LoginPage() {
     try {
       await login({ email: data.email, plain_password: data.password });
       navigate("/", { replace: true });
-    } catch {
-      setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+    } catch (err) {
+      setError(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
