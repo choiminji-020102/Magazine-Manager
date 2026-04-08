@@ -27,10 +27,6 @@ class AdminRoleUpdate(BaseModel):
     admin_role: AdminRole           # 필수
 
 
-class AdminPasswordChangeRequest(BaseModel):
-    current_password: str           # 현재 비밀번호 (필수)
-    new_password: str               # 새 비밀번호 (필수)
-
 
 class AdminResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

@@ -18,7 +18,7 @@ export interface AdminCreate extends AdminBase {
 }
 
 export interface AdminUpdate {
-  // ⚠️ admin_role 변경은 PATCH /role, 비밀번호 변경은 POST /change-password 사용
+  // ⚠️ admin_role 변경은 PATCH /role, 비밀번호 변경은 PUT /auth/password 사용
   email?: string | null;
   admin_name?: string | null;
 }
@@ -38,11 +38,6 @@ export interface AdminResponse {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
-}
-
-export interface AdminPasswordChangeRequest {
-  current_password: string;
-  new_password: string;
 }
 
 export interface AdminListQuery {

@@ -5,7 +5,6 @@ import type {
   AdminUpdate,
   AdminRoleUpdate,
   AdminResponse,
-  AdminPasswordChangeRequest,
 } from "../types/admin";
 
 export const adminsApi = {
@@ -63,8 +62,4 @@ export const adminsApi = {
     return api.patch<ResponseModel<AdminResponse>>(`/admins/${adminId}/role`, data);
   },
 
-  // POST /admins/{admin_id}/change-password - 관리자 비밀번호 변경 (자기 자신만)
-  changeAdminPassword: (adminId: number, data: AdminPasswordChangeRequest) => {
-    return api.post<ResponseModel<void>>(`/admins/${adminId}/change-password`, data);
-  },
 };

@@ -6,12 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
-from app.core.deps import get_current_admin, require_admin, require_super_admin
+from app.core.deps import require_admin, require_super_admin
 from app.db.session import get_db
 from app.models import admin as admin_model
 from app.models.activity_log import ActivityAction, ActivityTargetType
 from app.schemas.admin import (
-    AdminCreate, AdminListQuery, AdminPasswordChangeRequest,
+    AdminCreate, AdminListQuery,
     AdminResponse, AdminRoleUpdate, AdminUpdate,
 )
 from app.schemas.common import PaginatedResponse, ResponseModel
@@ -256,39 +256,3 @@ def restore_admin(
     return ResponseModel(message="관리자가 복구되었습니다.", data=admin)
 
 
-@router.post("/{admin_id}/change-password", response_model=ResponseModel)
-def change_admin_password(
-    admin_id: int,
-    password_in: AdminPasswordChangeRequest,
-    req: Request,
-    db: Session = Depends(get_db),
-    current_admin: admin_model.Admin = Depends(get_current_admin),
-):
-    """관리자 비밀번호 변경 (자기 자신만 가능, current_password 검증)"""
-    if admin_id != current_admin.admin_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="자신의 비밀번호만 변경할 수 있습니다.",
-        )
-
-    target_admin = admin_service.get_admin_by_id(db=db, admin_id=admin_id)
-    admin_service.change_password(
-        db=db,
-        admin=target_admin,
-        current_password=password_in.current_password,
-        new_password=password_in.new_password,
-    )
-
-    activity_log_service.create_log(
-        db=db,
-        action=ActivityAction.UPDATE,
-        target_type=ActivityTargetType.ADMIN,
-        admin_id=current_admin.admin_id,
-        admin_name=current_admin.admin_name,
-        target_id=target_admin.admin_id,
-        target_name=target_admin.admin_name,
-        details={"reason": "비밀번호 변경"},
-        ip_address=req.client.host if req.client else None,
-        user_agent=req.headers.get("user-agent"),
-    )
-    return ResponseModel(message="비밀번호가 변경되었습니다.")

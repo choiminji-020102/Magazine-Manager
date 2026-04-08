@@ -9,7 +9,7 @@ from app.schemas.auth import (
 )
 from app.schemas.admin import (
     AdminCreate, AdminUpdate, AdminResponse,
-    AdminRoleUpdate, AdminPasswordChangeRequest, AdminListQuery,
+    AdminRoleUpdate, AdminListQuery,
 )
 from app.schemas.customer import (
     CustomerCreate, CustomerUpdate, CustomerResponse,

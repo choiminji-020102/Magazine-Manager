@@ -6,7 +6,6 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
-from app.core.password import verify_password
 from app.crud import admin as admin_crud
 from app.models.admin import Admin
 from app.schemas.admin import AdminCreate, AdminListQuery, AdminUpdate
@@ -58,15 +57,3 @@ def restore_admin(db: Session, admin_id: int) -> Admin:
     return admin_crud.restore_admin(admin_id=admin_id, db=db)
 
 
-def change_password(
-    db: Session,
-    admin: Admin,
-    current_password: str,
-    new_password: str,
-) -> None:
-    if not verify_password(current_password, admin.admin_password):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="현재 비밀번호가 올바르지 않습니다."
-        )
-    admin_crud.change_admin_password(admin_id=admin.admin_id, new_password=new_password, db=db)
