@@ -309,6 +309,11 @@ def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) 
         # 배송비 환불 (YEARLY는 0원이므로 실질적으로 MONTHLY 취소 시에만 적용)
         total_refund += order.send_fee or 0
 
+        # 할인금액 차감 (할인받은 만큼은 환불 대상 아님)
+        total_refund -= order.discount_amount or 0
+        if total_refund < 0:
+            total_refund = 0
+
     # ── 3. 취소 사유를 admin_memo에 추가 기록 ────────────────────────────────
     cancel_note = f"[취소] {cancel_request.admin_memo}"
     order.admin_memo = f"{order.admin_memo}\n{cancel_note}" if order.admin_memo else cancel_note
