@@ -39,7 +39,7 @@ def login(
     if not admin.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, 
-            detail="비활성화된 계정입니다."
+            detail="비활성화된 계정입니다. 관리자에게 문의하세요."
         )
 
     if not verify_password(login_in.plain_password, admin.admin_password):
