@@ -240,7 +240,7 @@ export function AddressChangeModal({ open, onClose, item, orderId, customerId }:
           )}
 
           <p className="text-xs text-gray-400">
-            ※ 해당 월 1일 이후이거나 이미 배송 중인 경우 변경이 제한됩니다.
+            ※ 이미 배송 중이거나 배송 완료된 경우 변경이 제한됩니다.
           </p>
         </div>
 
