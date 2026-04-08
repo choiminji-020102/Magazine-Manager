@@ -369,7 +369,7 @@ export default function OrderCreatePage() {
                   <Input
                     className="mt-1"
                     value={newCustomer.phone}
-                    onChange={(e) => setNewCustomer((p) => ({ ...p, phone: e.target.value }))}
+                    onChange={(e) => setNewCustomer((p) => ({ ...p, phone: formatPhoneInput(e.target.value) }))}
                     placeholder="010-0000-0000"
                   />
                 </div>
