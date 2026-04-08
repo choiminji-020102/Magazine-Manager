@@ -8,6 +8,7 @@ import type {
   OrderListResponse,
   OrderDetailResponse,
   OrderCancelRequest,
+  OrderCancelCalculateResponse,
   OrderPaymentUpdate,
 } from "../types/order";
 
@@ -45,6 +46,11 @@ export const ordersApi = {
   // POST /orders/{order_id}/payment - 결제 완료 처리
   completePayment: (orderId: number, data?: OrderPaymentUpdate) => {
     return api.post<ResponseModel<OrderResponse>>(`/orders/${orderId}/payment`, data ?? {});
+  },
+
+  // POST /orders/{order_id}/cancel/calculate - 취소 환불 계산 미리보기
+  cancelCalculate: (orderId: number) => {
+    return api.post<ResponseModel<OrderCancelCalculateResponse>>(`/orders/${orderId}/cancel/calculate`);
   },
 
   // POST /orders/{order_id}/cancel - 주문 취소

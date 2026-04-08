@@ -113,6 +113,32 @@ class OrderUpdate(BaseModel):
 class OrderCancelRequest(BaseModel):
     admin_memo: str                         # 취소 사유, 필수
     refund_amount: Optional[int] = None     # 미입력 시 자동 계산
+    refund_bank: Optional[str] = None       # 환불 은행명
+    refund_account: Optional[str] = None    # 환불 계좌번호
+
+
+class OrderCancelItemDetail(BaseModel):
+    """취소 계산 내역 — 품목별"""
+    order_item_id: int
+    product_name: str
+    product_kind: str                       # MONTHLY / YEARLY
+    sale_price: int
+    order_num: int
+    delivered_count: int                    # 배송 완료 회차 수
+    total_period: Optional[int] = None      # 전체 구독 기간 (YEARLY만)
+    remaining_period: Optional[int] = None  # 잔여 회차 (YEARLY만)
+    item_refund: int                        # 이 품목의 환불금
+
+
+class OrderCancelCalculateResponse(BaseModel):
+    """취소 환불 계산 미리보기"""
+    order_status: str
+    items: List[OrderCancelItemDetail]
+    subtotal: int                           # 품목 환불 합계
+    send_fee: int                           # 배송비 환불
+    discount_amount: int                    # 할인금액 차감
+    total_refund: int                       # 최종 환불금
+    payment_amount: int                     # 결제금 (참고용)
 
 
 class OrderPaymentUpdate(BaseModel):

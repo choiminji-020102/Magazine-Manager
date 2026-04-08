@@ -14,8 +14,8 @@ from app.models.admin import Admin
 from app.schemas import OrderDetailResponse
 from app.schemas.common import PaginatedResponse, ResponseModel
 from app.schemas.order import (
-    OrderCancelRequest, OrderCreate, OrderListQuery, OrderListResponse,
-    OrderPaymentUpdate, OrderResponse, OrderUpdate,
+    OrderCancelCalculateResponse, OrderCancelRequest, OrderCreate, OrderListQuery,
+    OrderListResponse, OrderPaymentUpdate, OrderResponse, OrderUpdate,
 )
 from app.services import activity_log_service, customer_service, order_service
 
@@ -174,6 +174,18 @@ def process_payment(
     )
 
     return ResponseModel(message="결제 완료 처리되었습니다.", data=OrderResponse.model_validate(order))
+
+
+@router.post("/{order_id}/cancel/calculate", response_model=ResponseModel[OrderCancelCalculateResponse])
+def cancel_calculate(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_admin),
+):
+    """주문 취소 환불 계산 미리보기 (DB 변경 없음)"""
+    order = order_service.get_order_by_id(db=db, order_id=order_id)
+    result = order_service.cancel_calculate(db=db, order=order)
+    return ResponseModel(message="환불액이 계산되었습니다.", data=result)
 
 
 @router.post("/{order_id}/cancel", response_model=ResponseModel[OrderResponse])

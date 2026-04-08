@@ -15,7 +15,8 @@ from app.models.product import Product
 from app.models.send import Send
 from app.models.send_item import SendItem
 from app.schemas.order import (
-    OrderCancelRequest, OrderCreate, OrderListQuery, OrderListResponse, OrderPaymentUpdate, OrderUpdate,
+    OrderCancelCalculateResponse, OrderCancelItemDetail, OrderCancelRequest,
+    OrderCreate, OrderListQuery, OrderListResponse, OrderPaymentUpdate, OrderUpdate,
 )
 
 
@@ -247,6 +248,82 @@ def process_payment(db: Session, order: Order, payment_in: OrderPaymentUpdate) -
     return order
 
 
+def cancel_calculate(db: Session, order: Order) -> OrderCancelCalculateResponse:
+    """주문 취소 환불 계산 미리보기 (DB 변경 없음)"""
+    if order.order_status == "CANCELLED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미 취소된 주문입니다.",
+        )
+
+    active_items: List[OrderItem] = db.query(OrderItem).filter(
+        OrderItem.order_id == order.order_id,
+        OrderItem.cancelled_at.is_(None),
+    ).all()
+
+    item_details: List[OrderCancelItemDetail] = []
+    subtotal = 0
+
+    if order.order_status == "ORDERED":
+        # 결제 전: 환불금 0
+        for item in active_items:
+            item_details.append(OrderCancelItemDetail(
+                order_item_id=item.order_item_id,
+                product_name=item.product_name,
+                product_kind=item.product_kind,
+                sale_price=item.sale_price,
+                order_num=item.order_num,
+                delivered_count=0,
+                item_refund=0,
+            ))
+    else:
+        for item in active_items:
+            delivered_count = _count_delivered_issues(db, item.order_item_id)
+
+            if delivered_count == 0:
+                item_refund = item.sale_price * item.order_num
+            elif item.product_kind == "YEARLY" and item.paid_subscribe_end_issue:
+                paid_period = count_issue_diff(item.subscribe_start_issue, item.paid_subscribe_end_issue) + 1
+                remaining = paid_period - delivered_count
+                if remaining > 0:
+                    refund_per_issue = item.sale_price // paid_period
+                    item_refund = refund_per_issue * remaining * item.order_num
+                else:
+                    item_refund = 0
+                    remaining = 0
+            else:
+                item_refund = 0
+                paid_period = None
+                remaining = None
+
+            item_details.append(OrderCancelItemDetail(
+                order_item_id=item.order_item_id,
+                product_name=item.product_name,
+                product_kind=item.product_kind,
+                sale_price=item.sale_price,
+                order_num=item.order_num,
+                delivered_count=delivered_count,
+                total_period=count_issue_diff(item.subscribe_start_issue, item.paid_subscribe_end_issue) + 1 if item.product_kind == "YEARLY" and item.paid_subscribe_end_issue else None,
+                remaining_period=remaining if item.product_kind == "YEARLY" else None,
+                item_refund=item_refund,
+            ))
+            subtotal += item_refund
+
+    send_fee = order.send_fee or 0 if order.order_status != "ORDERED" else 0
+    discount = order.discount_amount or 0 if order.order_status != "ORDERED" else 0
+    total_refund = max(subtotal + send_fee - discount, 0)
+
+    return OrderCancelCalculateResponse(
+        order_status=order.order_status,
+        items=item_details,
+        subtotal=subtotal,
+        send_fee=send_fee,
+        discount_amount=discount,
+        total_refund=total_refund,
+        payment_amount=order.payment_amount,
+    )
+
+
 def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) -> Order:
     """
     주문 취소 — 취소 규칙:
@@ -329,8 +406,11 @@ def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) 
                 detail=f"환불금({total_refund:,}원)이 결제금({order.payment_amount:,}원)을 초과합니다. 관리자에게 문의하세요.",
             )
 
-    # ── 3. 취소 사유를 admin_memo에 추가 기록 ────────────────────────────────
-    cancel_note = f"[취소] {cancel_request.admin_memo}"
+    # ── 3. 취소 사유 + 환불 계좌를 admin_memo에 추가 기록 ────────────────────
+    memo_lines = [f"[취소] {cancel_request.admin_memo}"]
+    if cancel_request.refund_bank and cancel_request.refund_account:
+        memo_lines.append(f"[취소 환불계좌] {cancel_request.refund_bank} {cancel_request.refund_account}")
+    cancel_note = "\n".join(memo_lines)
     order.admin_memo = f"{order.admin_memo}\n{cancel_note}" if order.admin_memo else cancel_note
 
     # ── 4. PREPARING 상태 Send 취소 ──────────────────────────────────────────

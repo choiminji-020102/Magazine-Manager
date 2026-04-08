@@ -24,7 +24,7 @@ from app.schemas.address import (
 from app.schemas.order import (
     OrderCreate, OrderUpdate, OrderResponse, OrderListResponse,
     OrderPaymentUpdate, OrderItemCreateInOrder,
-    OrderCancelRequest,
+    OrderCancelRequest, OrderCancelCalculateResponse, OrderCancelItemDetail,
 )
 from app.schemas.order_item import (
     OrderItemCreate, OrderItemUpdate, OrderItemResponse,

@@ -87,6 +87,30 @@ export interface OrderUpdate {
 export interface OrderCancelRequest {
   admin_memo: string;           // 취소 사유 필수
   refund_amount?: number | null;
+  refund_bank?: string | null;
+  refund_account?: string | null;
+}
+
+export interface OrderCancelItemDetail {
+  order_item_id: number;
+  product_name: string;
+  product_kind: string;
+  sale_price: number;
+  order_num: number;
+  delivered_count: number;
+  total_period?: number | null;
+  remaining_period?: number | null;
+  item_refund: number;
+}
+
+export interface OrderCancelCalculateResponse {
+  order_status: string;
+  items: OrderCancelItemDetail[];
+  subtotal: number;
+  send_fee: number;
+  discount_amount: number;
+  total_refund: number;
+  payment_amount: number;
 }
 
 export interface OrderPaymentUpdate {
