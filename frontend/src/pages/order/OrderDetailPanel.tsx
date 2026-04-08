@@ -36,6 +36,7 @@ import { sendsApi } from "@/api/sendsApi";
 import { productsApi } from "@/api/productsApi";
 import { toast } from "@/hooks/use-toast";
 import { formatAmount, formatDate, formatDateTime, formatPhone, formatPhoneInput, formatIssue } from "@/utils/format";
+import { getErrorMessage } from "@/utils/errorHandler";
 import { PAYMENT_METHOD_LABEL, PAYMENT_METHOD_OPTIONS, CHANNEL_LABEL, CHANNEL_OPTIONS } from "@/utils/constants";
 import { addressesApi } from "@/api/addressesApi";
 import { AddressSearchField } from "@/components/common/AddressSearchField";
@@ -61,6 +62,8 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
   const queryClient = useQueryClient();
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [cancelMemo, setCancelMemo] = useState("");
+  const [cancelRefundManual, setCancelRefundManual] = useState(false);
+  const [cancelRefundAmount, setCancelRefundAmount] = useState<string>("");
   const [paymentConfirm, setPaymentConfirm] = useState(false);
   const [paymentMethodInput, setPaymentMethodInput] = useState("");
   const [paymentMethodError, setPaymentMethodError] = useState(false);
@@ -216,14 +219,21 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
 
   const cancelMutation = useMutation({
     mutationFn: () =>
-      ordersApi.cancelOrder(orderId, { admin_memo: cancelMemo }),
+      ordersApi.cancelOrder(orderId, {
+        admin_memo: cancelMemo,
+        ...(cancelRefundManual && cancelRefundAmount !== ""
+          ? { refund_amount: parseInt(cancelRefundAmount, 10) }
+          : {}),
+      }),
     onSuccess: () => {
       toast.success("주문이 취소되었습니다.");
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       setCancelConfirm(false);
+      setCancelRefundManual(false);
+      setCancelRefundAmount("");
     },
-    onError: () => toast.error("주문 취소 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   // 발송 액션 상태
@@ -1043,6 +1053,35 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
               value={cancelMemo}
               onChange={(e) => setCancelMemo(e.target.value)}
             />
+            <div className="border-t border-gray-200 pt-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-gray-600">환불금액</span>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300"
+                    checked={cancelRefundManual}
+                    onChange={(e) => {
+                      setCancelRefundManual(e.target.checked);
+                      if (!e.target.checked) setCancelRefundAmount("");
+                    }}
+                  />
+                  <span className="text-xs text-gray-500">직접 입력</span>
+                </label>
+              </div>
+              {cancelRefundManual ? (
+                <Input
+                  type="number"
+                  min={0}
+                  className="h-8 text-sm mt-1.5"
+                  placeholder="환불금액을 입력하세요"
+                  value={cancelRefundAmount}
+                  onChange={(e) => setCancelRefundAmount(e.target.value)}
+                />
+              ) : (
+                <p className="text-xs text-gray-400 mt-1">자동 계산됩니다</p>
+              )}
+            </div>
           </div>
         }
         confirmLabel="주문 취소"
