@@ -359,7 +359,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
   const closeModal = () => {
     setActiveModal(null);
     setActiveItem(null);
-    setCancelItemMemo("");
   };
 
   if (isLoading) {
