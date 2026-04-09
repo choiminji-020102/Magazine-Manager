@@ -30,6 +30,7 @@ import {
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
+import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { ordersApi } from "@/api/ordersApi";
 import { orderItemsApi } from "@/api/orderItemsApi";
 import { sendsApi } from "@/api/sendsApi";
@@ -42,10 +43,7 @@ import { addressesApi } from "@/api/addressesApi";
 import { AddressSearchField } from "@/components/common/AddressSearchField";
 import type { OrderItemDetailResponse } from "@/types/orderItem";
 import { PaymentMethod } from "@/types/order";
-import { SubscriptionExtendModal } from "./modals/SubscriptionExtendModal";
-import { SubscriptionShortenModal } from "./modals/SubscriptionShortenModal";
-import { SubscriptionChangePeriodModal } from "./modals/SubscriptionChangePeriodModal";
-import { PauseCreateModal } from "./modals/PauseCreateModal";
+import SubscriptionDetailPanel from "../subscription/SubscriptionDetailPanel";
 import { AddressChangeModal } from "./modals/AddressChangeModal";
 import { OrderItemEditModal } from "./modals/OrderItemEditModal";
 import { OrderItemCancelModal } from "./modals/OrderItemCancelModal";
@@ -55,7 +53,7 @@ interface OrderDetailPanelProps {
   onClose: () => void;
 }
 
-type ModalType = "extend" | "shorten" | "changePeriod" | "pause" | "addressChange" | "cancelItem" | "editItem" | null;
+type ModalType = "addressChange" | "cancelItem" | "editItem" | null;
 type ActiveItem = OrderItemDetailResponse;
 
 
@@ -100,6 +98,9 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
   // 품목별 모달 상태
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [activeItem, setActiveItem] = useState<ActiveItem | null>(null);
+
+  // 구독 상세 패널
+  const [subscriptionItem, setSubscriptionItem] = useState<ActiveItem | null>(null);
 
   const { data: res, isLoading } = useQuery({
     queryKey: ["order", orderId],
@@ -1214,46 +1215,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
         />
       )}
 
-      {/* 구독 연장 모달 */}
-      {activeItem && (
-        <SubscriptionExtendModal
-          open={activeModal === "extend"}
-          onClose={closeModal}
-          item={activeItem}
-          onSuccess={invalidateOrder}
-        />
-      )}
-
-      {/* 구독 단축 모달 */}
-      {activeItem && (
-        <SubscriptionShortenModal
-          open={activeModal === "shorten"}
-          onClose={closeModal}
-          item={activeItem}
-          onSuccess={invalidateOrder}
-        />
-      )}
-
-      {/* 기간 이동 모달 */}
-      {activeItem && (
-        <SubscriptionChangePeriodModal
-          open={activeModal === "changePeriod"}
-          onClose={closeModal}
-          item={activeItem}
-          onSuccess={invalidateOrder}
-        />
-      )}
-
-      {/* 휴지 등록 모달 */}
-      {activeItem && (
-        <PauseCreateModal
-          open={activeModal === "pause"}
-          onClose={closeModal}
-          item={activeItem}
-          onSuccess={invalidateOrder}
-        />
-      )}
-
       {/* 배송지 변경 모달 */}
       {activeItem && (
         <AddressChangeModal
@@ -1477,6 +1438,19 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 구독 상세 패널 */}
+      <SlidingPanel open={!!subscriptionItem} onClose={() => setSubscriptionItem(null)}>
+        {subscriptionItem && (
+          <SubscriptionDetailPanel
+            item={subscriptionItem as any}
+            onClose={() => {
+              setSubscriptionItem(null);
+              invalidateOrder();
+            }}
+          />
+        )}
+      </SlidingPanel>
     </div>
   );
 }
@@ -1562,17 +1536,8 @@ function OrderItemCard({
               {isYearly && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => onAction("extend", item)}>
-                    구독 연장
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onAction("changePeriod", item)}>
-                    기간 이동
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onAction("shorten", item)}>
-                    기간 단축
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onAction("pause", item)}>
-                    휴지 등록
+                  <DropdownMenuItem onClick={() => setSubscriptionItem(item)}>
+                    구독 상세
                   </DropdownMenuItem>
                 </>
               )}
