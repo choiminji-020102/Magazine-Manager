@@ -248,20 +248,13 @@ def process_payment(db: Session, order: Order, payment_in: OrderPaymentUpdate) -
     return order
 
 
-def cancel_calculate(db: Session, order: Order) -> OrderCancelCalculateResponse:
-    """주문 취소 환불 계산 미리보기 (DB 변경 없음)"""
+def _validate_cancellable(db: Session, order: Order, active_items: List[OrderItem]) -> None:
+    """주문 취소 가능 여부 검증 (취소 상태, MONTHLY 배송 후 차단)"""
     if order.order_status == "CANCELLED":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="이미 취소된 주문입니다.",
         )
-
-    active_items: List[OrderItem] = db.query(OrderItem).filter(
-        OrderItem.order_id == order.order_id,
-        OrderItem.cancelled_at.is_(None),
-    ).all()
-
-    # MONTHLY 상품 배송 후 취소 불가 검증
     for item in active_items:
         if item.product_kind != "MONTHLY":
             continue
@@ -274,57 +267,67 @@ def cancel_calculate(db: Session, order: Order) -> OrderCancelCalculateResponse:
                 ),
             )
 
-    item_details: List[OrderCancelItemDetail] = []
-    subtotal = 0
 
-    if order.order_status == "ORDERED":
-        # 결제 전: 환불금 0
-        for item in active_items:
-            item_details.append(OrderCancelItemDetail(
-                order_item_id=item.order_item_id,
-                product_name=item.product_name,
-                product_kind=item.product_kind,
-                sale_price=item.sale_price,
-                order_num=item.order_num,
-                delivered_count=0,
-                item_refund=0,
-            ))
+def _calculate_item_refund(
+    db: Session, item: OrderItem, order_status: str,
+) -> OrderCancelItemDetail:
+    """품목 하나의 환불 내역 계산"""
+    if order_status == "ORDERED":
+        return OrderCancelItemDetail(
+            order_item_id=item.order_item_id,
+            product_name=item.product_name,
+            product_kind=item.product_kind,
+            sale_price=item.sale_price,
+            order_num=item.order_num,
+            delivered_count=0,
+            item_refund=0,
+        )
+
+    delivered_count = _count_delivered_issues(db, item.order_item_id)
+    remaining = None
+    total_period = None
+
+    if delivered_count == 0:
+        item_refund = item.sale_price * item.order_num
+        if item.product_kind == "YEARLY" and item.paid_subscribe_end_issue:
+            total_period = count_issue_diff(item.subscribe_start_issue, item.paid_subscribe_end_issue) + 1
+            remaining = total_period
+    elif item.product_kind == "YEARLY" and item.paid_subscribe_end_issue:
+        total_period = count_issue_diff(item.subscribe_start_issue, item.paid_subscribe_end_issue) + 1
+        remaining = total_period - delivered_count
+        if remaining > 0:
+            refund_per_issue = item.sale_price // total_period
+            item_refund = refund_per_issue * remaining * item.order_num
+        else:
+            item_refund = 0
+            remaining = 0
     else:
-        for item in active_items:
-            delivered_count = _count_delivered_issues(db, item.order_item_id)
+        item_refund = 0
 
-            remaining = None
-            total_period = None
+    return OrderCancelItemDetail(
+        order_item_id=item.order_item_id,
+        product_name=item.product_name,
+        product_kind=item.product_kind,
+        sale_price=item.sale_price,
+        order_num=item.order_num,
+        delivered_count=delivered_count,
+        total_period=total_period,
+        remaining_period=remaining,
+        item_refund=item_refund,
+    )
 
-            if delivered_count == 0:
-                item_refund = item.sale_price * item.order_num
-                if item.product_kind == "YEARLY" and item.paid_subscribe_end_issue:
-                    total_period = count_issue_diff(item.subscribe_start_issue, item.paid_subscribe_end_issue) + 1
-                    remaining = total_period
-            elif item.product_kind == "YEARLY" and item.paid_subscribe_end_issue:
-                total_period = count_issue_diff(item.subscribe_start_issue, item.paid_subscribe_end_issue) + 1
-                remaining = total_period - delivered_count
-                if remaining > 0:
-                    refund_per_issue = item.sale_price // total_period
-                    item_refund = refund_per_issue * remaining * item.order_num
-                else:
-                    item_refund = 0
-                    remaining = 0
-            else:
-                item_refund = 0
 
-            item_details.append(OrderCancelItemDetail(
-                order_item_id=item.order_item_id,
-                product_name=item.product_name,
-                product_kind=item.product_kind,
-                sale_price=item.sale_price,
-                order_num=item.order_num,
-                delivered_count=delivered_count,
-                total_period=total_period,
-                remaining_period=remaining,
-                item_refund=item_refund,
-            ))
-            subtotal += item_refund
+def cancel_calculate(db: Session, order: Order) -> OrderCancelCalculateResponse:
+    """주문 취소 환불 계산 미리보기 (검증 + 순수 계산, DB 변경 없음)"""
+    active_items: List[OrderItem] = db.query(OrderItem).filter(
+        OrderItem.order_id == order.order_id,
+        OrderItem.cancelled_at.is_(None),
+    ).all()
+
+    _validate_cancellable(db, order, active_items)
+
+    item_details = [_calculate_item_refund(db, item, order.order_status) for item in active_items]
+    subtotal = sum(d.item_refund for d in item_details)
 
     send_fee = (order.send_fee or 0) if order.order_status != "ORDERED" else 0
     discount = (order.discount_amount or 0) if order.order_status != "ORDERED" else 0
@@ -342,10 +345,10 @@ def cancel_calculate(db: Session, order: Order) -> OrderCancelCalculateResponse:
 
 
 def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) -> Order:
-    """주문 취소 — cancel_calculate로 환불액 계산 후 취소 처리"""
+    """주문 취소 — cancel_calculate로 검증 + 환불액 계산 후 취소 처리"""
     now = now_kst()
 
-    # ── 1. 환불액 계산 (검증 포함 — cancel_calculate에서 MONTHLY 배송 후 차단, 취소 상태 체크)
+    # ── 1. 검증 + 환불액 계산 ─────────────────────────────────────────────────
     calc = cancel_calculate(db=db, order=order)
 
     if cancel_request.refund_amount is not None:
@@ -366,25 +369,21 @@ def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) 
                 detail=f"환불금({total_refund:,}원)이 결제금({order.payment_amount:,}원)을 초과합니다. 관리자에게 문의하세요.",
             )
 
-    active_items: List[OrderItem] = db.query(OrderItem).filter(
-        OrderItem.order_id == order.order_id,
-        OrderItem.cancelled_at.is_(None),
-    ).all()
-
-    # ── 3. 취소 사유 + 환불 계좌를 admin_memo에 추가 기록 ────────────────────
+    # ── 2. 취소 사유 + 환불 계좌를 admin_memo에 추가 기록 ─────────────────────
     memo_lines = [f"[취소] {cancel_request.admin_memo}"]
     if cancel_request.refund_bank and cancel_request.refund_account:
         memo_lines.append(f"[취소 환불계좌] {cancel_request.refund_bank} {cancel_request.refund_account}")
     cancel_note = "\n".join(memo_lines)
     order.admin_memo = f"{order.admin_memo}\n{cancel_note}" if order.admin_memo else cancel_note
 
-    # ── 4. PREPARING 상태 Send 취소 ──────────────────────────────────────────
-    _cancel_pending_sends(db, [item.order_item_id for item in active_items], now)
+    # ── 3. PREPARING 상태 Send 취소 ──────────────────────────────────────────
+    active_item_ids = [i.order_item_id for i in calc.items]
+    _cancel_pending_sends(db, active_item_ids, now)
 
-    # ── 5. 품목 일괄 취소 ─────────────────────────────────────────────────────
+    # ── 4. 품목 일괄 취소 ─────────────────────────────────────────────────────
     order_crud.cancel_order_items(db=db, order_id=order.order_id)
 
-    # ── 6. 주문 취소 ──────────────────────────────────────────────────────────
+    # ── 5. 주문 취소 ─────────────────────────────────────────────────────────
     return order_crud.set_order_status(
         db=db,
         order=order,
