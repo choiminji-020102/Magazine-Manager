@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -23,12 +23,11 @@ interface Props {
   open: boolean;
   onClose: () => void;
   item: OrderItemResponse;
-  orderId: number;
   customerId: number;
+  onSuccess: () => void;
 }
 
-export function AddressChangeModal({ open, onClose, item, orderId, customerId }: Props) {
-  const queryClient = useQueryClient();
+export function AddressChangeModal({ open, onClose, item, customerId, onSuccess }: Props) {
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   const [newAddr, setNewAddr] = useState({
@@ -76,7 +75,7 @@ export function AddressChangeModal({ open, onClose, item, orderId, customerId }:
         return;
       }
       toast.success("배송지가 변경되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+      onSuccess();
       handleClose();
     },
     onError: (err) => toast.error(getErrorMessage(err)),

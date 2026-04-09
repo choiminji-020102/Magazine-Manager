@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -14,30 +14,23 @@ import { orderItemsApi } from "@/api/orderItemsApi";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
 import { formatIssue } from "@/utils/format";
+import { addMonthsToIssue } from "@/utils/date";
 import type { OrderItemResponse } from "@/types/orderItem";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   item: OrderItemResponse;
-  orderId: number;
+  onSuccess: () => void;
+  pauseCount?: number; // 활성 휴지 개수 (종료호 계산에 반영)
 }
 
-export function SubscriptionChangePeriodModal({ open, onClose, item, orderId }: Props) {
-  const queryClient = useQueryClient();
+export function SubscriptionChangePeriodModal({ open, onClose, item, onSuccess, pauseCount = 0 }: Props) {
   const [newStartIssue, setNewStartIssue] = useState("");
 
-  // 새 시작 호 기준으로 예상 종료 호 계산 (표시용)
-  const previewEndIssue = (() => {
-    if (newStartIssue.length !== 6) return null;
-    const year = parseInt(newStartIssue.slice(0, 4));
-    const month = parseInt(newStartIssue.slice(4, 6));
-    const period = item.subscribe_period ?? 12;
-    const totalMonths = year * 12 + month + period - 1;
-    const endYear = Math.floor((totalMonths - 1) / 12);
-    const endMonth = ((totalMonths - 1) % 12) + 1;
-    return `${endYear}${String(endMonth).padStart(2, "0")}`;
-  })();
+  const previewEndIssue = newStartIssue.length === 6
+    ? addMonthsToIssue(newStartIssue, (item.subscribe_period ?? 12) - 1 + pauseCount)
+    : "";
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -46,7 +39,7 @@ export function SubscriptionChangePeriodModal({ open, onClose, item, orderId }: 
       }),
     onSuccess: () => {
       toast.success("구독 기간이 이동되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+      onSuccess();
       handleClose();
     },
     onError: (err) => toast.error(getErrorMessage(err)),
@@ -65,7 +58,6 @@ export function SubscriptionChangePeriodModal({ open, onClose, item, orderId }: 
         </DialogHeader>
 
         <div className="space-y-4 py-1">
-          {/* 현재 구독 정보 */}
           <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 space-y-1">
             <div className="flex justify-between">
               <span>상품</span>
@@ -79,7 +71,7 @@ export function SubscriptionChangePeriodModal({ open, onClose, item, orderId }: 
             </div>
             <div className="flex justify-between">
               <span>구독 개월 수</span>
-              <span className="font-medium">{item.subscribe_period}개월</span>
+              <span className="font-medium">{item.subscribe_period}개월{pauseCount > 0 && ` (+휴지 ${pauseCount}개월)`}</span>
             </div>
           </div>
 
@@ -94,7 +86,6 @@ export function SubscriptionChangePeriodModal({ open, onClose, item, orderId }: 
             />
           </div>
 
-          {/* 이동 후 예상 기간 */}
           {previewEndIssue && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700 space-y-1">
               <div className="font-medium text-blue-800">이동 후 예상 기간</div>

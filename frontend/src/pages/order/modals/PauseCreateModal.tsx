@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -8,11 +8,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { getErrorMessage } from "@/utils/errorHandler";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { pausesApi } from "@/api/pausesApi";
 import { toast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/utils/errorHandler";
 import { formatIssue } from "@/utils/format";
 import { generateIssueRange } from "@/utils/date";
 import type { OrderItemResponse } from "@/types/orderItem";
@@ -21,12 +21,11 @@ interface Props {
   open: boolean;
   onClose: () => void;
   item: OrderItemResponse;
-  orderId: number;
+  onSuccess: () => void;
 }
 
-export function PauseCreateModal({ open, onClose, item, orderId }: Props) {
-  const queryClient = useQueryClient();
-  const [pauseIssue, setPauseIssue] = useState("");
+export function PauseCreateModal({ open, onClose, item, onSuccess }: Props) {
+  const [selectedIssues, setSelectedIssues] = useState<string[]>([]);
   const [reason, setReason] = useState("");
 
   // 기존 휴지 목록 조회
@@ -37,37 +36,59 @@ export function PauseCreateModal({ open, onClose, item, orderId }: Props) {
   });
 
   const existingPauses = pausesRes?.data ?? [];
+  const activePauses = existingPauses.filter((p) => !p.is_deleted);
 
-  const createMutation = useMutation({
+  const singleMutation = useMutation({
     mutationFn: () =>
       pausesApi.createPause({
         order_item_id: item.order_item_id,
-        pause_issue: pauseIssue,
+        pause_issue: selectedIssues[0],
         reason: reason || null,
       }),
     onSuccess: () => {
       toast.success("휴지가 등록되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
-      queryClient.invalidateQueries({ queryKey: ["pauses", item.order_item_id] });
+      onSuccess();
       handleClose();
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });
 
+  const batchMutation = useMutation({
+    mutationFn: () =>
+      pausesApi.batchCreatePause({
+        order_item_id: item.order_item_id,
+        pause_issues: selectedIssues,
+        reason: reason || null,
+      }),
+    onSuccess: () => {
+      toast.success("휴지가 등록되었습니다.");
+      onSuccess();
+      handleClose();
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+
+  const createMutation = selectedIssues.length <= 1 ? singleMutation : batchMutation;
+
   const deleteMutation = useMutation({
     mutationFn: (pauseId: number) => pausesApi.deletePause(pauseId),
     onSuccess: () => {
       toast.success("휴지가 삭제되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
-      queryClient.invalidateQueries({ queryKey: ["pauses", item.order_item_id] });
+      onSuccess();
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const handleClose = () => {
-    setPauseIssue("");
+    setSelectedIssues([]);
     setReason("");
     onClose();
+  };
+
+  const toggleIssue = (issue: string) => {
+    setSelectedIssues((prev) =>
+      prev.includes(issue) ? prev.filter((i) => i !== issue) : [...prev, issue]
+    );
   };
 
   return (
@@ -93,50 +114,48 @@ export function PauseCreateModal({ open, onClose, item, orderId }: Props) {
           </div>
 
           {/* 기존 휴지 목록 */}
-          {existingPauses.filter((p) => !p.is_deleted).length > 0 && (
+          {activePauses.length > 0 && (
             <div>
               <div className="text-xs font-medium text-gray-500 mb-1.5">등록된 휴지</div>
               <div className="space-y-1">
-                {existingPauses
-                  .filter((p) => !p.is_deleted)
-                  .map((pause) => (
-                    <div
-                      key={pause.pause_id}
-                      className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5 text-xs"
-                    >
-                      <span className="font-medium text-amber-800">
-                        {formatIssue(pause.pause_issue)}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {pause.reason && (
-                          <span className="text-amber-600 truncate max-w-[100px]">{pause.reason}</span>
-                        )}
-                        <button
-                          onClick={() => deleteMutation.mutate(pause.pause_id)}
-                          className="text-red-400 hover:text-red-600 text-xs"
-                        >
-                          삭제
-                        </button>
-                      </div>
+                {activePauses.map((pause) => (
+                  <div
+                    key={pause.pause_id}
+                    className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5 text-xs"
+                  >
+                    <span className="font-medium text-amber-800">
+                      {formatIssue(pause.pause_issue)}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {pause.reason && (
+                        <span className="text-amber-600 truncate max-w-[100px]">{pause.reason}</span>
+                      )}
+                      <button
+                        onClick={() => deleteMutation.mutate(pause.pause_id)}
+                        className="text-red-400 hover:text-red-600 text-xs"
+                      >
+                        삭제
+                      </button>
                     </div>
-                  ))}
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* 신규 휴지 등록 — 월 선택 */}
+          {/* 휴지 호 선택 (다중 선택 가능) */}
           <div>
-            <Label>휴지 호 선택</Label>
+            <Label>휴지 호 선택 <span className="text-xs text-gray-400 font-normal">(여러 개 선택 가능)</span></Label>
             <div className="flex flex-wrap gap-1.5 mt-1.5">
               {generateIssueRange(item.final_subscribe_start_issue, item.final_subscribe_end_issue).map((issue) => {
-                const isExisting = existingPauses.some((p) => !p.is_deleted && p.pause_issue === issue);
-                const isSelected = pauseIssue === issue;
+                const isExisting = activePauses.some((p) => p.pause_issue === issue);
+                const isSelected = selectedIssues.includes(issue);
                 return (
                   <button
                     key={issue}
                     type="button"
                     disabled={isExisting}
-                    onClick={() => setPauseIssue(isSelected ? "" : issue)}
+                    onClick={() => toggleIssue(issue)}
                     className={`px-2.5 py-1 rounded text-xs border transition-colors ${
                       isExisting
                         ? "bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed line-through"
@@ -150,6 +169,9 @@ export function PauseCreateModal({ open, onClose, item, orderId }: Props) {
                 );
               })}
             </div>
+            {selectedIssues.length > 0 && (
+              <p className="text-xs text-blue-600 mt-1.5">{selectedIssues.length}개 선택됨</p>
+            )}
           </div>
 
           <div>
@@ -163,7 +185,7 @@ export function PauseCreateModal({ open, onClose, item, orderId }: Props) {
           </div>
 
           <p className="text-xs text-gray-400">
-            ※ 휴지 등록 시 최종 구독 종료 호가 1개월 연장됩니다.
+            ※ 휴지 등록 시 선택한 호 수만큼 최종 구독 종료 호가 연장됩니다.
           </p>
         </div>
 
@@ -171,9 +193,9 @@ export function PauseCreateModal({ open, onClose, item, orderId }: Props) {
           <Button variant="outline" onClick={handleClose}>닫기</Button>
           <Button
             onClick={() => createMutation.mutate()}
-            disabled={pauseIssue.length !== 6 || createMutation.isPending}
+            disabled={selectedIssues.length === 0 || createMutation.isPending}
           >
-            휴지 등록
+            휴지 등록 {selectedIssues.length > 0 && `(${selectedIssues.length}건)`}
           </Button>
         </DialogFooter>
       </DialogContent>

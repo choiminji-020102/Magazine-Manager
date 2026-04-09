@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -14,53 +14,44 @@ import { orderItemsApi } from "@/api/orderItemsApi";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
 import { formatIssue } from "@/utils/format";
+import { addMonthsToIssue } from "@/utils/date";
 import type { OrderItemResponse } from "@/types/orderItem";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   item: OrderItemResponse;
-  orderId: number;
+  onSuccess: () => void;
 }
 
-export function SubscriptionExtendModal({ open, onClose, item, orderId }: Props) {
-  const queryClient = useQueryClient();
+export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Props) {
   const [months, setMonths] = useState("1");
+  const [isPaid, setIsPaid] = useState(false);
   const [reason, setReason] = useState("");
 
   const mutation = useMutation({
     mutationFn: () =>
       orderItemsApi.extendSubscription(item.order_item_id, {
         extend_months: parseInt(months) || 1,
-        is_paid: false,
+        is_paid: isPaid,
         reason: reason || null,
       }),
     onSuccess: () => {
       toast.success("구독이 연장되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
-      onClose();
+      onSuccess();
+      handleClose();
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const handleClose = () => {
     setMonths("1");
+    setIsPaid(false);
     setReason("");
     onClose();
   };
 
-  const newEndIssue = (() => {
-    // 현재 종료 호에서 months만큼 더한 값 계산 (표시용)
-    const current = item.final_subscribe_end_issue;
-    if (!current || current.length !== 6) return null;
-    const year = parseInt(current.slice(0, 4));
-    const month = parseInt(current.slice(4, 6));
-    const m = parseInt(months) || 0;
-    const totalMonths = year * 12 + month + m;
-    const newYear = Math.floor((totalMonths - 1) / 12);
-    const newMonth = ((totalMonths - 1) % 12) + 1;
-    return `${newYear}${String(newMonth).padStart(2, "0")}`;
-  })();
+  const newEndIssue = addMonthsToIssue(item.final_subscribe_end_issue, parseInt(months) || 0);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
@@ -104,11 +95,21 @@ export function SubscriptionExtendModal({ open, onClose, item, orderId }: Props)
             <Label>연장 사유 <span className="text-gray-400 font-normal">(선택)</span></Label>
             <Input
               className="mt-1"
-              placeholder="무상 연장 사유"
+              placeholder="연장 사유"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             />
           </div>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              className="rounded border-gray-300"
+              checked={isPaid}
+              onChange={(e) => setIsPaid(e.target.checked)}
+            />
+            <span className="text-xs text-gray-600">유료 연장 (결제 구독 종료 호도 함께 연장)</span>
+          </label>
         </div>
 
         <DialogFooter>

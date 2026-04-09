@@ -48,6 +48,7 @@ import { SubscriptionChangePeriodModal } from "./modals/SubscriptionChangePeriod
 import { PauseCreateModal } from "./modals/PauseCreateModal";
 import { AddressChangeModal } from "./modals/AddressChangeModal";
 import { OrderItemEditModal } from "./modals/OrderItemEditModal";
+import { OrderItemCancelModal } from "./modals/OrderItemCancelModal";
 
 interface OrderDetailPanelProps {
   orderId: number;
@@ -302,22 +303,9 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     onError: (err) => toast.error(getErrorMessage(err)),
   });
 
-  // 품목 취소
-  const [cancelItemMemo, setCancelItemMemo] = useState("");
-  const cancelItemMutation = useMutation({
-    mutationFn: () =>
-      orderItemsApi.cancelOrderItem(activeItem!.order_item_id, {
-        admin_memo: cancelItemMemo,
-      }),
-    onSuccess: () => {
-      toast.success("품목이 취소되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
-      setActiveModal(null);
-      setActiveItem(null);
-      setCancelItemMemo("");
-    },
-    onError: (err) => toast.error(getErrorMessage(err)),
-  });
+  const invalidateOrder = () => {
+    queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+  };
 
   // 품목 추가
   const [addItemOpen, setAddItemOpen] = useState(false);
@@ -1212,29 +1200,15 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
         isLoading={cancelMutation.isPending}
       />
 
-      {/* 품목 취소 확인 모달 */}
-      <ConfirmModal
-        open={activeModal === "cancelItem"}
-        onClose={closeModal}
-        onConfirm={() => cancelItemMutation.mutate()}
-        title="품목 취소"
-        description={
-          <div className="space-y-3">
-            <p>
-              <span className="font-medium">{activeItem?.product_name}</span> 품목을 취소합니다.
-            </p>
-            <textarea
-              className="w-full border border-gray-300 rounded-md p-2 text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="취소 사유를 입력해주세요."
-              value={cancelItemMemo}
-              onChange={(e) => setCancelItemMemo(e.target.value)}
-            />
-          </div>
-        }
-        confirmLabel="품목 취소"
-        variant="destructive"
-        isLoading={cancelItemMutation.isPending}
-      />
+      {/* 품목 취소 모달 */}
+      {activeItem && (
+        <OrderItemCancelModal
+          open={activeModal === "cancelItem"}
+          onClose={closeModal}
+          item={activeItem}
+          onSuccess={invalidateOrder}
+        />
+      )}
 
       {/* 구독 연장 모달 */}
       {activeItem && (
@@ -1242,7 +1216,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
           open={activeModal === "extend"}
           onClose={closeModal}
           item={activeItem}
-          orderId={orderId}
+          onSuccess={invalidateOrder}
         />
       )}
 
@@ -1252,7 +1226,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
           open={activeModal === "shorten"}
           onClose={closeModal}
           item={activeItem}
-          orderId={orderId}
+          onSuccess={invalidateOrder}
         />
       )}
 
@@ -1262,7 +1236,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
           open={activeModal === "changePeriod"}
           onClose={closeModal}
           item={activeItem}
-          orderId={orderId}
+          onSuccess={invalidateOrder}
         />
       )}
 
@@ -1272,7 +1246,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
           open={activeModal === "pause"}
           onClose={closeModal}
           item={activeItem}
-          orderId={orderId}
+          onSuccess={invalidateOrder}
         />
       )}
 
@@ -1282,8 +1256,8 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
           open={activeModal === "addressChange"}
           onClose={closeModal}
           item={activeItem}
-          orderId={orderId}
           customerId={customerId}
+          onSuccess={invalidateOrder}
         />
       )}
 

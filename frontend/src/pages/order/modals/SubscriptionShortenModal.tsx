@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -21,12 +21,12 @@ interface Props {
   open: boolean;
   onClose: () => void;
   item: OrderItemResponse;
-  orderId: number;
+  onSuccess: () => void;
 }
 
-export function SubscriptionShortenModal({ open, onClose, item, orderId }: Props) {
-  const queryClient = useQueryClient();
+export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Props) {
   const [shortenEndIssue, setShortenEndIssue] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const [calcResult, setCalcResult] = useState<{
     current_end_issue: string;
     shorten_end_issue: string;
@@ -34,26 +34,42 @@ export function SubscriptionShortenModal({ open, onClose, item, orderId }: Props
   } | null>(null);
   const [refundConfirmed, setRefundConfirmed] = useState(false);
 
+  const finalEndIssue = item.final_subscribe_end_issue;
+
+  // 6자리 입력 시 자동 계산
+  useEffect(() => {
+    if (shortenEndIssue.length === 6 && !isNaN(Number(shortenEndIssue))) {
+      setCalcResult(null);
+      if (shortenEndIssue >= finalEndIssue) {
+        setError(`현재 종료 호(${formatIssue(finalEndIssue)})보다 이전 호를 입력해주세요.`);
+        return;
+      }
+      setError(null);
+      calcMutation.mutate();
+    } else {
+      setCalcResult(null);
+      setError(null);
+    }
+  }, [shortenEndIssue]);
+
   const calcMutation = useMutation({
     mutationFn: () =>
       orderItemsApi.shortenCalculate(item.order_item_id, {
         shorten_end_issue: shortenEndIssue,
       }),
-    onSuccess: (res) => {
-      setCalcResult(res.data.data ?? null);
-    },
-    onError: (err) => toast.error(getErrorMessage(err)),
+    onSuccess: (res) => setCalcResult(res.data.data ?? null),
+    onError: () => setError("환불액 계산에 실패했습니다. 입력값을 확인해주세요."),
   });
 
   const confirmMutation = useMutation({
     mutationFn: () =>
       orderItemsApi.shortenConfirm(item.order_item_id, {
         shorten_end_issue: shortenEndIssue,
-        refund_confirmed: refundConfirmed,
+        refund_confirmed: true,
       }),
     onSuccess: () => {
       toast.success("구독이 단축되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+      onSuccess();
       handleClose();
     },
     onError: (err) => toast.error(getErrorMessage(err)),
@@ -63,6 +79,7 @@ export function SubscriptionShortenModal({ open, onClose, item, orderId }: Props
     setShortenEndIssue("");
     setCalcResult(null);
     setRefundConfirmed(false);
+    setError(null);
     onClose();
   };
 
@@ -74,7 +91,6 @@ export function SubscriptionShortenModal({ open, onClose, item, orderId }: Props
         </DialogHeader>
 
         <div className="space-y-4 py-1">
-          {/* 현재 구독 정보 */}
           <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 space-y-1">
             <div className="flex justify-between">
               <span>상품</span>
@@ -82,34 +98,25 @@ export function SubscriptionShortenModal({ open, onClose, item, orderId }: Props
             </div>
             <div className="flex justify-between">
               <span>현재 종료 호</span>
-              <span className="font-medium">{formatIssue(item.final_subscribe_end_issue)}</span>
+              <span className="font-medium">{formatIssue(finalEndIssue)}</span>
             </div>
           </div>
 
           <div>
             <Label>단축 종료 호 <span className="text-xs text-gray-400">(YYYYMM)</span></Label>
-            <div className="flex gap-2 mt-1">
-              <Input
-                placeholder="예: 202606"
-                maxLength={6}
-                value={shortenEndIssue}
-                onChange={(e) => {
-                  setShortenEndIssue(e.target.value.replace(/\D/g, ""));
-                  setCalcResult(null);
-                }}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => calcMutation.mutate()}
-                disabled={shortenEndIssue.length !== 6 || calcMutation.isPending}
-              >
-                계산
-              </Button>
-            </div>
+            <Input
+              className={`mt-1 ${error ? "border-red-500" : ""}`}
+              placeholder="예: 202606"
+              maxLength={6}
+              value={shortenEndIssue}
+              onChange={(e) => {
+                setShortenEndIssue(e.target.value.replace(/\D/g, ""));
+                setRefundConfirmed(false);
+              }}
+            />
+            {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
           </div>
 
-          {/* 환불 계산 결과 */}
           {calcResult && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
               <div className="text-xs font-medium text-amber-800">환불 계산 결과</div>
@@ -146,11 +153,7 @@ export function SubscriptionShortenModal({ open, onClose, item, orderId }: Props
           <Button
             variant="destructive"
             onClick={() => confirmMutation.mutate()}
-            disabled={
-              !calcResult ||
-              !refundConfirmed ||
-              confirmMutation.isPending
-            }
+            disabled={!calcResult || !refundConfirmed || confirmMutation.isPending}
           >
             단축 확정
           </Button>

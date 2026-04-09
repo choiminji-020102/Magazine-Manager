@@ -10,6 +10,18 @@ export function nowKstISO(): string {
 }
 
 /**
+ * 호(YYYYMM)에 N개월을 더한 호 반환
+ * 예: addMonthsToIssue("202604", 3) → "202607"
+ */
+export function addMonthsToIssue(issue: string, months: number): string {
+  if (!issue || issue.length !== 6 || isNaN(months) || months < 1) return "";
+  const year = parseInt(issue.slice(0, 4), 10);
+  const month = parseInt(issue.slice(4, 6), 10);
+  const d = new Date(year, month - 1 + months, 1);
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
  * 구독 기간 내 월 목록 생성 (YYYYMM 형식)
  * 예: generateIssueRange("202604", "202703") → ["202604", "202605", ..., "202703"]
  */
