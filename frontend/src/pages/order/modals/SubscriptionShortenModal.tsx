@@ -15,6 +15,7 @@ import { orderItemsApi } from "@/api/orderItemsApi";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
 import { formatIssue, formatAmount } from "@/utils/format";
+import { addMonthsToIssue } from "@/utils/date";
 import type { OrderItemResponse } from "@/types/orderItem";
 
 interface Props {
@@ -25,7 +26,7 @@ interface Props {
 }
 
 export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Props) {
-  const [shortenEndIssue, setShortenEndIssue] = useState("");
+  const [months, setMonths] = useState("1");
   const [error, setError] = useState<string | null>(null);
   const [calcResult, setCalcResult] = useState<{
     current_end_issue: string;
@@ -35,21 +36,24 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
   const [refundConfirmed, setRefundConfirmed] = useState(false);
 
   const finalEndIssue = item.final_subscribe_end_issue;
+  const absMonths = Math.abs(parseInt(months) || 0);
+  // 현재 종료 호에서 N개월 앞당긴 호 = 단축 종료 호
+  const shortenEndIssue = absMonths > 0 ? addMonthsToIssue(finalEndIssue, -absMonths) : "";
 
-  // 6자리 입력 시 자동 계산
+  // 개월 수 변경 시 자동 계산
   useEffect(() => {
-    if (shortenEndIssue.length === 6 && !isNaN(Number(shortenEndIssue))) {
-      setCalcResult(null);
-      if (shortenEndIssue >= finalEndIssue) {
-        setError(`현재 종료 호(${formatIssue(finalEndIssue)})보다 이전 호를 입력해주세요.`);
-        return;
-      }
-      setError(null);
-      calcMutation.mutate();
-    } else {
-      setCalcResult(null);
-      setError(null);
+    setCalcResult(null);
+    setRefundConfirmed(false);
+    setError(null);
+
+    if (absMonths <= 0 || !shortenEndIssue) return;
+
+    if (shortenEndIssue >= finalEndIssue) {
+      setError("단축 개월 수가 너무 큽니다.");
+      return;
     }
+
+    calcMutation.mutate();
   }, [shortenEndIssue]);
 
   const calcMutation = useMutation({
@@ -58,7 +62,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
         shorten_end_issue: shortenEndIssue,
       }),
     onSuccess: (res) => setCalcResult(res.data.data ?? null),
-    onError: () => setError("환불액 계산에 실패했습니다. 입력값을 확인해주세요."),
+    onError: () => setError("환불액 계산에 실패했습니다."),
   });
 
   const confirmMutation = useMutation({
@@ -76,7 +80,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
   });
 
   const handleClose = () => {
-    setShortenEndIssue("");
+    setMonths("1");
     setCalcResult(null);
     setRefundConfirmed(false);
     setError(null);
@@ -91,6 +95,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
         </DialogHeader>
 
         <div className="space-y-4 py-1">
+          {/* 현재 구독 정보 */}
           <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 space-y-1">
             <div className="flex justify-between">
               <span>상품</span>
@@ -102,31 +107,27 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
             </div>
           </div>
 
+          {/* 단축 개월 수 */}
           <div>
-            <Label>단축 종료 호 <span className="text-xs text-gray-400">(YYYYMM)</span></Label>
+            <Label>단축 개월 수</Label>
             <Input
-              className={`mt-1 ${error ? "border-red-500" : ""}`}
-              placeholder="예: 202606"
-              maxLength={6}
-              value={shortenEndIssue}
-              onChange={(e) => {
-                setShortenEndIssue(e.target.value.replace(/\D/g, ""));
-                setRefundConfirmed(false);
-              }}
+              type="number"
+              min={1}
+              max={24}
+              className="mt-1"
+              value={months}
+              onChange={(e) => setMonths(e.target.value)}
             />
             {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
           </div>
 
+          {/* 단축 후 예상 + 환불 정보 */}
           {calcResult && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
-              <div className="text-xs font-medium text-amber-800">환불 계산 결과</div>
-              <div className="text-xs text-amber-700 space-y-1">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs space-y-2">
+              <div className="font-medium text-amber-800">단축 후 예상</div>
+              <div className="text-amber-700 space-y-1">
                 <div className="flex justify-between">
-                  <span>현재 종료</span>
-                  <span>{formatIssue(calcResult.current_end_issue)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>단축 종료</span>
+                  <span>단축 후 종료 호</span>
                   <span>{formatIssue(calcResult.shorten_end_issue)}</span>
                 </div>
                 <div className="flex justify-between font-semibold text-amber-900">
@@ -155,7 +156,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
             onClick={() => confirmMutation.mutate()}
             disabled={!calcResult || !refundConfirmed || confirmMutation.isPending}
           >
-            단축 확정
+            {absMonths > 0 ? `${absMonths}개월 단축 확정` : "단축 확정"}
           </Button>
         </DialogFooter>
       </DialogContent>
