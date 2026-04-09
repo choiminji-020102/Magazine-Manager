@@ -249,21 +249,27 @@ def process_payment(db: Session, order: Order, payment_in: OrderPaymentUpdate) -
 
 
 def _validate_cancellable(db: Session, order: Order, active_items: List[OrderItem]) -> None:
-    """주문 취소 가능 여부 검증 (취소 상태, MONTHLY 배송 후 차단)"""
+    """주문 취소 가능 여부 검증 (취소 상태, 배송 후 차단)"""
     if order.order_status == "CANCELLED":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="이미 취소된 주문입니다.",
         )
     for item in active_items:
-        if item.product_kind != "MONTHLY":
-            continue
-        if _has_blocking_send(db, item.order_item_id):
+        if item.product_kind == "MONTHLY" and _has_blocking_send(db, item.order_item_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
                     f"MONTHLY 상품 '{item.product_name}'이(가) 배송 중이거나 배송 완료 상태입니다. "
                     "배송 후 MONTHLY 상품은 취소할 수 없습니다."
+                ),
+            )
+        if item.product_kind == "YEARLY" and _count_delivered_issues(db, item.order_item_id) > 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"YEARLY 상품 '{item.product_name}'이(가) 이미 배송된 회차가 있습니다. "
+                    "배송 후 정기구독은 주문 취소가 아닌 구독 단축으로 처리해주세요."
                 ),
             )
 
@@ -359,17 +365,11 @@ def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) 
     else:
         total_refund = calc.total_refund
 
-        # 환불금 검증
-        all_monthly = all(i.product_kind == "MONTHLY" for i in calc.items)
-        if all_monthly and total_refund != order.payment_amount:
+        # 환불금 검증 (주문 취소는 항상 전액 환불이므로 결제금과 일치해야 함)
+        if order.order_status == "PAID" and total_refund != order.payment_amount:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"환불금({total_refund:,}원)이 결제금({order.payment_amount:,}원)과 일치하지 않습니다. 관리자에게 문의하세요.",
-            )
-        elif total_refund > order.payment_amount:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"환불금({total_refund:,}원)이 결제금({order.payment_amount:,}원)을 초과합니다. 관리자에게 문의하세요.",
             )
 
     # ── 2. 취소 사유 + 환불 계좌를 admin_memo에 추가 기록 ─────────────────────
