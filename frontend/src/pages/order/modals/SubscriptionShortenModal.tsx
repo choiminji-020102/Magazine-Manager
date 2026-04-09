@@ -125,14 +125,14 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
 
           {/* 단축 후 예상 + 환불 정보 */}
           {calcResult && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs space-y-2">
-              <div className="font-medium text-amber-800">단축 후 예상</div>
-              <div className="text-amber-700 space-y-1">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs space-y-2">
+              <div className="font-medium text-blue-800">단축 후 예상</div>
+              <div className="text-blue-700 space-y-1">
                 <div className="flex justify-between">
                   <span>단축 후 종료 호</span>
                   <span>{formatIssue(calcResult.shorten_end_issue)}</span>
                 </div>
-                <div className="flex justify-between font-semibold text-amber-900">
+                <div className="flex justify-between font-semibold text-blue-900">
                   <span>환불 금액</span>
                   <span>{formatAmount(calcResult.refund_amount)}</span>
                 </div>
@@ -143,7 +143,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
                   checked={refundConfirmed}
                   onCheckedChange={(v) => setRefundConfirmed(!!v)}
                 />
-                <label htmlFor="refund-confirm" className="text-xs text-amber-800 cursor-pointer">
+                <label htmlFor="refund-confirm" className="text-xs text-blue-800 cursor-pointer">
                   환불 금액을 확인했습니다
                 </label>
               </div>
