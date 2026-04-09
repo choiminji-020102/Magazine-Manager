@@ -538,7 +538,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
       <SubscriptionExtendModal
         open={extendOpen}
         onClose={() => setExtendOpen(false)}
-        item={item as any}
+        item={item}
         onSuccess={invalidateAll}
       />
 
@@ -546,7 +546,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
       <SubscriptionShortenModal
         open={shortenOpen}
         onClose={() => setShortenOpen(false)}
-        item={item as any}
+        item={item}
         onSuccess={invalidateAll}
       />
 
@@ -554,7 +554,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
       <SubscriptionChangePeriodModal
         open={changePeriodOpen}
         onClose={() => setChangePeriodOpen(false)}
-        item={item as any}
+        item={item}
         onSuccess={invalidateAll}
         pauseCount={activePauses.length}
       />
@@ -563,7 +563,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
       <AddressChangeModal
         open={addressOpen}
         onClose={() => setAddressOpen(false)}
-        item={item as any}
+        item={item}
         customerId={detail?.address?.customer_id ?? 0}
         onSuccess={invalidateAll}
       />
@@ -617,7 +617,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
       <OrderItemCancelModal
         open={cancelOpen}
         onClose={() => setCancelOpen(false)}
-        item={item as any}
+        item={item}
         onSuccess={invalidateAll}
       />
 
@@ -625,7 +625,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
       <PauseCreateModal
         open={pauseOpen}
         onClose={() => setPauseOpen(false)}
-        item={item as any}
+        item={item}
         onSuccess={invalidateAll}
       />
 
