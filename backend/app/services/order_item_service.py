@@ -413,26 +413,17 @@ def shorten_confirm(
     order_item: OrderItem,
     confirm_in: SubscriptionShortenConfirmRequest,
 ) -> OrderItem:
-    """구독 기간 단축 — 최종 확정 및 저장"""
+    """구독 기간 단축 — 최종 확정 및 저장 (shorten_calculate 재사용)"""
     if not confirm_in.refund_confirmed:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="환불 확인이 필요합니다. refund_confirmed=true로 전송해주세요.",
         )
 
-    current_end = order_item.final_subscribe_end_issue
-    shorten_end = confirm_in.shorten_end_issue
-
-    if shorten_end >= current_end:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"단축 종료 호({shorten_end})는 현재 종료 호({current_end})보다 작아야 합니다.",
-        )
-
-    shorten_count = _count_issue_diff(shorten_end, current_end)
-    paid_period = _count_issue_diff(order_item.subscribe_start_issue, order_item.paid_subscribe_end_issue) + 1
-    unit_price = order_item.sale_price / paid_period
-    refund_amount = int(shorten_count * unit_price * order_item.order_num)
+    # shorten_calculate 재사용 (검증 + 환불 계산 로직 단일화)
+    calc = shorten_calculate(order_item, SubscriptionShortenCalculateRequest(
+        shorten_end_issue=confirm_in.shorten_end_issue,
+    ))
 
     # 환불 계좌 admin_memo에 기록
     if confirm_in.refund_bank and confirm_in.refund_account:
@@ -442,8 +433,8 @@ def shorten_confirm(
     return order_item_crud.shorten_subscription(
         db=db,
         order_item=order_item,
-        shorten_end_issue=shorten_end,
-        refund_amount=refund_amount,
+        shorten_end_issue=confirm_in.shorten_end_issue,
+        refund_amount=calc.refund_amount,
     )
 
 
