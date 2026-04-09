@@ -261,6 +261,19 @@ def cancel_calculate(db: Session, order: Order) -> OrderCancelCalculateResponse:
         OrderItem.cancelled_at.is_(None),
     ).all()
 
+    # MONTHLY 상품 배송 후 취소 불가 검증
+    for item in active_items:
+        if item.product_kind != "MONTHLY":
+            continue
+        if _has_blocking_send(db, item.order_item_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"MONTHLY 상품 '{item.product_name}'이(가) 배송 중이거나 배송 완료 상태입니다. "
+                    "배송 후 MONTHLY 상품은 취소할 수 없습니다."
+                ),
+            )
+
     item_details: List[OrderCancelItemDetail] = []
     subtotal = 0
 
@@ -329,86 +342,35 @@ def cancel_calculate(db: Session, order: Order) -> OrderCancelCalculateResponse:
 
 
 def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) -> Order:
-    """
-    주문 취소 — 취소 규칙:
-    - MONTHLY 상품이 SHIPPING/DELIVERED 상태면 주문 전체 취소 불가
-    - PREPARING 상태인 Send만 취소 처리
-    - YEARLY 배송 후: 잔여 회차 기준 환불액 계산
-    - MONTHLY 배송 전: 전액 환불
-    - YEARLY 배송 전: 전액 환불
-    """
-    if order.order_status == "CANCELLED":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 취소된 주문입니다.",
-        )
-
-    active_items: List[OrderItem] = db.query(OrderItem).filter(
-        OrderItem.order_id == order.order_id,
-        OrderItem.cancelled_at.is_(None),
-    ).all()
-
-    # ── 1. MONTHLY 상품 배송 후 취소 불가 검증 ────────────────────────────────
-    for item in active_items:
-        if item.product_kind != "MONTHLY":
-            continue
-        if _has_blocking_send(db, item.order_item_id):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    f"MONTHLY 상품 '{item.product_name}'이(가) 배송 중이거나 배송 완료 상태입니다. "
-                    "배송 후 MONTHLY 상품은 취소할 수 없습니다."
-                ),
-            )
-
-    # ── 2. 환불액 계산 ────────────────────────────────────────────────────────
+    """주문 취소 — cancel_calculate로 환불액 계산 후 취소 처리"""
     now = now_kst()
 
-    if order.order_status == "ORDERED":
-        # 결제 전 취소: 돈을 받지 않았으므로 환불금 0
-        total_refund = 0
-    elif cancel_request.refund_amount is not None:
-        # 관리자가 직접 환불액 지정
+    # ── 1. 환불액 계산 (검증 포함 — cancel_calculate에서 MONTHLY 배송 후 차단, 취소 상태 체크)
+    if cancel_request.refund_amount is not None:
+        # 관리자가 직접 환불액 지정 (검증은 cancel_calculate 호출로 수행)
+        calc = cancel_calculate(db=db, order=order)
         total_refund = cancel_request.refund_amount
     else:
-        # 자동 계산
-        total_refund = 0
-        for item in active_items:
-            delivered_count = _count_delivered_issues(db, item.order_item_id)
-
-            if delivered_count == 0:
-                # 배송 전: 전액 환불
-                total_refund += item.sale_price * item.order_num
-            elif item.product_kind == "YEARLY" and item.paid_subscribe_end_issue:
-                # YEARLY 배송 후: 잔여 회차 환불 (유료 구독 기간 기준)
-                paid_period = count_issue_diff(item.subscribe_start_issue, item.paid_subscribe_end_issue) + 1
-                remaining = paid_period - delivered_count
-                if remaining > 0:
-                    refund_per_issue = item.sale_price // paid_period
-                    total_refund += refund_per_issue * remaining * item.order_num
-
-        # 배송비 환불 (YEARLY는 0원이므로 실질적으로 MONTHLY 취소 시에만 적용)
-        total_refund += order.send_fee or 0
-
-        # 할인금액 차감 (할인받은 만큼은 환불 대상 아님)
-        total_refund -= order.discount_amount or 0
-        if total_refund < 0:
-            total_refund = 0
+        calc = cancel_calculate(db=db, order=order)
+        total_refund = calc.total_refund
 
         # 환불금 검증
-        all_monthly = all(item.product_kind == "MONTHLY" for item in active_items)
+        all_monthly = all(i.product_kind == "MONTHLY" for i in calc.items)
         if all_monthly and total_refund != order.payment_amount:
-            # 단품 전액 환불은 결제금과 반드시 일치해야 함
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"환불금({total_refund:,}원)이 결제금({order.payment_amount:,}원)과 일치하지 않습니다. 관리자에게 문의하세요.",
             )
         elif total_refund > order.payment_amount:
-            # 정기구독 부분 환불은 결제금을 초과할 수 없음
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"환불금({total_refund:,}원)이 결제금({order.payment_amount:,}원)을 초과합니다. 관리자에게 문의하세요.",
             )
+
+    active_items: List[OrderItem] = db.query(OrderItem).filter(
+        OrderItem.order_id == order.order_id,
+        OrderItem.cancelled_at.is_(None),
+    ).all()
 
     # ── 3. 취소 사유 + 환불 계좌를 admin_memo에 추가 기록 ────────────────────
     memo_lines = [f"[취소] {cancel_request.admin_memo}"]
