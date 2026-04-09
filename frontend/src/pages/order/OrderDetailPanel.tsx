@@ -245,10 +245,12 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       setCancelConfirm(false);
+      setCancelMemo("");
       setCancelRefundManual(false);
       setCancelRefundAmount("");
       setCancelRefundBank("");
       setCancelRefundAccount("");
+      queryClient.removeQueries({ queryKey: ["cancelCalculate", orderId] });
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });
