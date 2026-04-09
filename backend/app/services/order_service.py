@@ -346,12 +346,11 @@ def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) 
     now = now_kst()
 
     # ── 1. 환불액 계산 (검증 포함 — cancel_calculate에서 MONTHLY 배송 후 차단, 취소 상태 체크)
+    calc = cancel_calculate(db=db, order=order)
+
     if cancel_request.refund_amount is not None:
-        # 관리자가 직접 환불액 지정 (검증은 cancel_calculate 호출로 수행)
-        calc = cancel_calculate(db=db, order=order)
         total_refund = cancel_request.refund_amount
     else:
-        calc = cancel_calculate(db=db, order=order)
         total_refund = calc.total_refund
 
         # 환불금 검증

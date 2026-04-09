@@ -1058,7 +1058,15 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       {/* 주문 취소 확인 모달 */}
       <ConfirmModal
         open={cancelConfirm}
-        onClose={() => setCancelConfirm(false)}
+        onClose={() => {
+          setCancelConfirm(false);
+          setCancelMemo("");
+          setCancelRefundManual(false);
+          setCancelRefundAmount("");
+          setCancelRefundBank("");
+          setCancelRefundAccount("");
+          queryClient.removeQueries({ queryKey: ["cancelCalculate", orderId] });
+        }}
         onConfirm={() => cancelMutation.mutate()}
         title="주문 취소"
         description={
