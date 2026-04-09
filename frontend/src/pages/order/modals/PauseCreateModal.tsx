@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { pausesApi } from "@/api/pausesApi";
 import { toast } from "@/hooks/use-toast";
 import { formatIssue } from "@/utils/format";
+import { generateIssueRange } from "@/utils/date";
 import type { OrderItemResponse } from "@/types/orderItem";
 
 interface Props {
@@ -21,21 +22,6 @@ interface Props {
   onClose: () => void;
   item: OrderItemResponse;
   orderId: number;
-}
-
-// 구독 기간 내 월 목록 생성 (YYYYMM 형식)
-function generateIssueRange(start: string, end: string): string[] {
-  const issues: string[] = [];
-  let y = parseInt(start.slice(0, 4));
-  let m = parseInt(start.slice(4, 6));
-  const ey = parseInt(end.slice(0, 4));
-  const em = parseInt(end.slice(4, 6));
-  while (y < ey || (y === ey && m <= em)) {
-    issues.push(`${y}${String(m).padStart(2, "0")}`);
-    m++;
-    if (m > 12) { m = 1; y++; }
-  }
-  return issues;
 }
 
 export function PauseCreateModal({ open, onClose, item, orderId }: Props) {

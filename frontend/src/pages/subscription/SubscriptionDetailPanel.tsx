@@ -31,6 +31,8 @@ import { addressesApi } from "@/api/addressesApi";
 import { sendsApi } from "@/api/sendsApi";
 import { toast } from "@/hooks/use-toast";
 import { formatAmount, formatPhone, formatPhoneInput, formatIssue, formatDate, formatDateTime } from "@/utils/format";
+import { generateIssueRange } from "@/utils/date";
+import { getErrorMessage } from "@/utils/errorHandler";
 import type { SubscriptionListItem } from "@/types/orderItem";
 import type { OrderItemAddressUpdate } from "@/types/orderItem";
 import type { PauseResponse } from "@/types/pause";
@@ -148,7 +150,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
       setExtendReason("");
       invalidateAll();
     },
-    onError: () => toast.error("연장 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const handleExtendConfirm = () => {
@@ -206,7 +208,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
       setShortenCalcResult(null);
       invalidateAll();
     },
-    onError: () => toast.error("단축 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   // ── 기간 이동 모달 ────────────────────────────────────────────────────────
@@ -229,7 +231,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
       setNewStartIssue("");
       invalidateAll();
     },
-    onError: () => toast.error("기간 이동 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const handleChangePeriodConfirm = () => {
@@ -284,7 +286,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
         setAddressResult({ can_change: result.can_change, message: result.message });
       }
     },
-    onError: () => toast.error("배송지 변경 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const handleAddressConfirm = () => {
@@ -339,7 +341,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
       setLastSendIssue("");
       invalidateAll();
     },
-    onError: () => toast.error("마지막 발송 호 수정 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const handleLastSendConfirm = () => {
@@ -365,7 +367,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
       setCancelMemo("");
       invalidateAll();
     },
-    onError: () => toast.error("취소 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const handleCancelConfirm = () => {
@@ -379,71 +381,49 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
 
   // ── 휴지 등록 모달 ────────────────────────────────────────────────────────
   const [pauseOpen, setPauseOpen] = useState(false);
-  const [pauseMode, setPauseMode] = useState<"single" | "batch">("single");
-  const [pauseIssue, setPauseIssue] = useState("");
-  const [pauseIssueError, setPauseIssueError] = useState(false);
-  const [pauseIssuesBatch, setPauseIssuesBatch] = useState("");
-  const [pauseIssuesBatchError, setPauseIssuesBatchError] = useState(false);
+  const [selectedPauseIssues, setSelectedPauseIssues] = useState<string[]>([]);
   const [pauseReason, setPauseReason] = useState("");
 
   const pauseCreateSingleMutation = useMutation({
     mutationFn: () =>
       pausesApi.createPause({
         order_item_id: item.order_item_id,
-        pause_issue: pauseIssue,
+        pause_issue: selectedPauseIssues[0],
         reason: pauseReason || undefined,
       }),
     onSuccess: () => {
       toast.success("휴지가 등록되었습니다.");
       setPauseOpen(false);
-      setPauseIssue("");
-      setPauseIssuesBatch("");
+      setSelectedPauseIssues([]);
       setPauseReason("");
       invalidateAll();
     },
-    onError: () => toast.error("휴지 등록 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const pauseCreateBatchMutation = useMutation({
     mutationFn: () =>
       pausesApi.batchCreatePause({
         order_item_id: item.order_item_id,
-        pause_issues: pauseIssuesBatch
-          .split(",")
-          .map((s) => s.trim())
-          .filter((s) => s.length === 6),
+        pause_issues: selectedPauseIssues,
         reason: pauseReason || undefined,
       }),
     onSuccess: () => {
       toast.success("휴지가 등록되었습니다.");
       setPauseOpen(false);
-      setPauseIssue("");
-      setPauseIssuesBatch("");
+      setSelectedPauseIssues([]);
       setPauseReason("");
       invalidateAll();
     },
-    onError: () => toast.error("휴지 등록 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
-  const pauseCreateMutation = pauseMode === "single" ? pauseCreateSingleMutation : pauseCreateBatchMutation;
+  const pauseCreateMutation = selectedPauseIssues.length <= 1 ? pauseCreateSingleMutation : pauseCreateBatchMutation;
 
   const handlePauseCreate = () => {
-    if (pauseMode === "single") {
-      if (!pauseIssue || pauseIssue.length !== 6) {
-        setPauseIssueError(true);
-        toast.error("휴지 호를 입력해주세요. (YYYYMM)");
-        return;
-      }
-    } else {
-      const issues = pauseIssuesBatch
-        .split(",")
-        .map((s) => s.trim())
-        .filter((s) => s.length === 6);
-      if (issues.length === 0) {
-        setPauseIssuesBatchError(true);
-        toast.error("올바른 형식의 휴지 호를 입력해주세요. (YYYYMM, 쉼표 구분)");
-        return;
-      }
+    if (selectedPauseIssues.length === 0) {
+      toast.error("휴지 호를 선택해주세요.");
+      return;
     }
     pauseCreateMutation.mutate();
   };
@@ -458,7 +438,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
       setDeletePauseTarget(null);
       invalidateAll();
     },
-    onError: () => toast.error("휴지 삭제 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   // ── 휴지 복구 ─────────────────────────────────────────────────────────────
@@ -468,7 +448,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
       toast.success("휴지가 복구되었습니다.");
       invalidateAll();
     },
-    onError: () => toast.error("휴지 복구 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   // ── 휴지 사유 수정 ────────────────────────────────────────────────────────
@@ -483,7 +463,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
       setEditReasonPauseId(null);
       invalidateAll();
     },
-    onError: () => toast.error("사유 수정 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   // ── 렌더 ─────────────────────────────────────────────────────────────────
@@ -534,10 +514,8 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
             <Button
               size="sm" variant="outline" className="gap-1 text-xs"
               onClick={() => {
-                setPauseIssue("");
-                setPauseIssuesBatch("");
+                setSelectedPauseIssues([]);
                 setPauseReason("");
-                setPauseMode("single");
                 setPauseOpen(true);
               }}
             >
@@ -1220,64 +1198,61 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
       </Dialog>
 
       {/* 휴지 등록 모달 */}
-      <Dialog open={pauseOpen} onOpenChange={(o) => { if (!o) { setPauseOpen(false); setPauseIssueError(false); setPauseIssuesBatchError(false); } }}>
+      <Dialog open={pauseOpen} onOpenChange={(o) => { if (!o) setPauseOpen(false); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>휴지 등록</DialogTitle></DialogHeader>
           <div className="space-y-3 py-1">
-            {/* 단건 / 다건 토글 */}
-            <div className="flex rounded-md border border-gray-200 overflow-hidden text-xs">
-              <button
-                className={`flex-1 py-1.5 ${pauseMode === "single" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-                onClick={() => setPauseMode("single")}
-              >단건</button>
-              <button
-                className={`flex-1 py-1.5 ${pauseMode === "batch" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-                onClick={() => setPauseMode("batch")}
-              >다건</button>
+            {/* 월 선택 칩 (다중 선택 가능) */}
+            <div>
+              <Label>휴지 호 선택 <span className="text-xs text-gray-400 font-normal">(여러 개 선택 가능)</span></Label>
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {generateIssueRange(finalStartIssue, finalEndIssue).map((issue) => {
+                  const isExisting = activePauses.some((p) => p.pause_issue === issue);
+                  const isSelected = selectedPauseIssues.includes(issue);
+                  return (
+                    <button
+                      key={issue}
+                      type="button"
+                      disabled={isExisting}
+                      onClick={() => setSelectedPauseIssues((prev) =>
+                        isSelected ? prev.filter((i) => i !== issue) : [...prev, issue]
+                      )}
+                      className={`px-2.5 py-1 rounded text-xs border transition-colors ${
+                        isExisting
+                          ? "bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed line-through"
+                          : isSelected
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-600"
+                      }`}
+                    >
+                      {formatIssue(issue)}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedPauseIssues.length > 0 && (
+                <p className="text-xs text-blue-600 mt-1.5">{selectedPauseIssues.length}개 선택됨</p>
+              )}
             </div>
 
-            {pauseMode === "single" ? (
-              <div>
-                <Label>휴지 호 <span className="text-red-500 ml-0.5">*</span></Label>
-                <Input
-                  className={`mt-1 ${pauseIssueError ? "border-red-500" : ""}`}
-                  placeholder="YYYYMM" maxLength={6}
-                  value={pauseIssue}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, "");
-                    setPauseIssue(val);
-                    setPauseIssueError(false);
-                  }}
-                />
-                {pauseIssueError && <p className="text-xs text-red-500 mt-1">휴지 호를 입력해주세요.</p>}
-              </div>
-            ) : (
-              <div>
-                <Label>휴지 호 목록 <span className="text-red-500 ml-0.5">*</span></Label>
-                <Input
-                  className={`mt-1 ${pauseIssuesBatchError ? "border-red-500" : ""}`}
-                  placeholder="202604,202605,202606"
-                  value={pauseIssuesBatch}
-                  onChange={(e) => { setPauseIssuesBatch(e.target.value); setPauseIssuesBatchError(false); }}
-                />
-                <p className="text-xs text-gray-400 mt-1">쉼표(,)로 구분해서 입력하세요.</p>
-                {pauseIssuesBatchError && <p className="text-xs text-red-500 mt-1">올바른 형식으로 입력해주세요.</p>}
-              </div>
-            )}
-
             <div>
-              <Label>사유</Label>
+              <Label>사유 <span className="text-gray-400 font-normal">(선택)</span></Label>
               <Input
-                className="mt-1" placeholder="선택 입력"
+                className="mt-1" placeholder="휴지 사유"
                 value={pauseReason}
                 onChange={(e) => setPauseReason(e.target.value)}
               />
             </div>
+
+            <p className="text-xs text-gray-400">
+              ※ 휴지 등록 시 선택한 호 수만큼 최종 구독 종료 호가 연장됩니다.
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPauseOpen(false)}>취소</Button>
-            <Button onClick={handlePauseCreate} disabled={pauseCreateMutation.isPending}>
-              {pauseCreateMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}등록
+            <Button onClick={handlePauseCreate} disabled={selectedPauseIssues.length === 0 || pauseCreateMutation.isPending}>
+              {pauseCreateMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+              등록 {selectedPauseIssues.length > 0 && `(${selectedPauseIssues.length}건)`}
             </Button>
           </DialogFooter>
         </DialogContent>

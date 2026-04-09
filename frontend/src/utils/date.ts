@@ -8,3 +8,21 @@ export function nowKstISO(): string {
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   return kst.toISOString().slice(0, 19);
 }
+
+/**
+ * 구독 기간 내 월 목록 생성 (YYYYMM 형식)
+ * 예: generateIssueRange("202604", "202703") → ["202604", "202605", ..., "202703"]
+ */
+export function generateIssueRange(start: string, end: string): string[] {
+  const issues: string[] = [];
+  let y = parseInt(start.slice(0, 4));
+  let m = parseInt(start.slice(4, 6));
+  const ey = parseInt(end.slice(0, 4));
+  const em = parseInt(end.slice(4, 6));
+  while (y < ey || (y === ey && m <= em)) {
+    issues.push(`${y}${String(m).padStart(2, "0")}`);
+    m++;
+    if (m > 12) { m = 1; y++; }
+  }
+  return issues;
+}
