@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { orderItemsApi } from "@/api/orderItemsApi";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
@@ -22,13 +23,16 @@ interface Props {
   onClose: () => void;
   item: OrderItemResponse;
   onSuccess: () => void;
-  pauseCount?: number; // 활성 휴지 개수 (종료호 계산에 반영)
+  pauseCount?: number;
 }
 
 export function SubscriptionChangePeriodModal({ open, onClose, item, onSuccess, pauseCount = 0 }: Props) {
-  const [newStartIssue, setNewStartIssue] = useState("");
+  const [direction, setDirection] = useState<"backward" | "forward">("forward");
+  const [months, setMonths] = useState("1");
 
-  const previewEndIssue = newStartIssue.length === 6
+  const offset = direction === "backward" ? -(parseInt(months) || 0) : (parseInt(months) || 0);
+  const newStartIssue = offset !== 0 ? addMonthsToIssue(item.final_subscribe_start_issue, offset) : "";
+  const newEndIssue = newStartIssue
     ? addMonthsToIssue(newStartIssue, (item.subscribe_period ?? 12) - 1 + pauseCount)
     : "";
 
@@ -46,7 +50,8 @@ export function SubscriptionChangePeriodModal({ open, onClose, item, onSuccess, 
   });
 
   const handleClose = () => {
-    setNewStartIssue("");
+    setDirection("forward");
+    setMonths("1");
     onClose();
   };
 
@@ -58,35 +63,60 @@ export function SubscriptionChangePeriodModal({ open, onClose, item, onSuccess, 
         </DialogHeader>
 
         <div className="space-y-4 py-1">
+          {/* 현재 구독 정보 */}
           <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 space-y-1">
             <div className="flex justify-between">
               <span>상품</span>
               <span className="font-medium">{item.product_name}</span>
             </div>
             <div className="flex justify-between">
-              <span>현재 구독 기간</span>
+              <span>현재 기간</span>
               <span className="font-medium">
                 {formatIssue(item.final_subscribe_start_issue)} ~ {formatIssue(item.final_subscribe_end_issue)}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span>구독 개월 수</span>
-              <span className="font-medium">{item.subscribe_period}개월{pauseCount > 0 && ` (+휴지 ${pauseCount}개월)`}</span>
+          </div>
+
+          {/* 방향 선택 */}
+          <div>
+            <Label>이동 방향</Label>
+            <div className="flex rounded-md border border-gray-200 overflow-hidden text-xs mt-1">
+              <button
+                type="button"
+                className={`flex-1 py-2 flex items-center justify-center gap-1 transition-colors ${
+                  direction === "backward" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+                onClick={() => setDirection("backward")}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />앞당기기
+              </button>
+              <button
+                type="button"
+                className={`flex-1 py-2 flex items-center justify-center gap-1 transition-colors ${
+                  direction === "forward" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+                onClick={() => setDirection("forward")}
+              >
+                뒤로 미루기<ChevronRight className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
 
+          {/* 개월 수 */}
           <div>
-            <Label>새 시작 호 <span className="text-xs text-gray-400">(YYYYMM)</span></Label>
+            <Label>이동 개월 수</Label>
             <Input
+              type="number"
+              min={1}
+              max={24}
               className="mt-1"
-              placeholder="예: 202607"
-              maxLength={6}
-              value={newStartIssue}
-              onChange={(e) => setNewStartIssue(e.target.value.replace(/\D/g, ""))}
+              value={months}
+              onChange={(e) => setMonths(e.target.value)}
             />
           </div>
 
-          {previewEndIssue && (
+          {/* 이동 후 예상 기간 */}
+          {newStartIssue && newEndIssue && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700 space-y-1">
               <div className="font-medium text-blue-800">이동 후 예상 기간</div>
               <div className="flex justify-between">
@@ -95,13 +125,13 @@ export function SubscriptionChangePeriodModal({ open, onClose, item, onSuccess, 
               </div>
               <div className="flex justify-between">
                 <span>새 종료 호</span>
-                <span>{formatIssue(previewEndIssue)}</span>
+                <span>{formatIssue(newEndIssue)}</span>
               </div>
             </div>
           )}
 
           <p className="text-xs text-gray-400">
-            ※ 구독 개월 수는 유지되며 시작/종료 호만 이동됩니다.
+            ※ 구독 개월 수{pauseCount > 0 ? `(${item.subscribe_period}개월 +휴지 ${pauseCount}개월)` : ""}는 유지되며 시작/종료 호만 이동됩니다.
           </p>
         </div>
 
@@ -109,9 +139,9 @@ export function SubscriptionChangePeriodModal({ open, onClose, item, onSuccess, 
           <Button variant="outline" onClick={handleClose}>취소</Button>
           <Button
             onClick={() => mutation.mutate()}
-            disabled={newStartIssue.length !== 6 || mutation.isPending}
+            disabled={!newStartIssue || mutation.isPending}
           >
-            기간 이동
+            {direction === "backward" ? `${months}개월 앞당기기` : `${months}개월 뒤로 미루기`}
           </Button>
         </DialogFooter>
       </DialogContent>

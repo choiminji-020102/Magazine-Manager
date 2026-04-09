@@ -10,11 +10,12 @@ export function nowKstISO(): string {
 }
 
 /**
- * 호(YYYYMM)에 N개월을 더한 호 반환
+ * 호(YYYYMM)에 N개월을 더한 호 반환 (음수 가능)
  * 예: addMonthsToIssue("202604", 3) → "202607"
+ * 예: addMonthsToIssue("202604", -2) → "202602"
  */
 export function addMonthsToIssue(issue: string, months: number): string {
-  if (!issue || issue.length !== 6 || isNaN(months) || months < 1) return "";
+  if (!issue || issue.length !== 6 || isNaN(months) || months === 0) return "";
   const year = parseInt(issue.slice(0, 4), 10);
   const month = parseInt(issue.slice(4, 6), 10);
   const d = new Date(year, month - 1 + months, 1);
