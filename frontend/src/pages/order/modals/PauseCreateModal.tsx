@@ -23,6 +23,21 @@ interface Props {
   orderId: number;
 }
 
+// 구독 기간 내 월 목록 생성 (YYYYMM 형식)
+function generateIssueRange(start: string, end: string): string[] {
+  const issues: string[] = [];
+  let y = parseInt(start.slice(0, 4));
+  let m = parseInt(start.slice(4, 6));
+  const ey = parseInt(end.slice(0, 4));
+  const em = parseInt(end.slice(4, 6));
+  while (y < ey || (y === ey && m <= em)) {
+    issues.push(`${y}${String(m).padStart(2, "0")}`);
+    m++;
+    if (m > 12) { m = 1; y++; }
+  }
+  return issues;
+}
+
 export function PauseCreateModal({ open, onClose, item, orderId }: Props) {
   const queryClient = useQueryClient();
   const [pauseIssue, setPauseIssue] = useState("");
@@ -123,16 +138,32 @@ export function PauseCreateModal({ open, onClose, item, orderId }: Props) {
             </div>
           )}
 
-          {/* 신규 휴지 등록 */}
+          {/* 신규 휴지 등록 — 월 선택 */}
           <div>
-            <Label>휴지 호 <span className="text-xs text-gray-400">(YYYYMM)</span></Label>
-            <Input
-              className="mt-1"
-              placeholder="예: 202607"
-              maxLength={6}
-              value={pauseIssue}
-              onChange={(e) => setPauseIssue(e.target.value.replace(/\D/g, ""))}
-            />
+            <Label>휴지 호 선택</Label>
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              {generateIssueRange(item.final_subscribe_start_issue, item.final_subscribe_end_issue).map((issue) => {
+                const isExisting = existingPauses.some((p) => !p.is_deleted && p.pause_issue === issue);
+                const isSelected = pauseIssue === issue;
+                return (
+                  <button
+                    key={issue}
+                    type="button"
+                    disabled={isExisting}
+                    onClick={() => setPauseIssue(isSelected ? "" : issue)}
+                    className={`px-2.5 py-1 rounded text-xs border transition-colors ${
+                      isExisting
+                        ? "bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed line-through"
+                        : isSelected
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-600"
+                    }`}
+                  >
+                    {formatIssue(issue)}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div>
