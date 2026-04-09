@@ -30,7 +30,8 @@ export function SubscriptionChangePeriodModal({ open, onClose, item, onSuccess, 
   const [direction, setDirection] = useState<"backward" | "forward">("forward");
   const [months, setMonths] = useState("1");
 
-  const offset = direction === "backward" ? -(parseInt(months) || 0) : (parseInt(months) || 0);
+  const absMonths = Math.abs(parseInt(months) || 0);
+  const offset = direction === "backward" ? -absMonths : absMonths;
   const newStartIssue = offset !== 0 ? addMonthsToIssue(item.final_subscribe_start_issue, offset) : "";
   const newEndIssue = newStartIssue
     ? addMonthsToIssue(newStartIssue, (item.subscribe_period ?? 12) - 1 + pauseCount)
