@@ -137,7 +137,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       setPaymentConfirm(false);
       setPaymentMethodError(false);
     },
-    onError: () => toast.error("결제 처리 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const handlePaymentConfirm = () => {
@@ -166,7 +166,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       setEditMode(false);
     },
-    onError: () => toast.error("주문 수정 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   // 고객 배송지 목록 조회
@@ -203,7 +203,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       handleAddressClose();
     },
-    onError: () => toast.error("배송지 변경 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const handleAddressClose = () => {
@@ -266,7 +266,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       toast.success("배송중으로 전환되었습니다.");
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
     },
-    onError: () => toast.error("상태 전환 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const sendDeliveredMutation = useMutation({
@@ -275,7 +275,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       toast.success("배송완료로 전환되었습니다.");
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
     },
-    onError: () => toast.error("상태 전환 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const sendTrackingMutation = useMutation({
@@ -289,7 +289,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       setSendTrackingTarget(null);
       setTrackingForm({ tracking_no: "", courier_company: "CJ대한통운" });
     },
-    onError: () => toast.error("운송장 등록 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const sendCancelMutation = useMutation({
@@ -299,7 +299,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       setSendCancelTarget(null);
     },
-    onError: () => toast.error("발송 취소 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   // 품목 취소
@@ -316,7 +316,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       setActiveItem(null);
       setCancelItemMemo("");
     },
-    onError: () => toast.error("품목 취소 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   // 품목 추가
@@ -360,7 +360,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       setAddItemForm({ product_code: "", subscribe_start_issue: "", subscribe_period: 12, order_num: 1, sale_price: "", admin_memo: "" });
       setProductSearch("");
     },
-    onError: () => toast.error("품목 추가 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const openModal = (type: ModalType, item: ActiveItem) => {

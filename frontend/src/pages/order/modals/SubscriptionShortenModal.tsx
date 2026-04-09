@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { orderItemsApi } from "@/api/orderItemsApi";
 import { toast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/utils/errorHandler";
 import { formatIssue, formatAmount } from "@/utils/format";
 import type { OrderItemResponse } from "@/types/orderItem";
 
@@ -41,7 +42,7 @@ export function SubscriptionShortenModal({ open, onClose, item, orderId }: Props
     onSuccess: (res) => {
       setCalcResult(res.data.data ?? null);
     },
-    onError: () => toast.error("환불 계산 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const confirmMutation = useMutation({
@@ -55,7 +56,7 @@ export function SubscriptionShortenModal({ open, onClose, item, orderId }: Props
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       handleClose();
     },
-    onError: () => toast.error("구독 단축 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const handleClose = () => {

@@ -8,6 +8,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { getErrorMessage } from "@/utils/errorHandler";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { pausesApi } from "@/api/pausesApi";
@@ -49,7 +50,7 @@ export function PauseCreateModal({ open, onClose, item, orderId }: Props) {
       queryClient.invalidateQueries({ queryKey: ["pauses", item.order_item_id] });
       handleClose();
     },
-    onError: () => toast.error("휴지 등록 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const deleteMutation = useMutation({
@@ -59,7 +60,7 @@ export function PauseCreateModal({ open, onClose, item, orderId }: Props) {
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["pauses", item.order_item_id] });
     },
-    onError: () => toast.error("삭제 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const handleClose = () => {

@@ -14,6 +14,7 @@ import { AddressSearchField } from "@/components/common/AddressSearchField";
 import { addressesApi } from "@/api/addressesApi";
 import { orderItemsApi } from "@/api/orderItemsApi";
 import { toast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/utils/errorHandler";
 import { formatPhone, formatPhoneInput } from "@/utils/format";
 import type { OrderItemResponse } from "@/types/orderItem";
 import type { AddressResponse } from "@/types/address";
@@ -78,7 +79,7 @@ export function AddressChangeModal({ open, onClose, item, orderId, customerId }:
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       handleClose();
     },
-    onError: () => toast.error("배송지 변경 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const handleClose = () => {

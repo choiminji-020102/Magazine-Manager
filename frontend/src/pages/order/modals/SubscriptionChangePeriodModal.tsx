@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { orderItemsApi } from "@/api/orderItemsApi";
 import { toast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/utils/errorHandler";
 import { formatIssue } from "@/utils/format";
 import type { OrderItemResponse } from "@/types/orderItem";
 
@@ -48,7 +49,7 @@ export function SubscriptionChangePeriodModal({ open, onClose, item, orderId }: 
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       handleClose();
     },
-    onError: () => toast.error("기간 이동 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const handleClose = () => {

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { orderItemsApi } from "@/api/orderItemsApi";
 import { toast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/utils/errorHandler";
 import { formatIssue } from "@/utils/format";
 import type { OrderItemResponse } from "@/types/orderItem";
 
@@ -39,7 +40,7 @@ export function SubscriptionExtendModal({ open, onClose, item, orderId }: Props)
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       onClose();
     },
-    onError: () => toast.error("구독 연장 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const handleClose = () => {

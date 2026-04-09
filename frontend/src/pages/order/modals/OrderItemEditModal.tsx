@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { orderItemsApi } from "@/api/orderItemsApi";
 import { toast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/utils/errorHandler";
 import type { OrderItemDetailResponse } from "@/types/orderItem";
 
 interface Props {
@@ -53,7 +54,7 @@ export function OrderItemEditModal({ open, onClose, item, orderId }: Props) {
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       onClose();
     },
-    onError: () => toast.error("품목 수정 실패"),
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   return (
