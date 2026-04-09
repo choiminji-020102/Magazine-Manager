@@ -100,6 +100,7 @@ export interface OrderCancelItemDetail {
   delivered_count: number;
   total_period?: number | null;
   remaining_period?: number | null;
+  unit_price?: number | null;
   item_refund: number;
 }
 

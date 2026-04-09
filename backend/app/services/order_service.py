@@ -286,18 +286,20 @@ def _calculate_item_refund(
     delivered_count = _count_delivered_issues(db, item.order_item_id)
     remaining = None
     total_period = None
+    unit_price = None
 
     if delivered_count == 0:
         item_refund = item.sale_price * item.order_num
         if item.product_kind == "YEARLY" and item.paid_subscribe_end_issue:
             total_period = count_issue_diff(item.subscribe_start_issue, item.paid_subscribe_end_issue) + 1
             remaining = total_period
+            unit_price = item.sale_price // total_period
     elif item.product_kind == "YEARLY" and item.paid_subscribe_end_issue:
         total_period = count_issue_diff(item.subscribe_start_issue, item.paid_subscribe_end_issue) + 1
         remaining = total_period - delivered_count
+        unit_price = item.sale_price // total_period
         if remaining > 0:
-            refund_per_issue = item.sale_price // total_period
-            item_refund = refund_per_issue * remaining * item.order_num
+            item_refund = unit_price * remaining * item.order_num
         else:
             item_refund = 0
             remaining = 0
@@ -313,6 +315,7 @@ def _calculate_item_refund(
         delivered_count=delivered_count,
         total_period=total_period,
         remaining_period=remaining,
+        unit_price=unit_price,
         item_refund=item_refund,
     )
 

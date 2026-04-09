@@ -127,6 +127,7 @@ class OrderCancelItemDetail(BaseModel):
     delivered_count: int                    # 배송 완료 회차 수
     total_period: Optional[int] = None      # 전체 구독 기간 (YEARLY만)
     remaining_period: Optional[int] = None  # 잔여 회차 (YEARLY만)
+    unit_price: Optional[int] = None        # 회차당 단가 (YEARLY 부분 환불 시)
     item_refund: int                        # 이 품목의 환불금
 
 

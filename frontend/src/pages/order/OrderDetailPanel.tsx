@@ -1087,12 +1087,17 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                           <span className="text-right w-20">{formatAmount(item.item_refund)}</span>
                         </div>
                         {item.product_kind === "YEARLY" && item.total_period != null && (
-                          <p className="text-gray-400 mt-0.5 pl-2">
-                            └ {item.total_period}개월 중 {item.delivered_count}개월 배송, 잔여 {item.remaining_period}개월
-                          </p>
+                          <div className="text-gray-400 mt-0.5 pl-2 space-y-0.5">
+                            <p>└ {item.total_period}개월 중 {item.delivered_count}개월 배송, 잔여 {item.remaining_period}개월</p>
+                            {item.unit_price != null && item.delivered_count > 0 && (
+                              <p className="pl-3">
+                                {formatAmount(item.unit_price)}/월 × {item.remaining_period}개월{item.order_num > 1 ? ` × ${item.order_num}` : ""}
+                              </p>
+                            )}
+                          </div>
                         )}
                         {item.product_kind === "MONTHLY" && item.delivered_count === 0 && (
-                          <p className="text-gray-400 mt-0.5 pl-2">└ 미배송</p>
+                          <p className="text-gray-400 mt-0.5 pl-2">└ 미배송 (전액 환불)</p>
                         )}
                       </div>
                     ))}
