@@ -101,15 +101,30 @@ export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Prop
             />
           </div>
 
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              className="rounded border-gray-300"
-              checked={isPaid}
-              onChange={(e) => setIsPaid(e.target.checked)}
-            />
-            <span className="text-xs text-gray-600">유료 연장 (결제 구독 종료 호도 함께 연장)</span>
-          </label>
+          <div>
+            <Label>연장 유형</Label>
+            <div className="flex rounded-md border border-gray-200 overflow-hidden text-xs mt-1">
+              <button
+                type="button"
+                className={`flex-1 py-2 transition-colors ${!isPaid ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                onClick={() => setIsPaid(false)}
+              >
+                무상 연장
+              </button>
+              <button
+                type="button"
+                className={`flex-1 py-2 transition-colors ${isPaid ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                onClick={() => setIsPaid(true)}
+              >
+                유료 연장
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">
+              {isPaid
+                ? "결제 구독 종료 호도 함께 연장됩니다."
+                : "최종 구독 종료 호만 연장됩니다."}
+            </p>
+          </div>
         </div>
 
         <DialogFooter>
