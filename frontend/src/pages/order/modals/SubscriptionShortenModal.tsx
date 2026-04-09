@@ -34,6 +34,8 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
     refund_amount: number;
   } | null>(null);
   const [refundConfirmed, setRefundConfirmed] = useState(false);
+  const [refundBank, setRefundBank] = useState("");
+  const [refundAccount, setRefundAccount] = useState("");
 
   const finalEndIssue = item.final_subscribe_end_issue;
   const absMonths = Math.abs(parseInt(months) || 0);
@@ -70,6 +72,9 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
       orderItemsApi.shortenConfirm(item.order_item_id, {
         shorten_end_issue: shortenEndIssue,
         refund_confirmed: true,
+        ...(refundBank && refundAccount
+          ? { refund_bank: refundBank, refund_account: refundAccount }
+          : {}),
       }),
     onSuccess: () => {
       toast.success("구독이 단축되었습니다.");
@@ -83,6 +88,8 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
     setMonths("1");
     setCalcResult(null);
     setRefundConfirmed(false);
+    setRefundBank("");
+    setRefundAccount("");
     setError(null);
     onClose();
   };
@@ -146,6 +153,27 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
                 <label htmlFor="refund-confirm" className="text-xs text-blue-800 cursor-pointer">
                   환불 금액을 확인했습니다
                 </label>
+              </div>
+            </div>
+          )}
+
+          {/* 환불 계좌 */}
+          {calcResult && (
+            <div className="space-y-2">
+              <span className="text-xs font-medium text-gray-600">환불 계좌</span>
+              <div className="flex gap-2">
+                <Input
+                  className="h-8 text-sm flex-[1]"
+                  placeholder="은행명"
+                  value={refundBank}
+                  onChange={(e) => setRefundBank(e.target.value)}
+                />
+                <Input
+                  className="h-8 text-sm flex-[2]"
+                  placeholder="계좌번호"
+                  value={refundAccount}
+                  onChange={(e) => setRefundAccount(e.target.value)}
+                />
               </div>
             </div>
           )}

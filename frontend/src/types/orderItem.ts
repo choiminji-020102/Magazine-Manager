@@ -71,6 +71,8 @@ export interface SubscriptionShortenCalculateResponse {
 export interface SubscriptionShortenConfirmRequest {
   shorten_end_issue: string;
   refund_confirmed: boolean;  // false면 저장 불가
+  refund_bank?: string | null;
+  refund_account?: string | null;
 }
 
 export interface OrderItemLastSendIssueUpdate {

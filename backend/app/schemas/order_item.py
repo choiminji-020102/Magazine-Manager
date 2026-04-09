@@ -121,6 +121,8 @@ class SubscriptionShortenConfirmRequest(BaseModel):
     """구독 기간 단축 - 최종 확인 및 저장"""
     shorten_end_issue: str
     refund_confirmed: bool                      # false면 저장 불가
+    refund_bank: Optional[str] = None           # 환불 은행명
+    refund_account: Optional[str] = None        # 환불 계좌번호
 
 
 # ── 응답 스키마 ───────────────────────────────────────────────────────────────

@@ -434,6 +434,11 @@ def shorten_confirm(
     unit_price = order_item.sale_price / paid_period
     refund_amount = int(shorten_count * unit_price * order_item.order_num)
 
+    # 환불 계좌 admin_memo에 기록
+    if confirm_in.refund_bank and confirm_in.refund_account:
+        refund_note = f"[단축 환불계좌] {confirm_in.refund_bank} {confirm_in.refund_account}"
+        order_item.admin_memo = f"{order_item.admin_memo}\n{refund_note}" if order_item.admin_memo else refund_note
+
     return order_item_crud.shorten_subscription(
         db=db,
         order_item=order_item,
