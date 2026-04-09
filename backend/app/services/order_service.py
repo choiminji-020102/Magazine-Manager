@@ -280,21 +280,25 @@ def cancel_calculate(db: Session, order: Order) -> OrderCancelCalculateResponse:
         for item in active_items:
             delivered_count = _count_delivered_issues(db, item.order_item_id)
 
+            remaining = None
+            total_period = None
+
             if delivered_count == 0:
                 item_refund = item.sale_price * item.order_num
+                if item.product_kind == "YEARLY" and item.paid_subscribe_end_issue:
+                    total_period = count_issue_diff(item.subscribe_start_issue, item.paid_subscribe_end_issue) + 1
+                    remaining = total_period
             elif item.product_kind == "YEARLY" and item.paid_subscribe_end_issue:
-                paid_period = count_issue_diff(item.subscribe_start_issue, item.paid_subscribe_end_issue) + 1
-                remaining = paid_period - delivered_count
+                total_period = count_issue_diff(item.subscribe_start_issue, item.paid_subscribe_end_issue) + 1
+                remaining = total_period - delivered_count
                 if remaining > 0:
-                    refund_per_issue = item.sale_price // paid_period
+                    refund_per_issue = item.sale_price // total_period
                     item_refund = refund_per_issue * remaining * item.order_num
                 else:
                     item_refund = 0
                     remaining = 0
             else:
                 item_refund = 0
-                paid_period = None
-                remaining = None
 
             item_details.append(OrderCancelItemDetail(
                 order_item_id=item.order_item_id,
@@ -303,14 +307,14 @@ def cancel_calculate(db: Session, order: Order) -> OrderCancelCalculateResponse:
                 sale_price=item.sale_price,
                 order_num=item.order_num,
                 delivered_count=delivered_count,
-                total_period=count_issue_diff(item.subscribe_start_issue, item.paid_subscribe_end_issue) + 1 if item.product_kind == "YEARLY" and item.paid_subscribe_end_issue else None,
-                remaining_period=remaining if item.product_kind == "YEARLY" else None,
+                total_period=total_period,
+                remaining_period=remaining,
                 item_refund=item_refund,
             ))
             subtotal += item_refund
 
-    send_fee = order.send_fee or 0 if order.order_status != "ORDERED" else 0
-    discount = order.discount_amount or 0 if order.order_status != "ORDERED" else 0
+    send_fee = (order.send_fee or 0) if order.order_status != "ORDERED" else 0
+    discount = (order.discount_amount or 0) if order.order_status != "ORDERED" else 0
     total_refund = max(subtotal + send_fee - discount, 0)
 
     return OrderCancelCalculateResponse(
