@@ -65,7 +65,12 @@ export interface SubscriptionShortenCalculateRequest {
 export interface SubscriptionShortenCalculateResponse {
   current_end_issue: string;
   shorten_end_issue: string;
-  refund_amount: number;
+  shorten_count: number;      // 단축 회차 수
+  paid_period: number;        // 유료 구독 기간 (총 개월)
+  unit_price: number;         // 회차당 단가
+  sale_price: number;         // 품목 판매가
+  order_num: number;          // 수량
+  refund_amount: number;      // 최종 환불금
 }
 
 export interface SubscriptionShortenConfirmRequest {

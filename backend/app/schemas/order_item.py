@@ -114,7 +114,12 @@ class SubscriptionShortenCalculateRequest(BaseModel):
 class SubscriptionShortenCalculateResponse(BaseModel):
     current_end_issue: str
     shorten_end_issue: str
-    refund_amount: int
+    shorten_count: int              # 단축 회차 수
+    paid_period: int                # 유료 구독 기간 (총 개월)
+    unit_price: int                 # 회차당 단가 (sale_price // paid_period)
+    sale_price: int                 # 품목 판매가
+    order_num: int                  # 수량
+    refund_amount: int              # 최종 환불금
 
 
 class SubscriptionShortenConfirmRequest(BaseModel):

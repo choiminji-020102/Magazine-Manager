@@ -398,12 +398,17 @@ def shorten_calculate(
 
     shorten_count = _count_issue_diff(shorten_end, current_end)
     paid_period = _count_issue_diff(order_item.subscribe_start_issue, order_item.paid_subscribe_end_issue) + 1
-    unit_price = order_item.sale_price / paid_period
+    unit_price = int(order_item.sale_price / paid_period)
     refund_amount = int(shorten_count * unit_price * order_item.order_num)
 
     return SubscriptionShortenCalculateResponse(
         current_end_issue=current_end,
         shorten_end_issue=shorten_end,
+        shorten_count=shorten_count,
+        paid_period=paid_period,
+        unit_price=unit_price,
+        sale_price=order_item.sale_price,
+        order_num=order_item.order_num,
         refund_amount=refund_amount,
     )
 
