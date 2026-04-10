@@ -1511,6 +1511,7 @@ function OrderItemCard({
 
   return (
     <div className={`border rounded-lg p-3.5 ${isCancelled ? "border-gray-100 bg-gray-50/60" : "border-gray-200"}`}>
+      {/* 상단: 상품 정보 + 수정 버튼 */}
       <div className="flex items-start justify-between mb-2.5">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
@@ -1523,36 +1524,18 @@ function OrderItemCard({
           <div className="text-xs text-gray-400 font-mono">{item.product_code}</div>
         </div>
         {!isCancelled && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {isYearly && onSubscriptionDetail && (
-                <DropdownMenuItem onClick={() => onSubscriptionDetail(item)}>
-                  구독 상세
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onClick={() => onAction("addressChange", item)}>
-                배송지 변경
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onAction("editItem", item)}>
-                품목 수정
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                onClick={() => onAction("cancelItem", item)}
-              >
-                품목 취소
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-gray-500 gap-1"
+            onClick={() => onAction("editItem", item)}
+          >
+            <Edit2 className="h-3 w-3" />수정
+          </Button>
         )}
       </div>
 
+      {/* 품목 정보 */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
         <div className="text-gray-400">수량 / 판매가</div>
         <div className="text-gray-700">
@@ -1600,10 +1583,32 @@ function OrderItemCard({
         )}
       </div>
 
+      {/* 구독 상세 링크 (YEARLY만) */}
+      {isYearly && !isCancelled && onSubscriptionDetail && (
+        <div className="mt-2">
+          <button
+            className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+            onClick={() => onSubscriptionDetail(item)}
+          >
+            구독 상세 →
+          </button>
+        </div>
+      )}
+
       {/* 품목별 배송지 */}
       {item.address && (
         <div className="mt-2.5 pt-2.5 border-t border-gray-100 text-xs space-y-1">
-          <div className="font-medium text-gray-500">배송지</div>
+          <div className="flex items-center justify-between">
+            <span className="font-medium text-gray-500">배송지</span>
+            {!isCancelled && (
+              <button
+                className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                onClick={() => onAction("addressChange", item)}
+              >
+                변경
+              </button>
+            )}
+          </div>
           <div className="text-gray-700">
             {item.address.recipient_name} / {formatPhone(item.address.recipient_phone)}
           </div>
@@ -1635,6 +1640,18 @@ function OrderItemCard({
       {item.admin_memo && (
         <div className="mt-2.5 pt-2.5 border-t border-gray-100">
           <div className="text-xs text-gray-400">메모: <span className="text-gray-600">{item.admin_memo}</span></div>
+        </div>
+      )}
+
+      {/* 품목 취소 */}
+      {!isCancelled && (
+        <div className="mt-2.5 pt-2.5 border-t border-gray-100 flex justify-end">
+          <button
+            className="text-xs text-red-500 hover:text-red-700 hover:underline"
+            onClick={() => onAction("cancelItem", item)}
+          >
+            품목 취소
+          </button>
         </div>
       )}
     </div>
