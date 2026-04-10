@@ -174,11 +174,12 @@ def list_order_items(
     sort_by: str = "created_at",
     sort_order: str = "desc",
 ) -> Tuple[List, int]:
-    """구독 목록 조회 — Customer/Order 조인 포함"""
+    """구독 목록 조회 — Customer/Order 조인 포함, 결제 완료(PAID)만"""
     query = (
         db.query(OrderItem, Customer.customer_name, Customer.customer_phone, Order.order_channel)
         .join(Order, OrderItem.order_id == Order.order_id)
         .join(Customer, Order.customer_id == Customer.customer_id)
+        .filter(Order.order_status == "PAID")
     )
 
     if product_kind:
