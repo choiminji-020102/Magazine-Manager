@@ -1523,16 +1523,6 @@ function OrderItemCard({
           <div className="font-medium text-sm text-gray-900">{item.product_name}</div>
           <div className="text-xs text-gray-400 font-mono">{item.product_code}</div>
         </div>
-        {!isCancelled && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs text-gray-500 gap-1"
-            onClick={() => onAction("editItem", item)}
-          >
-            <Edit2 className="h-3 w-3" />수정
-          </Button>
-        )}
       </div>
 
       {/* 품목 정보 */}
@@ -1643,9 +1633,15 @@ function OrderItemCard({
         </div>
       )}
 
-      {/* 품목 취소 */}
+      {/* 품목 수정 / 품목 취소 */}
       {!isCancelled && (
-        <div className="mt-2.5 pt-2.5 border-t border-gray-100 flex justify-end">
+        <div className="mt-2.5 pt-2.5 border-t border-gray-100 flex justify-end gap-3">
+          <button
+            className="text-xs text-gray-500 hover:text-gray-700 hover:underline"
+            onClick={() => onAction("editItem", item)}
+          >
+            품목 수정
+          </button>
           <button
             className="text-xs text-red-500 hover:text-red-700 hover:underline"
             onClick={() => onAction("cancelItem", item)}
