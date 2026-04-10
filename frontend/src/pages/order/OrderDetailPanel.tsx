@@ -709,6 +709,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                 key={item.order_item_id}
                 item={item}
                 onAction={openModal}
+                onSubscriptionDetail={setSubscriptionItem}
               />
             ))}
             {(!order.items || order.items.length === 0) && (
@@ -1499,9 +1500,11 @@ function InfoRow({
 function OrderItemCard({
   item,
   onAction,
+  onSubscriptionDetail,
 }: {
   item: ActiveItem;
   onAction: (type: ModalType, item: ActiveItem) => void;
+  onSubscriptionDetail?: (item: ActiveItem) => void;
 }) {
   const isYearly = item.product_kind === "YEARLY";
   const isCancelled = !!item.cancelled_at;
@@ -1527,8 +1530,8 @@ function OrderItemCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {isYearly && (
-                <DropdownMenuItem onClick={() => setSubscriptionItem(item)}>
+              {isYearly && onSubscriptionDetail && (
+                <DropdownMenuItem onClick={() => onSubscriptionDetail(item)}>
                   구독 상세
                 </DropdownMenuItem>
               )}
