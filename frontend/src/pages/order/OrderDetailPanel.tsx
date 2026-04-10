@@ -1527,20 +1527,17 @@ function OrderItemCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onAction("editItem", item)}>
-                품목 수정
-              </DropdownMenuItem>
+              {isYearly && (
+                <DropdownMenuItem onClick={() => setSubscriptionItem(item)}>
+                  구독 상세
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => onAction("addressChange", item)}>
                 배송지 변경
               </DropdownMenuItem>
-              {isYearly && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setSubscriptionItem(item)}>
-                    구독 상세
-                  </DropdownMenuItem>
-                </>
-              )}
+              <DropdownMenuItem onClick={() => onAction("editItem", item)}>
+                품목 수정
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-red-600 focus:text-red-600 focus:bg-red-50"
