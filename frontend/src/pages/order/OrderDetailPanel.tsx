@@ -1511,7 +1511,7 @@ function OrderItemCard({
 
   return (
     <div className={`border rounded-lg p-3.5 ${isCancelled ? "border-gray-100 bg-gray-50/60" : "border-gray-200"}`}>
-      {/* 상단: 상품 정보 + 수정 버튼 */}
+      {/* 상단: 상품 정보 + 수정/취소 버튼 */}
       <div className="flex items-start justify-between mb-2.5">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
@@ -1523,6 +1523,22 @@ function OrderItemCard({
           <div className="font-medium text-sm text-gray-900">{item.product_name}</div>
           <div className="text-xs text-gray-400 font-mono">{item.product_code}</div>
         </div>
+        {!isCancelled && (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              className="text-xs text-gray-500 hover:text-gray-700 hover:underline"
+              onClick={() => onAction("editItem", item)}
+            >
+              수정
+            </button>
+            <button
+              className="text-xs text-red-500 hover:text-red-700 hover:underline"
+              onClick={() => onAction("cancelItem", item)}
+            >
+              취소
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 품목 정보 */}
@@ -1633,23 +1649,6 @@ function OrderItemCard({
         </div>
       )}
 
-      {/* 품목 수정 / 품목 취소 */}
-      {!isCancelled && (
-        <div className="mt-2.5 pt-2.5 border-t border-gray-100 flex justify-end gap-3">
-          <button
-            className="text-xs text-gray-500 hover:text-gray-700 hover:underline"
-            onClick={() => onAction("editItem", item)}
-          >
-            품목 수정
-          </button>
-          <button
-            className="text-xs text-red-500 hover:text-red-700 hover:underline"
-            onClick={() => onAction("cancelItem", item)}
-          >
-            품목 취소
-          </button>
-        </div>
-      )}
     </div>
   );
 }
