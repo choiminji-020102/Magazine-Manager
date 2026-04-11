@@ -314,13 +314,13 @@ export default function OrderListPage() {
             </Select>
             <Input
               className="w-44"
-              placeholder="주문자 이름 또는 뒤 4자리"
+              placeholder="주문자 이름/뒤4자리"
               value={customerSearch}
               onChange={(e) => { setCustomerSearch(e.target.value); setPage(1); }}
             />
             <Input
               className="w-40"
-              placeholder="수령인 이름 또는 뒤 4자리"
+              placeholder="수령인 이름/뒤4자리"
               value={recipientSearch}
               onChange={(e) => { setRecipientSearch(e.target.value); setPage(1); }}
             />
