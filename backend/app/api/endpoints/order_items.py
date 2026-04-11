@@ -15,6 +15,7 @@ from app.schemas.common import PaginatedResponse, ResponseModel
 from app.schemas.order_item import (
     OrderItemAddressUpdate,
     OrderItemAddressUpdateResponse,
+    OrderItemCancelCalculateResponse,
     OrderItemCancelRequest,
     OrderItemCreate,
     OrderItemDetailResponse,
@@ -447,6 +448,21 @@ def shorten_confirm(
 
 
 # ── 품목 취소 ─────────────────────────────────────────────────────────────────
+
+@router.post(
+    "/order-items/{order_item_id}/cancel/calculate",
+    response_model=ResponseModel[OrderItemCancelCalculateResponse],
+)
+def cancel_item_calculate(
+    order_item_id: int,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_admin),
+):
+    """품목 취소 환불 계산 미리보기 (DB 변경 없음)"""
+    order_item = order_item_service.get_active_order_item_by_id(db, order_item_id)
+    result = order_item_service.cancel_item_calculate(db=db, order_item=order_item)
+    return ResponseModel(message="환불액이 계산되었습니다.", data=result)
+
 
 @router.post(
     "/order-items/{order_item_id}/cancel",

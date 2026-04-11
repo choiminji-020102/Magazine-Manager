@@ -57,6 +57,19 @@ class OrderItemCancelRequest(BaseModel):
     refund_account: Optional[str] = None        # 환불 계좌번호
 
 
+class OrderItemCancelCalculateResponse(BaseModel):
+    """품목 취소 환불 계산 미리보기"""
+    order_status: str                           # ORDERED / PAID
+    product_kind: str                           # MONTHLY / YEARLY
+    sale_price: int
+    order_num: int
+    subscribe_period: int                       # 구독 기간 (개월)
+    delivered_count: int                        # 배송 완료 회차
+    remaining_count: int                        # 잔여 회차
+    unit_price: int                             # 회차당 단가
+    refund_amount: int                          # 예상 환불금
+
+
 class OrderItemLastSendIssueUpdate(BaseModel):
     last_send_issue: str                        # 필수 (YYYYMM)
 

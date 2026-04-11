@@ -6,6 +6,7 @@ import type {
   OrderItemUpdate,
   OrderItemAddressUpdate,
   OrderItemAddressUpdateResponse,
+  OrderItemCancelCalculateResponse,
   OrderItemCancelRequest,
   OrderItemLastSendIssueUpdate,
   OrderItemResponse,
@@ -86,6 +87,11 @@ export const orderItemsApi = {
   // POST /order-items/{order_item_id}/shorten/confirm - 단축 확정
   shortenConfirm: (orderItemId: number, data: SubscriptionShortenConfirmRequest) => {
     return api.post<ResponseModel<OrderItemDetailResponse>>(`/order-items/${orderItemId}/shorten/confirm`, data);
+  },
+
+  // POST /order-items/{order_item_id}/cancel/calculate - 품목 취소 환불 계산 미리보기
+  cancelItemCalculate: (orderItemId: number) => {
+    return api.post<ResponseModel<OrderItemCancelCalculateResponse>>(`/order-items/${orderItemId}/cancel/calculate`);
   },
 
   // POST /order-items/{order_item_id}/cancel - 품목 취소

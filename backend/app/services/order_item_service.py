@@ -20,6 +20,7 @@ from app.models.send_item import SendItem
 from app.schemas.order_item import (
     OrderItemAddressUpdate,
     OrderItemAddressUpdateResponse,
+    OrderItemCancelCalculateResponse,
     OrderItemCancelRequest,
     OrderItemCreate,
     OrderItemListQuery,
@@ -480,6 +481,58 @@ def shorten_confirm(
 
 
 # ── 취소 ──────────────────────────────────────────────────────────────────────
+
+def cancel_item_calculate(
+    db: Session, order_item: OrderItem,
+) -> OrderItemCancelCalculateResponse:
+    """품목 취소 환불 계산 미리보기 (DB 변경 없음)"""
+    order_status = order_item.order.order_status
+    subscribe_period = _count_issue_diff(
+        order_item.subscribe_start_issue, order_item.final_subscribe_end_issue
+    ) + 1
+    unit_price = order_item.sale_price // subscribe_period if subscribe_period > 0 else 0
+
+    if order_status == "ORDERED":
+        return OrderItemCancelCalculateResponse(
+            order_status=order_status,
+            product_kind=order_item.product_kind,
+            sale_price=order_item.sale_price,
+            order_num=order_item.order_num,
+            subscribe_period=subscribe_period,
+            delivered_count=0,
+            remaining_count=0,
+            unit_price=0,
+            refund_amount=0,
+        )
+
+    delivered_count = _count_delivered_issues(db, order_item.order_item_id)
+
+    if order_item.product_kind == "MONTHLY":
+        refund_amount = order_item.sale_price * order_item.order_num
+        remaining_count = 1 if delivered_count == 0 else 0
+    elif order_item.product_kind == "YEARLY":
+        remaining_count = subscribe_period - delivered_count
+        if remaining_count > 0:
+            refund_amount = unit_price * remaining_count * order_item.order_num
+        else:
+            refund_amount = 0
+            remaining_count = 0
+    else:
+        refund_amount = 0
+        remaining_count = 0
+
+    return OrderItemCancelCalculateResponse(
+        order_status=order_status,
+        product_kind=order_item.product_kind,
+        sale_price=order_item.sale_price,
+        order_num=order_item.order_num,
+        subscribe_period=subscribe_period,
+        delivered_count=delivered_count,
+        remaining_count=remaining_count,
+        unit_price=unit_price,
+        refund_amount=refund_amount,
+    )
+
 
 def cancel_order_item(
     db: Session,

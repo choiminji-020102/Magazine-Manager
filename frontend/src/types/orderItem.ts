@@ -39,6 +39,18 @@ export interface OrderItemCancelRequest {
   refund_account?: string | null;
 }
 
+export interface OrderItemCancelCalculateResponse {
+  order_status: string;
+  product_kind: string;
+  sale_price: number;
+  order_num: number;
+  subscribe_period: number;
+  delivered_count: number;
+  remaining_count: number;
+  unit_price: number;
+  refund_amount: number;
+}
+
 export interface SubscriptionExtendRequest {
   extend_months?: number | null;
   extend_end_issue?: string | null;
