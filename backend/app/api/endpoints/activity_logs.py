@@ -29,7 +29,6 @@ def get_activity_logs(
         admin_id=query.admin_id,
         action=query.action,
         target_type=query.target_type,
-        target_id=query.target_id,
         start_date=query.start_date,
         end_date=query.end_date,
     )

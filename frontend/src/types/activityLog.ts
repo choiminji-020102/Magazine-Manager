@@ -6,7 +6,6 @@ export interface ActivityLogListQuery {
   admin_id?: number | null;
   action?: string | null;
   target_type?: string | null;
-  target_id?: number | null;
   start_date?: string | null;
   end_date?: string | null;
 }
