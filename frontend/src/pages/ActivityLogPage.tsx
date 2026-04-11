@@ -19,52 +19,65 @@ import { FilterBar } from "@/components/common/FilterBar";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Pagination } from "@/components/common/Pagination";
 import { activityLogsApi } from "@/api/activityLogsApi";
+import { adminsApi } from "@/api/adminsApi";
 import { formatDateTime } from "@/utils/format";
 import { ACTIVITY_ACTION_LABEL, ACTIVITY_TARGET_LABEL } from "@/utils/constants";
 import type { ActivityLogResponse } from "@/types/activityLog";
 
-const ACTION_OPTIONS = [
-  { value: "", label: "전체 액션" },
-  { value: "CREATE", label: "생성" },
-  { value: "UPDATE", label: "수정" },
-  { value: "DELETE", label: "삭제" },
-  { value: "ACTIVATE", label: "활성화" },
-  { value: "DEACTIVATE", label: "비활성화" },
-  { value: "RESTORE", label: "복구" },
-  { value: "CANCEL", label: "취소" },
-  { value: "DISPATCH", label: "발송" },
-  { value: "LOGIN", label: "로그인" },
-  { value: "LOGOUT", label: "로그아웃" },
-  { value: "SIGNUP", label: "가입" },
-  { value: "ANSWER", label: "답변" },
-];
+const ACTION_OPTIONS = Object.entries(ACTIVITY_ACTION_LABEL).map(([value, label]) => ({ value, label }));
+const TARGET_OPTIONS = Object.entries(ACTIVITY_TARGET_LABEL).map(([value, label]) => ({ value, label }));
 
 export default function ActivityLogPage() {
   const [page, setPage] = useState(1);
   const [action, setAction] = useState("");
-  const [adminSearch, setAdminSearch] = useState("");
+  const [targetType, setTargetType] = useState("");
+  const [adminId, setAdminId] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [detailLog, setDetailLog] = useState<ActivityLogResponse | null>(null);
 
   const limit = 30;
 
+  // 관리자 목록 조회 (Select 옵션용)
+  const { data: adminsData } = useQuery({
+    queryKey: ["admins-for-filter"],
+    queryFn: () => adminsApi.getAdmins({ page: 1, limit: 100 }).then((r) => r.data.items ?? []),
+  });
+
   const { data, isLoading } = useQuery({
-    queryKey: ["activity-logs", page, limit, action],
+    queryKey: ["activity-logs", page, limit, action, targetType, adminId, startDate, endDate],
     queryFn: () =>
       activityLogsApi
         .getActivityLogs({
           page,
           limit,
           action: action || null,
+          target_type: targetType || null,
+          admin_id: adminId ? parseInt(adminId) : null,
+          start_date: startDate || null,
+          end_date: endDate || null,
         })
         .then((r) => r.data),
   });
 
-  // 클라이언트 사이드 관리자명 필터 (API가 admin 검색 미지원 시)
-  const filtered = adminSearch
-    ? (data?.items ?? []).filter((log) =>
-        log.admin_name?.toLowerCase().includes(adminSearch.toLowerCase())
-      )
-    : (data?.items ?? []);
+  const hasFilters = !!(action || targetType || adminId || startDate || endDate);
+
+  const resetFilters = () => {
+    setAction("");
+    setTargetType("");
+    setAdminId("");
+    setStartDate("");
+    setEndDate("");
+    setPage(1);
+  };
+
+  const chips = [
+    ...(action ? [{ label: `액션: ${ACTIVITY_ACTION_LABEL[action]}`, onRemove: () => { setAction(""); setPage(1); } }] : []),
+    ...(targetType ? [{ label: `대상: ${ACTIVITY_TARGET_LABEL[targetType]}`, onRemove: () => { setTargetType(""); setPage(1); } }] : []),
+    ...(adminId && adminsData ? [{ label: `관리자: ${adminsData.find((a) => a.admin_id === parseInt(adminId))?.admin_name ?? adminId}`, onRemove: () => { setAdminId(""); setPage(1); } }] : []),
+    ...(startDate ? [{ label: `시작: ${startDate}`, onRemove: () => { setStartDate(""); setPage(1); } }] : []),
+    ...(endDate ? [{ label: `종료: ${endDate}`, onRemove: () => { setEndDate(""); setPage(1); } }] : []),
+  ];
 
   const columns: ColumnDef<ActivityLogResponse>[] = [
     {
@@ -145,30 +158,58 @@ export default function ActivityLogPage() {
       <FilterBar
         basic={
           <>
-            <Select value={action} onValueChange={(v) => { setAction(v === "_all" ? "" : v); setPage(1); }}>
+            <Select value={action || "_all"} onValueChange={(v) => { setAction(v === "_all" ? "" : v); setPage(1); }}>
               <SelectTrigger className="w-28">
                 <SelectValue placeholder="전체 액션" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="_all">전체 액션</SelectItem>
                 {ACTION_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value || "_all"}>{o.label}</SelectItem>
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={targetType || "_all"} onValueChange={(v) => { setTargetType(v === "_all" ? "" : v); setPage(1); }}>
+              <SelectTrigger className="w-28">
+                <SelectValue placeholder="전체 대상" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">전체 대상</SelectItem>
+                {TARGET_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={adminId || "_all"} onValueChange={(v) => { setAdminId(v === "_all" ? "" : v); setPage(1); }}>
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="전체 관리자" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">전체 관리자</SelectItem>
+                {(adminsData ?? []).map((admin) => (
+                  <SelectItem key={admin.admin_id} value={String(admin.admin_id)}>
+                    {admin.admin_name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Input
-              className="w-40"
-              placeholder="관리자명 검색"
-              value={adminSearch}
-              onChange={(e) => { setAdminSearch(e.target.value); }}
+              type="date"
+              className="w-36"
+              value={startDate}
+              onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+            />
+            <Input
+              type="date"
+              className="w-36"
+              value={endDate}
+              onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
             />
           </>
         }
-        hasActiveFilters={!!(action || adminSearch)}
-        onReset={() => { setAction(""); setAdminSearch(""); setPage(1); }}
-        chips={[
-          ...(action ? [{ label: `액션: ${ACTION_OPTIONS.find(o => o.value === action)?.label}`, onRemove: () => { setAction(""); setPage(1); } }] : []),
-          ...(adminSearch ? [{ label: `관리자: ${adminSearch}`, onRemove: () => { setAdminSearch(""); } }] : []),
-        ]}
+        hasActiveFilters={hasFilters}
+        onReset={resetFilters}
+        chips={chips}
       />
 
       {/* 테이블 */}
@@ -176,7 +217,7 @@ export default function ActivityLogPage() {
         <div className="h-full overflow-y-auto">
           <DataTable
             columns={columns}
-            data={filtered}
+            data={data?.items ?? []}
             getRowId={(row) => row.log_id}
             isLoading={isLoading}
             emptyMessage="활동 로그가 없습니다."
@@ -211,6 +252,7 @@ export default function ActivityLogPage() {
                   대상: {ACTIVITY_TARGET_LABEL?.[detailLog.target_type] ?? detailLog.target_type}
                   {detailLog.target_name && ` · ${detailLog.target_name}`}
                 </div>
+                <div>IP: {detailLog.ip_address ?? "-"}</div>
                 <div>일시: {formatDateTime(detailLog.created_at)}</div>
               </div>
               {detailLog.details && (
