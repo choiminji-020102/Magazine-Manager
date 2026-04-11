@@ -61,6 +61,8 @@ export default function OrderListPage() {
   const [externalOrderId, setExternalOrderId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [adminMemo, setAdminMemo] = useState("");
+  const [sortBy, setSortBy] = useState("created_at");
+  const [sortOrder, setSortOrder] = useState("desc");
 
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -87,6 +89,8 @@ export default function OrderListPage() {
       debouncedExternalOrderId,
       paymentMethod,
       debouncedAdminMemo,
+      sortBy,
+      sortOrder,
     ],
     queryFn: () =>
       ordersApi
@@ -102,6 +106,8 @@ export default function OrderListPage() {
           external_order_id: debouncedExternalOrderId || null,
           payment_method: (paymentMethod || null) as import("@/types/order").PaymentMethod | null,
           admin_memo: debouncedAdminMemo || null,
+          sort_by: sortBy,
+          sort_order: sortOrder,
         })
         .then((r) => r.data),
   });
@@ -308,13 +314,13 @@ export default function OrderListPage() {
             </Select>
             <Input
               className="w-44"
-              placeholder="주문자 검색"
+              placeholder="주문자 이름 또는 뒤 4자리"
               value={customerSearch}
               onChange={(e) => { setCustomerSearch(e.target.value); setPage(1); }}
             />
             <Input
               className="w-40"
-              placeholder="수령인 검색"
+              placeholder="수령인 이름 또는 뒤 4자리"
               value={recipientSearch}
               onChange={(e) => { setRecipientSearch(e.target.value); setPage(1); }}
             />
@@ -363,13 +369,34 @@ export default function OrderListPage() {
               value={adminMemo}
               onChange={(e) => { setAdminMemo(e.target.value); setPage(1); }}
             />
+            <Select value={sortBy} onValueChange={(v) => { setSortBy(v); setPage(1); }}>
+              <SelectTrigger className="w-28">
+                <SelectValue placeholder="정렬" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="created_at">등록일</SelectItem>
+                <SelectItem value="order_at">주문일</SelectItem>
+                <SelectItem value="payment_at">결제일</SelectItem>
+                <SelectItem value="updated_at">수정일</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sortOrder} onValueChange={(v) => { setSortOrder(v); setPage(1); }}>
+              <SelectTrigger className="w-24">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="desc">최신순</SelectItem>
+                <SelectItem value="asc">오래된순</SelectItem>
+              </SelectContent>
+            </Select>
           </>
         }
-        advancedActiveCount={[startDate, endDate, externalOrderId, paymentMethod, adminMemo].filter(Boolean).length}
+        advancedActiveCount={[startDate, endDate, externalOrderId, paymentMethod, adminMemo, sortBy !== "created_at" ? sortBy : "", sortOrder !== "desc" ? sortOrder : ""].filter(Boolean).length}
         hasActiveFilters={!!(channel || status || customerSearch || recipientSearch || startDate || endDate || externalOrderId || paymentMethod || adminMemo)}
         onReset={() => {
           setChannel(""); setStatus(""); setCustomerSearch(""); setRecipientSearch("");
           setStartDate(""); setEndDate(""); setExternalOrderId(""); setPaymentMethod(""); setAdminMemo("");
+          setSortBy("created_at"); setSortOrder("desc");
           setPage(1);
         }}
         chips={[

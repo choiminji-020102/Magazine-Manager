@@ -41,39 +41,25 @@ def list_orders(
         .outerjoin(Address, Order.address_id == Address.address_id)
     )
 
-    # ── 주문자 검색 (이름/연락처) ──────────────────────────────────────────────
+    # ── 주문자 검색 (이름 또는 연락처 뒤 4자리) ─────────────────────────────────
     if customer_search:
-        search_digits = "".join(filter(str.isdigit, customer_search))
-        if len(search_digits) >= 4:
-            formatted_phone, phone_num4 = format_phone_number(customer_search)
-            query = query.filter(
-                or_(
-                    Customer.customer_name.like(f"%{customer_search}%"),
-                    Customer.customer_phone == formatted_phone,
-                    Customer.customer_phone.like(f"%{customer_search}%"),
-                    Customer.customer_phone_num4 == phone_num4,
-                )
-            )
+        q = customer_search.strip()
+        is_digits = q.isdigit()
+        if is_digits and len(q) == 4:
+            query = query.filter(Customer.customer_phone_num4 == q)
+        elif is_digits:
+            query = query.filter(Customer.customer_phone.like(f"%{q}%"))
         else:
-            query = query.filter(
-                or_(
-                    Customer.customer_name.like(f"%{customer_search}%"),
-                    Customer.customer_phone.like(f"%{customer_search}%"),
-                )
-            )
+            query = query.filter(Customer.customer_name.like(f"%{q}%"))
 
-    # ── 수령인 검색 (이름/연락처) ──────────────────────────────────────────────
+    # ── 수령인 검색 (이름 또는 연락처 뒤 4자리) ─────────────────────────────────
     if recipient_search:
-        search_digits = "".join(filter(str.isdigit, recipient_search))
-        if len(search_digits) >= 4:
-            query = query.filter(
-                or_(
-                    Address.recipient_name.like(f"%{recipient_search}%"),
-                    Address.recipient_phone.like(f"%{recipient_search}%"),
-                )
-            )
+        q = recipient_search.strip()
+        is_digits = q.isdigit()
+        if is_digits:
+            query = query.filter(Address.recipient_phone.like(f"%{q}%"))
         else:
-            query = query.filter(Address.recipient_name.like(f"%{recipient_search}%"))
+            query = query.filter(Address.recipient_name.like(f"%{q}%"))
 
     # ── 기타 필터 ─────────────────────────────────────────────────────────────
     if external_order_id:
