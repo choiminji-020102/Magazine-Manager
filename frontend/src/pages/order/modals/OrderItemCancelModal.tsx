@@ -62,7 +62,7 @@ export function OrderItemCancelModal({ open, onClose, item, onSuccess }: Props) 
       description={
         <div className="space-y-3">
           <p>
-            <span className="font-medium">{item.product_name}</span> 품목을 취소합니다.
+            <span className="font-medium">{item.product_name}</span> ({item.order_num}개) 품목을 취소합니다.
           </p>
           <p className="text-xs text-gray-400">
             ※ 배송 중이거나 배송 완료된 MONTHLY 품목은 취소할 수 없습니다.
