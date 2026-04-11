@@ -57,6 +57,8 @@ class OrderItemAddressUpdate(BaseModel):
 class OrderItemCancelRequest(BaseModel):
     admin_memo: str                             # 취소 사유, 필수
     refund_amount: Optional[int] = None         # 미입력 시 자동 계산
+    refund_bank: Optional[str] = None           # 환불 은행명
+    refund_account: Optional[str] = None        # 환불 계좌번호
 
 
 class OrderItemLastSendIssueUpdate(BaseModel):

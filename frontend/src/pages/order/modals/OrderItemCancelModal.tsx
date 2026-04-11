@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { Input } from "@/components/ui/input";
 import { orderItemsApi } from "@/api/orderItemsApi";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
@@ -16,11 +17,16 @@ interface Props {
 export function OrderItemCancelModal({ open, onClose, item, onSuccess }: Props) {
   const [memo, setMemo] = useState("");
   const [memoError, setMemoError] = useState(false);
+  const [refundBank, setRefundBank] = useState("");
+  const [refundAccount, setRefundAccount] = useState("");
 
   const mutation = useMutation({
     mutationFn: () =>
       orderItemsApi.cancelOrderItem(item.order_item_id, {
         admin_memo: memo,
+        ...(refundBank && refundAccount
+          ? { refund_bank: refundBank, refund_account: refundAccount }
+          : {}),
       }),
     onSuccess: () => {
       toast.success("품목이 취소되었습니다.");
@@ -33,6 +39,8 @@ export function OrderItemCancelModal({ open, onClose, item, onSuccess }: Props) 
   const handleClose = () => {
     setMemo("");
     setMemoError(false);
+    setRefundBank("");
+    setRefundAccount("");
     onClose();
   };
 
@@ -71,6 +79,25 @@ export function OrderItemCancelModal({ open, onClose, item, onSuccess }: Props) 
             }}
           />
           {memoError && <p className="text-xs text-red-500">취소 사유를 입력해주세요.</p>}
+
+          {/* 환불 계좌 */}
+          <div className="border-t border-gray-200 pt-3 space-y-2">
+            <span className="text-xs font-medium text-gray-600">환불 계좌</span>
+            <div className="flex gap-2">
+              <Input
+                className="h-8 text-sm flex-[1]"
+                placeholder="은행명"
+                value={refundBank}
+                onChange={(e) => setRefundBank(e.target.value)}
+              />
+              <Input
+                className="h-8 text-sm flex-[2]"
+                placeholder="계좌번호"
+                value={refundAccount}
+                onChange={(e) => setRefundAccount(e.target.value)}
+              />
+            </div>
+          </div>
         </div>
       }
       confirmLabel="품목 취소"

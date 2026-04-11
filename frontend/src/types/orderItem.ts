@@ -39,6 +39,8 @@ export interface OrderItemAddressUpdate {
 export interface OrderItemCancelRequest {
   admin_memo: string;
   refund_amount?: number | null;
+  refund_bank?: string | null;
+  refund_account?: string | null;
 }
 
 export interface SubscriptionExtendRequest {

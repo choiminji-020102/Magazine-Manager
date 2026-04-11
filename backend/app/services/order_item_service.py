@@ -529,11 +529,14 @@ def cancel_order_item(
             si.cancelled_at = now
 
     # admin_memo append
-    reason_memo = f"[취소] {cancel_in.admin_memo}"
+    memo_lines = [f"[취소] {cancel_in.admin_memo}"]
+    if cancel_in.refund_bank and cancel_in.refund_account:
+        memo_lines.append(f"[취소 환불계좌] {cancel_in.refund_bank} {cancel_in.refund_account}")
+    cancel_note = "\n".join(memo_lines)
     if order_item.admin_memo:
-        order_item.admin_memo = order_item.admin_memo + "\n" + reason_memo
+        order_item.admin_memo = order_item.admin_memo + "\n" + cancel_note
     else:
-        order_item.admin_memo = reason_memo
+        order_item.admin_memo = cancel_note
 
     order_item.refund_amount = refund_amount
 
