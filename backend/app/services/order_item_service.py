@@ -382,13 +382,33 @@ def change_period(
     )
 
 
+def _subtract_months_from_issue(issue: str, months: int) -> str:
+    """호(YYYYMM)에서 N개월을 뺀 호 반환"""
+    y = int(issue[:4])
+    m = int(issue[4:6])
+    total = y * 12 + m - months
+    new_y = (total - 1) // 12
+    new_m = ((total - 1) % 12) + 1
+    return f"{new_y}{str(new_m).zfill(2)}"
+
+
 def shorten_calculate(
     order_item: OrderItem,
     shorten_in: SubscriptionShortenCalculateRequest,
 ) -> SubscriptionShortenCalculateResponse:
     """구독 기간 단축 — 환불액 계산 (DB 변경 없음)"""
     current_end = order_item.final_subscribe_end_issue
-    shorten_end = shorten_in.shorten_end_issue
+
+    # shorten_months → shorten_end_issue 변환
+    if shorten_in.shorten_months and not shorten_in.shorten_end_issue:
+        shorten_end = _subtract_months_from_issue(current_end, shorten_in.shorten_months)
+    elif shorten_in.shorten_end_issue:
+        shorten_end = shorten_in.shorten_end_issue
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="shorten_end_issue 또는 shorten_months 중 하나가 필요합니다.",
+        )
 
     if shorten_end >= current_end:
         raise HTTPException(

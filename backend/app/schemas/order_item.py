@@ -107,8 +107,10 @@ class SubscriptionChangePeriodRequest(BaseModel):
 
 
 class SubscriptionShortenCalculateRequest(BaseModel):
-    """구독 기간 단축 - 환불액 미리 계산 (DB 변경 없음)"""
-    shorten_end_issue: str                      # 단축 종료 호 (YYYYMM)
+    """구독 기간 단축 - 환불액 미리 계산 (DB 변경 없음)
+    shorten_end_issue 또는 shorten_months 중 하나 필수"""
+    shorten_end_issue: Optional[str] = None     # 단축 종료 호 (YYYYMM)
+    shorten_months: Optional[int] = None        # 단축 개월 수
 
 
 class SubscriptionShortenCalculateResponse(BaseModel):

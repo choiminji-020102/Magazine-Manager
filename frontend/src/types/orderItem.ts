@@ -59,7 +59,8 @@ export interface SubscriptionChangePeriodRequest {
 }
 
 export interface SubscriptionShortenCalculateRequest {
-  shorten_end_issue: string;  // 단축 종료 호 (YYYYMM)
+  shorten_end_issue?: string | null;  // 단축 종료 호 (YYYYMM)
+  shorten_months?: number | null;     // 단축 개월 수
 }
 
 export interface SubscriptionShortenCalculateResponse {

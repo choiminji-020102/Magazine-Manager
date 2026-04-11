@@ -15,7 +15,7 @@ import { orderItemsApi } from "@/api/orderItemsApi";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
 import { formatIssue, formatAmount } from "@/utils/format";
-import { addMonthsToIssue } from "@/utils/date";
+
 import type { OrderItemResponse } from "@/types/orderItem";
 
 interface Props {
@@ -42,10 +42,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
   const [refundBank, setRefundBank] = useState("");
   const [refundAccount, setRefundAccount] = useState("");
 
-  const finalEndIssue = item.final_subscribe_end_issue;
   const absMonths = Math.abs(parseInt(months) || 0);
-  // 현재 종료 호에서 N개월 앞당긴 호 = 단축 종료 호
-  const shortenEndIssue = absMonths > 0 ? addMonthsToIssue(finalEndIssue, -absMonths) : "";
 
   // 모달 열릴 때 + 개월 수 변경 시 자동 계산
   useEffect(() => {
@@ -55,20 +52,15 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
     setRefundConfirmed(false);
     setError(null);
 
-    if (absMonths <= 0 || !shortenEndIssue) return;
-
-    if (shortenEndIssue >= finalEndIssue) {
-      setError("단축 개월 수가 너무 큽니다.");
-      return;
-    }
+    if (absMonths <= 0) return;
 
     calcMutation.mutate();
-  }, [open, shortenEndIssue]);
+  }, [open, absMonths]);
 
   const calcMutation = useMutation({
     mutationFn: () =>
       orderItemsApi.shortenCalculate(item.order_item_id, {
-        shorten_end_issue: shortenEndIssue,
+        shorten_months: absMonths,
       }),
     onSuccess: (res) => setCalcResult(res.data.data ?? null),
     onError: () => setError("환불액 계산에 실패했습니다."),
@@ -77,7 +69,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
   const confirmMutation = useMutation({
     mutationFn: () =>
       orderItemsApi.shortenConfirm(item.order_item_id, {
-        shorten_end_issue: shortenEndIssue,
+        shorten_end_issue: calcResult!.shorten_end_issue,
         refund_confirmed: true,
         ...(refundBank && refundAccount
           ? { refund_bank: refundBank, refund_account: refundAccount }
@@ -118,7 +110,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
             <div className="flex justify-between">
               <span>현재 구독 기간</span>
               <span className="font-medium">
-                {formatIssue(item.final_subscribe_start_issue)} ~ {formatIssue(finalEndIssue)}
+                {formatIssue(item.final_subscribe_start_issue)} ~ {formatIssue(calcResult?.current_end_issue ?? item.final_subscribe_end_issue)}
               </span>
             </div>
             {calcResult && (
