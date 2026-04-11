@@ -371,11 +371,15 @@ def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) 
             )
 
     # ── 2. 취소 사유 + 환불 계좌를 admin_memo에 추가 기록 ─────────────────────
-    memo_lines = [f"[취소] {cancel_request.admin_memo}"]
+    memo_lines = []
+    if cancel_request.admin_memo.strip():
+        memo_lines.append(f"[취소] {cancel_request.admin_memo.strip()}")
+    else:
+        memo_lines.append("[취소]")
     if cancel_request.refund_bank and cancel_request.refund_account:
         memo_lines.append(f"[취소 환불계좌] {cancel_request.refund_bank} {cancel_request.refund_account}")
     cancel_note = "\n".join(memo_lines)
-    order.admin_memo = f"{order.admin_memo}\n{cancel_note}" if order.admin_memo else cancel_note
+    order.admin_memo = f"{order.admin_memo}\n---\n{cancel_note}" if order.admin_memo else cancel_note
 
     # ── 3. PREPARING 상태 Send 취소 ──────────────────────────────────────────
     active_item_ids = [i.order_item_id for i in calc.items]

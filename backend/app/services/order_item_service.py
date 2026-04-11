@@ -322,7 +322,7 @@ def extend_subscription(
             memo_lines.append(f"사유: {extend_in.reason}")
 
     memo_note = "\n".join(memo_lines)
-    order_item.admin_memo = f"{order_item.admin_memo}\n{memo_note}" if order_item.admin_memo else memo_note
+    order_item.admin_memo = f"{order_item.admin_memo}\n---\n{memo_note}" if order_item.admin_memo else memo_note
 
     return order_item_crud.extend_subscription(
         db=db, order_item=order_item, new_end_issue=new_end,
@@ -465,9 +465,11 @@ def shorten_confirm(
     refund_amount = confirm_in.refund_amount
 
     # 환불 계좌 admin_memo에 기록
+    memo_lines = [f"[단축] {confirm_in.shorten_end_issue}까지, 환불: {refund_amount:,}원"]
     if confirm_in.refund_bank and confirm_in.refund_account:
-        refund_note = f"[단축 환불계좌] {confirm_in.refund_bank} {confirm_in.refund_account}"
-        order_item.admin_memo = f"{order_item.admin_memo}\n{refund_note}" if order_item.admin_memo else refund_note
+        memo_lines.append(f"[단축 환불계좌] {confirm_in.refund_bank} {confirm_in.refund_account}")
+    shorten_note = "\n".join(memo_lines)
+    order_item.admin_memo = f"{order_item.admin_memo}\n---\n{shorten_note}" if order_item.admin_memo else shorten_note
 
     return order_item_crud.shorten_subscription(
         db=db,
@@ -529,14 +531,15 @@ def cancel_order_item(
             si.cancelled_at = now
 
     # admin_memo append
-    memo_lines = [f"[취소] {cancel_in.admin_memo}"]
+    memo_lines = []
+    if cancel_in.admin_memo.strip():
+        memo_lines.append(f"[취소] {cancel_in.admin_memo.strip()}")
+    else:
+        memo_lines.append("[취소]")
     if cancel_in.refund_bank and cancel_in.refund_account:
         memo_lines.append(f"[취소 환불계좌] {cancel_in.refund_bank} {cancel_in.refund_account}")
     cancel_note = "\n".join(memo_lines)
-    if order_item.admin_memo:
-        order_item.admin_memo = order_item.admin_memo + "\n" + cancel_note
-    else:
-        order_item.admin_memo = cancel_note
+    order_item.admin_memo = f"{order_item.admin_memo}\n---\n{cancel_note}" if order_item.admin_memo else cancel_note
 
     order_item.refund_amount = refund_amount
 
