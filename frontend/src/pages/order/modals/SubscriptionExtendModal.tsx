@@ -119,11 +119,6 @@ export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Prop
                 유료 연장
               </button>
             </div>
-            <p className="text-xs text-gray-400 mt-1">
-              {isPaid
-                ? "결제 구독 종료 호도 함께 연장됩니다."
-                : "최종 구독 종료 호만 연장됩니다."}
-            </p>
           </div>
         </div>
 
