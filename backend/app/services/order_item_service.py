@@ -396,6 +396,12 @@ def shorten_calculate(
             detail=f"단축 종료 호({shorten_end})는 현재 종료 호({current_end})보다 작아야 합니다.",
         )
 
+    if not order_item.paid_subscribe_end_issue:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유료 구독 종료 호가 설정되지 않았습니다.",
+        )
+
     shorten_count = _count_issue_diff(shorten_end, current_end)
     paid_period = _count_issue_diff(order_item.subscribe_start_issue, order_item.paid_subscribe_end_issue) + 1
     unit_price = int(order_item.sale_price / paid_period)
@@ -469,7 +475,7 @@ def cancel_order_item(
         refund_amount = cancel_in.refund_amount
     elif order_item.product_kind == "MONTHLY":
         refund_amount = order_item.sale_price * order_item.order_num
-    else:
+    elif order_item.product_kind == "YEARLY" and order_item.paid_subscribe_end_issue:
         # YEARLY: paid_subscribe_end_issue 기준으로 잔여 환불 회차 계산
         # - 무상 연장 회차는 paid_subscribe_end_issue에 반영 안 됨 → 자동 제외
         # - 유료 연장 회차는 paid_subscribe_end_issue에 반영 됨 → 자동 포함
@@ -485,6 +491,8 @@ def cancel_order_item(
             refund_amount = refund_per_issue * remaining * order_item.order_num
         else:
             refund_amount = 0
+    else:
+        refund_amount = 0
 
     # PREPARING Send 취소
     now = now_kst()
