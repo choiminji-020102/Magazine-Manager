@@ -34,6 +34,7 @@ import { OrderItemCancelModal } from "@/pages/order/modals/OrderItemCancelModal"
 import { orderItemsApi } from "@/api/orderItemsApi";
 import { pausesApi } from "@/api/pausesApi";
 import { sendsApi } from "@/api/sendsApi";
+import { activityLogsApi } from "@/api/activityLogsApi";
 import { toast } from "@/hooks/use-toast";
 import { formatAmount, formatPhone, formatIssue, formatDate, formatDateTime } from "@/utils/format";
 import { getErrorMessage } from "@/utils/errorHandler";
@@ -99,6 +100,26 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
     enabled: !!item.order_id,
   });
 
+  // 구독 기간 변경 이력 (활동 로그)
+  const { data: periodLogs = [] } = useQuery({
+    queryKey: ["period-change-logs", item.order_item_id],
+    queryFn: () =>
+      activityLogsApi
+        .getActivityLogs({
+          page: 1,
+          limit: 20,
+          target_type: "ORDER_ITEM",
+          target_id: item.order_item_id,
+          action: "UPDATE",
+        })
+        .then((r) =>
+          (r.data.items ?? []).filter((log) =>
+            log.details?.action && ["구독 연장", "구독 단축", "구독 기간 이동"].includes(log.details.action)
+          )
+        ),
+    enabled: isYearly,
+  });
+
   // 최신 데이터 (detail 로드 전이면 item 값 사용)
   const isCancelled = !!(detail?.cancelled_at ?? item.cancelled_at);
   const canAction = isYearly && !isCancelled;
@@ -111,6 +132,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
     queryClient.invalidateQueries({ queryKey: ["order-item-detail", item.order_item_id] });
     queryClient.invalidateQueries({ queryKey: ["pauses-deleted", item.order_item_id] });
     queryClient.invalidateQueries({ queryKey: ["order-sends", item.order_id] });
+    queryClient.invalidateQueries({ queryKey: ["period-change-logs", item.order_item_id] });
   };
 
   // ── 모달 open/close 상태 ───────────────────────────────────────────────────
@@ -378,6 +400,32 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
               <span className="text-gray-600 font-medium">
                 {formatIssue(detail?.paid_subscribe_end_issue ?? item.paid_subscribe_end_issue)}
               </span>
+            </div>
+          )}
+
+          {/* 변경 이력 */}
+          {periodLogs.length > 0 && (
+            <div className="border-t border-gray-100 pt-2 space-y-1">
+              <div className="text-xs font-medium text-gray-500 mb-1">변경 이력</div>
+              {periodLogs.map((log) => (
+                <div key={log.log_id} className="text-xs text-gray-500 flex items-start gap-1.5">
+                  <span className="text-gray-400 flex-shrink-0">{formatDate(log.created_at).slice(5)}</span>
+                  <span className="font-medium text-gray-600">{log.details?.action}</span>
+                  {log.details?.before && log.details?.after && (
+                    <span className="text-gray-400">
+                      {formatIssue(log.details.before.start)}~{formatIssue(log.details.before.end)}
+                      {" → "}
+                      {formatIssue(log.details.after.start)}~{formatIssue(log.details.after.end)}
+                    </span>
+                  )}
+                  {log.details?.reason && (
+                    <span className="text-gray-400 truncate">({log.details.reason})</span>
+                  )}
+                  {log.details?.refund_amount != null && log.details.refund_amount > 0 && (
+                    <span className="text-red-500">환불 {formatAmount(log.details.refund_amount)}</span>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </Section>

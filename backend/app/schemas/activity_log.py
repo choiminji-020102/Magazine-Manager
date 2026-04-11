@@ -25,6 +25,7 @@ class ActivityLogListQuery(BaseModel):
     admin_id: Optional[int] = Field(None, description="관리자 ID 필터")
     action: Optional[ActivityAction] = Field(None, description="액션 필터")
     target_type: Optional[ActivityTargetType] = Field(None, description="대상 타입 필터")
+    target_id: Optional[int] = Field(None, description="대상 ID 필터")
     start_date: Optional[str] = Field(None, description="시작 날짜 (YYYY-MM-DD 형식)")
     end_date: Optional[str] = Field(None, description="종료 날짜 (YYYY-MM-DD 형식)")
 
@@ -36,6 +37,7 @@ class ActivityLogListQuery(BaseModel):
         admin_id: Optional[int] = Query(None, description="관리자 ID 필터"),
         action: Optional[ActivityAction] = Query(None, description="액션 필터"),
         target_type: Optional[ActivityTargetType] = Query(None, description="대상 타입 필터"),
+        target_id: Optional[int] = Query(None, description="대상 ID 필터"),
         start_date: Optional[str] = Query(None, description="시작 날짜 (YYYY-MM-DD 형식)"),
         end_date: Optional[str] = Query(None, description="종료 날짜 (YYYY-MM-DD 형식)"),
     ):
@@ -45,6 +47,7 @@ class ActivityLogListQuery(BaseModel):
             admin_id=admin_id,
             action=action,
             target_type=target_type,
+            target_id=target_id,
             start_date=start_date,
             end_date=end_date,
         )

@@ -266,6 +266,7 @@ def extend_subscription(
 ):
     """구독 기간 연장 (단건, YEARLY만)"""
     order_item = order_item_service.get_active_order_item_by_id(db, order_item_id)
+    prev_start = order_item.final_subscribe_start_issue
     prev_end = order_item.final_subscribe_end_issue
 
     updated = order_item_service.extend_subscription(db, order_item, extend_in)
@@ -282,8 +283,8 @@ def extend_subscription(
         user_agent=request.headers.get("user-agent"),
         details={
             "action": "구독 연장",
-            "prev_end_issue": prev_end,
-            "new_end_issue": updated.final_subscribe_end_issue,
+            "before": {"start": prev_start, "end": prev_end},
+            "after": {"start": updated.final_subscribe_start_issue, "end": updated.final_subscribe_end_issue},
             "reason": extend_in.reason,
         },
     )
@@ -412,6 +413,7 @@ def shorten_confirm(
 ):
     """구독 기간 단축 — 최종 확정 및 저장"""
     order_item = order_item_service.get_active_order_item_by_id(db, order_item_id)
+    prev_start = order_item.final_subscribe_start_issue
     prev_end = order_item.final_subscribe_end_issue
 
     updated = order_item_service.shorten_confirm(db, order_item, confirm_in)
@@ -428,8 +430,8 @@ def shorten_confirm(
         user_agent=request.headers.get("user-agent"),
         details={
             "action": "구독 단축",
-            "prev_end_issue": prev_end,
-            "new_end_issue": updated.final_subscribe_end_issue,
+            "before": {"start": prev_start, "end": prev_end},
+            "after": {"start": updated.final_subscribe_start_issue, "end": updated.final_subscribe_end_issue},
             "refund_amount": updated.refund_amount,
         },
     )

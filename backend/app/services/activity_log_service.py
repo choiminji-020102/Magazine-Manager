@@ -45,6 +45,7 @@ def get_logs(
     admin_id: Optional[int] = None,
     action: Optional[str] = None,
     target_type: Optional[str] = None,
+    target_id: Optional[int] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> Tuple[List[ActivityLog], int]:
@@ -56,6 +57,8 @@ def get_logs(
         query = query.filter(ActivityLog.action == action)
     if target_type:
         query = query.filter(ActivityLog.target_type == target_type)
+    if target_id:
+        query = query.filter(ActivityLog.target_id == target_id)
     if start_date:
         try:
             start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
