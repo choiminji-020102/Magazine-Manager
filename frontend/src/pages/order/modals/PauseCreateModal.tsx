@@ -14,7 +14,7 @@ import { pausesApi } from "@/api/pausesApi";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
 import { formatIssue } from "@/utils/format";
-import { generateIssueRange } from "@/utils/date";
+import { generateIssueRange, addMonthsToIssue } from "@/utils/date";
 import type { OrderItemResponse } from "@/types/orderItem";
 
 interface Props {
@@ -111,6 +111,14 @@ export function PauseCreateModal({ open, onClose, item, onSuccess }: Props) {
                 {formatIssue(item.final_subscribe_start_issue)} ~ {formatIssue(item.final_subscribe_end_issue)}
               </span>
             </div>
+            {selectedIssues.length > 0 && (
+              <div className="flex justify-between text-blue-600">
+                <span>변경 후 구독 기간</span>
+                <span className="font-medium">
+                  {formatIssue(item.final_subscribe_start_issue)} ~ {formatIssue(addMonthsToIssue(item.final_subscribe_end_issue, selectedIssues.length))}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* 기존 휴지 목록 */}
