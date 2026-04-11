@@ -47,8 +47,10 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
   // 현재 종료 호에서 N개월 앞당긴 호 = 단축 종료 호
   const shortenEndIssue = absMonths > 0 ? addMonthsToIssue(finalEndIssue, -absMonths) : "";
 
-  // 개월 수 변경 시 자동 계산
+  // 모달 열릴 때 + 개월 수 변경 시 자동 계산
   useEffect(() => {
+    if (!open) return;
+
     setCalcResult(null);
     setRefundConfirmed(false);
     setError(null);
@@ -61,7 +63,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
     }
 
     calcMutation.mutate();
-  }, [shortenEndIssue]);
+  }, [open, shortenEndIssue]);
 
   const calcMutation = useMutation({
     mutationFn: () =>
