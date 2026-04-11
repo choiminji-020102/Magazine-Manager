@@ -76,6 +76,14 @@ export function SubscriptionChangePeriodModal({ open, onClose, item, onSuccess, 
                 {formatIssue(item.final_subscribe_start_issue)} ~ {formatIssue(item.final_subscribe_end_issue)}
               </span>
             </div>
+            {newStartIssue && newEndIssue && (
+              <div className="flex justify-between text-blue-600">
+                <span>변경 후 구독 기간</span>
+                <span className="font-medium">
+                  {formatIssue(newStartIssue)} ~ {formatIssue(newEndIssue)}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* 방향 선택 */}
@@ -115,21 +123,6 @@ export function SubscriptionChangePeriodModal({ open, onClose, item, onSuccess, 
               onChange={(e) => setMonths(e.target.value)}
             />
           </div>
-
-          {/* 이동 후 예상 기간 */}
-          {newStartIssue && newEndIssue && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700 space-y-1">
-              <div className="font-medium text-blue-800">이동 후 예상 기간</div>
-              <div className="flex justify-between">
-                <span>새 시작 호</span>
-                <span>{formatIssue(newStartIssue)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>새 종료 호</span>
-                <span>{formatIssue(newEndIssue)}</span>
-              </div>
-            </div>
-          )}
 
           <p className="text-xs text-gray-400">
             ※ 구독 개월 수{pauseCount > 0 ? `(${item.subscribe_period}개월 +휴지 ${pauseCount}개월)` : ""}는 유지되며 시작/종료 호만 이동됩니다.
