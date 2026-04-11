@@ -121,6 +121,14 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
                 {formatIssue(item.final_subscribe_start_issue)} ~ {formatIssue(finalEndIssue)}
               </span>
             </div>
+            {calcResult && (
+              <div className="flex justify-between text-blue-600">
+                <span>변경 후 구독 기간</span>
+                <span className="font-medium">
+                  {formatIssue(item.final_subscribe_start_issue)} ~ {formatIssue(calcResult.shorten_end_issue)}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* 단축 개월 수 */}
@@ -140,13 +148,6 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
           {/* 단축 후 예상 + 환불 계산 내역 */}
           {calcResult && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs space-y-2">
-              <div className="font-medium text-blue-800">단축 후 예상</div>
-              <div className="text-blue-700 space-y-1">
-                <div className="flex justify-between">
-                  <span>단축 후 종료 호</span>
-                  <span>{formatIssue(calcResult.shorten_end_issue)}</span>
-                </div>
-              </div>
               <div className="border-t border-blue-200 pt-2 text-blue-700 space-y-1">
                 <div className="font-medium text-blue-800">환불 계산</div>
                 <div className="flex justify-between">

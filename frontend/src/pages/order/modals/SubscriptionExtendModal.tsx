@@ -75,8 +75,10 @@ export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Prop
             </div>
             {newEndIssue && (
               <div className="flex justify-between text-blue-600">
-                <span>연장 후 종료 호</span>
-                <span className="font-medium">{formatIssue(newEndIssue)}</span>
+                <span>변경 후 구독 기간</span>
+                <span className="font-medium">
+                  {formatIssue(item.final_subscribe_start_issue)} ~ {formatIssue(newEndIssue)}
+                </span>
               </div>
             )}
           </div>
