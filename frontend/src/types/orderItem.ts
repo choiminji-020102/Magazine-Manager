@@ -24,10 +24,6 @@ export interface OrderItemCreate {
 export interface OrderItemUpdate {
   order_num?: number | null;
   sale_price?: number | null;
-  refund_amount?: number | null;
-  subscribe_period?: number | null;
-  final_subscribe_start_issue?: string | null;
-  final_subscribe_end_issue?: string | null;
   admin_memo?: string | null;
 }
 

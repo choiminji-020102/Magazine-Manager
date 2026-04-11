@@ -30,15 +30,11 @@ class OrderItemCreate(BaseModel):
 
 
 class OrderItemUpdate(BaseModel):
-    # ⚠️ subscribe_start_issue, subscribe_end_issue 수정 불가 (불변 필드)
-    # 배송지 변경은 PATCH /order-items/{id}/address 사용
-    # 구독 기간 조정은 /extend, /change-period, /shorten 엔드포인트 사용
+    # ⚠️ 구독 기간 관련 필드는 전용 엔드포인트 사용 (extend, change-period, shorten)
+    # ⚠️ 배송지 변경은 PATCH /order-items/{id}/address 사용
+    # ⚠️ 환불금은 취소/단축 시 자동 계산
     order_num: Optional[int] = None
     sale_price: Optional[int] = None
-    refund_amount: Optional[int] = None
-    subscribe_period: Optional[int] = None
-    final_subscribe_start_issue: Optional[str] = None
-    final_subscribe_end_issue: Optional[str] = None
     admin_memo: Optional[str] = None
 
 
