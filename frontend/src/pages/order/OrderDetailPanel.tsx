@@ -1136,14 +1136,17 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                 </label>
               </div>
               {cancelRefundManual ? (
-                <Input
-                  type="number"
-                  min={0}
-                  className="h-8 text-sm mt-1.5"
-                  placeholder="환불금액을 입력하세요"
-                  value={cancelRefundAmount}
-                  onChange={(e) => setCancelRefundAmount(e.target.value)}
-                />
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <Input
+                    type="number"
+                    min={0}
+                    className="h-8 text-sm"
+                    placeholder="환불금액을 입력하세요"
+                    value={cancelRefundAmount}
+                    onChange={(e) => setCancelRefundAmount(e.target.value)}
+                  />
+                  <span className="text-sm text-gray-500 flex-shrink-0">원</span>
+                </div>
               ) : (
                 <p className="text-xs text-gray-400 mt-1">위 계산 금액으로 자동 적용됩니다</p>
               )}

@@ -18,6 +18,7 @@ interface Props {
 export function OrderItemCancelModal({ open, onClose, item, onSuccess }: Props) {
   const [memo, setMemo] = useState("");
   const [memoError, setMemoError] = useState(false);
+  const [refundAmount, setRefundAmount] = useState("");
   const [refundBank, setRefundBank] = useState("");
   const [refundAccount, setRefundAccount] = useState("");
 
@@ -26,7 +27,9 @@ export function OrderItemCancelModal({ open, onClose, item, onSuccess }: Props) 
     queryKey: ["cancelItemCalculate", item.order_item_id],
     queryFn: async () => {
       const res = await orderItemsApi.cancelItemCalculate(item.order_item_id);
-      return res.data.data;
+      const data = res.data.data;
+      if (data) setRefundAmount(String(data.refund_amount));
+      return data;
     },
     enabled: open,
   });
@@ -35,6 +38,7 @@ export function OrderItemCancelModal({ open, onClose, item, onSuccess }: Props) 
     mutationFn: () =>
       orderItemsApi.cancelOrderItem(item.order_item_id, {
         admin_memo: memo,
+        ...(refundAmount !== "" ? { refund_amount: parseInt(refundAmount) || 0 } : {}),
         ...(refundBank && refundAccount
           ? { refund_bank: refundBank, refund_account: refundAccount }
           : {}),
@@ -50,6 +54,7 @@ export function OrderItemCancelModal({ open, onClose, item, onSuccess }: Props) 
   const handleClose = () => {
     setMemo("");
     setMemoError(false);
+    setRefundAmount("");
     setRefundBank("");
     setRefundAccount("");
     onClose();
@@ -113,8 +118,25 @@ export function OrderItemCancelModal({ open, onClose, item, onSuccess }: Props) 
             <p className="text-xs text-gray-400">환불 계산 중...</p>
           )}
 
+          {/* 환불 금액 (직접 입력) */}
+          {calc && calc.order_status !== "ORDERED" && (
+            <div>
+              <span className="text-xs font-medium text-gray-600">환불 금액</span>
+              <div className="flex items-center gap-1.5 mt-1">
+                <Input
+                  type="number"
+                  min={0}
+                  className="h-8 text-sm"
+                  value={refundAmount}
+                  onChange={(e) => setRefundAmount(e.target.value)}
+                />
+                <span className="text-sm text-gray-500 flex-shrink-0">원</span>
+              </div>
+            </div>
+          )}
+
           <p className="text-xs text-gray-400">
-            ※ 배송 중이거나 배송 완료된 MONTHLY 품목은 취소할 수 없습니다.
+            ※ 배송 중이거나 배송 완료된 상품은 취소할 수 없습니다.
           </p>
 
           {/* 취소 사유 */}
