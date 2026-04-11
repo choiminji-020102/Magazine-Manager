@@ -69,7 +69,7 @@ function FormLabel({ required, children }: { required?: boolean; children: React
 const KIND_OPTIONS = [
   { value: "", label: "전체 종류" },
   { value: "YEARLY", label: "정기구독" },
-  { value: "MONTHLY", label: "월간지" },
+  { value: "MONTHLY", label: "단품" },
 ];
 
 const ACTIVE_OPTIONS = [
@@ -348,8 +348,8 @@ export default function ProductListPage() {
                   <Select value={form.product_kind} onValueChange={(v) => setForm((f) => ({ ...f, product_kind: v as ProductKind }))}>
                     <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="YEARLY">정기구독 (YEARLY)</SelectItem>
-                      <SelectItem value="MONTHLY">월간지 (MONTHLY)</SelectItem>
+                      <SelectItem value="YEARLY">정기구독</SelectItem>
+                      <SelectItem value="MONTHLY">단품</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -241,7 +241,7 @@ export default function DashboardPage() {
               <StatCard
                 key={p.product_kind}
                 icon={<Package className="h-4 w-4" />}
-                label={p.product_kind === "YEARLY" ? "정기구독" : "월간지"}
+                label={p.product_kind === "YEARLY" ? "정기구독" : "단품"}
                 value={`${p.count}건`}
                 color="green"
               />
