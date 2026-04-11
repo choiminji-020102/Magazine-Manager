@@ -1039,7 +1039,13 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
           setCancelRefundAccount("");
           queryClient.removeQueries({ queryKey: ["cancelCalculate", orderId] });
         }}
-        onConfirm={() => cancelMutation.mutate()}
+        onConfirm={() => {
+          if (!cancelMemo.trim()) {
+            toast.error("취소 사유를 입력해주세요.");
+            return;
+          }
+          cancelMutation.mutate();
+        }}
         title="주문 취소"
         description={
           <div className="space-y-3">
