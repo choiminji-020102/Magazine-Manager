@@ -159,13 +159,15 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
           {calcResult && (
             <div>
               <Label>환불 금액</Label>
-              <Input
-                type="number"
-                min={0}
-                className="mt-1"
-                value={refundAmount}
-                onChange={(e) => setRefundAmount(e.target.value)}
-              />
+              <div className="flex items-center gap-1.5 mt-1">
+                <Input
+                  type="number"
+                  min={0}
+                  value={refundAmount}
+                  onChange={(e) => setRefundAmount(e.target.value)}
+                />
+                <span className="text-sm text-gray-500 flex-shrink-0">원</span>
+              </div>
             </div>
           )}
 
