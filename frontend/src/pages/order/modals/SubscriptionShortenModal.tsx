@@ -116,7 +116,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
               <span className="font-medium">{item.product_name}</span>
             </div>
             <div className="flex justify-between">
-              <span>현재 기간</span>
+              <span>현재 구독 기간</span>
               <span className="font-medium">
                 {formatIssue(item.final_subscribe_start_issue)} ~ {formatIssue(finalEndIssue)}
               </span>

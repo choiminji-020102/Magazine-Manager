@@ -106,7 +106,7 @@ export function PauseCreateModal({ open, onClose, item, onSuccess }: Props) {
               <span className="font-medium">{item.product_name}</span>
             </div>
             <div className="flex justify-between">
-              <span>구독 기간</span>
+              <span>현재 구독 기간</span>
               <span className="font-medium">
                 {formatIssue(item.final_subscribe_start_issue)} ~ {formatIssue(item.final_subscribe_end_issue)}
               </span>
