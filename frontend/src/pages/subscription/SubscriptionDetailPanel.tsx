@@ -393,16 +393,6 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
             </div>
           )}
 
-          {/* 유료 종료 — 주문 시 종료와 다를 때만 표시 */}
-          {item.paid_subscribe_end_issue !== item.subscribe_end_issue && (
-            <div className="text-xs text-gray-400 flex items-center gap-1.5 border-t border-gray-100 pt-2">
-              <span>유료 종료:</span>
-              <span className="text-gray-600 font-medium">
-                {formatIssue(detail?.paid_subscribe_end_issue ?? item.paid_subscribe_end_issue)}
-              </span>
-            </div>
-          )}
-
           {/* 변경 이력 */}
           {periodLogs.length > 0 && (
             <div className="border-t border-gray-100 pt-2 space-y-1">

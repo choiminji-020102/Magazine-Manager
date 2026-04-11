@@ -307,6 +307,23 @@ def extend_subscription(
             )
         extend_months = _count_issue_diff(current_end, new_end)
 
+    # admin_memo에 연장 기록
+    if extend_in.is_paid:
+        memo_lines = [f"[유료 연장] {extend_months}개월"]
+        if extend_in.paid_amount is not None:
+            memo_lines[0] += f", 결제금액: {extend_in.paid_amount:,}원"
+        if extend_in.refund_bank and extend_in.refund_account:
+            memo_lines.append(f"[유료 연장 계좌] {extend_in.refund_bank} {extend_in.refund_account}")
+        if extend_in.reason:
+            memo_lines.append(f"사유: {extend_in.reason}")
+    else:
+        memo_lines = [f"[무상 연장] {extend_months}개월"]
+        if extend_in.reason:
+            memo_lines.append(f"사유: {extend_in.reason}")
+
+    memo_note = "\n".join(memo_lines)
+    order_item.admin_memo = f"{order_item.admin_memo}\n{memo_note}" if order_item.admin_memo else memo_note
+
     return order_item_crud.extend_subscription(
         db=db, order_item=order_item, new_end_issue=new_end,
         extend_months=extend_months, update_paid=extend_in.is_paid,
@@ -416,14 +433,8 @@ def shorten_calculate(
             detail=f"단축 종료 호({shorten_end})는 현재 종료 호({current_end})보다 작아야 합니다.",
         )
 
-    if not order_item.paid_subscribe_end_issue:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="유료 구독 종료 호가 설정되지 않았습니다.",
-        )
-
     shorten_count = _count_issue_diff(shorten_end, current_end)
-    paid_period = _count_issue_diff(order_item.subscribe_start_issue, order_item.paid_subscribe_end_issue) + 1
+    paid_period = _count_issue_diff(order_item.subscribe_start_issue, order_item.final_subscribe_end_issue) + 1
     unit_price = int(order_item.sale_price / paid_period)
     refund_amount = int(shorten_count * unit_price * order_item.order_num)
 
@@ -492,11 +503,9 @@ def cancel_order_item(
         refund_amount = cancel_in.refund_amount
     elif order_item.product_kind == "MONTHLY":
         refund_amount = order_item.sale_price * order_item.order_num
-    elif order_item.product_kind == "YEARLY" and order_item.paid_subscribe_end_issue:
-        # YEARLY: paid_subscribe_end_issue 기준으로 잔여 환불 회차 계산
-        # - 무상 연장 회차는 paid_subscribe_end_issue에 반영 안 됨 → 자동 제외
-        # - 유료 연장 회차는 paid_subscribe_end_issue에 반영 됨 → 자동 포함
-        paid_end = order_item.paid_subscribe_end_issue
+    elif order_item.product_kind == "YEARLY":
+        # YEARLY: final_subscribe_end_issue 기준으로 잔여 환불 회차 계산
+        paid_end = order_item.final_subscribe_end_issue
         if order_item.last_send_issue:
             remaining = _count_issue_diff(order_item.last_send_issue, paid_end)
         else:

@@ -199,7 +199,6 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
             subscribe_end_issue=subscribe_end_issue,
             final_subscribe_start_issue=subscribe_start_issue,
             final_subscribe_end_issue=subscribe_end_issue,
-            paid_subscribe_end_issue=subscribe_end_issue,  # 생성 시 subscribe_end_issue와 동일
             subscribe_period=subscribe_period,
             admin_memo=item_in.admin_memo,
         )
@@ -296,12 +295,12 @@ def _calculate_item_refund(
 
     if delivered_count == 0:
         item_refund = item.sale_price * item.order_num
-        if item.product_kind == "YEARLY" and item.paid_subscribe_end_issue:
-            total_period = count_issue_diff(item.subscribe_start_issue, item.paid_subscribe_end_issue) + 1
+        if item.product_kind == "YEARLY":
+            total_period = count_issue_diff(item.subscribe_start_issue, item.final_subscribe_end_issue) + 1
             remaining = total_period
             unit_price = item.sale_price // total_period
-    elif item.product_kind == "YEARLY" and item.paid_subscribe_end_issue:
-        total_period = count_issue_diff(item.subscribe_start_issue, item.paid_subscribe_end_issue) + 1
+    elif item.product_kind == "YEARLY":
+        total_period = count_issue_diff(item.subscribe_start_issue, item.final_subscribe_end_issue) + 1
         remaining = total_period - delivered_count
         unit_price = item.sale_price // total_period
         if remaining > 0:

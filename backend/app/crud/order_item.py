@@ -80,7 +80,6 @@ def create_order_item(
         subscribe_end_issue=subscribe_end_issue,
         final_subscribe_start_issue=final_subscribe_start_issue,
         final_subscribe_end_issue=final_subscribe_end_issue,
-        paid_subscribe_end_issue=subscribe_end_issue,  # 생성 시 subscribe_end_issue와 동일
         subscribe_period=subscribe_period,
         admin_memo=admin_memo,
         external_order_item_id=external_order_item_id,
@@ -112,13 +111,11 @@ def extend_subscription(
     """구독 기간 연장
     - extend_months: subscribe_period에 더할 개월 수
     - update_paid=False: 무상 연장 — final_subscribe_end_issue만 변경
-    - update_paid=True:  유료 연장 — final + paid_subscribe_end_issue 둘 다 변경
+    - update_paid=True:  유료 연장 — final_subscribe_end_issue + subscribe_period 갱신
     """
     order_item.final_subscribe_end_issue = new_end_issue
     if extend_months > 0:
         order_item.subscribe_period += extend_months
-    if update_paid:
-        order_item.paid_subscribe_end_issue = new_end_issue
     db.commit()
     db.refresh(order_item)
     return order_item

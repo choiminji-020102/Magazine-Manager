@@ -46,6 +46,9 @@ export interface SubscriptionExtendRequest {
   extend_end_issue?: string | null;
   is_paid?: boolean;
   reason?: string | null;
+  paid_amount?: number | null;
+  refund_bank?: string | null;
+  refund_account?: string | null;
 }
 
 export interface SubscriptionBatchExtendRequest {
@@ -116,7 +119,6 @@ export interface OrderItemResponse {
   subscribe_end_issue: string;
   final_subscribe_start_issue: string;
   final_subscribe_end_issue: string;
-  paid_subscribe_end_issue: string;
   subscribe_period: number;
   last_send_issue?: string | null;
   admin_memo?: string | null;

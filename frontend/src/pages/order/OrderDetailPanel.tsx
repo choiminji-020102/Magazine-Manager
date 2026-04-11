@@ -1532,12 +1532,6 @@ function OrderItemCard({
               {formatIssue(item.final_subscribe_end_issue)}
               <span className="text-gray-400 ml-1">({item.subscribe_period}개월)</span>
             </div>
-            {item.paid_subscribe_end_issue && item.paid_subscribe_end_issue !== item.subscribe_end_issue && (
-              <>
-                <div className="text-gray-400">유료 연장 종료</div>
-                <div className="text-gray-700">{formatIssue(item.paid_subscribe_end_issue)}</div>
-              </>
-            )}
             {item.last_send_issue && (
               <>
                 <div className="text-gray-400">마지막 발송</div>

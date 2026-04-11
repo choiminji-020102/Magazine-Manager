@@ -69,8 +69,11 @@ class SubscriptionExtendRequest(BaseModel):
     """구독 기간 연장 - 단건"""
     extend_months: Optional[int] = None         # extend_end_issue와 둘 중 하나 필수
     extend_end_issue: Optional[str] = None      # YYYYMM, extend_months와 둘 중 하나 필수
-    is_paid: bool = False                       # True = 유료 연장 (paid_subscribe_end_issue도 갱신), False = 무상 연장
+    is_paid: bool = False                       # True = 유료 연장, False = 무상 연장
     reason: Optional[str] = None               # 연장 사유
+    paid_amount: Optional[int] = None          # 유료 연장 시 받은 금액
+    refund_bank: Optional[str] = None          # 유료 연장 시 입금 은행명
+    refund_account: Optional[str] = None       # 유료 연장 시 입금 계좌번호
 
     @model_validator(mode='after')
     def check_extend(self) -> 'SubscriptionExtendRequest':
@@ -168,7 +171,6 @@ class OrderItemResponse(BaseModel):
     subscribe_end_issue: str
     final_subscribe_start_issue: str
     final_subscribe_end_issue: str
-    paid_subscribe_end_issue: str
     subscribe_period: int
     last_send_issue: Optional[str] = None
     admin_memo: Optional[str] = None
