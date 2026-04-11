@@ -487,49 +487,36 @@ def cancel_item_calculate(
 ) -> OrderItemCancelCalculateResponse:
     """품목 취소 환불 계산 미리보기 (DB 변경 없음)"""
     order_status = order_item.order.order_status
-    subscribe_period = _count_issue_diff(
-        order_item.subscribe_start_issue, order_item.final_subscribe_end_issue
-    ) + 1
-    unit_price = order_item.sale_price // subscribe_period if subscribe_period > 0 else 0
 
-    if order_status == "ORDERED":
-        return OrderItemCancelCalculateResponse(
-            order_status=order_status,
-            product_kind=order_item.product_kind,
-            sale_price=order_item.sale_price,
-            order_num=order_item.order_num,
-            subscribe_period=subscribe_period,
-            delivered_count=0,
-            remaining_count=0,
-            unit_price=0,
-            refund_amount=0,
-        )
-
+    # 배송 후 차단
     delivered_count = _count_delivered_issues(db, order_item.order_item_id)
-
-    if order_item.product_kind == "MONTHLY":
-        refund_amount = order_item.sale_price * order_item.order_num
-        remaining_count = 1 if delivered_count == 0 else 0
-    elif order_item.product_kind == "YEARLY":
-        remaining_count = subscribe_period - delivered_count
-        if remaining_count > 0:
-            refund_amount = unit_price * remaining_count * order_item.order_num
+    if delivered_count > 0:
+        if order_item.product_kind == "YEARLY":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="배송이 시작된 YEARLY 상품은 품목 취소가 아닌 구독 단축으로 처리해주세요.",
+            )
         else:
-            refund_amount = 0
-            remaining_count = 0
-    else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="이미 배송이 시작된 상품은 취소할 수 없습니다.",
+            )
+
+    # 배송 전 → 전액 환불
+    if order_status == "ORDERED":
         refund_amount = 0
-        remaining_count = 0
+    else:
+        refund_amount = order_item.sale_price * order_item.order_num
 
     return OrderItemCancelCalculateResponse(
         order_status=order_status,
         product_kind=order_item.product_kind,
         sale_price=order_item.sale_price,
         order_num=order_item.order_num,
-        subscribe_period=subscribe_period,
-        delivered_count=delivered_count,
-        remaining_count=remaining_count,
-        unit_price=unit_price,
+        subscribe_period=order_item.subscribe_period,
+        delivered_count=0,
+        remaining_count=1 if order_item.product_kind == "MONTHLY" else order_item.subscribe_period,
+        unit_price=order_item.sale_price,
         refund_amount=refund_amount,
     )
 
@@ -539,41 +526,30 @@ def cancel_order_item(
     order_item: OrderItem,
     cancel_in: OrderItemCancelRequest,
 ) -> OrderItem:
-    """품목 취소 (MONTHLY 배송 후 차단, 환불액 자동 계산, PREPARING Send 취소)"""
+    """품목 취소 (배송 후 차단, 전액 환불, PREPARING Send 취소)"""
     send_items = _get_active_send_items(db, order_item.order_item_id)
 
-    # MONTHLY: SHIPPING/DELIVERED 존재 시 취소 불가
-    if order_item.product_kind == "MONTHLY":
-        blocking = [si for si in send_items if si.send.send_status in ("SHIPPING", "DELIVERED")]
-        if blocking:
+    # 배송 후 취소 불가 (MONTHLY/YEARLY 모두)
+    delivered_count = _count_delivered_issues(db, order_item.order_item_id)
+    if delivered_count > 0:
+        if order_item.product_kind == "YEARLY":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="이미 배송이 시작된 MONTHLY 상품은 취소할 수 없습니다.",
+                detail="배송이 시작된 YEARLY 상품은 품목 취소가 아닌 구독 단축으로 처리해주세요.",
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="이미 배송이 시작된 상품은 취소할 수 없습니다.",
             )
 
-    # 환불액 계산 (결제 전 취소: 돈을 받지 않았으므로 환불금 0)
+    # 환불액 계산 (배송 전이므로 항상 전액 환불)
     if order_item.order.order_status == "ORDERED":
         refund_amount = 0
     elif cancel_in.refund_amount is not None:
         refund_amount = cancel_in.refund_amount
-    elif order_item.product_kind == "MONTHLY":
-        refund_amount = order_item.sale_price * order_item.order_num
-    elif order_item.product_kind == "YEARLY":
-        # YEARLY: final_subscribe_end_issue 기준으로 잔여 환불 회차 계산
-        paid_end = order_item.final_subscribe_end_issue
-        if order_item.last_send_issue:
-            remaining = _count_issue_diff(order_item.last_send_issue, paid_end)
-        else:
-            remaining = _count_issue_diff(order_item.subscribe_start_issue, paid_end) + 1
-
-        contracted_months = _count_issue_diff(order_item.subscribe_start_issue, paid_end) + 1
-        if remaining > 0 and contracted_months > 0:
-            refund_per_issue = order_item.sale_price // contracted_months
-            refund_amount = refund_per_issue * remaining * order_item.order_num
-        else:
-            refund_amount = 0
     else:
-        refund_amount = 0
+        refund_amount = order_item.sale_price * order_item.order_num
 
     # PREPARING Send 취소
     now = now_kst()
