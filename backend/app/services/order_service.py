@@ -405,7 +405,8 @@ def recalculate_totals(db: Session, order: Order) -> Order:
 
     order.total_amount = total_amount
     order.refund_amount = refund_amount
-    order.payment_amount = total_amount - refund_amount + (order.send_fee or 0)
+    # payment_amount는 처음 결제한 금액 (고정) — 환불과 무관하게 유지
+    order.payment_amount = total_amount + (order.send_fee or 0)
     db.commit()
     db.refresh(order)
     return order
