@@ -49,7 +49,6 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
     if (!open) return;
 
     setCalcResult(null);
-    setRefundConfirmed(false);
     setError(null);
 
     if (absMonths <= 0) return;
