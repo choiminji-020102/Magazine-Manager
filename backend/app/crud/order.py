@@ -44,10 +44,7 @@ def list_orders(
     # ── 주문자 검색 (이름 또는 연락처 뒤 4자리) ─────────────────────────────────
     if customer_search:
         q = customer_search.strip()
-        is_digits = q.isdigit()
-        if is_digits and len(q) == 4:
-            query = query.filter(Customer.customer_phone_num4 == q)
-        elif is_digits:
+        if q.isdigit():
             query = query.filter(Customer.customer_phone.like(f"%{q}%"))
         else:
             query = query.filter(Customer.customer_name.like(f"%{q}%"))
@@ -55,8 +52,7 @@ def list_orders(
     # ── 수령인 검색 (이름 또는 연락처 뒤 4자리) ─────────────────────────────────
     if recipient_search:
         q = recipient_search.strip()
-        is_digits = q.isdigit()
-        if is_digits:
+        if q.isdigit():
             query = query.filter(Address.recipient_phone.like(f"%{q}%"))
         else:
             query = query.filter(Address.recipient_name.like(f"%{q}%"))
