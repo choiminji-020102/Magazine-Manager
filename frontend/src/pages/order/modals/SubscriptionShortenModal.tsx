@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+
 import { orderItemsApi } from "@/api/orderItemsApi";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
@@ -38,7 +38,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
     order_num: number;
     refund_amount: number;
   } | null>(null);
-  const [refundConfirmed, setRefundConfirmed] = useState(false);
+  const [refundAmount, setRefundAmount] = useState("");
   const [refundBank, setRefundBank] = useState("");
   const [refundAccount, setRefundAccount] = useState("");
 
@@ -62,7 +62,11 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
       orderItemsApi.shortenCalculate(item.order_item_id, {
         shorten_months: absMonths,
       }),
-    onSuccess: (res) => setCalcResult(res.data.data ?? null),
+    onSuccess: (res) => {
+      const data = res.data.data ?? null;
+      setCalcResult(data);
+      if (data) setRefundAmount(String(data.refund_amount));
+    },
     onError: () => setError("환불액 계산에 실패했습니다."),
   });
 
@@ -70,7 +74,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
     mutationFn: () =>
       orderItemsApi.shortenConfirm(item.order_item_id, {
         shorten_end_issue: calcResult!.shorten_end_issue,
-        refund_confirmed: true,
+        refund_amount: parseInt(refundAmount) || 0,
         ...(refundBank && refundAccount
           ? { refund_bank: refundBank, refund_account: refundAccount }
           : {}),
@@ -86,7 +90,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
   const handleClose = () => {
     setMonths("1");
     setCalcResult(null);
-    setRefundConfirmed(false);
+    setRefundAmount("");
     setRefundBank("");
     setRefundAccount("");
     setError(null);
@@ -137,34 +141,32 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
             {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
           </div>
 
-          {/* 단축 후 예상 + 환불 계산 내역 */}
+          {/* 환불 계산 (참고용) */}
           {calcResult && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs space-y-2">
-              <div className="border-t border-blue-200 pt-2 text-blue-700 space-y-1">
-                <div className="font-medium text-blue-800">환불 계산</div>
-                <div className="flex justify-between">
-                  <span>판매가 ÷ 구독기간</span>
-                  <span>{formatAmount(calcResult.sale_price)} ÷ {calcResult.paid_period}개월 = {formatAmount(calcResult.unit_price)}/월</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>회차당 단가 × 단축 회차{calcResult.order_num > 1 ? ` × 수량` : ""}</span>
-                  <span>{formatAmount(calcResult.unit_price)} × {calcResult.shorten_count}개월{calcResult.order_num > 1 ? ` × ${calcResult.order_num}` : ""}</span>
-                </div>
-                <div className="flex justify-between font-semibold text-blue-900 border-t border-blue-200 pt-1">
-                  <span>환불 금액</span>
-                  <span>{formatAmount(calcResult.refund_amount)}</span>
-                </div>
+            <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-500 space-y-1">
+              <div className="font-medium text-gray-600">환불 계산 (참고)</div>
+              <div className="flex justify-between">
+                <span>판매가 ÷ 구독기간</span>
+                <span>{formatAmount(calcResult.sale_price)} ÷ {calcResult.paid_period}개월 = {formatAmount(calcResult.unit_price)}/월</span>
               </div>
-              <div className="flex items-center gap-2 pt-1">
-                <Checkbox
-                  id="refund-confirm"
-                  checked={refundConfirmed}
-                  onCheckedChange={(v) => setRefundConfirmed(!!v)}
-                />
-                <label htmlFor="refund-confirm" className="text-xs text-blue-800 cursor-pointer">
-                  환불 금액을 확인했습니다
-                </label>
+              <div className="flex justify-between">
+                <span>단가 × {calcResult.shorten_count}개월{calcResult.order_num > 1 ? ` × ${calcResult.order_num}` : ""}</span>
+                <span>{formatAmount(calcResult.refund_amount)}</span>
               </div>
+            </div>
+          )}
+
+          {/* 환불 금액 (직접 입력) */}
+          {calcResult && (
+            <div>
+              <Label>환불 금액</Label>
+              <Input
+                type="number"
+                min={0}
+                className="mt-1"
+                value={refundAmount}
+                onChange={(e) => setRefundAmount(e.target.value)}
+              />
             </div>
           )}
 
@@ -195,7 +197,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
           <Button
             variant="destructive"
             onClick={() => confirmMutation.mutate()}
-            disabled={!calcResult || !refundConfirmed || confirmMutation.isPending}
+            disabled={!calcResult || !refundAmount || confirmMutation.isPending}
           >
             {absMonths > 0 ? `${absMonths}개월 단축 확정` : "단축 확정"}
           </Button>

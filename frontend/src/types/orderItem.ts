@@ -76,7 +76,7 @@ export interface SubscriptionShortenCalculateResponse {
 
 export interface SubscriptionShortenConfirmRequest {
   shorten_end_issue: string;
-  refund_confirmed: boolean;  // false면 저장 불가
+  refund_amount: number;            // 관리자가 입력한 환불 금액
   refund_bank?: string | null;
   refund_account?: string | null;
 }
