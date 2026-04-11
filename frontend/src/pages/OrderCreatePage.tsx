@@ -62,7 +62,6 @@ export default function OrderCreatePage() {
   const [channel, setChannel] = useState("OFFLINE");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentMethodError, setPaymentMethodError] = useState(false);
-  const [discountAmount, setDiscountAmount] = useState(0);
   const [sendFee, setSendFee] = useState(0);
   const [sendFeeManual, setSendFeeManual] = useState(false);
   const [adminMemo, setAdminMemo] = useState("");
@@ -175,7 +174,7 @@ export default function OrderCreatePage() {
     (sum, item) => sum + item.sale_price * item.order_num,
     0
   );
-  const paymentAmount = totalAmount - discountAmount + sendFee;
+  const paymentAmount = totalAmount + sendFee;
 
   const handleSubmit = () => {
     // 필수 필드 검증
@@ -197,7 +196,7 @@ export default function OrderCreatePage() {
       items: itemsPayload,
       order_channel: channel,
       payment_method: paymentMethod as PaymentMethod,
-      discount_amount: discountAmount,
+      discount_amount: 0,
       send_fee: sendFee,
       admin_memo: adminMemo || null,
       ...(isPaidOnCreate && {
@@ -717,20 +716,6 @@ export default function OrderCreatePage() {
               <div className="flex justify-between">
                 <span className="text-gray-500">상품금액</span>
                 <span>{formatAmount(totalAmount)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-500">할인금액</span>
-                <div className="flex items-center gap-1">
-                  <span>-</span>
-                  <Input
-                    type="number"
-                    min={0}
-                    className="w-24 h-6 text-xs"
-                    value={discountAmount || ""}
-                    onChange={(e) => setDiscountAmount(parseInt(e.target.value) || 0)}
-                  />
-                  <span className="text-xs">원</span>
-                </div>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-500">배송비</span>

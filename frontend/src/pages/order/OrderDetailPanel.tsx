@@ -74,7 +74,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
   const [editForm, setEditForm] = useState({
     order_channel: "" as string,
     payment_method: "" as string,
-    discount_amount: 0,
     refund_amount: 0,
     send_fee: 0,
     payment_at: "" as string,
@@ -116,7 +115,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       setEditForm({
         order_channel: order.order_channel ?? "",
         payment_method: order.payment_method ?? "",
-        discount_amount: order.discount_amount,
         refund_amount: order.refund_amount,
         send_fee: order.send_fee,
         payment_at: order.payment_at ? order.payment_at.slice(0, 16) : "",
@@ -155,7 +153,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       ordersApi.updateOrder(orderId, {
         order_channel: editForm.order_channel || undefined,
         payment_method: (editForm.payment_method || null) as PaymentMethod | null,
-        discount_amount: editForm.discount_amount,
         refund_amount: editForm.refund_amount,
         send_fee: editForm.send_fee,
         payment_at: editForm.payment_at || null,
@@ -496,21 +493,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             <Section title="금액">
               <InfoRow label="상품금액" value={formatAmount(order.total_amount)} />
               {editMode ? (
-                <EditRow label="할인금액">
-                  <Input
-                    type="number"
-                    min={0}
-                    className="h-7 text-xs flex-1"
-                    value={editForm.discount_amount}
-                    onChange={(e) => setEditForm((f) => ({ ...f, discount_amount: parseInt(e.target.value) || 0 }))}
-                  />
-                </EditRow>
-              ) : (
-                order.discount_amount > 0 && (
-                  <InfoRow label="할인금액" value={`-${formatAmount(order.discount_amount)}`} />
-                )
-              )}
-              {editMode ? (
                 <EditRow label="배송비">
                   <Input
                     type="number"
@@ -668,7 +650,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                     setEditForm({
                       order_channel: order.order_channel ?? "",
                       payment_method: order.payment_method ?? "",
-                      discount_amount: order.discount_amount,
                       refund_amount: order.refund_amount,
                       send_fee: order.send_fee,
                       payment_at: order.payment_at ? order.payment_at.slice(0, 16) : "",
@@ -1103,21 +1084,13 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                         )}
                       </div>
                     ))}
-                    {/* 배송비 / 할인 */}
-                    {(cancelCalcQuery.data.send_fee > 0 || cancelCalcQuery.data.discount_amount > 0) && (
-                      <div className="px-3 py-1.5 border-b border-gray-200 space-y-1">
-                        {cancelCalcQuery.data.send_fee > 0 && (
-                          <div className="flex justify-between text-gray-600">
-                            <span>배송비 환불</span>
-                            <span>+{formatAmount(cancelCalcQuery.data.send_fee)}</span>
-                          </div>
-                        )}
-                        {cancelCalcQuery.data.discount_amount > 0 && (
-                          <div className="flex justify-between text-gray-600">
-                            <span>할인 차감</span>
-                            <span className="text-red-500">-{formatAmount(cancelCalcQuery.data.discount_amount)}</span>
-                          </div>
-                        )}
+                    {/* 배송비 */}
+                    {cancelCalcQuery.data.send_fee > 0 && (
+                      <div className="px-3 py-1.5 border-b border-gray-200">
+                        <div className="flex justify-between text-gray-600">
+                          <span>배송비 환불</span>
+                          <span>+{formatAmount(cancelCalcQuery.data.send_fee)}</span>
+                        </div>
                       </div>
                     )}
                     {/* 합계 */}

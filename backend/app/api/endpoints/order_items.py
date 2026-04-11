@@ -418,6 +418,10 @@ def shorten_confirm(
 
     updated = order_item_service.shorten_confirm(db, order_item, confirm_in)
 
+    # 주문 총액 재계산
+    order = order_service.get_order_by_id(db, updated.order_id)
+    order_service.recalculate_totals(db, order)
+
     activity_log_service.create_log(
         db=db,
         action=ActivityAction.UPDATE,

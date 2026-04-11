@@ -184,7 +184,7 @@ async def import_orders(
                 items=order_items,
                 payment_method=_map_payment_method(payment_methods),
                 send_fee=_to_int(actual_amount.get("shipping_fee")),
-                discount_amount=_to_int(actual_amount.get("coupon_discount_price")),
+                discount_amount=0,
                 order_at=_parse_cafe24_datetime(c24_order.get("order_date")),
                 payment_at=_parse_cafe24_datetime(c24_order.get("payment_date")),
             )

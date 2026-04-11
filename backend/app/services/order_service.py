@@ -143,7 +143,7 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
         )
         send_fee = 3300 if has_monthly else 0
 
-    payment_amount = total_amount - order_in.discount_amount + send_fee
+    payment_amount = total_amount + send_fee
 
     # ── 6. 주문 생성 ──────────────────────────────────────────────────────────
     order = order_crud.create_order(
@@ -155,7 +155,7 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
         order_status=order_in.order_status,
         total_amount=total_amount,
         payment_amount=payment_amount,
-        discount_amount=order_in.discount_amount,
+        discount_amount=0,
         send_fee=send_fee,
         payment_method=order_in.payment_method,
         customer_memo=order_in.customer_memo,
@@ -339,15 +339,14 @@ def cancel_calculate(db: Session, order: Order) -> OrderCancelCalculateResponse:
     subtotal = sum(d.item_refund for d in item_details)
 
     send_fee = (order.send_fee or 0) if order.order_status != "ORDERED" else 0
-    discount = (order.discount_amount or 0) if order.order_status != "ORDERED" else 0
-    total_refund = max(subtotal + send_fee - discount, 0)
+    total_refund = subtotal + send_fee
 
     return OrderCancelCalculateResponse(
         order_status=order.order_status,
         items=item_details,
         subtotal=subtotal,
         send_fee=send_fee,
-        discount_amount=discount,
+        discount_amount=0,
         total_refund=total_refund,
         payment_amount=order.payment_amount,
     )
@@ -406,9 +405,7 @@ def recalculate_totals(db: Session, order: Order) -> Order:
 
     order.total_amount = total_amount
     order.refund_amount = refund_amount
-    order.payment_amount = (
-        total_amount - (order.discount_amount or 0) - refund_amount + (order.send_fee or 0)
-    )
+    order.payment_amount = total_amount - refund_amount + (order.send_fee or 0)
     db.commit()
     db.refresh(order)
     return order
