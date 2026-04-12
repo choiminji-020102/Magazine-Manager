@@ -35,6 +35,7 @@ import { ordersApi } from "@/api/ordersApi";
 import { orderItemsApi } from "@/api/orderItemsApi";
 import { sendsApi } from "@/api/sendsApi";
 import { productsApi } from "@/api/productsApi";
+import type { ProductResponse } from "@/types/product";
 import { toast } from "@/hooks/use-toast";
 import { formatAmount, formatDate, formatDateTime, formatPhone, formatPhoneInput, formatIssue } from "@/utils/format";
 import { getErrorMessage } from "@/utils/errorHandler";
@@ -307,7 +308,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
 
   // 품목 추가
   const [addItemOpen, setAddItemOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [selectedProduct, setSelectedProduct] = useState<ProductResponse | null>(null);
   const [addItemForm, setAddItemForm] = useState({
     order_num: 1,
     sale_price: "" as string | number,
@@ -1351,7 +1352,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                       {!productSearchLoading && productSearchRes?.items && productSearchRes.items.length === 0 && (
                         <div className="px-3 py-2 text-xs text-gray-400">검색 결과가 없습니다.</div>
                       )}
-                      {productSearchRes?.items?.map((p) => (
+                      {!productSearchLoading && productSearchRes?.items?.map((p) => (
                         <button
                           key={p.product_id}
                           className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 border-b border-gray-50 last:border-0"
@@ -1448,8 +1449,10 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             <Button variant="ghost" size="sm" onClick={() => {
               setAddItemOpen(false);
               setSelectedProduct(null);
+              setAddItemForm({ order_num: 1, sale_price: "", admin_memo: "" });
               setProductSearch("");
               setProductDropdownOpen(false);
+              setProductKindFilter("");
             }}>
               취소
             </Button>
