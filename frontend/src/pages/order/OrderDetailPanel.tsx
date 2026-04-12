@@ -334,6 +334,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     mutationFn: () => {
       if (!selectedProduct) throw new Error("상품을 선택해주세요.");
       const startIssue = extractIssueFromCode(selectedProduct.product_code);
+      if (!startIssue) throw new Error("상품 코드에서 시작 호를 추출할 수 없습니다.");
       return orderItemsApi.createOrderItem({
         order_id: orderId,
         address_id: order!.address_id,
