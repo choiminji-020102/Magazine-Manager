@@ -315,12 +315,28 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
   });
   const [productSearch, setProductSearch] = useState("");
   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
+  const [productKindFilter, setProductKindFilter] = useState<"" | "YEARLY" | "MONTHLY">("");
   const productSearchDebounced = useDebounce(productSearch, 300);
   const productDropdownRef = useRef<HTMLDivElement>(null);
 
-  const { data: productSearchRes } = useQuery({
-    queryKey: ["products-search", productSearchDebounced],
-    queryFn: () => productsApi.getProducts({ page: 1, limit: 10, search: productSearchDebounced || null }).then((r) => r.data),
+  // 외부 클릭 시 드롭다운 닫기
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (productDropdownRef.current && !productDropdownRef.current.contains(e.target as Node)) {
+        setProductDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const { data: productSearchRes, isLoading: productSearchLoading } = useQuery({
+    queryKey: ["products-search", productSearchDebounced, productKindFilter],
+    queryFn: () => productsApi.getProducts({
+      page: 1, limit: 15,
+      search: productSearchDebounced || null,
+      product_kind: productKindFilter || null,
+    }).then((r) => r.data),
     enabled: productDropdownOpen && productSearchDebounced.length >= 1,
   });
 
@@ -1280,6 +1296,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
           setAddItemForm({ order_num: 1, sale_price: "", admin_memo: "" });
           setProductSearch("");
           setProductDropdownOpen(false);
+          setProductKindFilter("");
         }
       }}>
         <DialogContent className="max-w-sm">
@@ -1287,49 +1304,77 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             <DialogTitle>품목 추가</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-1">
-            {/* 상품 검색 */}
-            <div>
-              <Label className="text-xs font-medium text-gray-600">
-                상품 선택 <span className="text-red-500 ml-0.5">*</span>
-              </Label>
-              <div className="relative mt-1" ref={productDropdownRef}>
-                <Input
-                  className="h-8 text-sm"
-                  placeholder="상품코드 또는 이름 검색"
-                  value={productSearch}
-                  onChange={(e) => {
-                    setProductSearch(e.target.value);
-                    setProductDropdownOpen(true);
-                  }}
-                  onFocus={() => setProductDropdownOpen(true)}
-                />
-                {productDropdownOpen && productSearchRes?.items && productSearchRes.items.length > 0 && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                    {productSearchRes.items.map((p) => (
-                      <button
-                        key={p.product_id}
-                        className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 border-b border-gray-50 last:border-0"
-                        onClick={() => {
-                          setSelectedProduct(p);
-                          setAddItemForm((f) => ({ ...f, sale_price: p.sale_price }));
-                          setProductSearch("");
-                          setProductDropdownOpen(false);
-                        }}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <StatusBadge type="product_kind" value={p.product_kind} />
-                          <span className="font-medium text-gray-900">{p.product_name}</span>
-                        </div>
-                        <div className="text-gray-400 mt-0.5">{p.product_code} · {formatAmount(p.sale_price)}</div>
-                      </button>
-                    ))}
-                  </div>
-                )}
+            {/* 상품 선택 */}
+            {!selectedProduct ? (
+              <div>
+                <Label className="text-xs font-medium text-gray-600">
+                  상품 선택 <span className="text-red-500 ml-0.5">*</span>
+                </Label>
+                {/* 종류 필터 */}
+                <div className="flex gap-1 mt-1 mb-1.5">
+                  {([
+                    { value: "", label: "전체" },
+                    { value: "YEARLY", label: "정기구독" },
+                    { value: "MONTHLY", label: "단품" },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      className={`px-2.5 py-1 rounded text-xs border transition-colors ${
+                        productKindFilter === opt.value
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"
+                      }`}
+                      onClick={() => { setProductKindFilter(opt.value); setProductSearch(""); }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {/* 검색 + 드롭다운 */}
+                <div className="relative" ref={productDropdownRef}>
+                  <Input
+                    className="h-8 text-sm"
+                    placeholder="상품코드 또는 이름 검색"
+                    value={productSearch}
+                    onChange={(e) => {
+                      setProductSearch(e.target.value);
+                      setProductDropdownOpen(true);
+                    }}
+                    onFocus={() => setProductDropdownOpen(true)}
+                  />
+                  {productDropdownOpen && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                      {productSearchLoading && (
+                        <div className="px-3 py-2 text-xs text-gray-400">검색 중...</div>
+                      )}
+                      {!productSearchLoading && productSearchRes?.items && productSearchRes.items.length === 0 && (
+                        <div className="px-3 py-2 text-xs text-gray-400">검색 결과가 없습니다.</div>
+                      )}
+                      {productSearchRes?.items?.map((p) => (
+                        <button
+                          key={p.product_id}
+                          className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 border-b border-gray-50 last:border-0"
+                          onClick={() => {
+                            setSelectedProduct(p);
+                            setAddItemForm((f) => ({ ...f, sale_price: p.sale_price }));
+                            setProductSearch("");
+                            setProductDropdownOpen(false);
+                          }}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <StatusBadge type="product_kind" value={p.product_kind} />
+                            <span className="font-medium text-gray-900">{p.product_name}</span>
+                          </div>
+                          <div className="text-gray-400 mt-0.5">{p.product_code} · {formatAmount(p.sale_price)}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-
-            {/* 선택된 상품 정보 */}
-            {selectedProduct && (
+            ) : (
+              /* 선택된 상품 정보 */
               <div className="border border-gray-200 rounded-lg p-3 text-xs space-y-1.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1337,8 +1382,8 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                     <span className="font-medium text-gray-900">{selectedProduct.product_name}</span>
                   </div>
                   <button
-                    className="text-gray-400 hover:text-red-500 text-xs"
-                    onClick={() => setSelectedProduct(null)}
+                    className="text-gray-400 hover:text-blue-600 text-xs hover:underline"
+                    onClick={() => { setSelectedProduct(null); setProductSearch(""); }}
                   >
                     변경
                   </button>
