@@ -457,6 +457,13 @@ def shorten_calculate(
             detail=f"단축 종료 호({shorten_end})는 현재 종료 호({current_end})보다 작아야 합니다.",
         )
 
+    # 이미 발송된 호보다 앞으로 단축 불가
+    if order_item.last_send_issue and shorten_end < order_item.last_send_issue:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"단축 종료 호({shorten_end})가 마지막 발송 호({order_item.last_send_issue})보다 앞설 수 없습니다.",
+        )
+
     shorten_count = _count_issue_diff(shorten_end, current_end)
     paid_period = _count_issue_diff(order_item.subscribe_start_issue, order_item.final_subscribe_end_issue) + 1
     unit_price = order_item.sale_price // paid_period if paid_period > 0 else 0

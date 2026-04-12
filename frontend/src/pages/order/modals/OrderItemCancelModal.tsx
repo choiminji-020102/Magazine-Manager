@@ -119,7 +119,7 @@ export function OrderItemCancelModal({ open, onClose, item, onSuccess }: Props) 
           )}
 
           <p className="text-xs text-gray-400">
-            ※ 배송이 시작된 상품은 취소할 수 없습니다.
+            ※ 발송이 시작된 상품은 취소할 수 없습니다.
           </p>
 
           {/* 환불 금액 (직접 입력) */}

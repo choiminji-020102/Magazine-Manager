@@ -157,15 +157,17 @@ export function PauseCreateModal({ open, onClose, item, onSuccess }: Props) {
             <div className="flex flex-wrap gap-1.5 mt-1.5">
               {generateIssueRange(item.final_subscribe_start_issue, item.final_subscribe_end_issue).map((issue) => {
                 const isExisting = activePauses.some((p) => p.pause_issue === issue);
+                const isSent = !!(item.last_send_issue && issue <= item.last_send_issue);
+                const isDisabled = isExisting || isSent;
                 const isSelected = selectedIssues.includes(issue);
                 return (
                   <button
                     key={issue}
                     type="button"
-                    disabled={isExisting}
+                    disabled={isDisabled}
                     onClick={() => toggleIssue(issue)}
                     className={`px-2.5 py-1 rounded text-xs border transition-colors ${
-                      isExisting
+                      isDisabled
                         ? "bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed line-through"
                         : isSelected
                         ? "bg-blue-600 text-white border-blue-600"

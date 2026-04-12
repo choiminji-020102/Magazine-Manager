@@ -1098,7 +1098,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             )}
 
             <p className="text-xs text-gray-400">
-              ※ 배송이 시작된 상품이 포함된 주문은 취소할 수 없습니다.
+              ※ 발송이 시작된 상품이 포함된 주문은 취소할 수 없습니다.
             </p>
 
             {/* 2. 환불 금액 */}
