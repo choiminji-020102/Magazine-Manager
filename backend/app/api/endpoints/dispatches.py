@@ -384,9 +384,6 @@ def _process_dispatch(
                 unit_height=float(send_product.unit_height) if send_product.unit_height is not None else None,
             )
 
-            # OrderItem.last_send_issue 업데이트
-            order_item_crud.update_last_send_issue(db=db, order_item=order_item, issue=req.issue)
-
             results.append(DispatchGenerateResult(
                 order_item_id=order_item_id,
                 success=True,

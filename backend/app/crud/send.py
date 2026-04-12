@@ -137,6 +137,17 @@ def update_send_status(
             send.tracking_no = tracking_no
         if courier_company:
             send.courier_company = courier_company
+        # SHIPPING 전환 시 연관 OrderItem.last_send_issue 업데이트
+        from app.models.order_item import OrderItem
+        send_items = db.query(SendItem).filter(
+            SendItem.send_id == send.send_id,
+            SendItem.cancelled_at.is_(None),
+        ).all()
+        for si in send_items:
+            order_item = db.query(OrderItem).filter(OrderItem.order_item_id == si.order_item_id).first()
+            if order_item and si.issue:
+                if not order_item.last_send_issue or si.issue > order_item.last_send_issue:
+                    order_item.last_send_issue = si.issue
     elif send_status == "DELIVERED":
         send.delivered_at = now
     elif send_status == "CANCELLED":
@@ -153,19 +164,30 @@ def update_tracking(
     tracking_no: str,
     courier_company: str,
 ) -> Send:
-    """운송장 정보 등록 → SHIPPING 전환"""
+    """운송장 정보 등록 → SHIPPING 전환 + last_send_issue 업데이트"""
+    from app.models.order_item import OrderItem
     send.tracking_no = tracking_no
     send.courier_company = courier_company
     send.send_status = "SHIPPING"
     send.shipped_at = now_kst()
+    # SHIPPING 전환 시 연관 OrderItem.last_send_issue 업데이트
+    send_items = db.query(SendItem).filter(
+        SendItem.send_id == send.send_id,
+        SendItem.cancelled_at.is_(None),
+    ).all()
+    for si in send_items:
+        order_item = db.query(OrderItem).filter(OrderItem.order_item_id == si.order_item_id).first()
+        if order_item and si.issue:
+            if not order_item.last_send_issue or si.issue > order_item.last_send_issue:
+                order_item.last_send_issue = si.issue
     db.commit()
     db.refresh(send)
     return send
 
 
 def cancel_send(db: Session, send: Send) -> Send:
-    """발송 취소 (연관 SendItem도 취소)"""
-    from app.models.send_item import SendItem
+    """발송 취소 (연관 SendItem도 취소 + OrderItem.last_send_issue 롤백)"""
+    from app.models.order_item import OrderItem
 
     now = now_kst()
     send.send_status = "CANCELLED"
@@ -176,8 +198,29 @@ def cancel_send(db: Session, send: Send) -> Send:
         .filter(SendItem.send_id == send.send_id, SendItem.cancelled_at.is_(None))
         .all()
     )
+
+    # 취소되는 SendItem의 order_item_id 수집
+    affected_order_item_ids = set()
     for item in items:
         item.cancelled_at = now
+        affected_order_item_ids.add(item.order_item_id)
+
+    # 각 OrderItem의 last_send_issue를 남은 SHIPPING/DELIVERED 발송 중 가장 큰 호로 롤백
+    for oi_id in affected_order_item_ids:
+        latest = (
+            db.query(SendItem.issue)
+            .join(Send, SendItem.send_id == Send.send_id)
+            .filter(
+                SendItem.order_item_id == oi_id,
+                SendItem.cancelled_at.is_(None),
+                Send.send_status.in_(["SHIPPING", "DELIVERED"]),
+            )
+            .order_by(SendItem.issue.desc())
+            .first()
+        )
+        order_item = db.query(OrderItem).filter(OrderItem.order_item_id == oi_id).first()
+        if order_item:
+            order_item.last_send_issue = latest[0] if latest else None
 
     db.commit()
     db.refresh(send)
