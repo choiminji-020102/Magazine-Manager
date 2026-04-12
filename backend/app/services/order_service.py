@@ -255,22 +255,21 @@ def _validate_cancellable(db: Session, order: Order, active_items: List[OrderIte
             detail="이미 취소된 주문입니다.",
         )
     for item in active_items:
-        if item.product_kind == "MONTHLY" and _has_blocking_send(db, item.order_item_id):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    f"MONTHLY 상품 '{item.product_name}'이(가) 배송 중이거나 배송 완료 상태입니다. "
-                    "배송 후 MONTHLY 상품은 취소할 수 없습니다."
-                ),
-            )
-        if item.product_kind == "YEARLY" and _count_delivered_issues(db, item.order_item_id) > 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    f"YEARLY 상품 '{item.product_name}'이(가) 이미 배송된 회차가 있습니다. "
-                    "배송 후 정기구독은 주문 취소가 아닌 구독 단축으로 처리해주세요."
-                ),
-            )
+        delivered = _count_delivered_issues(db, item.order_item_id)
+        if delivered > 0:
+            if item.product_kind == "YEARLY":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        f"YEARLY 상품 '{item.product_name}'이(가) 이미 배송된 회차가 있습니다. "
+                        "배송 후 정기구독은 주문 취소가 아닌 구독 단축으로 처리해주세요."
+                    ),
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"상품 '{item.product_name}'이(가) 배송 중이거나 배송 완료 상태입니다. 배송 후에는 취소할 수 없습니다.",
+                )
 
 
 def _calculate_item_refund(
@@ -298,11 +297,11 @@ def _calculate_item_refund(
         if item.product_kind == "YEARLY":
             total_period = count_issue_diff(item.subscribe_start_issue, item.final_subscribe_end_issue) + 1
             remaining = total_period
-            unit_price = item.sale_price // total_period
+            unit_price = item.sale_price // total_period if total_period > 0 else 0
     elif item.product_kind == "YEARLY":
         total_period = count_issue_diff(item.subscribe_start_issue, item.final_subscribe_end_issue) + 1
         remaining = total_period - delivered_count
-        unit_price = item.sale_price // total_period
+        unit_price = item.sale_price // total_period if total_period > 0 else 0
         if remaining > 0:
             item_refund = unit_price * remaining * item.order_num
         else:

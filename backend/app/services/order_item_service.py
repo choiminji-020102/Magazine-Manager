@@ -459,7 +459,7 @@ def shorten_calculate(
 
     shorten_count = _count_issue_diff(shorten_end, current_end)
     paid_period = _count_issue_diff(order_item.subscribe_start_issue, order_item.final_subscribe_end_issue) + 1
-    unit_price = order_item.sale_price // paid_period
+    unit_price = order_item.sale_price // paid_period if paid_period > 0 else 0
     refund_amount = shorten_count * unit_price * order_item.order_num
 
     return SubscriptionShortenCalculateResponse(
@@ -531,15 +531,21 @@ def cancel_item_calculate(
     else:
         refund_amount = order_item.sale_price * order_item.order_num
 
+    # 구독 기간 계산 (주문 취소/구독 단축과 동일한 공식)
+    subscribe_period = _count_issue_diff(
+        order_item.subscribe_start_issue, order_item.final_subscribe_end_issue
+    ) + 1
+    unit_price = order_item.sale_price // subscribe_period if subscribe_period > 0 else 0
+
     return OrderItemCancelCalculateResponse(
         order_status=order_status,
         product_kind=order_item.product_kind,
         sale_price=order_item.sale_price,
         order_num=order_item.order_num,
-        subscribe_period=order_item.subscribe_period,
+        subscribe_period=subscribe_period,
         delivered_count=0,
-        remaining_count=1 if order_item.product_kind == "MONTHLY" else order_item.subscribe_period,
-        unit_price=order_item.sale_price,
+        remaining_count=1 if order_item.product_kind == "MONTHLY" else subscribe_period,
+        unit_price=unit_price,
         refund_amount=refund_amount,
     )
 
