@@ -96,7 +96,7 @@ export function Sidebar() {
           {!collapsed ? (
             <span className="text-sm font-semibold text-gray-800">목자의 지혜</span>
           ) : (
-            <span className="text-sm font-semibold text-gray-800">M</span>
+            <span className="text-sm">📖</span>
           )}
         </a>
       </div>
