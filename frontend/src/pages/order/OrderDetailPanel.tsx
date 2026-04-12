@@ -307,10 +307,8 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
 
   // 품목 추가
   const [addItemOpen, setAddItemOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [addItemForm, setAddItemForm] = useState({
-    product_code: "",
-    subscribe_start_issue: "",
-    subscribe_period: 12,
     order_num: 1,
     sale_price: "" as string | number,
     admin_memo: "",
@@ -326,24 +324,34 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     enabled: productDropdownOpen && productSearchDebounced.length >= 1,
   });
 
+  // 상품 코드에서 시작 호 추출 (MW+202604 → 202604, KT-202607 → 202607)
+  const extractIssueFromCode = (code: string): string => {
+    const match = code.match(/[+-](\d{6})$/);
+    return match ? match[1] : "";
+  };
+
   const addItemMutation = useMutation({
-    mutationFn: () =>
-      orderItemsApi.createOrderItem({
+    mutationFn: () => {
+      if (!selectedProduct) throw new Error("상품을 선택해주세요.");
+      const startIssue = extractIssueFromCode(selectedProduct.product_code);
+      return orderItemsApi.createOrderItem({
         order_id: orderId,
         address_id: order!.address_id,
-        product_code: addItemForm.product_code,
+        product_code: selectedProduct.product_code,
         order_num: addItemForm.order_num,
         sale_price: addItemForm.sale_price !== "" ? Number(addItemForm.sale_price) : null,
-        subscribe_start_issue: addItemForm.subscribe_start_issue,
-        subscribe_period: addItemForm.subscribe_period,
+        subscribe_start_issue: startIssue,
+        subscribe_period: selectedProduct.product_kind === "YEARLY" ? 12 : 1,
         admin_memo: addItemForm.admin_memo || null,
-      }),
+      });
+    },
     onSuccess: () => {
       toast.success("품목이 추가되었습니다.");
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       setAddItemOpen(false);
-      setAddItemForm({ product_code: "", subscribe_start_issue: "", subscribe_period: 12, order_num: 1, sale_price: "", admin_memo: "" });
+      setSelectedProduct(null);
+      setAddItemForm({ order_num: 1, sale_price: "", admin_memo: "" });
       setProductSearch("");
     },
     onError: (err) => toast.error(getErrorMessage(err)),
@@ -1267,7 +1275,8 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       <Dialog open={addItemOpen} onOpenChange={(o) => {
         if (!o) {
           setAddItemOpen(false);
-          setAddItemForm({ product_code: "", subscribe_start_issue: "", subscribe_period: 12, order_num: 1, sale_price: "", admin_memo: "" });
+          setSelectedProduct(null);
+          setAddItemForm({ order_num: 1, sale_price: "", admin_memo: "" });
           setProductSearch("");
           setProductDropdownOpen(false);
         }
@@ -1280,113 +1289,119 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             {/* 상품 검색 */}
             <div>
               <Label className="text-xs font-medium text-gray-600">
-                상품 코드 <span className="text-red-500 ml-0.5">*</span>
+                상품 선택 <span className="text-red-500 ml-0.5">*</span>
               </Label>
               <div className="relative mt-1" ref={productDropdownRef}>
                 <Input
                   className="h-8 text-sm"
                   placeholder="상품코드 또는 이름 검색"
-                  value={productSearch || addItemForm.product_code}
+                  value={productSearch}
                   onChange={(e) => {
                     setProductSearch(e.target.value);
-                    setAddItemForm((f) => ({ ...f, product_code: e.target.value }));
                     setProductDropdownOpen(true);
                   }}
                   onFocus={() => setProductDropdownOpen(true)}
                 />
                 {productDropdownOpen && productSearchRes?.items && productSearchRes.items.length > 0 && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
                     {productSearchRes.items.map((p) => (
                       <button
                         key={p.product_id}
                         className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 border-b border-gray-50 last:border-0"
                         onClick={() => {
-                          setAddItemForm((f) => ({
-                            ...f,
-                            product_code: p.product_code,
-                            sale_price: p.sale_price,
-                          }));
+                          setSelectedProduct(p);
+                          setAddItemForm((f) => ({ ...f, sale_price: p.sale_price }));
                           setProductSearch("");
                           setProductDropdownOpen(false);
                         }}
                       >
-                        <div className="font-medium text-gray-900">{p.product_code}</div>
-                        <div className="text-gray-400">{p.product_name}</div>
+                        <div className="flex items-center gap-1.5">
+                          <StatusBadge type="product_kind" value={p.product_kind} />
+                          <span className="font-medium text-gray-900">{p.product_name}</span>
+                        </div>
+                        <div className="text-gray-400 mt-0.5">{p.product_code} · {formatAmount(p.sale_price)}</div>
                       </button>
                     ))}
                   </div>
                 )}
               </div>
-              {addItemForm.product_code && !productDropdownOpen && (
-                <p className="text-xs text-blue-600 mt-0.5">선택됨: {addItemForm.product_code}</p>
-              )}
             </div>
 
-            {/* 구독 시작 호 */}
-            <div>
-              <Label className="text-xs font-medium text-gray-600">
-                구독 시작 호 <span className="text-red-500 ml-0.5">*</span>
-              </Label>
-              <Input
-                className="mt-1 h-8 text-sm font-mono"
-                placeholder="YYYYMM (예: 202604)"
-                maxLength={6}
-                value={addItemForm.subscribe_start_issue}
-                onChange={(e) => setAddItemForm((f) => ({ ...f, subscribe_start_issue: e.target.value.replace(/\D/g, "") }))}
-              />
-            </div>
+            {/* 선택된 상품 정보 */}
+            {selectedProduct && (
+              <div className="border border-gray-200 rounded-lg p-3 text-xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <StatusBadge type="product_kind" value={selectedProduct.product_kind} />
+                    <span className="font-medium text-gray-900">{selectedProduct.product_name}</span>
+                  </div>
+                  <button
+                    className="text-gray-400 hover:text-red-500 text-xs"
+                    onClick={() => setSelectedProduct(null)}
+                  >
+                    변경
+                  </button>
+                </div>
+                <div className="text-gray-400 font-mono">{selectedProduct.product_code}</div>
+                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-100">
+                  <div>
+                    <span className="text-gray-400">구독 시작 호</span>
+                    <p className="font-medium text-gray-700">{formatIssue(extractIssueFromCode(selectedProduct.product_code))}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">구독 기간</span>
+                    <p className="font-medium text-gray-700">{selectedProduct.product_kind === "YEARLY" ? "12개월" : "1개월"}</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
-            {/* 구독 기간 */}
-            <div>
-              <Label className="text-xs font-medium text-gray-600">구독 기간 (개월)</Label>
-              <Input
-                className="mt-1 h-8 text-sm"
-                type="number"
-                min={1}
-                value={addItemForm.subscribe_period}
-                onChange={(e) => setAddItemForm((f) => ({ ...f, subscribe_period: parseInt(e.target.value) || 1 }))}
-              />
-            </div>
-
-            {/* 수량 */}
-            <div>
-              <Label className="text-xs font-medium text-gray-600">수량</Label>
-              <Input
-                className="mt-1 h-8 text-sm"
-                type="number"
-                min={1}
-                value={addItemForm.order_num}
-                onChange={(e) => setAddItemForm((f) => ({ ...f, order_num: parseInt(e.target.value) || 1 }))}
-              />
-            </div>
-
-            {/* 판매가 */}
-            <div>
-              <Label className="text-xs font-medium text-gray-600">판매가 (선택, 미입력 시 정가)</Label>
-              <Input
-                className="mt-1 h-8 text-sm"
-                type="number"
-                min={0}
-                placeholder="원 단위"
-                value={addItemForm.sale_price}
-                onChange={(e) => setAddItemForm((f) => ({ ...f, sale_price: e.target.value }))}
-              />
-            </div>
+            {/* 수량 + 판매가 */}
+            {selectedProduct && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-medium text-gray-600">수량</Label>
+                  <Input
+                    className="mt-1 h-8 text-sm"
+                    type="number"
+                    min={1}
+                    value={addItemForm.order_num}
+                    onChange={(e) => setAddItemForm((f) => ({ ...f, order_num: parseInt(e.target.value) || 1 }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-medium text-gray-600">판매가</Label>
+                  <div className="flex items-center gap-1 mt-1">
+                    <Input
+                      className="h-8 text-sm"
+                      type="number"
+                      min={0}
+                      value={addItemForm.sale_price}
+                      onChange={(e) => setAddItemForm((f) => ({ ...f, sale_price: e.target.value }))}
+                    />
+                    <span className="text-xs text-gray-500 flex-shrink-0">원</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* 관리자 메모 */}
-            <div>
-              <Label className="text-xs font-medium text-gray-600">관리자 메모</Label>
-              <Input
-                className="mt-1 h-8 text-sm"
-                placeholder="내부 메모 (선택)"
-                value={addItemForm.admin_memo}
-                onChange={(e) => setAddItemForm((f) => ({ ...f, admin_memo: e.target.value }))}
-              />
-            </div>
+            {selectedProduct && (
+              <div>
+                <Label className="text-xs font-medium text-gray-600">관리자 메모 <span className="text-gray-400 font-normal">(선택)</span></Label>
+                <Input
+                  className="mt-1 h-8 text-sm"
+                  placeholder="내부 메모"
+                  value={addItemForm.admin_memo}
+                  onChange={(e) => setAddItemForm((f) => ({ ...f, admin_memo: e.target.value }))}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="ghost" size="sm" onClick={() => {
               setAddItemOpen(false);
+              setSelectedProduct(null);
               setProductSearch("");
               setProductDropdownOpen(false);
             }}>
@@ -1395,7 +1410,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             <Button
               size="sm"
               onClick={() => addItemMutation.mutate()}
-              disabled={!addItemForm.product_code || addItemForm.subscribe_start_issue.length !== 6 || addItemMutation.isPending}
+              disabled={!selectedProduct || addItemMutation.isPending}
             >
               {addItemMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
               추가
