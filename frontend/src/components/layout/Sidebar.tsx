@@ -92,14 +92,13 @@ export function Sidebar() {
     >
       {/* 로고 */}
       <div className={cn("flex items-center h-14 border-b border-gray-200 px-3", !collapsed && "px-4")}>
-        {!collapsed && (
-          <span className="text-sm font-semibold text-gray-800 truncate">
-            목자의 지혜
-          </span>
-        )}
-        {collapsed && (
-          <span className="text-sm font-semibold text-gray-800">M</span>
-        )}
+        <a href="/" className="truncate">
+          {!collapsed ? (
+            <span className="text-sm font-semibold text-gray-800">목자의 지혜</span>
+          ) : (
+            <span className="text-sm font-semibold text-gray-800">M</span>
+          )}
+        </a>
       </div>
 
       {/* 네비게이션 */}
