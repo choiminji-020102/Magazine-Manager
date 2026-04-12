@@ -156,11 +156,16 @@ def update_send(db: Session, send: Send, send_in: SendUpdate) -> Send:
 
 
 def update_send_status(db: Session, send: Send, status_in: SendStatusUpdate) -> Send:
-    """발송 상태 변경"""
+    """발송 상태 변경 (취소는 cancel_send 사용)"""
     if send.send_status == "CANCELLED":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="이미 취소된 발송입니다.",
+        )
+    if status_in.send_status == "CANCELLED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="발송 취소는 /sends/{id}/cancel 엔드포인트를 사용해주세요.",
         )
     return send_crud.update_send_status(
         db=db,
