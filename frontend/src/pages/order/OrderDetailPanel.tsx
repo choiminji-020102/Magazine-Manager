@@ -1048,7 +1048,17 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
         title="주문 취소"
         description={
           <div className="space-y-3">
-            <p>이 주문을 취소합니다. 취소 후에는 되돌릴 수 없습니다.</p>
+            {/* 취소 상품 */}
+            {cancelCalcQuery.data && cancelCalcQuery.data.items.length > 0 && (
+              <div>
+                <span className="text-xs font-medium text-gray-600">취소 상품</span>
+                {cancelCalcQuery.data.items.map((item) => (
+                  <p key={item.order_item_id} className="text-sm text-gray-800 mt-1">
+                    · {item.product_name} ({item.order_num}개)
+                  </p>
+                ))}
+              </div>
+            )}
 
             {/* 1. 환불 계산 (참고) */}
             {cancelCalcQuery.data && (

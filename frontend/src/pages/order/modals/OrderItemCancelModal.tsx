@@ -79,9 +79,10 @@ export function OrderItemCancelModal({ open, onClose, item, onSuccess }: Props) 
       title="품목 취소"
       description={
         <div className="space-y-3">
-          <p>
-            <span className="font-medium">{item.product_name}</span> ({item.order_num}개) 품목을 취소합니다.
-          </p>
+          <div>
+            <span className="text-xs font-medium text-gray-600">취소 상품</span>
+            <p className="text-sm text-gray-800 mt-1">· {item.product_name} ({item.order_num}개)</p>
+          </div>
 
           {/* 환불 계산 (참고) */}
           {calc && (
