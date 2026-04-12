@@ -61,7 +61,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
   const queryClient = useQueryClient();
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [cancelMemo, setCancelMemo] = useState("");
-  const [cancelRefundManual, setCancelRefundManual] = useState(false);
   const [cancelRefundAmount, setCancelRefundAmount] = useState<string>("");
   const [cancelRefundBank, setCancelRefundBank] = useState("");
   const [cancelRefundAccount, setCancelRefundAccount] = useState("");
@@ -223,7 +222,9 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     queryKey: ["cancelCalculate", orderId],
     queryFn: async () => {
       const res = await ordersApi.cancelCalculate(orderId);
-      return res.data.data;
+      const data = res.data.data;
+      if (data) setCancelRefundAmount(String(data.total_refund));
+      return data;
     },
     enabled: cancelConfirm,
   });
@@ -232,7 +233,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     mutationFn: () =>
       ordersApi.cancelOrder(orderId, {
         admin_memo: cancelMemo,
-        ...(cancelRefundManual && cancelRefundAmount !== ""
+        ...(cancelRefundAmount !== ""
           ? { refund_amount: parseInt(cancelRefundAmount, 10) }
           : {}),
         ...(cancelRefundBank && cancelRefundAccount
@@ -245,7 +246,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       setCancelConfirm(false);
       setCancelMemo("");
-      setCancelRefundManual(false);
       setCancelRefundAmount("");
       setCancelRefundBank("");
       setCancelRefundAccount("");
@@ -1033,8 +1033,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
         onClose={() => {
           setCancelConfirm(false);
           setCancelMemo("");
-          setCancelRefundManual(false);
-          setCancelRefundAmount("");
+              setCancelRefundAmount("");
           setCancelRefundBank("");
           setCancelRefundAccount("");
           queryClient.removeQueries({ queryKey: ["cancelCalculate", orderId] });
@@ -1051,64 +1050,44 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
           <div className="space-y-3">
             <p>이 주문을 취소합니다. 취소 후에는 되돌릴 수 없습니다.</p>
 
-            {/* 1. 환불 계산 내역 — 테이블 형태 */}
+            {/* 1. 환불 계산 (참고) */}
             {cancelCalcQuery.data && (
-              <div className="bg-gray-50 rounded-md overflow-hidden text-xs">
-                <div className="px-3 py-2 font-medium text-gray-700 border-b border-gray-200">
-                  환불 계산 내역
-                </div>
+              <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-500 space-y-1">
+                <div className="font-medium text-gray-600">환불 계산 (참고)</div>
                 {cancelCalcQuery.data.order_status === "ORDERED" ? (
-                  <div className="px-3 py-3 text-gray-500">결제 전 주문이므로 환불금 없음</div>
+                  <p>결제 전 주문이므로 환불금 없음</p>
                 ) : (
                   <>
-                    {/* 품목 헤더 */}
-                    <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-1.5 text-gray-400 border-b border-gray-100">
-                      <span>품목</span>
-                      <span className="text-right w-8">수량</span>
-                      <span className="text-right w-20">환불금</span>
-                    </div>
-                    {/* 품목 목록 */}
                     {cancelCalcQuery.data.items.map((item) => (
-                      <div key={item.order_item_id} className="px-3 py-1.5 border-b border-gray-100">
-                        <div className="grid grid-cols-[1fr_auto_auto] gap-2 text-gray-700">
-                          <span className="truncate">{item.product_name}</span>
-                          <span className="text-right w-8">{item.order_num}</span>
-                          <span className="text-right w-20">{formatAmount(item.item_refund)}</span>
-                        </div>
-                        {item.product_kind === "YEARLY" && item.total_period != null && (
-                          <div className="text-gray-400 mt-0.5 pl-2 space-y-0.5">
-                            <p>└ {item.total_period}개월 중 {item.delivered_count}개월 배송, 잔여 {item.remaining_period}개월</p>
-                            {item.unit_price != null && item.delivered_count > 0 && (
-                              <p className="pl-3">
-                                {formatAmount(item.unit_price)}/월 × {item.remaining_period}개월{item.order_num > 1 ? ` × ${item.order_num}` : ""}
-                              </p>
-                            )}
+                      <div key={item.order_item_id} className="space-y-0.5">
+                        {item.product_kind === "MONTHLY" ? (
+                          <div className="flex justify-between">
+                            <span>{item.product_name} ({item.order_num}개)</span>
+                            <span>{formatAmount(item.item_refund)}</span>
                           </div>
-                        )}
-                        {item.product_kind === "MONTHLY" && item.delivered_count === 0 && (
-                          <p className="text-gray-400 mt-0.5 pl-2">└ 미배송 (전액 환불)</p>
+                        ) : (
+                          <>
+                            <div className="flex justify-between">
+                              <span>판매가 ÷ 구독기간</span>
+                              <span>{formatAmount(item.sale_price)} ÷ {item.total_period}개월 = {formatAmount(item.unit_price ?? 0)}/월</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>배송 {item.delivered_count}개월, 잔여 {item.remaining_period}개월</span>
+                              <span>{formatAmount(item.unit_price ?? 0)} × {item.remaining_period}개월{item.order_num > 1 ? ` × ${item.order_num}` : ""}</span>
+                            </div>
+                          </>
                         )}
                       </div>
                     ))}
-                    {/* 배송비 */}
                     {cancelCalcQuery.data.send_fee > 0 && (
-                      <div className="px-3 py-1.5 border-b border-gray-200">
-                        <div className="flex justify-between text-gray-600">
-                          <span>배송비 환불</span>
-                          <span>+{formatAmount(cancelCalcQuery.data.send_fee)}</span>
-                        </div>
+                      <div className="flex justify-between">
+                        <span>배송비 환불</span>
+                        <span>+{formatAmount(cancelCalcQuery.data.send_fee)}</span>
                       </div>
                     )}
-                    {/* 합계 */}
-                    <div className="px-3 py-2 space-y-1">
-                      <div className="flex justify-between font-medium text-gray-900">
-                        <span>예상 환불금</span>
-                        <span>{formatAmount(cancelCalcQuery.data.total_refund)}</span>
-                      </div>
-                      <div className="flex justify-between text-gray-400">
-                        <span>결제금</span>
-                        <span>{formatAmount(cancelCalcQuery.data.payment_amount)}</span>
-                      </div>
+                    <div className="flex justify-between font-medium text-gray-700 border-t border-gray-200 pt-1">
+                      <span>예상 환불금</span>
+                      <span>{formatAmount(cancelCalcQuery.data.total_refund)}</span>
                     </div>
                   </>
                 )}
@@ -1118,41 +1097,35 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
               <p className="text-xs text-gray-400">환불 계산 중...</p>
             )}
 
-            {/* 2. 환불금액 직접 입력 */}
-            <div className="border-t border-gray-200 pt-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-gray-600">환불금액</span>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="rounded border-gray-300"
-                    checked={cancelRefundManual}
-                    onChange={(e) => {
-                      setCancelRefundManual(e.target.checked);
-                      if (!e.target.checked) setCancelRefundAmount("");
-                    }}
-                  />
-                  <span className="text-xs text-gray-500">직접 입력</span>
-                </label>
-              </div>
-              {cancelRefundManual ? (
-                <div className="flex items-center gap-1.5 mt-1.5">
+            {/* 2. 환불 금액 */}
+            {cancelCalcQuery.data && cancelCalcQuery.data.order_status !== "ORDERED" && (
+              <div>
+                <span className="text-xs font-medium text-gray-600">환불 금액</span>
+                <div className="flex items-center gap-1.5 mt-1">
                   <Input
                     type="number"
                     min={0}
                     className="h-8 text-sm"
-                    placeholder="환불금액을 입력하세요"
                     value={cancelRefundAmount}
                     onChange={(e) => setCancelRefundAmount(e.target.value)}
                   />
                   <span className="text-sm text-gray-500 flex-shrink-0">원</span>
                 </div>
-              ) : (
-                <p className="text-xs text-gray-400 mt-1">위 계산 금액으로 자동 적용됩니다</p>
-              )}
+              </div>
+            )}
+
+            {/* 3. 취소 사유 */}
+            <div>
+              <span className="text-xs font-medium text-gray-600">취소 사유</span>
+              <textarea
+                className="w-full border border-gray-300 rounded-md p-2 text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
+                placeholder="취소 사유를 입력해주세요."
+                value={cancelMemo}
+                onChange={(e) => setCancelMemo(e.target.value)}
+              />
             </div>
 
-            {/* 3. 환불 계좌 */}
+            {/* 4. 환불 계좌 */}
             <div className="border-t border-gray-200 pt-3 space-y-2">
               <span className="text-xs font-medium text-gray-600">환불 계좌</span>
               <div className="flex gap-2">
@@ -1169,17 +1142,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                   onChange={(e) => setCancelRefundAccount(e.target.value)}
                 />
               </div>
-            </div>
-
-            {/* 4. 취소 사유 */}
-            <div className="border-t border-gray-200 pt-3 space-y-2">
-              <span className="text-xs font-medium text-gray-600">취소 사유</span>
-              <textarea
-                className="w-full border border-gray-300 rounded-md p-2 text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="취소 사유를 입력해주세요."
-                value={cancelMemo}
-                onChange={(e) => setCancelMemo(e.target.value)}
-              />
             </div>
           </div>
         }
