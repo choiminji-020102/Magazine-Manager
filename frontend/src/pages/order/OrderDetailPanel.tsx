@@ -1048,6 +1048,10 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
         title="주문 취소"
         description={
           <div className="space-y-3">
+            <p className="text-xs text-gray-400">
+              ※ 발송이 시작된 상품이 포함된 주문은 취소할 수 없습니다.
+            </p>
+
             {/* 취소 상품 */}
             {cancelCalcQuery.data && cancelCalcQuery.data.items.length > 0 && (
               <div>
@@ -1106,10 +1110,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             {cancelCalcQuery.isLoading && (
               <p className="text-xs text-gray-400">환불 계산 중...</p>
             )}
-
-            <p className="text-xs text-gray-400">
-              ※ 발송이 시작된 상품이 포함된 주문은 취소할 수 없습니다.
-            </p>
 
             {/* 2. 환불 금액 */}
             {cancelCalcQuery.data && cancelCalcQuery.data.order_status !== "ORDERED" && (

@@ -79,6 +79,10 @@ export function OrderItemCancelModal({ open, onClose, item, onSuccess }: Props) 
       title="품목 취소"
       description={
         <div className="space-y-3">
+          <p className="text-xs text-gray-400">
+            ※ 발송이 시작된 상품은 취소할 수 없습니다.
+          </p>
+
           <div>
             <span className="text-xs font-medium text-gray-600">취소 상품</span>
             <p className="text-sm text-gray-800 mt-1">· {item.product_name} ({item.order_num}개)</p>
@@ -118,10 +122,6 @@ export function OrderItemCancelModal({ open, onClose, item, onSuccess }: Props) 
           {calcQuery.isLoading && (
             <p className="text-xs text-gray-400">환불 계산 중...</p>
           )}
-
-          <p className="text-xs text-gray-400">
-            ※ 발송이 시작된 상품은 취소할 수 없습니다.
-          </p>
 
           {/* 환불 금액 (직접 입력) */}
           {calc && calc.order_status !== "ORDERED" && (
