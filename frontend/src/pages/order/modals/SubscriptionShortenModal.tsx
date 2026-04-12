@@ -44,6 +44,21 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
 
   const absMonths = Math.abs(parseInt(months) || 0);
 
+  // 최대 단축 가능 개월 계산 (발송 완료 호 이후만 단축 가능)
+  const calcMaxShorten = () => {
+    const endY = parseInt(item.final_subscribe_end_issue.slice(0, 4));
+    const endM = parseInt(item.final_subscribe_end_issue.slice(4, 6));
+    if (item.last_send_issue) {
+      const sentY = parseInt(item.last_send_issue.slice(0, 4));
+      const sentM = parseInt(item.last_send_issue.slice(4, 6));
+      return (endY - sentY) * 12 + (endM - sentM);
+    }
+    const startY = parseInt(item.subscribe_start_issue.slice(0, 4));
+    const startM = parseInt(item.subscribe_start_issue.slice(4, 6));
+    return (endY - startY) * 12 + (endM - startM);
+  };
+  const maxShorten = calcMaxShorten();
+
   // 모달 열릴 때 + 개월 수 변경 시 자동 계산
   useEffect(() => {
     if (!open) return;
@@ -128,11 +143,11 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
 
           {/* 단축 개월 수 */}
           <div>
-            <Label>단축 개월 수</Label>
+            <Label>단축 개월 수 <span className="text-xs text-gray-400 font-normal">(최대 {maxShorten}개월)</span></Label>
             <Input
               type="number"
               min={1}
-              max={24}
+              max={maxShorten}
               className="mt-1"
               value={months}
               onChange={(e) => setMonths(e.target.value)}
