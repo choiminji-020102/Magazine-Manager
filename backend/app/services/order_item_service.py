@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
 from app.core.utils import calculate_subscribe_end_issue, count_issue_diff, now_kst
-from app.services.order_service import _count_delivered_issues
 from app.crud import order_item as order_item_crud
 from app.models.address import Address
 from app.models.customer import Customer
@@ -69,6 +68,29 @@ def _get_active_send_items(db: Session, order_item_id: int) -> List[SendItem]:
             Send.cancelled_at.is_(None),
         )
         .all()
+    )
+
+
+def _count_delivered_issues(db: Session, order_item_id: int) -> int:
+    """해당 품목의 SHIPPING/DELIVERED 상태 발송 건수 반환"""
+    send_items = (
+        db.query(SendItem)
+        .filter(
+            SendItem.order_item_id == order_item_id,
+            SendItem.cancelled_at.is_(None),
+        )
+        .all()
+    )
+    if not send_items:
+        return 0
+    send_ids = [si.send_id for si in send_items]
+    return (
+        db.query(Send)
+        .filter(
+            Send.send_id.in_(send_ids),
+            Send.send_status.in_(["SHIPPING", "DELIVERED"]),
+        )
+        .count()
     )
 
 
