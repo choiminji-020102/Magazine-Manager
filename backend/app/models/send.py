@@ -11,7 +11,7 @@ class Send(Base):
     order_id = Column(BigInteger, ForeignKey("orders.order_id"), nullable=False, comment="연결된 주문 ID")
     address_id = Column(BigInteger, ForeignKey("addresses.address_id"), nullable=True, comment="배송지 ID (스냅샷 연결용)")
     
-    send_status = Column(Enum("PREPARING", "WAITING", "SHIPPING", "DELIVERED", "CANCELLED", name="send_status_enum"), nullable=False, server_default="PREPARING", comment="발송 상태")
+    send_status = Column(Enum("PREPARING", "SHIPPING", "DELIVERED", "CANCELLED", name="send_status_enum"), nullable=False, server_default="PREPARING", comment="발송 상태")
     courier_company = Column(Enum("CJ대한통운", "자체배송", name="courier_company_enum"), nullable=True, comment="택배사")
     
     tracking_no = Column(String(50), nullable=True, comment="운송장 번호")
