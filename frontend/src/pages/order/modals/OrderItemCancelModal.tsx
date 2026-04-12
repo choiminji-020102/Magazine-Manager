@@ -118,6 +118,10 @@ export function OrderItemCancelModal({ open, onClose, item, onSuccess }: Props) 
             <p className="text-xs text-gray-400">환불 계산 중...</p>
           )}
 
+          <p className="text-xs text-gray-400">
+            ※ 배송이 시작된 상품은 취소할 수 없습니다.
+          </p>
+
           {/* 환불 금액 (직접 입력) */}
           {calc && calc.order_status !== "ORDERED" && (
             <div>
@@ -134,10 +138,6 @@ export function OrderItemCancelModal({ open, onClose, item, onSuccess }: Props) 
               </div>
             </div>
           )}
-
-          <p className="text-xs text-gray-400">
-            ※ 배송 중이거나 배송 완료된 상품은 취소할 수 없습니다.
-          </p>
 
           {/* 취소 사유 */}
           <textarea

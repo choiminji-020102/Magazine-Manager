@@ -155,6 +155,10 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
             </div>
           )}
 
+          <p className="text-xs text-gray-400">
+            ※ 구독 단축 후에는 되돌릴 수 없습니다.
+          </p>
+
           {/* 환불 금액 (직접 입력) */}
           {calcResult && (
             <div>
