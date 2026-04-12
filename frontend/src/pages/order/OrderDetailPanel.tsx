@@ -337,7 +337,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       search: productSearchDebounced || null,
       product_kind: productKindFilter || null,
     }).then((r) => r.data),
-    enabled: productDropdownOpen && productSearchDebounced.length >= 1,
+    enabled: productDropdownOpen && (productSearchDebounced.length >= 1 || !!productKindFilter),
   });
 
   // 상품 코드에서 시작 호 추출 (MW+202604 → 202604, KT-202607 → 202607)
@@ -1325,7 +1325,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                           ? "bg-blue-600 text-white border-blue-600"
                           : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"
                       }`}
-                      onClick={() => { setProductKindFilter(opt.value); setProductSearch(""); }}
+                      onClick={() => setProductKindFilter(opt.value)}
                     >
                       {opt.label}
                     </button>
@@ -1343,7 +1343,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                     }}
                     onFocus={() => setProductDropdownOpen(true)}
                   />
-                  {productDropdownOpen && productSearchDebounced.length >= 1 && (
+                  {productDropdownOpen && (productSearchDebounced.length >= 1 || !!productKindFilter) && (
                     <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
                       {productSearchLoading && (
                         <div className="px-3 py-2 text-xs text-gray-400">검색 중...</div>
