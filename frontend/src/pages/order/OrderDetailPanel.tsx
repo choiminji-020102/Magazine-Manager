@@ -1343,7 +1343,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                     }}
                     onFocus={() => setProductDropdownOpen(true)}
                   />
-                  {productDropdownOpen && (
+                  {productDropdownOpen && productSearchDebounced.length >= 1 && (
                     <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
                       {productSearchLoading && (
                         <div className="px-3 py-2 text-xs text-gray-400">검색 중...</div>
