@@ -371,6 +371,8 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       setSelectedProduct(null);
       setAddItemForm({ order_num: 1, sale_price: "", admin_memo: "" });
       setProductSearch("");
+      setProductDropdownOpen(false);
+      setProductKindFilter("");
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });
