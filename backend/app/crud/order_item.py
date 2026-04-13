@@ -135,9 +135,9 @@ def change_period(
 def shorten_subscription(
     db: Session, order_item: OrderItem, shorten_end_issue: str, refund_amount: int
 ) -> OrderItem:
-    """구독 기간 단축 — final_subscribe_end_issue + refund_amount 업데이트"""
+    """구독 기간 단축 — final_subscribe_end_issue + refund_amount 누적"""
     order_item.final_subscribe_end_issue = shorten_end_issue
-    order_item.refund_amount = refund_amount
+    order_item.refund_amount = (order_item.refund_amount or 0) + refund_amount
     db.commit()
     db.refresh(order_item)
     return order_item
