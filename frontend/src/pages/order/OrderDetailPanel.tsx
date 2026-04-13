@@ -336,7 +336,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     queryFn: () => productsApi.getProducts({
       page: 1, limit: 15,
       search: productSearchDebounced || null,
-      product_kind: productKindFilter || null,
+      product_kind: (productKindFilter || null) as import("@/types/product").ProductKind | null,
     }).then((r) => r.data),
     enabled: productDropdownOpen && (productSearchDebounced.length >= 1 || !!productKindFilter),
   });
