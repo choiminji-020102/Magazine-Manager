@@ -149,9 +149,9 @@ def create_order_item(
     """독립 품목 추가 (이미 존재하는 주문에 품목 직접 추가)"""
     item = order_item_service.create_order_item(db, item_in)
 
-    # 주문 총액 재계산
+    # 주문 총액 재계산 (품목 추가 → 결제금 갱신)
     order = order_service.get_order_by_id(db, item.order_id)
-    order_service.recalculate_totals(db, order)
+    order_service.recalculate_totals(db, order, update_payment=True)
 
     activity_log_service.create_log(
         db=db,
@@ -192,9 +192,9 @@ def update_order_item(
     updated = order_item_service.update_order_item(db, order_item, item_in)
 
     # 금액/수량 관련 필드 변경 시 주문 총액 재계산
-    if any(f in before for f in ("sale_price", "order_num", "refund_amount")):
+    if any(f in before for f in ("sale_price", "order_num")):
         order = order_service.get_order_by_id(db, updated.order_id)
-        order_service.recalculate_totals(db, order)
+        order_service.recalculate_totals(db, order, update_payment=True)
 
     activity_log_service.create_log(
         db=db,

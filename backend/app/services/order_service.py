@@ -397,17 +397,19 @@ def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) 
     )
 
 
-def recalculate_totals(db: Session, order: Order) -> Order:
+def recalculate_totals(db: Session, order: Order, update_payment: bool = False) -> Order:
     """주문 총액 재계산 (품목 변경 후 호출)
-    - total_amount: 활성 품목 합계 (변동)
-    - refund_amount: 환불 합계 (변동)
-    - payment_amount: 처음 결제 금액 (고정, 건드리지 않음)
+    - total_amount: 활성 품목 합계 (항상 갱신)
+    - refund_amount: 환불 합계 (항상 갱신)
+    - payment_amount: update_payment=True일 때만 갱신 (품목 추가/수정 시)
     """
     items = order_crud.read_order_items_by_order_id(
         db=db, order_id=order.order_id, include_cancelled=False
     )
     order.total_amount = sum(item.sale_price * item.order_num for item in items)
     order.refund_amount = sum(item.refund_amount or 0 for item in items)
+    if update_payment:
+        order.payment_amount = order.total_amount + (order.send_fee or 0)
     db.commit()
     db.refresh(order)
     return order
