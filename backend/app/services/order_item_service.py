@@ -532,11 +532,13 @@ def cancel_item_calculate(
                 detail="이미 배송이 시작된 상품은 취소할 수 없습니다.",
             )
 
-    # 배송 전 → 전액 환불
+    # 배송 전 → 전액 환불 (이미 환불된 금액 차감)
+    already_refunded = order_item.refund_amount or 0
     if order_status == "ORDERED":
         refund_amount = 0
     else:
-        refund_amount = order_item.sale_price * order_item.order_num
+        full_refund = order_item.sale_price * order_item.order_num
+        refund_amount = full_refund - already_refunded
 
     # 구독 기간 계산 (주문 취소/구독 단축과 동일한 공식)
     subscribe_period = _count_issue_diff(
@@ -579,13 +581,15 @@ def cancel_order_item(
                 detail="이미 배송이 시작된 상품은 취소할 수 없습니다.",
             )
 
-    # 환불액 계산 (배송 전이므로 항상 전액 환불)
+    # 환불액 계산 (배송 전이므로 전액 환불 — 이미 환불된 금액 차감)
+    already_refunded = order_item.refund_amount or 0
     if order_item.order.order_status == "ORDERED":
         refund_amount = 0
     elif cancel_in.refund_amount is not None:
         refund_amount = cancel_in.refund_amount
     else:
-        refund_amount = order_item.sale_price * order_item.order_num
+        full_refund = order_item.sale_price * order_item.order_num
+        refund_amount = full_refund - already_refunded
 
     # PREPARING Send 취소
     now = now_kst()
@@ -606,7 +610,7 @@ def cancel_order_item(
     cancel_note = "\n".join(memo_lines)
     order_item.admin_memo = f"{order_item.admin_memo}\n---\n{cancel_note}" if order_item.admin_memo else cancel_note
 
-    order_item.refund_amount = refund_amount
+    order_item.refund_amount = already_refunded + refund_amount
 
     return order_item_crud.cancel_order_item(db=db, order_item=order_item)
 

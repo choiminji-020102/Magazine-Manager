@@ -292,8 +292,10 @@ def _calculate_item_refund(
     total_period = None
     unit_price = None
 
+    already_refunded = item.refund_amount or 0
+
     if delivered_count == 0:
-        item_refund = item.sale_price * item.order_num
+        item_refund = item.sale_price * item.order_num - already_refunded
         if item.product_kind == "YEARLY":
             total_period = count_issue_diff(item.subscribe_start_issue, item.final_subscribe_end_issue) + 1
             remaining = total_period
