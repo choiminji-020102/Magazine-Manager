@@ -15,7 +15,7 @@ export const ORDER_STATUS_COLOR: Record<string, string> = {
 // ── 발송 상태 ──────────────────────────────────────────────────────────────────
 
 export const SEND_STATUS_LABEL: Record<string, string> = {
-  PREPARING: "준비중",
+  PREPARING: "배송준비중",
   SHIPPING: "배송중",
   DELIVERED: "배송완료",
   CANCELLED: "취소",
@@ -47,6 +47,17 @@ export const CHANNEL_OPTIONS = [
   { value: "GPMALL", label: "갓피플몰" },
   { value: "OFFLINE", label: "오프라인" },
 ];
+
+// ── 상품 prefix ───────────────────────────────────────────────────────────────
+
+export const PRODUCT_PREFIX_LABEL: Record<string, string> = {
+  W0: "말씀함께 [기본판]",
+  WB: "말씀함께 [큰글자판]",
+  HN: "꿀땅 [미취학부]",
+  CL: "어린이 말씀함께 [저학년 1-3학년]",
+  CH: "어린이 말씀함께 [고학년 4-6학년]",
+  JN: "청소년 말씀함께",
+};
 
 // ── 상품 종류 ──────────────────────────────────────────────────────────────────
 
@@ -145,7 +156,7 @@ export const ACTIVITY_TARGET_LABEL: Record<string, string> = {
 // ── 택배사 ─────────────────────────────────────────────────────────────────────
 
 export const COURIER_LABEL: Record<string, string> = {
-  "CJ대한통운": "CJ대한통운",
+  CJ대한통운: "CJ대한통운",
   자체배송: "자체배송",
 };
 

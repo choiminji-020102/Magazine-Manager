@@ -57,6 +57,18 @@ def _count_active_pauses(db: Session, order_item_id: int) -> int:
     ).count()
 
 
+def recalculate_final_end_issue(db: Session, order_item: OrderItem) -> str:
+    """핵심 공식: final_end = f(final_start, subscribe_period, pause)"""
+    base_end = calculate_subscribe_end_issue(
+        order_item.final_subscribe_start_issue,
+        order_item.subscribe_period,
+    )
+    pause_count = _count_active_pauses(db, order_item.order_item_id)
+    if pause_count > 0:
+        return _add_months_to_issue(base_end, pause_count)
+    return base_end
+
+
 def _get_active_send_items(db: Session, order_item_id: int) -> List[SendItem]:
     """취소되지 않은 SendItem 목록"""
     return (
@@ -311,27 +323,13 @@ def extend_subscription(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="YEARLY 상품만 구독 기간 연장이 가능합니다.",
         )
-    if order_item.cancelled_at:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="취소된 주문 품목은 연장할 수 없습니다.",
-        )
 
-    current_end = order_item.final_subscribe_end_issue
+    # 1) subscribe_period 변경 → 공식으로 final_end 재계산
+    extend_months = extend_in.extend_months
+    order_item.subscribe_period += extend_months
+    order_item.final_subscribe_end_issue = recalculate_final_end_issue(db, order_item)
 
-    if extend_in.extend_months:
-        extend_months = extend_in.extend_months
-        new_end = _add_months_to_issue(current_end, extend_months)
-    else:
-        new_end = extend_in.extend_end_issue
-        if new_end <= current_end:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"연장 종료 호({new_end})는 현재 종료 호({current_end})보다 커야 합니다.",
-            )
-        extend_months = _count_issue_diff(current_end, new_end)
-
-    # admin_memo에 연장 기록
+    # 2) admin_memo에 연장 기록
     if extend_in.is_paid:
         memo_lines = [f"[유료 연장] {extend_months}개월"]
         if extend_in.paid_amount is not None:
@@ -348,40 +346,40 @@ def extend_subscription(
     memo_note = "\n".join(memo_lines)
     order_item.admin_memo = f"{order_item.admin_memo}\n---\n{memo_note}" if order_item.admin_memo else memo_note
 
-    return order_item_crud.extend_subscription(
-        db=db, order_item=order_item, new_end_issue=new_end,
-        extend_months=extend_months, update_paid=extend_in.is_paid,
-    )
+    # 3) 저장
+    db.commit()
+    db.refresh(order_item)
+    return order_item
 
 
 def batch_extend_subscription(
     db: Session,
     batch_in: SubscriptionBatchExtendRequest,
 ) -> SubscriptionBatchExtendResponse:
-    """구독 기간 연장 (다건 일괄)"""
+    """구독 기간 연장 (다건 일괄, 무상 연장만 지원)"""
     results: List[SubscriptionBatchExtendResultItem] = []
 
     for order_item_id in batch_in.order_item_ids:
         try:
-            order_item = order_item_crud.read_active_order_item_by_id(
-                db=db, order_item_id=order_item_id
-            )
+            order_item = get_active_order_item_by_id(db, order_item_id)
             if order_item.product_kind != "YEARLY":
                 raise ValueError("YEARLY 상품만 연장 가능합니다.")
 
+            # 1) subscribe_period 변경 → 공식으로 final_end 재계산
             prev_end = order_item.final_subscribe_end_issue
-            new_end = _add_months_to_issue(prev_end, batch_in.extend_months)
-            # 일괄 연장은 무상 연장만 지원
-            order_item_crud.extend_subscription(
-                db=db, order_item=order_item, new_end_issue=new_end,
-                extend_months=batch_in.extend_months, update_paid=False,
-            )
+            extend_months = batch_in.extend_months
+            order_item.subscribe_period += extend_months
+            order_item.final_subscribe_end_issue = recalculate_final_end_issue(db, order_item)
+
+            # 2) 저장
+            db.commit()
+            db.refresh(order_item)
 
             results.append(SubscriptionBatchExtendResultItem(
                 order_item_id=order_item_id,
                 success=True,
                 prev_end_issue=prev_end,
-                new_end_issue=new_end,
+                new_end_issue=order_item.final_subscribe_end_issue,
             ))
         except Exception as e:
             results.append(SubscriptionBatchExtendResultItem(
@@ -411,16 +409,13 @@ def change_period(
             detail="YEARLY 상품만 구독 기간 이동이 가능합니다.",
         )
 
-    new_start = change_in.new_start_issue
-    base_end = calculate_subscribe_end_issue(new_start, order_item.subscribe_period)
+    # final_subscribe_start_issue 변경 → 공식으로 final_end 재계산
+    order_item.final_subscribe_start_issue = change_in.new_start_issue
+    order_item.final_subscribe_end_issue = recalculate_final_end_issue(db, order_item)
 
-    # 활성 휴지 개수만큼 종료 호 연장
-    pause_count = _count_active_pauses(db, order_item.order_item_id)
-    new_end = _add_months_to_issue(base_end, pause_count) if pause_count > 0 else base_end
-
-    return order_item_crud.change_period(
-        db=db, order_item=order_item, new_start_issue=new_start, new_end_issue=new_end
-    )
+    db.commit()
+    db.refresh(order_item)
+    return order_item
 
 
 def _subtract_months_from_issue(issue: str, months: int) -> str:
@@ -439,17 +434,8 @@ def shorten_calculate(
 ) -> SubscriptionShortenCalculateResponse:
     """구독 기간 단축 — 환불액 계산 (DB 변경 없음)"""
     current_end = order_item.final_subscribe_end_issue
-
-    # shorten_months → shorten_end_issue 변환
-    if shorten_in.shorten_months and not shorten_in.shorten_end_issue:
-        shorten_end = _subtract_months_from_issue(current_end, shorten_in.shorten_months)
-    elif shorten_in.shorten_end_issue:
-        shorten_end = shorten_in.shorten_end_issue
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="shorten_end_issue 또는 shorten_months 중 하나가 필요합니다.",
-        )
+    shorten_months = shorten_in.shorten_months
+    shorten_end = _subtract_months_from_issue(current_end, shorten_months)
 
     if shorten_end >= current_end:
         raise HTTPException(
@@ -464,15 +450,14 @@ def shorten_calculate(
             detail=f"단축 종료 호({shorten_end})가 마지막 발송 호({order_item.last_send_issue})보다 앞설 수 없습니다.",
         )
 
-    shorten_count = _count_issue_diff(shorten_end, current_end)
-    paid_period = _count_issue_diff(order_item.subscribe_start_issue, order_item.final_subscribe_end_issue) + 1
+    paid_period = order_item.subscribe_period
     unit_price = order_item.sale_price // paid_period if paid_period > 0 else 0
-    refund_amount = shorten_count * unit_price * order_item.order_num
+    refund_amount = shorten_months * unit_price * order_item.order_num
 
     return SubscriptionShortenCalculateResponse(
         current_end_issue=current_end,
         shorten_end_issue=shorten_end,
-        shorten_count=shorten_count,
+        shorten_count=shorten_months,
         paid_period=paid_period,
         unit_price=unit_price,
         sale_price=order_item.sale_price,
@@ -488,26 +473,31 @@ def shorten_confirm(
 ) -> OrderItem:
     """구독 기간 단축 — 최종 확정 및 저장 (shorten_calculate로 검증)"""
     # shorten_calculate 재사용 (검증)
-    calc = shorten_calculate(order_item, SubscriptionShortenCalculateRequest(
-        shorten_end_issue=confirm_in.shorten_end_issue,
+    shorten_months = confirm_in.shorten_months
+    shorten_calculate(order_item, SubscriptionShortenCalculateRequest(
+        shorten_months=shorten_months,
     ))
 
-    # 관리자가 입력한 환불 금액 사용
+    # 1) subscribe_period 변경 → 공식으로 final_end 재계산
     refund_amount = confirm_in.refund_amount
 
-    # 환불 계좌 admin_memo에 기록
-    memo_lines = [f"[단축] {confirm_in.shorten_end_issue}까지, 환불: {refund_amount:,}원"]
+    order_item.subscribe_period -= shorten_months
+    order_item.final_subscribe_end_issue = recalculate_final_end_issue(db, order_item)
+    order_item.refund_amount = (order_item.refund_amount or 0) + refund_amount
+
+    # 2) admin_memo에 단축 기록
+    memo_lines = [f"[단축] {shorten_months}개월, 환불: {refund_amount:,}원"]
+    if confirm_in.reason:
+        memo_lines.append(f"사유: {confirm_in.reason}")
     if confirm_in.refund_bank and confirm_in.refund_account:
         memo_lines.append(f"[단축 환불계좌] {confirm_in.refund_bank} {confirm_in.refund_account}")
     shorten_note = "\n".join(memo_lines)
     order_item.admin_memo = f"{order_item.admin_memo}\n---\n{shorten_note}" if order_item.admin_memo else shorten_note
 
-    return order_item_crud.shorten_subscription(
-        db=db,
-        order_item=order_item,
-        shorten_end_issue=confirm_in.shorten_end_issue,
-        refund_amount=refund_amount,
-    )
+    # 3) 저장
+    db.commit()
+    db.refresh(order_item)
+    return order_item
 
 
 # ── 취소 ──────────────────────────────────────────────────────────────────────

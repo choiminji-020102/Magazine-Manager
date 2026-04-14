@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.core.deps import require_roles
 from app.models.admin import Admin
-from app.models.pause import Pause
 from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.schemas.common import PaginatedResponse, ResponseModel
 from app.schemas.order_item import (
@@ -187,12 +186,20 @@ def update_order_item(
 ):
     """품목 수정"""
     order_item = order_item_service.get_active_order_item_by_id(db, order_item_id)
-    before = item_in.model_dump(exclude_unset=True)
+    changed_fields = item_in.model_dump(exclude_unset=True)
+
+    # 이전 값 캡처
+    before_values = {}
+    after_values = {}
+    for field in ("order_num", "sale_price", "admin_memo"):
+        if field in changed_fields:
+            before_values[field] = getattr(order_item, field)
+            after_values[field] = changed_fields[field]
 
     updated = order_item_service.update_order_item(db, order_item, item_in)
 
     # 금액/수량 관련 필드 변경 시 주문 총액 재계산
-    if any(f in before for f in ("sale_price", "order_num")):
+    if any(f in changed_fields for f in ("sale_price", "order_num")):
         order = order_service.get_order_by_id(db, updated.order_id)
         order_service.recalculate_totals(db, order, update_payment=True)
 
@@ -206,7 +213,11 @@ def update_order_item(
         target_name=updated.product_name,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
-        details={"updated_fields": before},
+        details={
+            "action": "품목 수정",
+            "before": before_values if before_values else None,
+            "after": after_values if after_values else None,
+        },
     )
 
     return ResponseModel(
@@ -437,6 +448,7 @@ def shorten_confirm(
             "action": "구독 단축",
             "before": {"start": prev_start, "end": prev_end},
             "after": {"start": updated.final_subscribe_start_issue, "end": updated.final_subscribe_end_issue},
+            "reason": confirm_in.reason,
             "refund_amount": updated.refund_amount,
         },
     )

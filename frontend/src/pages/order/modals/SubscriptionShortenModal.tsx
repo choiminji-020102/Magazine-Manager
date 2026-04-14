@@ -38,6 +38,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
     order_num: number;
     refund_amount: number;
   } | null>(null);
+  const [reason, setReason] = useState("");
   const [refundAmount, setRefundAmount] = useState("");
   const [refundBank, setRefundBank] = useState("");
   const [refundAccount, setRefundAccount] = useState("");
@@ -87,8 +88,9 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
   const confirmMutation = useMutation({
     mutationFn: () =>
       orderItemsApi.shortenConfirm(item.order_item_id, {
-        shorten_end_issue: calcResult!.shorten_end_issue,
+        shorten_months: absMonths,
         refund_amount: parseInt(refundAmount) || 0,
+        ...(reason.trim() ? { reason: reason.trim() } : {}),
         ...(refundBank && refundAccount
           ? { refund_bank: refundBank, refund_account: refundAccount }
           : {}),
@@ -104,6 +106,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
   const handleClose = () => {
     setMonths("1");
     setCalcResult(null);
+    setReason("");
     setRefundAmount("");
     setRefundBank("");
     setRefundAccount("");
@@ -173,6 +176,19 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
           <p className="text-xs text-gray-400">
             ※ 구독 단축 후에는 되돌릴 수 없습니다.
           </p>
+
+          {/* 단축 사유 */}
+          {calcResult && (
+            <div>
+              <Label>사유 <span className="text-gray-400 font-normal">(선택)</span></Label>
+              <Input
+                className="mt-1"
+                placeholder="단축 사유"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </div>
+          )}
 
           {/* 환불 금액 (직접 입력) */}
           {calcResult && (

@@ -112,11 +112,3 @@ def soft_delete_pause(db: Session, pause: Pause) -> Pause:
     db.commit()
     db.refresh(pause)
     return pause
-
-
-def restore_pause(db: Session, pause: Pause) -> Pause:
-    pause.is_deleted = False
-    pause.deleted_at = None
-    db.commit()
-    db.refresh(pause)
-    return pause

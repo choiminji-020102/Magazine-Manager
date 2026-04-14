@@ -54,11 +54,6 @@ export const pausesApi = {
     return api.delete<ResponseModel<PauseResponse>>(`/pauses/${pauseId}`);
   },
 
-  // POST /pauses/{pause_id}/restore - 휴지 복구
-  restorePause: (pauseId: number) => {
-    return api.post<ResponseModel<PauseResponse>>(`/pauses/${pauseId}/restore`);
-  },
-
   // GET /pauses/by-issue/{issue} - 호수별 휴지 목록
   getPausesByIssue: (issue: string) => {
     return api.get<ResponseModel<PauseByIssueResponse[]>>(`/pauses/by-issue/${issue}`);

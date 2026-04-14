@@ -132,6 +132,21 @@ export function OrderItemCancelModal({ open, onClose, item, onSuccess }: Props) 
             <p className="text-xs text-gray-400">환불 계산 중...</p>
           )}
 
+          {/* 취소 사유 */}
+          <div>
+            <span className="text-xs font-medium text-gray-600">취소 사유</span>
+            <Input
+              className={`mt-1 ${memoError ? "border-red-500" : ""}`}
+              placeholder="취소 사유를 입력해주세요."
+              value={memo}
+              onChange={(e) => {
+                setMemo(e.target.value);
+                if (memoError) setMemoError(false);
+              }}
+            />
+            {memoError && <p className="text-xs text-red-500 mt-1">취소 사유를 입력해주세요.</p>}
+          </div>
+
           {/* 환불 금액 (직접 입력) */}
           {calc && calc.order_status !== "ORDERED" && (
             <div>
@@ -148,20 +163,6 @@ export function OrderItemCancelModal({ open, onClose, item, onSuccess }: Props) 
               </div>
             </div>
           )}
-
-          {/* 취소 사유 */}
-          <textarea
-            className={`w-full border rounded-md p-2 text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              memoError ? "border-red-500" : "border-gray-300"
-            }`}
-            placeholder="취소 사유를 입력해주세요."
-            value={memo}
-            onChange={(e) => {
-              setMemo(e.target.value);
-              if (memoError) setMemoError(false);
-            }}
-          />
-          {memoError && <p className="text-xs text-red-500">취소 사유를 입력해주세요.</p>}
 
           {/* 환불 계좌 */}
           <div className="border-t border-gray-200 pt-3 space-y-2">

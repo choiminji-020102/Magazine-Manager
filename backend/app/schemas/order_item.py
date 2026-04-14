@@ -78,19 +78,12 @@ class OrderItemLastSendIssueUpdate(BaseModel):
 
 class SubscriptionExtendRequest(BaseModel):
     """구독 기간 연장 - 단건"""
-    extend_months: Optional[int] = None         # extend_end_issue와 둘 중 하나 필수
-    extend_end_issue: Optional[str] = None      # YYYYMM, extend_months와 둘 중 하나 필수
+    extend_months: int = Field(..., ge=1)       # 추가할 개월 수 (필수, 예: 12→14개월이면 2 입력)
     is_paid: bool = False                       # True = 유료 연장, False = 무상 연장
     reason: Optional[str] = None               # 연장 사유
     paid_amount: Optional[int] = None          # 유료 연장 시 받은 금액
     refund_bank: Optional[str] = None          # 유료 연장 시 입금 은행명
     refund_account: Optional[str] = None       # 유료 연장 시 입금 계좌번호
-
-    @model_validator(mode='after')
-    def check_extend(self) -> 'SubscriptionExtendRequest':
-        if not self.extend_months and not self.extend_end_issue:
-            raise ValueError("extend_months 또는 extend_end_issue 중 하나가 필요합니다.")
-        return self
 
 
 class SubscriptionBatchExtendRequest(BaseModel):
@@ -121,10 +114,8 @@ class SubscriptionChangePeriodRequest(BaseModel):
 
 
 class SubscriptionShortenCalculateRequest(BaseModel):
-    """구독 기간 단축 - 환불액 미리 계산 (DB 변경 없음)
-    shorten_end_issue 또는 shorten_months 중 하나 필수"""
-    shorten_end_issue: Optional[str] = None     # 단축 종료 호 (YYYYMM)
-    shorten_months: Optional[int] = None        # 단축 개월 수
+    """구독 기간 단축 - 환불액 미리 계산 (DB 변경 없음)"""
+    shorten_months: int = Field(..., ge=1)      # 줄일 개월 수 (필수, 예: 12→10개월이면 2 입력)
 
 
 class SubscriptionShortenCalculateResponse(BaseModel):
@@ -140,8 +131,9 @@ class SubscriptionShortenCalculateResponse(BaseModel):
 
 class SubscriptionShortenConfirmRequest(BaseModel):
     """구독 기간 단축 - 최종 확인 및 저장"""
-    shorten_end_issue: str
+    shorten_months: int = Field(..., ge=1)      # 줄일 개월 수 (필수, 예: 12→10개월이면 2 입력)
     refund_amount: int                          # 관리자가 입력한 환불 금액
+    reason: Optional[str] = None               # 단축 사유
     refund_bank: Optional[str] = None           # 환불 은행명
     refund_account: Optional[str] = None        # 환불 계좌번호
 

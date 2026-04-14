@@ -34,6 +34,8 @@ import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { ordersApi } from "@/api/ordersApi";
 import { orderItemsApi } from "@/api/orderItemsApi";
 import { sendsApi } from "@/api/sendsApi";
+import { activityLogsApi } from "@/api/activityLogsApi";
+import { getLogDisplay } from "@/utils/activityLogDisplay";
 import { productsApi } from "@/api/productsApi";
 import type { ProductResponse } from "@/types/product";
 import { toast } from "@/hooks/use-toast";
@@ -1666,13 +1668,51 @@ function OrderItemCard({
         </div>
       )}
 
+      {/* 변경 이력 (활동 로그) */}
+      <OrderItemChangeLogs orderItemId={item.order_item_id} />
+
       {/* 관리자 메모 */}
       {item.admin_memo && (
         <div className="mt-2.5 pt-2.5 border-t border-gray-100">
-          <div className="text-xs text-gray-400">메모: <span className="text-gray-600">{item.admin_memo}</span></div>
+          <div className="text-xs font-medium text-gray-500 mb-1">관리자 메모</div>
+          <div className="text-xs text-gray-600 whitespace-pre-line">{item.admin_memo}</div>
         </div>
       )}
 
+    </div>
+  );
+}
+
+
+function OrderItemChangeLogs({ orderItemId }: { orderItemId: number }) {
+  const { data: logs = [] } = useQuery({
+    queryKey: ["order-item-change-logs", orderItemId],
+    queryFn: () =>
+      activityLogsApi
+        .getActivityLogs({
+          page: 1,
+          limit: 50,
+          target_type: "ORDER_ITEM",
+          target_id: orderItemId,
+        })
+        .then((r) => r.data.items ?? []),
+  });
+
+  if (logs.length === 0) return null;
+
+  return (
+    <div className="mt-2.5 pt-2.5 border-t border-gray-100 space-y-1">
+      <div className="text-xs font-medium text-gray-500 mb-1">변경 이력</div>
+      {logs.map((log) => {
+        const { label, color, summary } = getLogDisplay(log);
+        return (
+          <div key={log.log_id} className="text-xs text-gray-500 flex items-start gap-1.5">
+            <span className="text-gray-400 flex-shrink-0">{formatDate(log.created_at).slice(5)}</span>
+            <span className={`font-medium ${color}`}>{label}</span>
+            {summary && <span className="text-gray-400">{summary}</span>}
+          </div>
+        );
+      })}
     </div>
   );
 }

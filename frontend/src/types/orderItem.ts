@@ -52,8 +52,7 @@ export interface OrderItemCancelCalculateResponse {
 }
 
 export interface SubscriptionExtendRequest {
-  extend_months?: number | null;
-  extend_end_issue?: string | null;
+  extend_months: number;              // 추가할 개월 수 (필수)
   is_paid?: boolean;
   reason?: string | null;
   paid_amount?: number | null;
@@ -72,8 +71,7 @@ export interface SubscriptionChangePeriodRequest {
 }
 
 export interface SubscriptionShortenCalculateRequest {
-  shorten_end_issue?: string | null;  // 단축 종료 호 (YYYYMM)
-  shorten_months?: number | null;     // 단축 개월 수
+  shorten_months: number;             // 줄일 개월 수 (필수)
 }
 
 export interface SubscriptionShortenCalculateResponse {
@@ -88,8 +86,9 @@ export interface SubscriptionShortenCalculateResponse {
 }
 
 export interface SubscriptionShortenConfirmRequest {
-  shorten_end_issue: string;
+  shorten_months: number;           // 줄일 개월 수 (필수)
   refund_amount: number;            // 관리자가 입력한 환불 금액
+  reason?: string | null;           // 단축 사유
   refund_bank?: string | null;
   refund_account?: string | null;
 }

@@ -1,5 +1,5 @@
 # 표준 라이브러리
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 # 서드파티 라이브러리
 from fastapi import HTTPException, status
@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
 from app.core.utils import calculate_subscribe_end_issue
+from app.services.order_item_service import recalculate_final_end_issue
 from app.crud import pause as pause_crud
 from app.models.customer import Customer
 from app.models.order import Order
@@ -27,20 +28,6 @@ def _add_month(issue: str) -> str:
     """호(YYYYMM)에 1개월 추가"""
     return calculate_subscribe_end_issue(issue, 2)
 
-
-def _sub_month(issue: str) -> str:
-    """호(YYYYMM)에서 1개월 감소"""
-    y, m = int(issue[:4]), int(issue[4:6])
-    m -= 1
-    if m == 0:
-        m = 12
-        y -= 1
-    return f"{y}{m:02d}"
-
-
-def _add_months(issue: str, months: int) -> str:
-    """호(YYYYMM)에 N개월 추가"""
-    return calculate_subscribe_end_issue(issue, months + 1)
 
 
 def _validate_pause_issue(order_item: OrderItem, pause_issue: str) -> None:
@@ -153,8 +140,8 @@ def create_pause(
         reason=pause_in.reason,
     )
 
-    # final_subscribe_end_issue +1개월 (증분 방식)
-    order_item.final_subscribe_end_issue = _add_month(order_item.final_subscribe_end_issue)
+    # 공식으로 final_end 재계산
+    order_item.final_subscribe_end_issue = recalculate_final_end_issue(db, order_item)
     db.commit()
     db.refresh(pause)
     return pause
@@ -198,9 +185,9 @@ def batch_create_pause(
             reason=batch_in.reason,
         )
 
-    # final_subscribe_end_issue +N개월 (증분 방식)
+    # 공식으로 final_end 재계산
     n = len(batch_in.pause_issues)
-    order_item.final_subscribe_end_issue = _add_months(order_item.final_subscribe_end_issue, n)
+    order_item.final_subscribe_end_issue = recalculate_final_end_issue(db, order_item)
     db.commit()
 
     # 다음 발송 예정 호 계산 (last_send_issue 다음 호)
@@ -239,28 +226,7 @@ def delete_pause(db: Session, pause: Pause) -> Pause:
     result = pause_crud.soft_delete_pause(db=db, pause=pause)
 
     if order_item:
-        order_item.final_subscribe_end_issue = _sub_month(order_item.final_subscribe_end_issue)
-        db.commit()
-
-    return result
-
-
-def restore_pause(db: Session, pause: Pause) -> Pause:
-    """휴지 복구 + final_subscribe_end_issue +1개월"""
-    if not pause.is_deleted:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 활성 상태인 휴지입니다.",
-        )
-
-    order_item = db.query(OrderItem).filter(
-        OrderItem.order_item_id == pause.order_item_id
-    ).first()
-
-    result = pause_crud.restore_pause(db=db, pause=pause)
-
-    if order_item:
-        order_item.final_subscribe_end_issue = _add_month(order_item.final_subscribe_end_issue)
+        order_item.final_subscribe_end_issue = recalculate_final_end_issue(db, order_item)
         db.commit()
 
     return result
