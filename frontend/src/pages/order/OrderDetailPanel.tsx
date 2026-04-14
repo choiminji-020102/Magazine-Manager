@@ -1476,7 +1476,12 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       <SlidingPanel open={!!subscriptionItem} onClose={() => setSubscriptionItem(null)}>
         {subscriptionItem && (
           <SubscriptionDetailPanel
-            item={subscriptionItem as any}
+            item={{
+              ...subscriptionItem,
+              customer_name: order?.customer?.customer_name ?? null,
+              customer_phone: order?.customer?.customer_phone ?? null,
+              order_channel: order?.order_channel ?? null,
+            } as any}
             onClose={() => {
               setSubscriptionItem(null);
               invalidateOrder();
