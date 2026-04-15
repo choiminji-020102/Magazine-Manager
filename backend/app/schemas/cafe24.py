@@ -3,7 +3,6 @@ from typing import List, Optional
 from datetime import datetime
 
 class Cafe24OAuthStartRequest(BaseModel):
-    mall_id: str
     scopes: List[str] = Field(default_factory=list)
 
 class Cafe24TokenStatusResponse(BaseModel):

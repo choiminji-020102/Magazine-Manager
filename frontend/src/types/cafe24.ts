@@ -1,7 +1,6 @@
 // Cafe24 관련 타입
 
 export interface Cafe24OAuthStartRequest {
-  mall_id: string;
   scopes: string[];
 }
 

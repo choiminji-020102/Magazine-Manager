@@ -4,6 +4,7 @@ import logging
 
 # 서드파티 라이브러리
 from contextlib import asynccontextmanager
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -32,9 +33,12 @@ async def _auto_deliver_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Cafe24 OAuth용 httpx 클라이언트
+    app.state.http_client = httpx.AsyncClient(timeout=30.0)
     task = asyncio.create_task(_auto_deliver_loop())
     yield
     task.cancel()
+    await app.state.http_client.aclose()
 
 
 app = FastAPI(

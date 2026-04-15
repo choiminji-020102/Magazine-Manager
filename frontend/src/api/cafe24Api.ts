@@ -34,12 +34,12 @@ export const cafe24API = {
 
   /**
    * OAuth 상태 조회
-   * GET /cafe24/oauth/status/{mall_id}
+   * GET /cafe24/oauth/status
    */
-  getStatus: async (mallId: string): Promise<Cafe24TokenStatusResponse> => {
+  getStatus: async (): Promise<Cafe24TokenStatusResponse> => {
     try {
       const response = await api.get<Cafe24TokenStatusResponse>(
-        `/cafe24/oauth/status/${encodeURIComponent(mallId)}`
+        "/cafe24/oauth/status"
       );
       return response.data;
     } catch (err) {
@@ -50,14 +50,12 @@ export const cafe24API = {
 
   /**
    * OAuth 토큰 갱신
-   * POST /cafe24/oauth/refresh/{mall_id}
+   * POST /cafe24/oauth/refresh
    */
-  refreshToken: async (
-    mallId: string
-  ): Promise<Cafe24TokenStatusResponse> => {
+  refreshToken: async (): Promise<Cafe24TokenStatusResponse> => {
     try {
       const response = await api.post<Cafe24TokenStatusResponse>(
-        `/cafe24/oauth/refresh/${encodeURIComponent(mallId)}`
+        "/cafe24/oauth/refresh"
       );
       return response.data;
     } catch (err) {
