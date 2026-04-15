@@ -32,3 +32,19 @@ export interface Cafe24Product {
 export interface Cafe24ProductsResponse {
   products: Cafe24Product[];
 }
+
+export interface Cafe24Order {
+  order_id: string;
+  billing_name: string;
+  payment_method_name: string[];
+  payment_amount: string;
+  paid: string;
+  canceled: string;
+  order_date: string;
+  payment_date: string | null;
+  [key: string]: any;
+}
+
+export interface Cafe24OrdersResponse {
+  orders: Cafe24Order[];
+}

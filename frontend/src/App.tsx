@@ -16,6 +16,7 @@ import ActivityLogPage from "@/pages/ActivityLogPage";
 import SettingsPage from "@/pages/SettingsPage";
 import SubscriptionListPage from "@/pages/SubscriptionListPage";
 import Cafe24ProductListPage from "@/pages/Cafe24ProductListPage";
+import Cafe24OrderListPage from "@/pages/Cafe24OrderListPage";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -61,6 +62,7 @@ export default function App() {
           <Route path="/admins" element={<AdminListPage />} />
           <Route path="/activity-logs" element={<ActivityLogPage />} />
           <Route path="/cafe24/products" element={<Cafe24ProductListPage />} />
+          <Route path="/cafe24/orders" element={<Cafe24OrderListPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
 

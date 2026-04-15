@@ -55,6 +55,7 @@ const navigation: NavGroup[] = [
     group: "Cafe24",
     items: [
       { label: "Cafe24 상품", path: "/cafe24/products", icon: Store },
+      { label: "Cafe24 주문", path: "/cafe24/orders", icon: ShoppingCart },
     ],
   },
   {
