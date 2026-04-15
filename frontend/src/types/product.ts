@@ -20,6 +20,7 @@ export interface ProductCreate {
   product_code: string;
   product_kind: ProductKind;
   product_name: string;
+  external_product_code_cafe24?: string | null;
   external_product_code_gpmall?: string | null;
   list_price: number;
   sale_price: number;
@@ -37,6 +38,7 @@ export interface ProductUpdate {
   product_code?: string | null;
   product_kind?: ProductKind | null;
   product_name?: string | null;
+  external_product_code_cafe24?: string | null;
   external_product_code_gpmall?: string | null;
   list_price?: number | null;
   sale_price?: number | null;
@@ -59,6 +61,7 @@ export interface ProductResponse {
   product_code: string;
   product_kind: ProductKind;
   product_name: string;
+  external_product_code_cafe24?: string | null;
   external_product_code_gpmall?: string | null;
   list_price: number;
   sale_price: number;

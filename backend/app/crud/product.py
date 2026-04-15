@@ -64,6 +64,8 @@ def read_product_by_code(db: Session, product_code: str) -> Optional[Product]:
 
 
 def read_product_by_external_code(db: Session, code: str, channel: str) -> Optional[Product]:
+    if channel == "CAFE24":
+        return db.query(Product).filter(Product.external_product_code_cafe24 == code).first()
     if channel == "GPMALL":
         return db.query(Product).filter(Product.external_product_code_gpmall == code).first()
     return None
