@@ -16,21 +16,49 @@ export interface Cafe24Product {
   product_no: number;
   product_code: string;
   product_name: string;
-  price_excluding_tax: string;
   price: string;
   retail_price: string;
-  supply_price: string;
-  display: string;
   selling: string;
   list_image: string;
   product_weight: string;
   created_date: string;
   updated_date: string;
-  [key: string]: any;
 }
 
 export interface Cafe24ProductsResponse {
   products: Cafe24Product[];
+}
+
+// Cafe24 상품 → DB 저장 관련 타입
+
+export interface Cafe24ProductImportItem {
+  cafe24_product_code: string;
+  product_code: string;
+  product_kind: "YEARLY" | "MONTHLY";
+  product_name: string;
+  list_price: number;
+  sale_price: number;
+  cost_price: number;
+  stock_quantity: number;
+  unit_weight?: number | null;
+}
+
+export interface Cafe24ProductImportRequest {
+  items: Cafe24ProductImportItem[];
+}
+
+export interface Cafe24ProductImportResultItem {
+  cafe24_product_code: string;
+  product_code: string;
+  status: "created" | "skipped" | "failed";
+  message?: string | null;
+}
+
+export interface Cafe24ProductImportResponse {
+  created_count: number;
+  skipped_count: number;
+  failed_count: number;
+  results: Cafe24ProductImportResultItem[];
 }
 
 export interface Cafe24Order {

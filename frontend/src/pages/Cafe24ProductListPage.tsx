@@ -1,8 +1,12 @@
+import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Download } from "lucide-react";
 import { cafe24API } from "@/api/cafe24Api";
 import { DataTable, ColumnDef } from "@/components/common/DataTable";
 import { PageHeader } from "@/components/common/PageHeader";
+import { Button } from "@/components/ui/button";
 import type { Cafe24Product } from "@/types/cafe24";
+import Cafe24ProductImportModal from "./Cafe24ProductImportModal";
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -33,7 +37,7 @@ const columns: ColumnDef<Cafe24Product>[] = [
   },
   {
     key: "product_code",
-    header: "상품코드",
+    header: "카페24 상품코드",
     cell: (row) => <span className="text-xs font-mono text-gray-500">{row.product_code}</span>,
     width: "w-28",
   },
@@ -45,38 +49,16 @@ const columns: ColumnDef<Cafe24Product>[] = [
     ),
   },
   {
-    key: "price_excluding_tax",
-    header: "상품가(세금 제외)",
-    cell: (row) => <span className="text-[13px]">{formatCafe24Price(row.price_excluding_tax)}</span>,
-    width: "w-32",
-  },
-  {
-    key: "price",
-    header: "상품 판매가",
-    cell: (row) => <span className="text-[13px] font-medium">{formatCafe24Price(row.price)}</span>,
-    width: "w-28",
-  },
-  {
     key: "retail_price",
     header: "상품 소비자가",
     cell: (row) => <span className="text-[13px]">{formatCafe24Price(row.retail_price)}</span>,
     width: "w-28",
   },
   {
-    key: "supply_price",
-    header: "상품 공급가",
-    cell: (row) => <span className="text-[13px]">{formatCafe24Price(row.supply_price)}</span>,
+    key: "price",
+    header: "상품 판매가",
+    cell: (row) => <span className="text-[13px] font-medium">{formatCafe24Price(row.price)}</span>,
     width: "w-28",
-  },
-  {
-    key: "display",
-    header: "진열상태",
-    cell: (row) => (
-      <span className={`text-xs font-medium ${row.display === "T" ? "text-green-600" : "text-gray-400"}`}>
-        {row.display === "T" ? "진열함" : "진열안함"}
-      </span>
-    ),
-    width: "w-20",
   },
   {
     key: "selling",
@@ -109,6 +91,9 @@ const columns: ColumnDef<Cafe24Product>[] = [
 ];
 
 export default function Cafe24ProductListPage() {
+  const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
+  const [importOpen, setImportOpen] = useState(false);
+
   const { data, isLoading } = useQuery({
     queryKey: ["cafe24-products"],
     queryFn: () => cafe24API.getProducts(),
@@ -116,10 +101,33 @@ export default function Cafe24ProductListPage() {
 
   const products = data?.products ?? [];
 
+  const selectedProducts = products.filter((p) => selectedIds.has(p.product_no));
+
+  const handleImportOpen = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    setImportOpen(true);
+  }, [selectedIds]);
+
+  const handleImportClose = useCallback(() => {
+    setImportOpen(false);
+    setSelectedIds(new Set());
+  }, []);
+
   return (
     <div className="flex-1 min-h-0 flex flex-col">
       <PageHeader
         left={<span className="text-sm text-gray-500">총 {products.length}개</span>}
+        actions={
+          <Button
+            size="sm"
+            onClick={handleImportOpen}
+            disabled={selectedIds.size === 0}
+            className="gap-1"
+          >
+            <Download className="h-3.5 w-3.5" />
+            상품 등록 ({selectedIds.size})
+          </Button>
+        }
       />
 
       <div className="flex-1 min-h-0 overflow-auto">
@@ -129,8 +137,16 @@ export default function Cafe24ProductListPage() {
           getRowId={(row) => row.product_no}
           isLoading={isLoading}
           emptyMessage="Cafe24 상품이 없습니다."
+          selectedIds={selectedIds}
+          onSelectionChange={setSelectedIds}
         />
       </div>
+
+      <Cafe24ProductImportModal
+        open={importOpen}
+        onClose={handleImportClose}
+        selectedProducts={selectedProducts}
+      />
     </div>
   );
 }
