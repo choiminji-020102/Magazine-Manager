@@ -2,9 +2,6 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
 
-class Cafe24OAuthStartRequest(BaseModel):
-    scopes: List[str] = Field(default_factory=list)
-
 class Cafe24TokenStatusResponse(BaseModel):
     authorized: bool
     expires_at: Optional[datetime] = None

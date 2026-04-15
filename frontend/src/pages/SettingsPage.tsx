@@ -10,12 +10,6 @@ import { cafe24API } from "@/api/cafe24Api";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
 
-const CAFE24_SCOPES = [
-  "mall.read_order",
-  "mall.read_product",
-  "mall.read_store",
-];
-
 export default function SettingsPage() {
   const { currentAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -188,9 +182,7 @@ function Cafe24Settings() {
   const handleConnect = async () => {
     setConnecting(true);
     try {
-      const res = await cafe24API.startOAuth({
-        scopes: CAFE24_SCOPES,
-      });
+      const res = await cafe24API.startOAuth();
       window.location.href = res.authorize_url;
     } catch (err) {
       setConnecting(false);

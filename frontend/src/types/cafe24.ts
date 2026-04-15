@@ -1,9 +1,5 @@
 // Cafe24 관련 타입
 
-export interface Cafe24OAuthStartRequest {
-  scopes: string[];
-}
-
 export interface Cafe24OAuthStartResponse {
   authorize_url: string;
 }

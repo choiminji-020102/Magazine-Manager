@@ -26,6 +26,17 @@ STATE_TTL_MINUTES = 10
 STATE_SALT = "cafe24-oauth-state"
 
 MALL_ID = settings.CAFE24_MALL_ID
+CAFE24_SCOPES = [
+    "mall.read_product",
+    "mall.write_product",
+    "mall.read_order",
+    "mall.write_order",
+    "mall.read_customer",
+    "mall.write_customer",
+    "mall.read_salesreport",
+    "mall.read_shipping",
+    "mall.write_shipping",
+]
 
 
 def _get_state_signer() -> URLSafeSerializer:
@@ -117,7 +128,6 @@ async def _reissue_access_token(
 
 @router.post("/start")
 def oauth_start(
-    start_in: cafe24_schema.Cafe24OAuthStartRequest,
     _=Depends(require_admin),
 ):
     signed_state = _sign_state(
@@ -126,7 +136,7 @@ def oauth_start(
 
     authorize_url = _build_authorize_url(
         state=signed_state,
-        scopes=start_in.scopes,
+        scopes=CAFE24_SCOPES,
     )
     return {"authorize_url": authorize_url}
 
