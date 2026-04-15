@@ -9,7 +9,7 @@ class Order(Base):
 
     order_id = Column(BigInteger, primary_key=True, autoincrement=True)
 
-    external_order_id = Column(String(50), nullable=True, comment="외부 주문 ID")
+    external_order_id = Column(String(50), nullable=True, comment="외부 주문 ID - Cafe24")
 
     customer_id = Column(BigInteger, ForeignKey("customers.customer_id"), nullable=False, comment="고객 ID")
 
@@ -22,7 +22,7 @@ class Order(Base):
     discount_amount = Column(Integer, nullable=False, server_default="0", comment="할인 금액")
     refund_amount = Column(Integer, nullable=False, server_default="0", comment="환불 금액")
     send_fee = Column(Integer, nullable=False, server_default="0", comment="배송비")
-    payment_amount = Column(Integer, nullable=False, server_default="0", comment="결제 금액 (결제 예정/완료 금액 = total_amount - discount_amount - refund_amount + send_fee)")
+    payment_amount = Column(Integer, nullable=False, server_default="0", comment="결제 금액 (= total_amount + send_fee)")
 
     payment_method = Column(String(30), nullable=True, comment="결제 방법")
     

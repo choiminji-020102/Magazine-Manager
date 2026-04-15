@@ -386,31 +386,38 @@ def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) 
     active_item_ids = [i.order_item_id for i in calc.items]
     _cancel_pending_sends(db, active_item_ids, now)
 
-    # ── 4. 품목 일괄 취소 ─────────────────────────────────────────────────────
-    order_crud.cancel_order_items(db=db, order_id=order.order_id)
+    # ── 4. 품목별 환불금 기록 + 일괄 취소 ───────────────────────────────────────
+    for detail in calc.items:
+        item = db.query(OrderItem).get(detail.order_item_id)
+        already_refunded = item.refund_amount or 0
+        item.refund_amount = already_refunded + detail.item_refund
+        item.cancelled_at = now
+    db.flush()
 
-    # ── 5. 주문 취소 ─────────────────────────────────────────────────────────
-    return order_crud.set_order_status(
+    # ── 5. 주문 취소 + 환불금 설정 ──────────────────────────────────────────
+    order_crud.set_order_status(
         db=db,
         order=order,
         order_status="CANCELLED",
         cancelled_at=now,
-        refund_amount=total_refund,
     )
+    order.refund_amount = total_refund
+    db.commit()
+    db.refresh(order)
+    return order
 
 
 def recalculate_totals(db: Session, order: Order, update_payment: bool = False) -> Order:
     """주문 총액 재계산 (품목 변경 후 호출)
-    - total_amount: 활성 품목 합계 (항상 갱신)
-    - refund_amount: 환불 합계 (항상 갱신)
-    - payment_amount: update_payment=True일 때만 갱신 (품목 추가/수정 시)
+    - refund_amount: 전체 품목(취소 포함) 환불 합계 (항상 갱신)
+    - total_amount, payment_amount: update_payment=True일 때만 갱신 (품목 추가/수정 시)
     """
-    items = order_crud.read_order_items_by_order_id(
-        db=db, order_id=order.order_id, include_cancelled=False
+    all_items = order_crud.read_order_items_by_order_id(
+        db=db, order_id=order.order_id, include_cancelled=True
     )
-    order.total_amount = sum(item.sale_price * item.order_num for item in items)
-    order.refund_amount = sum(item.refund_amount or 0 for item in items)
+    order.refund_amount = sum(item.refund_amount or 0 for item in all_items)
     if update_payment:
+        order.total_amount = sum(item.sale_price * item.order_num for item in all_items)
         order.payment_amount = order.total_amount + (order.send_fee or 0)
     db.commit()
     db.refresh(order)

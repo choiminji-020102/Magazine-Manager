@@ -128,6 +128,13 @@ def update_order(
 
     order = order_service.update_order(db, order, order_in)
 
+    # send_fee 변경 시 payment_amount 재계산
+    changed = order_in.model_dump(exclude_unset=True)
+    if "send_fee" in changed:
+        order.payment_amount = order.total_amount + (order.send_fee or 0)
+        db.commit()
+        db.refresh(order)
+
     activity_log_service.create_log(
         db=db,
         action=ActivityAction.UPDATE,

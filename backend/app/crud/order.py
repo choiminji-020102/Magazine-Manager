@@ -239,11 +239,3 @@ def set_order_status(
     db.refresh(order)
     return order
 
-
-def cancel_order_items(db: Session, order_id: int) -> None:
-    """주문 내 모든 미취소 품목을 일괄 취소"""
-    now = now_kst()
-    db.query(OrderItem).filter(
-        OrderItem.order_id == order_id,
-        OrderItem.cancelled_at.is_(None),
-    ).update({"cancelled_at": now}, synchronize_session=False)
