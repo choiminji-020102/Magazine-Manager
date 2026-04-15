@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 import secrets
 import time
 from typing import Any, Dict, Optional
@@ -11,9 +12,12 @@ from itsdangerous import BadSignature, URLSafeSerializer
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.deps import require_admin
 from app.crud import cafe24_token as cafe24_token_crud
 from app.db.session import get_db
 from app.schemas import cafe24 as cafe24_schema
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/cafe24/oauth", tags=["카페24 OAuth"])
 
@@ -45,7 +49,7 @@ def _build_authorize_url(*, mall_id: str, state: str, scopes: list[str]) -> str:
         "client_id": settings.CAFE24_CLIENT_ID,
         "state": state,
         "redirect_uri": settings.CAFE24_REDIRECT_URI,
-        "scope": ",".join(scopes),
+        "scope": " ".join(scopes),
     }
     return f"{code_request_url}?{urlencode(params)}"
 
@@ -68,7 +72,12 @@ async def _issue_access_token(*, mall_id: str, code: str, client: httpx.AsyncCli
         "redirect_uri": settings.CAFE24_REDIRECT_URI,
     }
     r = await client.post(token_request_url, headers=headers, data=data)
-    r.raise_for_status()
+    if r.is_error:
+        body = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+        raise HTTPException(
+            status_code=r.status_code,
+            detail=f"Cafe24 토큰 발급 실패: {body.get('error', 'unknown')} — {body.get('error_description', '')}",
+        )
     return r.json()
 
 
@@ -86,7 +95,21 @@ async def _reissue_access_token(
         "refresh_token": refresh_token_value,
     }
     r = await client.post(token_request_url, headers=headers, data=data)
-    r.raise_for_status()
+    if r.is_error:
+        body = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+        error_code = body.get("error", "unknown")
+        error_desc = body.get("error_description", "")
+        # 사용된 refresh_token은 Cafe24 측에서 폐기되므로, 실패 시 토큰 유실 가능성 로깅
+        logger.error(f"Cafe24 토큰 재발급 실패 (mall_id={mall_id}): {error_code} — {error_desc}")
+        if error_code == "invalid_grant":
+            raise HTTPException(
+                status_code=r.status_code,
+                detail="리프레시 토큰이 만료되었거나 이미 사용되었습니다. 인증 코드 요청부터 다시 시작해주세요.",
+            )
+        raise HTTPException(
+            status_code=r.status_code,
+            detail=f"Cafe24 토큰 재발급 실패: {error_code} — {error_desc}",
+        )
     return r.json()
 
 
@@ -102,7 +125,8 @@ def _resolve_mall_id(requested: Optional[str]) -> str:
 
 @router.post("/start")
 def oauth_start(
-    start_in: cafe24_schema.Cafe24OAuthStartRequest
+    start_in: cafe24_schema.Cafe24OAuthStartRequest,
+    _=Depends(require_admin),
 ):
     mall_id = _resolve_mall_id(start_in.mall_id)
     signed_state = _sign_state(
@@ -122,8 +146,15 @@ async def oauth_callback(
     request: Request,
     code: Optional[str] = None,
     state: Optional[str] = None,
+    error: Optional[str] = None,
+    trace_id: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
+    if error:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=f"Cafe24 인증 실패: {error} (trace_id: {trace_id})",
+        )
     if not code or not state:
         raise HTTPException(
             status_code=http_status.HTTP_400_BAD_REQUEST,
@@ -175,7 +206,8 @@ async def oauth_callback(
 @router.get("/status/{mall_id}", response_model=cafe24_schema.Cafe24TokenStatusResponse)
 def status(
     mall_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
 ):
     mall_id = _resolve_mall_id(mall_id)
     row = cafe24_token_crud.get_by_mall_id(mall_id, db)
@@ -192,11 +224,12 @@ def status(
     )
 
 
-@router.post("/refresh/{mall_id}")
+@router.post("/refresh/{mall_id}", response_model=cafe24_schema.Cafe24TokenStatusResponse)
 async def oauth_refresh(
     mall_id: str,
     request: Request,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
 ):
     mall_id = _resolve_mall_id(mall_id)
     row = cafe24_token_crud.get_by_mall_id(mall_id, db)
@@ -213,8 +246,11 @@ async def oauth_refresh(
         db=db,
     )
 
-    return {
-        "mall_id": row.mall_id,
-        "expires_at": row.expires_at,
-        "refresh_token_expires_at": row.refresh_token_expires_at,
-    }
+    scopes = json.loads(row.scopes or "[]")
+    return cafe24_schema.Cafe24TokenStatusResponse(
+        authorized=True,
+        expires_at=row.expires_at,
+        refresh_token_expires_at=row.refresh_token_expires_at,
+        mall_id=row.mall_id,
+        scopes=scopes,
+    )

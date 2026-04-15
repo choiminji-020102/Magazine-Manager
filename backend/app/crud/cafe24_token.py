@@ -6,13 +6,18 @@ from sqlalchemy.orm import Session
 
 from app.models.cafe24_token import Cafe24Token
 
+# Cafe24 타임존 설정: Asia/Seoul (UTC+09:00)
+_KST = timezone(timedelta(hours=9))
+
 def _parse_dt(value: Optional[Union[str, datetime]]) -> Optional[datetime]:
     if not value:
         return None
     parsed = datetime.fromisoformat(value)
 
     if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)  # 2026-01-12 12:50:00+00:00
+        # Cafe24 타임존이 Asia/Seoul로 설정되어 있으므로 KST로 해석
+        return parsed.replace(tzinfo=_KST)
+    return parsed
 
 
 def get_by_mall_id(mall_id: str, db: Session) -> Optional[Cafe24Token]:
