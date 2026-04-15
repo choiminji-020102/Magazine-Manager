@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -14,9 +15,13 @@ import {
   Store,
   ChevronLeft,
   ChevronRight,
+  RefreshCw,
+  Link,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { useAuth } from "@/contexts/AuthContext";
+import { cafe24API } from "@/api/cafe24Api";
+import { toast } from "@/hooks/use-toast";
 
 interface NavItem {
   label: string;
@@ -91,6 +96,52 @@ export function Sidebar() {
 
   const isSuperAdmin = currentAdmin?.admin_role === "SUPER_ADMIN";
 
+  const queryClient = useQueryClient();
+  const { data: cafe24Status } = useQuery({
+    queryKey: ["cafe24-status"],
+    queryFn: () => cafe24API.getStatus(),
+    retry: false,
+    staleTime: 1000 * 60 * 5, // 5분간 캐시 유지
+  });
+
+  const refreshMutation = useMutation({
+    mutationFn: () => cafe24API.refreshToken(),
+    onSuccess: () => {
+      toast.success("Cafe24 토큰이 갱신되었습니다.");
+      queryClient.invalidateQueries({ queryKey: ["cafe24-status"] });
+    },
+    onError: () => toast.error("토큰 갱신 실패"),
+  });
+
+  const [connecting, setConnecting] = useState(false);
+  const handleConnect = async () => {
+    setConnecting(true);
+    try {
+      const res = await cafe24API.startOAuth();
+      window.location.href = res.authorize_url;
+    } catch {
+      setConnecting(false);
+      toast.error("Cafe24 연결 실패");
+    }
+  };
+
+  // Cafe24 토큰 상태 판단
+  const cafe24TokenStatus = (() => {
+    if (!cafe24Status) return null;
+    const authorized = cafe24Status.authorized ?? false;
+    if (!authorized) return "not_connected";
+    const now = new Date();
+    const refreshExpired = cafe24Status.refresh_token_expires_at
+      ? new Date(cafe24Status.refresh_token_expires_at) < now
+      : false;
+    const accessExpired = cafe24Status.expires_at
+      ? new Date(cafe24Status.expires_at) < now
+      : false;
+    if (refreshExpired) return "reconnect_required";
+    if (accessExpired) return "refresh_required";
+    return "active";
+  })();
+
   return (
     <aside
       className={cn(
@@ -156,6 +207,71 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      {/* Cafe24 연결 상태 */}
+      {cafe24TokenStatus && (
+        <div className="border-t border-gray-200 px-2 py-2">
+          {collapsed ? (
+            <div className="flex justify-center" title={
+              cafe24TokenStatus === "active" ? "Cafe24 연결됨"
+                : cafe24TokenStatus === "refresh_required" ? "Cafe24 토큰 만료"
+                : cafe24TokenStatus === "reconnect_required" ? "Cafe24 재연결 필요"
+                : "Cafe24 미연동"
+            }>
+              <span className={cn(
+                "inline-block w-2 h-2 rounded-full",
+                cafe24TokenStatus === "active" && "bg-green-500",
+                cafe24TokenStatus === "refresh_required" && "bg-yellow-500",
+                cafe24TokenStatus === "reconnect_required" && "bg-red-500",
+                cafe24TokenStatus === "not_connected" && "bg-gray-300",
+              )} />
+            </div>
+          ) : (
+            <div className="px-1">
+              <div className="flex items-center gap-1.5">
+                <span className={cn(
+                  "inline-block w-1.5 h-1.5 rounded-full flex-shrink-0",
+                  cafe24TokenStatus === "active" && "bg-green-500",
+                  cafe24TokenStatus === "refresh_required" && "bg-yellow-500",
+                  cafe24TokenStatus === "reconnect_required" && "bg-red-500",
+                  cafe24TokenStatus === "not_connected" && "bg-gray-300",
+                )} />
+                <span className="text-[11px] text-gray-500">
+                  {cafe24TokenStatus === "active" && "Cafe24 연결됨"}
+                  {cafe24TokenStatus === "refresh_required" && "Cafe24 토큰 만료"}
+                  {cafe24TokenStatus === "reconnect_required" && "Cafe24 재연결 필요"}
+                  {cafe24TokenStatus === "not_connected" && "Cafe24 미연동"}
+                </span>
+                {cafe24TokenStatus === "refresh_required" && (
+                  <button
+                    onClick={() => refreshMutation.mutate()}
+                    disabled={refreshMutation.isPending}
+                    className="ml-auto text-yellow-600 hover:text-yellow-700 disabled:opacity-50"
+                    title="토큰 갱신"
+                  >
+                    <RefreshCw className={cn("h-3 w-3", refreshMutation.isPending && "animate-spin")} />
+                  </button>
+                )}
+                {(cafe24TokenStatus === "reconnect_required" || cafe24TokenStatus === "not_connected") && (
+                  <button
+                    onClick={handleConnect}
+                    disabled={connecting}
+                    className={cn(
+                      "ml-auto disabled:opacity-50",
+                      cafe24TokenStatus === "reconnect_required"
+                        ? "text-red-500 hover:text-red-600"
+                        : "text-gray-400 hover:text-gray-500"
+                    )}
+                    title="Cafe24 연결"
+                  >
+                    <Link className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 접기/펼치기 버튼 */}
       <div className="border-t border-gray-200 py-2 px-2">
