@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/useDebounce";
-import { RefreshCw, Plus, MoreHorizontal } from "lucide-react";
+import { Plus, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -26,7 +26,6 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { ordersApi } from "@/api/ordersApi";
-import { cafe24API } from "@/api/cafe24Api";
 import { toast } from "@/hooks/use-toast";
 import { formatAmount, formatDate, formatPhone } from "@/utils/format";
 import { PAYMENT_METHOD_LABEL, PAYMENT_METHOD_OPTIONS } from "@/utils/constants";
@@ -110,22 +109,6 @@ export default function OrderListPage() {
           sort_order: sortOrder,
         })
         .then((r) => r.data),
-  });
-
-  const importMutation = useMutation({
-    mutationFn: () => cafe24API.importOrders(),
-    onSuccess: (result) => {
-      toast.success(
-        `${result.imported_count}건 가져왔습니다.`,
-        result.skipped_count > 0
-          ? `중복 ${result.skipped_count}건 제외`
-          : undefined
-      );
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
-    },
-    onError: () => {
-      toast.error("Cafe24 주문 가져오기 실패", "잠시 후 다시 시도해주세요.");
-    },
   });
 
   const paymentMutation = useMutation({
@@ -265,21 +248,6 @@ export default function OrderListPage() {
     <div className="flex-1 min-h-0 flex flex-col">
       {/* 헤더 */}
       <PageHeader
-        left={
-          <div className="flex items-center gap-3">
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => importMutation.mutate()}
-              disabled={importMutation.isPending}
-              className="gap-1.5"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${importMutation.isPending ? "animate-spin" : ""}`} />
-              Cafe24 주문 가져오기
-            </Button>
-            <span className="text-xs text-gray-400">마지막 동기화: —</span>
-          </div>
-        }
         actions={
           <Button variant="secondary" size="sm" onClick={() => navigate("/orders/new")}>
             <Plus className="h-3.5 w-3.5 mr-1" />

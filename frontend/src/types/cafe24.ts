@@ -16,9 +16,3 @@ export interface Cafe24TokenStatusResponse {
   mall_id: string;
   scopes: string[];
 }
-
-export interface Cafe24OAuthRefreshResponse {
-  mall_id: string;
-  expires_at: string | null;
-  refresh_token_expires_at: string | null;
-}
