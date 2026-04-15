@@ -22,7 +22,7 @@ class SendItem(Base):
 
     cost_price = Column(Integer, nullable=False, server_default="0", comment="제작단가 (스냅샷)")
 
-    unit_weight = Column(DECIMAL(8, 2), nullable=True, comment="한 권의 무게(g) (스냅샷)")
+    unit_weight = Column(DECIMAL(8, 2), nullable=True, comment="한 권의 무게(kg) (스냅샷)")
     unit_width = Column(DECIMAL(6, 1), nullable=True, comment="가로(mm) (스냅샷)")
     unit_length = Column(DECIMAL(6, 1), nullable=True, comment="세로(mm) (스냅샷)")
     unit_height = Column(DECIMAL(6, 1), nullable=True, comment="높이/두께(mm) (스냅샷)")
