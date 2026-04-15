@@ -256,15 +256,46 @@ function Cafe24Settings() {
   const expiresAt = status?.expires_at;
   const refreshExpiresAt = status?.refresh_token_expires_at;
 
+  const now = new Date();
+  const accessExpired = expiresAt ? new Date(expiresAt) < now : false;
+  const refreshExpired = refreshExpiresAt ? new Date(refreshExpiresAt) < now : false;
+
+  // 상태 판단
+  // 1. 미연동: authorized=false
+  // 2. 정상: 둘 다 유효
+  // 3. 갱신 필요: access_token 만료 + refresh_token 유효
+  // 4. 재연결 필요: refresh_token도 만료
+  const tokenStatus = !authorized
+    ? "not_connected"
+    : refreshExpired
+      ? "reconnect_required"
+      : accessExpired
+        ? "refresh_required"
+        : "active";
+
+  const statusConfig = {
+    not_connected: { color: "bg-gray-300", label: "연동되지 않음", message: "Cafe24 API를 사용하려면 OAuth 연동이 필요합니다." },
+    active: { color: "bg-green-500", label: "연동됨", message: null },
+    refresh_required: { color: "bg-yellow-500", label: "토큰 만료", message: "액세스 토큰이 만료되었습니다. 토큰을 갱신해주세요." },
+    reconnect_required: { color: "bg-red-500", label: "재연결 필요", message: "인증이 만료되었습니다. Cafe24를 다시 연결해주세요." },
+  };
+
+  const { color, label, message } = statusConfig[tokenStatus];
+
   return (
     <div className="space-y-4">
       {/* 연동 상태 */}
       <div className="flex items-center gap-2">
-        <span className={`inline-block w-2 h-2 rounded-full ${authorized ? "bg-green-500" : "bg-gray-300"}`} />
-        <span className="text-sm font-medium text-gray-700">
-          {authorized ? "연동됨" : "연동되지 않음"}
-        </span>
+        <span className={`inline-block w-2 h-2 rounded-full ${color}`} />
+        <span className="text-sm font-medium text-gray-700">{label}</span>
       </div>
+
+      {/* 안내 메시지 */}
+      {message && (
+        <p className={`text-xs ${tokenStatus === "reconnect_required" ? "text-red-500" : tokenStatus === "refresh_required" ? "text-yellow-600" : "text-gray-400"}`}>
+          {message}
+        </p>
+      )}
 
       {/* 상세 정보 */}
       {authorized && (
@@ -278,7 +309,7 @@ function Cafe24Settings() {
           {expiresAt && (
             <div className="flex justify-between">
               <span className="text-gray-400">액세스 토큰</span>
-              <span className={`font-medium ${formatRelativeTime(expiresAt) === "만료됨" ? "text-red-500" : "text-gray-700"}`}>
+              <span className={`font-medium ${accessExpired ? "text-red-500" : "text-gray-700"}`}>
                 {formatRelativeTime(expiresAt)}
               </span>
             </div>
@@ -286,7 +317,7 @@ function Cafe24Settings() {
           {refreshExpiresAt && (
             <div className="flex justify-between">
               <span className="text-gray-400">리프레시 토큰</span>
-              <span className={`font-medium ${formatRelativeTime(refreshExpiresAt) === "만료됨" ? "text-red-500" : "text-gray-700"}`}>
+              <span className={`font-medium ${refreshExpired ? "text-red-500" : "text-gray-700"}`}>
                 {formatRelativeTime(refreshExpiresAt)}
               </span>
             </div>
@@ -302,7 +333,12 @@ function Cafe24Settings() {
 
       {/* 액션 버튼 */}
       <div className="flex items-center gap-2">
-        {authorized ? (
+        {tokenStatus === "not_connected" && (
+          <Button size="sm" onClick={handleConnect} disabled={connecting}>
+            Cafe24 연결하기
+          </Button>
+        )}
+        {tokenStatus === "active" && (
           <>
             <Button
               variant="outline"
@@ -321,18 +357,22 @@ function Cafe24Settings() {
               다시 연결
             </Button>
           </>
-        ) : (
+        )}
+        {tokenStatus === "refresh_required" && (
+          <Button
+            size="sm"
+            onClick={() => refreshMutation.mutate()}
+            disabled={refreshMutation.isPending}
+          >
+            토큰 갱신
+          </Button>
+        )}
+        {tokenStatus === "reconnect_required" && (
           <Button size="sm" onClick={handleConnect} disabled={connecting}>
-            Cafe24 연결하기
+            다시 연결
           </Button>
         )}
       </div>
-
-      {!authorized && (
-        <p className="text-xs text-gray-400">
-          Cafe24 API를 사용하려면 OAuth 연동이 필요합니다.
-        </p>
-      )}
     </div>
   );
 }
