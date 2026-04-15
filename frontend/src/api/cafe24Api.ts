@@ -5,6 +5,8 @@ import type {
   Cafe24TokenStatusResponse,
   Cafe24ProductsResponse,
   Cafe24OrdersResponse,
+  Cafe24ProductImportRequest,
+  Cafe24ProductImportResponse,
 } from "../types/cafe24";
 
 export type {
@@ -12,6 +14,8 @@ export type {
   Cafe24TokenStatusResponse,
   Cafe24ProductsResponse,
   Cafe24OrdersResponse,
+  Cafe24ProductImportRequest,
+  Cafe24ProductImportResponse,
 };
 
 export const cafe24API = {
@@ -92,6 +96,23 @@ export const cafe24API = {
       return response.data;
     } catch (err) {
       logApiError(err as any, "CAFE24_GET_PRODUCTS");
+      throw err;
+    }
+  },
+
+  /**
+   * Cafe24 상품 → DB 저장
+   * POST /cafe24/products/import
+   */
+  importProducts: async (data: Cafe24ProductImportRequest): Promise<Cafe24ProductImportResponse> => {
+    try {
+      const response = await api.post<Cafe24ProductImportResponse>(
+        "/cafe24/products/import",
+        data
+      );
+      return response.data;
+    } catch (err) {
+      logApiError(err as any, "CAFE24_IMPORT_PRODUCTS");
       throw err;
     }
   },
