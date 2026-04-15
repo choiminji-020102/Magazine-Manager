@@ -199,12 +199,12 @@ function formatRelativeTime(dateStr: string): string {
   const target = new Date(dateStr);
   const diffMs = target.getTime() - now.getTime();
   if (diffMs < 0) return "만료됨";
-  const diffMin = Math.floor(diffMs / 60000);
+  const diffMin = Math.round(diffMs / 60000);
   if (diffMin < 60) return `${diffMin}분 후 만료`;
-  const diffHour = Math.floor(diffMin / 60);
-  if (diffHour < 24) return `${diffHour}시간 후 만료`;
-  const diffDay = Math.floor(diffHour / 24);
-  return `${diffDay}일 후 만료`;
+  const diffHour = Math.round(diffMin / 60);
+  if (diffHour < 24) return `약 ${diffHour}시간 후 만료`;
+  const diffDay = Math.round(diffHour / 24);
+  return `약 ${diffDay}일 후 만료`;
 }
 
 function Cafe24Settings() {
