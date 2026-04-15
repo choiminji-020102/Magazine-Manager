@@ -20,7 +20,7 @@ async def list_cafe24_products(
     """Cafe24 상품 목록 조회 — 응답을 그대로 반환"""
     row = cafe24_admin_service.get_token_row(MALL_ID, db)
 
-    url = f"https://{MALL_ID}.cafe24api.com/api/v2/admin/products"
+    url = f"https://{MALL_ID}.cafe24api.com/api/v2/admin/products?limit=100"
     headers = {
         "Authorization": f"Bearer {row.access_token}",
         "Content-Type": "application/json",

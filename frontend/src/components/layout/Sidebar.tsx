@@ -11,6 +11,7 @@ import {
   Shield,
   Activity,
   Settings,
+  Store,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -48,6 +49,12 @@ const navigation: NavGroup[] = [
     items: [
       { label: "고객 목록", path: "/customers", icon: Users },
       { label: "상품 목록", path: "/products", icon: Box },
+    ],
+  },
+  {
+    group: "Cafe24",
+    items: [
+      { label: "Cafe24 상품", path: "/cafe24/products", icon: Store },
     ],
   },
   {

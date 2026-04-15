@@ -27,7 +27,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { productsApi } from "@/api/productsApi";
 import { toast } from "@/hooks/use-toast";
-import { formatAmount, formatIssue } from "@/utils/format";
+import { formatAmount, formatDate, formatIssue } from "@/utils/format";
 import type { ProductResponse } from "@/types/product";
 import { ProductKind } from "@/types/product";
 import ProductDetailPanel from "./product/ProductDetailPanel";
@@ -163,13 +163,18 @@ export default function ProductListPage() {
 
   const columns: ColumnDef<ProductResponse>[] = [
     {
-      key: "product",
+      key: "product_code",
+      header: "상품코드",
+      cell: (row) => (
+        <span className="text-xs font-mono text-gray-500">{row.product_code}</span>
+      ),
+      width: "w-28",
+    },
+    {
+      key: "product_name",
       header: "상품명",
       cell: (row) => (
-        <div>
-          <div className="font-medium text-gray-900 text-[13px]">{row.product_name}</div>
-          <div className="text-xs text-gray-400 font-mono">{row.product_code}</div>
-        </div>
+        <span className="font-medium text-gray-900 text-[13px]">{row.product_name}</span>
       ),
     },
     {
@@ -189,12 +194,28 @@ export default function ProductListPage() {
       width: "w-24",
     },
     {
+      key: "list_price",
+      header: "상품 소비자가",
+      cell: (row) => (
+        <span className="text-[13px] text-gray-500">{formatAmount(row.list_price)}</span>
+      ),
+      width: "w-24",
+    },
+    {
       key: "sale_price",
-      header: "판매가",
+      header: "상품 판매가",
       cell: (row) => (
         <span className="text-[13px] font-medium">{formatAmount(row.sale_price)}</span>
       ),
-      width: "w-28",
+      width: "w-24",
+    },
+    {
+      key: "unit_weight",
+      header: "상품 중량",
+      cell: (row) => (
+        <span className="text-xs text-gray-600">{row.unit_weight ?? "-"}</span>
+      ),
+      width: "w-20",
     },
     {
       key: "stock",
@@ -212,7 +233,7 @@ export default function ProductListPage() {
     },
     {
       key: "active",
-      header: "활성",
+      header: "판매상태",
       cell: (row) => (
         <span
           className={`inline-block w-1.5 h-1.5 rounded-full ${
@@ -221,6 +242,22 @@ export default function ProductListPage() {
         />
       ),
       width: "w-12",
+    },
+    {
+      key: "created_at",
+      header: "생성일",
+      cell: (row) => (
+        <span className="text-xs text-gray-500">{formatDate(row.created_at)}</span>
+      ),
+      width: "w-24",
+    },
+    {
+      key: "updated_at",
+      header: "수정일",
+      cell: (row) => (
+        <span className="text-xs text-gray-500">{formatDate(row.updated_at)}</span>
+      ),
+      width: "w-24",
     },
   ];
 
