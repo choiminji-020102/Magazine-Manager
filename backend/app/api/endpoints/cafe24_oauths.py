@@ -1,21 +1,94 @@
+import base64
 import json
 import secrets
 import time
-from typing import List, Optional
+from typing import Any, Dict, Optional
+from urllib.parse import urlencode
+
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status as http_status
-from fastapi.responses import JSONResponse
-from itsdangerous import BadSignature
+from itsdangerous import BadSignature, URLSafeSerializer
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.crud import cafe24_token as cafe24_token_crud
 from app.db.session import get_db
 from app.schemas import cafe24 as cafe24_schema
-from app.services import cafe24_oauth_service
 
 router = APIRouter(prefix="/cafe24/oauth", tags=["카페24 OAuth"])
 
 STATE_TTL_MINUTES = 10
+STATE_SALT = "cafe24-oauth-state"
+
+
+def _get_state_signer() -> URLSafeSerializer:
+    return URLSafeSerializer(settings.CAFE24_STATE_SECRET_KEY, salt=STATE_SALT)
+
+
+def _sign_state(payload: dict) -> str:
+    return _get_state_signer().dumps(payload)
+
+
+def _verify_state(state: str) -> dict:
+    return _get_state_signer().loads(state)
+
+
+def _oauth_base_url(mall_id: str) -> str:
+    return f"https://{mall_id}.cafe24api.com/api/v2/oauth"
+
+
+def _build_authorize_url(*, mall_id: str, state: str, scopes: list[str]) -> str:
+    """인증 코드 요청 URL 생성"""
+    code_request_url = f"{_oauth_base_url(mall_id)}/authorize"
+    params = {
+        "response_type": "code",
+        "client_id": settings.CAFE24_CLIENT_ID,
+        "state": state,
+        "redirect_uri": settings.CAFE24_REDIRECT_URI,
+        "scope": ",".join(scopes),
+    }
+    return f"{code_request_url}?{urlencode(params)}"
+
+
+def _basic_auth_header() -> str:
+    raw = f"{settings.CAFE24_CLIENT_ID}:{settings.CAFE24_CLIENT_SECRET_KEY}".encode("utf-8")
+    return "Basic " + base64.b64encode(raw).decode("utf-8")
+
+
+async def _issue_access_token(*, mall_id: str, code: str, client: httpx.AsyncClient) -> Dict[str, Any]:
+    """인증 코드와 교환하여 엑세스 토큰을 발급"""
+    token_request_url = f"{_oauth_base_url(mall_id)}/token"
+    headers = {
+        "Authorization": _basic_auth_header(),
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+    data = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": settings.CAFE24_REDIRECT_URI,
+    }
+    r = await client.post(token_request_url, headers=headers, data=data)
+    r.raise_for_status()
+    return r.json()
+
+
+async def _reissue_access_token(
+    *, mall_id: str, refresh_token_value: str, client: httpx.AsyncClient
+) -> Dict[str, Any]:
+    """리프레시 토큰을 사용하여 엑세스 토큰을 재발급"""
+    token_request_url = f"{_oauth_base_url(mall_id)}/token"
+    headers = {
+        "Authorization": _basic_auth_header(),
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+    data = {
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token_value,
+    }
+    r = await client.post(token_request_url, headers=headers, data=data)
+    r.raise_for_status()
+    return r.json()
+
 
 def _resolve_mall_id(requested: Optional[str]) -> str:
     configured = settings.CAFE24_MALL_ID
@@ -32,11 +105,11 @@ def oauth_start(
     start_in: cafe24_schema.Cafe24OAuthStartRequest
 ):
     mall_id = _resolve_mall_id(start_in.mall_id)
-    signed_state = cafe24_oauth_service.sign_state(
+    signed_state = _sign_state(
         {"mall_id": mall_id, "nonce": secrets.token_urlsafe(32), "ts": int(time.time())}
     )
 
-    authorize_url = cafe24_oauth_service.build_authorize_url(
+    authorize_url = _build_authorize_url(
         mall_id=mall_id,
         state=signed_state,
         scopes=start_in.scopes,
@@ -57,7 +130,7 @@ async def oauth_callback(
             detail="Missing code/state",
         )
     try:
-        state_payload = cafe24_oauth_service.verify_state(state)
+        state_payload = _verify_state(state)
     except BadSignature:
         raise HTTPException(
             status_code=http_status.HTTP_400_BAD_REQUEST,
@@ -82,7 +155,7 @@ async def oauth_callback(
         )
 
     mall_id = _resolve_mall_id(state_payload.get("mall_id"))
-    token_payload = await cafe24_oauth_service.issue_access_token(
+    token_payload = await _issue_access_token(
         mall_id=mall_id,
         code=code,
         client=request.app.state.http_client,
@@ -101,7 +174,7 @@ async def oauth_callback(
 
 @router.get("/status/{mall_id}", response_model=cafe24_schema.Cafe24TokenStatusResponse)
 def status(
-    mall_id: str, 
+    mall_id: str,
     db: Session = Depends(get_db)
 ):
     mall_id = _resolve_mall_id(mall_id)
@@ -121,7 +194,7 @@ def status(
 
 @router.post("/refresh/{mall_id}")
 async def oauth_refresh(
-    mall_id: str, 
+    mall_id: str,
     request: Request,
     db: Session = Depends(get_db)
 ):
@@ -130,7 +203,7 @@ async def oauth_refresh(
     if not row or not row.refresh_token:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="No refresh_token stored")
 
-    token_payload = await cafe24_oauth_service.reissue_access_token(
+    token_payload = await _reissue_access_token(
         mall_id=mall_id,
         refresh_token_value=row.refresh_token,
         client=request.app.state.http_client,

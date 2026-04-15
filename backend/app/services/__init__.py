@@ -2,7 +2,6 @@ from app.services import activity_log_service
 from app.services import address_service
 from app.services import admin_service
 from app.services import auth_service
-from app.services import cafe24_oauth_service
 from app.services import cafe24_admin_service
 from app.services import customer_service
 from app.services import inquiry_service
