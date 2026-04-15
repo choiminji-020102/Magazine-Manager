@@ -86,6 +86,7 @@ const EMPTY_FORM = {
   sale_price: "",
   cost_price: "",
   stock_quantity: "0",
+  external_product_code_cafe24: "",
   external_product_code_gpmall: "",
   unit_weight: "",
   unit_width: "",
@@ -115,6 +116,7 @@ export default function ProductListPage() {
         sale_price: Number(form.sale_price),
         cost_price: Number(form.cost_price),
         stock_quantity: Number(form.stock_quantity),
+        external_product_code_cafe24: form.external_product_code_cafe24 || null,
         external_product_code_gpmall: form.external_product_code_gpmall || null,
         unit_weight: form.unit_weight ? Number(form.unit_weight) : null,
         unit_width: form.unit_width ? Number(form.unit_width) : null,
@@ -171,11 +173,12 @@ export default function ProductListPage() {
       width: "w-28",
     },
     {
-      key: "product_name",
-      header: "상품명",
+      key: "external_product_code_cafe24",
+      header: "카페24 상품코드",
       cell: (row) => (
-        <span className="font-medium text-gray-900 text-[13px]">{row.product_name}</span>
+        <span className="text-xs font-mono text-gray-500">{row.external_product_code_cafe24 || "-"}</span>
       ),
+      width: "w-28",
     },
     {
       key: "kind",
@@ -184,14 +187,11 @@ export default function ProductListPage() {
       width: "w-24",
     },
     {
-      key: "issue",
-      header: "시작호",
+      key: "product_name",
+      header: "상품명",
       cell: (row) => (
-        <span className="text-xs text-gray-600">
-          {row.subscribe_start_issue ? formatIssue(row.subscribe_start_issue) : "-"}
-        </span>
+        <span className="font-medium text-gray-900 text-[13px]">{row.product_name}</span>
       ),
-      width: "w-24",
     },
     {
       key: "list_price",
@@ -206,6 +206,28 @@ export default function ProductListPage() {
       header: "상품 판매가",
       cell: (row) => (
         <span className="text-[13px] font-medium">{formatAmount(row.sale_price)}</span>
+      ),
+      width: "w-24",
+    },
+    {
+      key: "active",
+      header: "판매상태",
+      cell: (row) => (
+        <span
+          className={`inline-block w-1.5 h-1.5 rounded-full ${
+            row.is_active ? "bg-green-500" : "bg-gray-300"
+          }`}
+        />
+      ),
+      width: "w-12",
+    },
+    {
+      key: "issue",
+      header: "시작호",
+      cell: (row) => (
+        <span className="text-xs text-gray-600">
+          {row.subscribe_start_issue ? formatIssue(row.subscribe_start_issue) : "-"}
+        </span>
       ),
       width: "w-24",
     },
@@ -230,18 +252,6 @@ export default function ProductListPage() {
         </span>
       ),
       width: "w-20",
-    },
-    {
-      key: "active",
-      header: "판매상태",
-      cell: (row) => (
-        <span
-          className={`inline-block w-1.5 h-1.5 rounded-full ${
-            row.is_active ? "bg-green-500" : "bg-gray-300"
-          }`}
-        />
-      ),
-      width: "w-12",
     },
     {
       key: "created_at",
@@ -434,11 +444,19 @@ export default function ProductListPage() {
 
             {/* 섹션 3: 외부 연동 (선택) */}
             <FormSection title="외부 연동" optional>
-              <div>
-                <FormLabel>갓피플몰 코드</FormLabel>
-                <Input className="mt-1 h-8 text-sm font-mono" placeholder="갓피플몰 상품 코드"
-                  value={form.external_product_code_gpmall}
-                  onChange={(e) => setForm((f) => ({ ...f, external_product_code_gpmall: e.target.value }))} />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <FormLabel>카페24 상품코드</FormLabel>
+                  <Input className="mt-1 h-8 text-sm font-mono" placeholder="카페24 상품코드"
+                    value={form.external_product_code_cafe24}
+                    onChange={(e) => setForm((f) => ({ ...f, external_product_code_cafe24: e.target.value }))} />
+                </div>
+                <div>
+                  <FormLabel>갓피플몰 상품코드</FormLabel>
+                  <Input className="mt-1 h-8 text-sm font-mono" placeholder="갓피플몰 상품 코드"
+                    value={form.external_product_code_gpmall}
+                    onChange={(e) => setForm((f) => ({ ...f, external_product_code_gpmall: e.target.value }))} />
+                </div>
               </div>
             </FormSection>
 
@@ -446,7 +464,7 @@ export default function ProductListPage() {
             <FormSection title="물리 정보" optional>
               <div className="grid grid-cols-4 gap-3">
                 <div>
-                  <FormLabel>무게 (g)</FormLabel>
+                  <FormLabel>무게 (kg)</FormLabel>
                   <Input className="mt-1 h-8 text-sm" type="number" min={0} step="0.1" placeholder="0"
                     value={form.unit_weight}
                     onChange={(e) => setForm((f) => ({ ...f, unit_weight: e.target.value }))} />

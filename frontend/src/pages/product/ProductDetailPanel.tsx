@@ -38,6 +38,7 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
     list_price: "",
     sale_price: "",
     cost_price: "",
+    external_product_code_cafe24: "",
     external_product_code_gpmall: "",
     unit_weight: "",
     unit_width: "",
@@ -92,6 +93,7 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
         list_price: editForm.list_price ? Number(editForm.list_price) : undefined,
         sale_price: editForm.sale_price ? Number(editForm.sale_price) : undefined,
         cost_price: editForm.cost_price ? Number(editForm.cost_price) : undefined,
+        external_product_code_cafe24: editForm.external_product_code_cafe24 || null,
         external_product_code_gpmall: editForm.external_product_code_gpmall || null,
         unit_weight: editForm.unit_weight ? Number(editForm.unit_weight) : null,
         unit_width: editForm.unit_width ? Number(editForm.unit_width) : null,
@@ -191,6 +193,7 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
                   list_price: String(product.list_price),
                   sale_price: String(product.sale_price),
                   cost_price: String(product.cost_price),
+                  external_product_code_cafe24: product.external_product_code_cafe24 ?? "",
                   external_product_code_gpmall: product.external_product_code_gpmall ?? "",
                   unit_weight: product.unit_weight != null ? String(product.unit_weight) : "",
                   unit_width: product.unit_width != null ? String(product.unit_width) : "",
@@ -305,14 +308,21 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
                   onChange={(e) => setEditForm((f) => ({ ...f, cost_price: e.target.value }))} />
               </div>
             </div>
-            <div>
-              <Label className="text-xs text-gray-600">갓피플몰 코드</Label>
-              <Input className="mt-1 h-8 text-sm" value={editForm.external_product_code_gpmall}
-                onChange={(e) => setEditForm((f) => ({ ...f, external_product_code_gpmall: e.target.value }))} />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs text-gray-600">카페24 상품코드</Label>
+                <Input className="mt-1 h-8 text-sm font-mono" value={editForm.external_product_code_cafe24}
+                  onChange={(e) => setEditForm((f) => ({ ...f, external_product_code_cafe24: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="text-xs text-gray-600">갓피플몰 상품코드</Label>
+                <Input className="mt-1 h-8 text-sm font-mono" value={editForm.external_product_code_gpmall}
+                  onChange={(e) => setEditForm((f) => ({ ...f, external_product_code_gpmall: e.target.value }))} />
+              </div>
             </div>
             <div className="grid grid-cols-4 gap-2">
               <div>
-                <Label className="text-xs text-gray-600">무게 (g)</Label>
+                <Label className="text-xs text-gray-600">무게 (kg)</Label>
                 <Input className="mt-1 h-8 text-sm" type="number" min={0} step="0.1" value={editForm.unit_weight}
                   onChange={(e) => setEditForm((f) => ({ ...f, unit_weight: e.target.value }))} />
               </div>
@@ -409,28 +419,33 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
         )}
 
         {/* 물리 정보 */}
-        {!!(product.unit_weight || product.unit_width || product.unit_length || product.unit_height) && (
+        {!!(Number(product.unit_weight) || Number(product.unit_width) || Number(product.unit_length) || Number(product.unit_height)) && (
           <Section title="물리 정보">
-            {product.unit_weight && (
-              <InfoRow label="무게" value={`${product.unit_weight}g`} />
+            {Number(product.unit_weight) > 0 && (
+              <InfoRow label="무게" value={`${product.unit_weight}kg`} />
             )}
-            {product.unit_width && (
+            {Number(product.unit_width) > 0 && (
               <InfoRow label="가로" value={`${product.unit_width}mm`} />
             )}
-            {product.unit_length && (
+            {Number(product.unit_length) > 0 && (
               <InfoRow label="세로" value={`${product.unit_length}mm`} />
             )}
-            {product.unit_height && (
+            {Number(product.unit_height) > 0 && (
               <InfoRow label="높이" value={`${product.unit_height}mm`} />
             )}
           </Section>
         )}
 
         {/* 외부 연동 */}
-        {product.external_product_code_gpmall && (
+        {(product.external_product_code_cafe24 || product.external_product_code_gpmall) && (
           <Section title="외부 연동">
+            {product.external_product_code_cafe24 && (
+              <InfoRow label="카페24 상품코드" value={
+                <span className="font-mono text-xs">{product.external_product_code_cafe24}</span>
+              } />
+            )}
             {product.external_product_code_gpmall && (
-              <InfoRow label="갓피플몰 코드" value={
+              <InfoRow label="갓피플몰 상품코드" value={
                 <span className="font-mono text-xs">{product.external_product_code_gpmall}</span>
               } />
             )}
