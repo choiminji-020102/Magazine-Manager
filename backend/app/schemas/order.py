@@ -77,7 +77,6 @@ class OrderCreate(BaseModel):
     order_channel: OrderChannel = OrderChannel.OFFLINE
     order_status: OrderStatus = OrderStatus.ORDERED
 
-    discount_amount: int = 0
     send_fee: Optional[int] = None          # 미입력 시 자동 설정 (MONTHLY: 3300, YEARLY: 0)
     payment_method: PaymentMethod           # 필수 — 오프라인 주문 등록 시 결제 방법 지정
 

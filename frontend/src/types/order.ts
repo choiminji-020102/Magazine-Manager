@@ -61,7 +61,6 @@ export interface OrderCreate {
   order_channel?: string;       // 기본값: "OFFLINE"
   order_status?: string;        // 기본값: "ORDERED"
 
-  discount_amount?: number;
   send_fee?: number | null;     // 미입력 시 자동 설정 (MONTHLY: 3300, YEARLY: 0)
   payment_method: PaymentMethod; // 필수
 

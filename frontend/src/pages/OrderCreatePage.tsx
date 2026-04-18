@@ -196,7 +196,6 @@ export default function OrderCreatePage() {
       items: itemsPayload,
       order_channel: channel,
       payment_method: paymentMethod as PaymentMethod,
-      discount_amount: 0,
       send_fee: sendFee,
       admin_memo: adminMemo || null,
       ...(isPaidOnCreate && {
