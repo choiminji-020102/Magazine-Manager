@@ -7,6 +7,7 @@ import type {
   Cafe24OrdersResponse,
   Cafe24ProductImportRequest,
   Cafe24ProductImportResponse,
+  Cafe24OrderDetail,
 } from "../types/cafe24";
 
 export type {
@@ -16,6 +17,7 @@ export type {
   Cafe24OrdersResponse,
   Cafe24ProductImportRequest,
   Cafe24ProductImportResponse,
+  Cafe24OrderDetail,
 };
 
 export const cafe24API = {
@@ -80,6 +82,22 @@ export const cafe24API = {
       return response.data;
     } catch (err) {
       logApiError(err as any, "CAFE24_GET_ORDERS");
+      throw err;
+    }
+  },
+
+  /**
+   * Cafe24 주문 상세 조회 (buyer + receivers + items)
+   * GET /cafe24/orders/{order_id}/detail
+   */
+  getOrderDetail: async (orderId: string): Promise<Cafe24OrderDetail> => {
+    try {
+      const response = await api.get<Cafe24OrderDetail>(
+        `/cafe24/orders/${orderId}/detail`
+      );
+      return response.data;
+    } catch (err) {
+      logApiError(err as any, "CAFE24_GET_ORDER_DETAIL");
       throw err;
     }
   },

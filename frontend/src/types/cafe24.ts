@@ -70,9 +70,55 @@ export interface Cafe24Order {
   canceled: string;
   order_date: string;
   payment_date: string | null;
+  initial_order_amount?: {
+    order_price_amount?: string;
+    shipping_fee?: string;
+    [key: string]: any;
+  };
   [key: string]: any;
 }
 
 export interface Cafe24OrdersResponse {
   orders: Cafe24Order[];
+}
+
+// Cafe24 주문 상세 (buyer + receivers + items)
+
+export interface Cafe24Buyer {
+  name: string;
+  email: string;
+  phone: string;
+  cellphone: string;
+  [key: string]: any;
+}
+
+export interface Cafe24Receiver {
+  name: string;
+  phone: string;
+  cellphone: string;
+  zipcode: string;
+  address_full?: string;
+  address1: string;
+  address2: string;
+  country_code: string | null;
+  shipping_message: string;
+  [key: string]: any;
+}
+
+export interface Cafe24OrderItem {
+  order_item_code: string;
+  product_code: string;
+  product_name: string;
+  product_price: string;
+  quantity: number;
+  option_value: string;
+  option_id: string;
+  payment_amount: string | null;
+  [key: string]: any;
+}
+
+export interface Cafe24OrderDetail {
+  buyer: Cafe24Buyer | null;
+  receivers: Cafe24Receiver[];
+  items: Cafe24OrderItem[];
 }
