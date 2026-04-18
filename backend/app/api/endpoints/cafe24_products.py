@@ -38,19 +38,13 @@ async def list_cafe24_products(
     _=Depends(require_admin),
 ):
     """Cafe24 상품 목록 조회 — 프론트엔드에서 사용하는 필드만 반환"""
-    row = cafe24_admin_service.get_token_row(MALL_ID, db)
-
-    url = f"https://{MALL_ID}.cafe24api.com/api/v2/admin/products"
-    headers = {
-        "Authorization": f"Bearer {row.access_token}",
-        "Content-Type": "application/json",
-        "X-Cafe24-Api-Version": settings.CAFE24_API_VERSION,
-    }
-    params = {
-        "limit": 100,
-    }
-
-    r = await request.app.state.http_client.get(url, headers=headers, params=params)
+    r = await cafe24_admin_service.call_cafe24(
+        method="GET",
+        url=f"https://{MALL_ID}.cafe24api.com/api/v2/admin/products",
+        db=db,
+        client=request.app.state.http_client,
+        params={"limit": 100},
+    )
     if r.is_error:
         raise HTTPException(
             status_code=r.status_code,

@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -33,24 +34,130 @@ async def list_cafe24_orders(
     if end < start:
         raise HTTPException(status_code=400, detail="종료일이 시작일보다 이전일 수 없습니다.")
 
-    row = cafe24_admin_service.get_token_row(MALL_ID, db)
-
-    url = f"https://{MALL_ID}.cafe24api.com/api/v2/admin/orders"
-    headers = {
-        "Authorization": f"Bearer {row.access_token}",
-        "Content-Type": "application/json",
-        "X-Cafe24-Api-Version": settings.CAFE24_API_VERSION,
-    }
-    params = {
-        "start_date": start_date,
-        "end_date": end_date,
-        "limit": 1000,
-    }
-
-    r = await request.app.state.http_client.get(url, headers=headers, params=params)
+    r = await cafe24_admin_service.call_cafe24(
+        method="GET",
+        url=f"https://{MALL_ID}.cafe24api.com/api/v2/admin/orders",
+        db=db,
+        client=request.app.state.http_client,
+        params={
+            "start_date": start_date,
+            "end_date": end_date,
+            "limit": 1000,
+        },
+    )
     if r.is_error:
         raise HTTPException(
             status_code=r.status_code,
             detail=f"Cafe24 주문 조회 실패: {r.text}",
         )
     return r.json()
+
+
+@router.get("/{order_id}/buyer")
+async def get_cafe24_order_buyer(
+    order_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """Cafe24 주문자(buyer) 정보 조회"""
+    r = await cafe24_admin_service.call_cafe24(
+        method="GET",
+        url=f"https://{MALL_ID}.cafe24api.com/api/v2/admin/orders/{order_id}/buyer",
+        db=db,
+        client=request.app.state.http_client,
+    )
+    if r.is_error:
+        raise HTTPException(
+            status_code=r.status_code,
+            detail=f"Cafe24 주문자 조회 실패 (order_id={order_id}): {r.text}",
+        )
+    return r.json()
+
+
+@router.get("/{order_id}/receivers")
+async def get_cafe24_order_receivers(
+    order_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """Cafe24 수령자(배송지) 정보 조회"""
+    r = await cafe24_admin_service.call_cafe24(
+        method="GET",
+        url=f"https://{MALL_ID}.cafe24api.com/api/v2/admin/orders/{order_id}/receivers",
+        db=db,
+        client=request.app.state.http_client,
+    )
+    if r.is_error:
+        raise HTTPException(
+            status_code=r.status_code,
+            detail=f"Cafe24 수령자 조회 실패 (order_id={order_id}): {r.text}",
+        )
+    return r.json()
+
+
+@router.get("/{order_id}/items")
+async def get_cafe24_order_items(
+    order_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """Cafe24 주문 품목 조회"""
+    r = await cafe24_admin_service.call_cafe24(
+        method="GET",
+        url=f"https://{MALL_ID}.cafe24api.com/api/v2/admin/orders/{order_id}/items",
+        db=db,
+        client=request.app.state.http_client,
+    )
+    if r.is_error:
+        raise HTTPException(
+            status_code=r.status_code,
+            detail=f"Cafe24 주문 품목 조회 실패 (order_id={order_id}): {r.text}",
+        )
+    return r.json()
+
+
+@router.get("/{order_id}/detail")
+async def get_cafe24_order_detail(
+    order_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """Cafe24 주문 상세 통합 조회 (buyer + receivers + items)"""
+    client = request.app.state.http_client
+    base = f"https://{MALL_ID}.cafe24api.com/api/v2/admin/orders/{order_id}"
+
+    # buyer, receivers, items 병렬 호출 (각각 call_cafe24로 감싸져 401 자동 재발급)
+    buyer_r, receivers_r, items_r = await asyncio.gather(
+        cafe24_admin_service.call_cafe24(
+            method="GET", url=f"{base}/buyer", db=db, client=client
+        ),
+        cafe24_admin_service.call_cafe24(
+            method="GET", url=f"{base}/receivers", db=db, client=client
+        ),
+        cafe24_admin_service.call_cafe24(
+            method="GET", url=f"{base}/items", db=db, client=client
+        ),
+    )
+
+    result = {}
+
+    if buyer_r.is_error:
+        result["buyer"] = None
+    else:
+        result["buyer"] = buyer_r.json().get("buyer")
+
+    if receivers_r.is_error:
+        result["receivers"] = []
+    else:
+        result["receivers"] = receivers_r.json().get("receivers", [])
+
+    if items_r.is_error:
+        result["items"] = []
+    else:
+        result["items"] = items_r.json().get("items", [])
+
+    return result
