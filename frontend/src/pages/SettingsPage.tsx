@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Eye, EyeOff, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -208,29 +208,13 @@ function formatRelativeTime(dateStr: string): string {
 }
 
 function Cafe24Settings() {
-  const queryClient = useQueryClient();
   const [connecting, setConnecting] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   const { data: status, isLoading, isError } = useQuery({
     queryKey: ["cafe24-status"],
     queryFn: () => cafe24API.getStatus(),
     retry: false,
-  });
-
-  const refreshMutation = useMutation({
-    mutationFn: () => cafe24API.refreshToken(),
-    onSuccess: () => {
-      toast.success("Cafe24 토큰이 갱신되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["cafe24-status"] });
-    },
-    onError: (err) => {
-      const message = getErrorMessage(err);
-      if (message.includes("인증 코드 요청부터")) {
-        toast.error("리프레시 토큰이 만료되었습니다. Cafe24를 다시 연결해주세요.");
-      } else {
-        toast.error(`토큰 갱신 실패: ${message}`);
-      }
-    },
   });
 
   const handleConnect = async () => {
@@ -256,27 +240,20 @@ function Cafe24Settings() {
   const expiresAt = status?.expires_at;
   const refreshExpiresAt = status?.refresh_token_expires_at;
 
-  const now = new Date();
-  const accessExpired = expiresAt ? new Date(expiresAt) < now : false;
-  const refreshExpired = refreshExpiresAt ? new Date(refreshExpiresAt) < now : false;
+  const refreshExpired = refreshExpiresAt ? new Date(refreshExpiresAt) < new Date() : false;
 
-  // 상태 판단
-  // 1. 미연동: authorized=false
-  // 2. 정상: 둘 다 유효
-  // 3. 갱신 필요: access_token 만료 + refresh_token 유효
-  // 4. 재연결 필요: refresh_token도 만료
+  // 상태 판단 (3단계)
+  // - access_token 만료는 백엔드가 자동 재발급 처리하므로 UI에 노출하지 않음
+  // - refresh_token 만료 시에만 사용자 개입(재연결) 필요
   const tokenStatus = !authorized
     ? "not_connected"
     : refreshExpired
       ? "reconnect_required"
-      : accessExpired
-        ? "refresh_required"
-        : "active";
+      : "active";
 
   const statusConfig = {
     not_connected: { color: "bg-gray-300", label: "연동되지 않음", message: "Cafe24 API를 사용하려면 OAuth 연동이 필요합니다." },
     active: { color: "bg-green-500", label: "연동됨", message: null },
-    refresh_required: { color: "bg-yellow-500", label: "토큰 만료", message: "액세스 토큰이 만료되었습니다. 토큰을 갱신해주세요." },
     reconnect_required: { color: "bg-red-500", label: "재연결 필요", message: "인증이 만료되었습니다. Cafe24를 다시 연결해주세요." },
   };
 
@@ -292,40 +269,51 @@ function Cafe24Settings() {
 
       {/* 안내 메시지 */}
       {message && (
-        <p className={`text-xs ${tokenStatus === "reconnect_required" ? "text-red-500" : tokenStatus === "refresh_required" ? "text-yellow-600" : "text-gray-400"}`}>
+        <p className={`text-xs ${tokenStatus === "reconnect_required" ? "text-red-500" : "text-gray-400"}`}>
           {message}
         </p>
       )}
 
-      {/* 상세 정보 */}
+      {/* 상세 정보 (토글) */}
       {authorized && (
-        <div className="bg-gray-50 rounded-lg p-3 text-xs space-y-1.5">
-          {status?.mall_id && (
-            <div className="flex justify-between">
-              <span className="text-gray-400">몰 ID</span>
-              <span className="text-gray-700 font-mono">{status.mall_id}</span>
-            </div>
-          )}
-          {expiresAt && (
-            <div className="flex justify-between">
-              <span className="text-gray-400">액세스 토큰</span>
-              <span className={`font-medium ${accessExpired ? "text-red-500" : "text-gray-700"}`}>
-                {formatRelativeTime(expiresAt)}
-              </span>
-            </div>
-          )}
-          {refreshExpiresAt && (
-            <div className="flex justify-between">
-              <span className="text-gray-400">리프레시 토큰</span>
-              <span className={`font-medium ${refreshExpired ? "text-red-500" : "text-gray-700"}`}>
-                {formatRelativeTime(refreshExpiresAt)}
-              </span>
-            </div>
-          )}
-          {status?.scopes && status.scopes.length > 0 && (
-            <div className="border-t border-gray-200 pt-1.5 mt-1.5">
-              <span className="text-gray-400">스코프 <span className="text-gray-300">(개발자용)</span></span>
-              <p className="text-gray-500 font-mono mt-0.5 break-all">{status.scopes.join(", ")}</p>
+        <div>
+          <button
+            className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+            onClick={() => setShowDetails(!showDetails)}
+          >
+            상세 정보
+            {showDetails ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </button>
+          {showDetails && (
+            <div className="bg-gray-50 rounded-lg p-3 text-xs space-y-1.5 mt-2">
+              {status?.mall_id && (
+                <div className="flex justify-between">
+                  <span className="text-gray-400">몰 ID</span>
+                  <span className="text-gray-700 font-mono">{status.mall_id}</span>
+                </div>
+              )}
+              {expiresAt && (
+                <div className="flex justify-between">
+                  <span className="text-gray-400">액세스 토큰</span>
+                  <span className="font-medium text-gray-700">
+                    {formatRelativeTime(expiresAt)}
+                  </span>
+                </div>
+              )}
+              {refreshExpiresAt && (
+                <div className="flex justify-between">
+                  <span className="text-gray-400">리프레시 토큰</span>
+                  <span className={`font-medium ${refreshExpired ? "text-red-500" : "text-gray-700"}`}>
+                    {formatRelativeTime(refreshExpiresAt)}
+                  </span>
+                </div>
+              )}
+              {status?.scopes && status.scopes.length > 0 && (
+                <div className="border-t border-gray-200 pt-1.5 mt-1.5">
+                  <span className="text-gray-400">스코프 <span className="text-gray-300">(개발자용)</span></span>
+                  <p className="text-gray-500 font-mono mt-0.5 break-all">{status.scopes.join(", ")}</p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -339,32 +327,13 @@ function Cafe24Settings() {
           </Button>
         )}
         {tokenStatus === "active" && (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => refreshMutation.mutate()}
-              disabled={refreshMutation.isPending}
-            >
-              토큰 갱신
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleConnect}
-              disabled={connecting}
-            >
-              다시 연결
-            </Button>
-          </>
-        )}
-        {tokenStatus === "refresh_required" && (
           <Button
+            variant="outline"
             size="sm"
-            onClick={() => refreshMutation.mutate()}
-            disabled={refreshMutation.isPending}
+            onClick={handleConnect}
+            disabled={connecting}
           >
-            토큰 갱신
+            다시 연결
           </Button>
         )}
         {tokenStatus === "reconnect_required" && (
