@@ -229,7 +229,7 @@ export default function ProductListPage() {
           {row.subscribe_start_issue ? formatIssue(row.subscribe_start_issue) : "-"}
         </span>
       ),
-      width: "w-24",
+      width: "w-28",
     },
     {
       key: "unit_weight",

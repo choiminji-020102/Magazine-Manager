@@ -1528,7 +1528,7 @@ function InfoRow({
   return (
     <div className="flex items-start gap-3">
       <span className="text-xs text-gray-400 w-24 flex-shrink-0 pt-0.5">{label}</span>
-      <span className="text-sm text-gray-700 flex-1">{value}</span>
+      <span className="text-sm text-gray-700 flex-1 whitespace-pre-line">{value}</span>
     </div>
   );
 }
