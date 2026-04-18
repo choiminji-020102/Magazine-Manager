@@ -1,3 +1,6 @@
 .DS_Store
 __pycache__/
 *.pyc
+
+# 배포 가이드 (민감 정보 포함 — DB 비밀번호 등)
+DEPLOY_GUIDE.md
