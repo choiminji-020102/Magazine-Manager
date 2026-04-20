@@ -16,7 +16,7 @@ class Order(Base):
     address_id = Column(BigInteger, ForeignKey("addresses.address_id"), nullable=False, comment="배송지 ID")
 
     order_channel = Column(Enum("CAFE24", "GPMALL", "OFFLINE", name="order_channel_enum"), nullable=False, comment="주문 채널")
-    order_status = Column(Enum("ORDERED", "PAID", "CANCELLED", name="order_status_enum"), nullable=False, server_default="ORDERED", comment="주문 상태")
+    order_status = Column(Enum("ORDERED", "PAID", "CANCELLED", "UNPAID_CANCELLED", name="order_status_enum"), nullable=False, server_default="ORDERED", comment="주문 상태")
     
     total_amount = Column(Integer, nullable=False, server_default="0", comment="총 주문 금액")
     discount_amount = Column(Integer, nullable=False, server_default="0", comment="할인 금액")

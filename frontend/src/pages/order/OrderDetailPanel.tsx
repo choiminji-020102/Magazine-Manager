@@ -440,7 +440,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
               결제완료 처리
             </Button>
           )}
-          {order.order_status !== "CANCELLED" && !editMode && (
+          {!["CANCELLED", "UNPAID_CANCELLED"].includes(order.order_status) && !editMode && (
             <Button
               variant="outline"
               size="sm"
@@ -451,7 +451,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
               수정
             </Button>
           )}
-          {order.order_status !== "CANCELLED" && (
+          {!["CANCELLED", "UNPAID_CANCELLED"].includes(order.order_status) && (
             <Button
               variant="outline"
               size="sm"
@@ -702,7 +702,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
 
           {/* 주문품목 탭 */}
           <TabsContent value="items" className="m-0 p-4 space-y-3">
-            {order.order_status !== "CANCELLED" && (
+            {!["CANCELLED", "UNPAID_CANCELLED"].includes(order.order_status) && (
               <div className="flex justify-end">
                 <Button
                   variant="outline"

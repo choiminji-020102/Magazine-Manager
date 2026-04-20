@@ -44,6 +44,7 @@ const STATUS_OPTIONS = [
   { value: "ORDERED", label: "주문완료" },
   { value: "PAID", label: "결제완료" },
   { value: "CANCELLED", label: "취소" },
+  { value: "UNPAID_CANCELLED", label: "미결제 취소" },
 ];
 
 export default function OrderListPage() {

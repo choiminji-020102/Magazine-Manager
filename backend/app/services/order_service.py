@@ -228,7 +228,7 @@ def update_order(db: Session, order: Order, order_in: OrderUpdate) -> Order:
 
 def process_payment(db: Session, order: Order, payment_in: OrderPaymentUpdate) -> Order:
     """결제 완료 처리 (ORDERED → PAID)"""
-    if order.order_status == "CANCELLED":
+    if order.order_status in ("CANCELLED", "UNPAID_CANCELLED"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="취소된 주문은 결제 처리할 수 없습니다.",
@@ -251,7 +251,7 @@ def process_payment(db: Session, order: Order, payment_in: OrderPaymentUpdate) -
 
 def _validate_cancellable(db: Session, order: Order, active_items: List[OrderItem]) -> None:
     """주문 취소 가능 여부 검증 (취소 상태, 배송 후 차단)"""
-    if order.order_status == "CANCELLED":
+    if order.order_status in ("CANCELLED", "UNPAID_CANCELLED"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="이미 취소된 주문입니다.",
@@ -397,10 +397,12 @@ def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) 
     db.flush()
 
     # ── 5. 주문 취소 + 환불금 설정 ──────────────────────────────────────────
+    # ORDERED(미결제) → UNPAID_CANCELLED, PAID(결제 후) → CANCELLED
+    cancelled_status = "UNPAID_CANCELLED" if order.order_status == "ORDERED" else "CANCELLED"
     order_crud.set_order_status(
         db=db,
         order=order,
-        order_status="CANCELLED",
+        order_status=cancelled_status,
         cancelled_at=now,
     )
     order.refund_amount = total_refund

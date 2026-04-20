@@ -35,9 +35,9 @@ def get_orders_summary(
     result = db.query(
         func.count().label("total_orders"),
         func.sum(case((Order.order_status == "COMPLETED", 1), else_=0)).label("completed_orders"),
-        func.sum(case((Order.order_status == "CANCELLED", 1), else_=0)).label("cancelled_orders"),
-        func.sum(case((Order.order_status != "CANCELLED", Order.payment_amount), else_=0)).label("total_revenue"),
-        func.avg(case((Order.order_status != "CANCELLED", Order.payment_amount), else_=None)).label("avg_order_value")
+        func.sum(case((Order.order_status.in_(("CANCELLED", "UNPAID_CANCELLED")), 1), else_=0)).label("cancelled_orders"),
+        func.sum(case((Order.order_status.notin_(("CANCELLED", "UNPAID_CANCELLED")), Order.payment_amount), else_=0)).label("total_revenue"),
+        func.avg(case((Order.order_status.notin_(("CANCELLED", "UNPAID_CANCELLED")), Order.payment_amount), else_=None)).label("avg_order_value")
     ).filter(
         func.date(Order.order_at).between(start_date, end_date)
     ).first()
@@ -46,7 +46,7 @@ def get_orders_summary(
     trend = db.query(
         func.date(Order.order_at).label("date"),
         func.count().label("orders"),
-        func.sum(case((Order.order_status != "CANCELLED", Order.payment_amount), else_=0)).label("revenue")
+        func.sum(case((Order.order_status.notin_(("CANCELLED", "UNPAID_CANCELLED")), Order.payment_amount), else_=0)).label("revenue")
     ).filter(
         func.date(Order.order_at).between(start_date, end_date)
     ).group_by(func.date(Order.order_at)).order_by(func.date(Order.order_at)).all()
@@ -75,8 +75,8 @@ def get_orders_by_channel(
     results = db.query(
         Order.order_channel,
         func.count().label("total_orders"),
-        func.sum(case((Order.order_status != "CANCELLED", 1), else_=0)).label("valid_orders"),
-        func.sum(case((Order.order_status != "CANCELLED", Order.payment_amount), else_=0)).label("revenue")
+        func.sum(case((Order.order_status.notin_(("CANCELLED", "UNPAID_CANCELLED")), 1), else_=0)).label("valid_orders"),
+        func.sum(case((Order.order_status.notin_(("CANCELLED", "UNPAID_CANCELLED")), Order.payment_amount), else_=0)).label("revenue")
     ).filter(
         func.date(Order.order_at).between(start_date, end_date)
     ).group_by(Order.order_channel).order_by(func.sum(Order.payment_amount).desc()).all()
@@ -114,8 +114,8 @@ def get_orders_by_period(
     results = db.query(
         period_expr.label("period"),
         func.count().label("total_orders"),
-        func.sum(case((Order.order_status != "CANCELLED", 1), else_=0)).label("valid_orders"),
-        func.sum(case((Order.order_status != "CANCELLED", Order.payment_amount), else_=0)).label("revenue")
+        func.sum(case((Order.order_status.notin_(("CANCELLED", "UNPAID_CANCELLED")), 1), else_=0)).label("valid_orders"),
+        func.sum(case((Order.order_status.notin_(("CANCELLED", "UNPAID_CANCELLED")), Order.payment_amount), else_=0)).label("revenue")
     ).filter(
         func.date(Order.order_at).between(start_date, end_date)
     ).group_by(group_by).order_by(group_by).all()

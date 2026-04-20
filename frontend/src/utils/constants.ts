@@ -4,12 +4,14 @@ export const ORDER_STATUS_LABEL: Record<string, string> = {
   ORDERED: "주문완료",
   PAID: "결제완료",
   CANCELLED: "취소",
+  UNPAID_CANCELLED: "미결제 취소",
 };
 
 export const ORDER_STATUS_COLOR: Record<string, string> = {
   ORDERED: "bg-blue-50 text-blue-700",
   PAID: "bg-green-50 text-green-700",
   CANCELLED: "bg-red-50 text-red-700",
+  UNPAID_CANCELLED: "bg-orange-50 text-orange-700",
 };
 
 // ── 발송 상태 ──────────────────────────────────────────────────────────────────

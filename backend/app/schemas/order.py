@@ -17,7 +17,8 @@ class OrderChannel(str, Enum):
 class OrderStatus(str, Enum):
     ORDERED = "ORDERED"
     PAID = "PAID"
-    CANCELLED = "CANCELLED"
+    CANCELLED = "CANCELLED"                  # 결제 후 취소 (환불 처리됨)
+    UNPAID_CANCELLED = "UNPAID_CANCELLED"    # 결제 전 취소 (환불 불필요)
 
 
 class PaymentMethod(str, Enum):

@@ -30,12 +30,13 @@ export const formatSubscriptionPeriod = (
  * 주문 상태를 한글로 변환
  */
 export const getOrderStatusLabel = (
-  status: "ORDERED" | "PAID" | "CANCELLED" | "SHIPPING" | "COMPLETED"
+  status: "ORDERED" | "PAID" | "CANCELLED" | "UNPAID_CANCELLED" | "SHIPPING" | "COMPLETED"
 ): string => {
   const labels = {
     ORDERED: "주문완료",
     PAID: "결제완료",
     CANCELLED: "취소됨",
+    UNPAID_CANCELLED: "미결제 취소",
     SHIPPING: "배송중",
     COMPLETED: "배송완료",
   };
