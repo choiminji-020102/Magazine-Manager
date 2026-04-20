@@ -36,6 +36,8 @@ CAFE24_SCOPES = [
     "mall.read_salesreport",
     "mall.read_shipping",
     "mall.write_shipping",
+    "mall.read_community",
+    "mall.write_community",
 ]
 
 
