@@ -1,10 +1,10 @@
 // Order 관련 타입 (백엔드 스키마 기준)
 
 export enum PaymentMethod {
-  CARD = "CARD",
-  TRANSFER = "TRANSFER",
-  CASH = "CASH",
-  DEPOSIT = "DEPOSIT",
+  CASH = "cash",      // 무통장
+  CARD = "card",      // 신용카드
+  ICASH = "icash",    // 가상계좌
+  TCASH = "tcash",    // 계좌이체
 }
 
 export interface OrderListQuery {

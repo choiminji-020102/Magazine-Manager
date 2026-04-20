@@ -165,15 +165,15 @@ export const COURIER_OPTIONS = ["CJ대한통운", "자체배송"];
 // ── 결제 방법 ──────────────────────────────────────────────────────────────────
 
 export const PAYMENT_METHOD_LABEL: Record<string, string> = {
-  CARD: "카드",
-  TRANSFER: "계좌이체",
-  CASH: "현금",
-  DEPOSIT: "무통장입금",
+  cash:  "무통장",
+  card:  "신용카드",
+  icash: "가상계좌",
+  tcash: "계좌이체",
 };
 
 export const PAYMENT_METHOD_OPTIONS = [
-  { value: "CARD", label: "카드" },
-  { value: "TRANSFER", label: "계좌이체" },
-  { value: "CASH", label: "현금" },
-  { value: "DEPOSIT", label: "무통장입금" },
+  { value: "cash",  label: "무통장" },
+  { value: "card",  label: "신용카드" },
+  { value: "icash", label: "가상계좌" },
+  { value: "tcash", label: "계좌이체" },
 ];

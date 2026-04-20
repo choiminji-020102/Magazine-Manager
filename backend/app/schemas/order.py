@@ -21,10 +21,10 @@ class OrderStatus(str, Enum):
 
 
 class PaymentMethod(str, Enum):
-    CARD = "CARD"
-    TRANSFER = "TRANSFER"
-    CASH = "CASH"
-    DEPOSIT = "DEPOSIT"
+    CASH = "cash"      # 무통장
+    CARD = "card"      # 신용카드
+    ICASH = "icash"    # 가상계좌
+    TCASH = "tcash"    # 계좌이체
 
 
 # ── 주문 생성용 인라인 입력 ────────────────────────────────────────────────────
