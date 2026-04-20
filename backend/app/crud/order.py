@@ -180,6 +180,7 @@ def create_order(
     admin_memo: Optional[str] = None,
     order_at: Optional[datetime] = None,
     payment_at: Optional[datetime] = None,
+    cancelled_at: Optional[datetime] = None,
 ) -> Order:
     order = Order(
         customer_id=customer_id,
@@ -195,6 +196,7 @@ def create_order(
         customer_memo=customer_memo,
         admin_memo=admin_memo,
         payment_at=payment_at,
+        cancelled_at=cancelled_at,
     )
     if order_at:
         order.order_at = order_at

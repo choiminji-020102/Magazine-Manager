@@ -162,6 +162,7 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
         admin_memo=order_in.admin_memo,
         order_at=order_in.order_at,
         payment_at=order_in.payment_at,
+        cancelled_at=order_in.cancelled_at,
     )
 
     # ── 7. 주문 품목 생성 ─────────────────────────────────────────────────────

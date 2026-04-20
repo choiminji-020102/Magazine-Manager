@@ -69,6 +69,7 @@ export interface OrderCreate {
 
   order_at?: string | null;
   payment_at?: string | null;
+  cancelled_at?: string | null;
 }
 
 export interface OrderUpdate {

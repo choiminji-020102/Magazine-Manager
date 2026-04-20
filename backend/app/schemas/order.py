@@ -85,6 +85,7 @@ class OrderCreate(BaseModel):
 
     order_at: Optional[datetime] = None     # 미입력 시 현재 시각 (Cafe24 연동 시 실제 주문 시각)
     payment_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None # Cafe24 연동 시 canceled=T인 주문의 취소 시각
 
     @model_validator(mode='after')
     def check_customer_and_address(self) -> 'OrderCreate':
