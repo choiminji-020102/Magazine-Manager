@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
-import type { Cafe24Order, Cafe24OrderDetail } from "@/types/cafe24";
+import type { Cafe24Order } from "@/types/cafe24";
 
 function formatPrice(value: string | number | null | undefined): string {
   if (value == null) return "-";
