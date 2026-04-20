@@ -508,6 +508,13 @@ def cancel_item_calculate(
     """품목 취소 환불 계산 미리보기 (DB 변경 없음)"""
     order_status = order_item.order.order_status
 
+    # 이미 취소된 주문은 품목 취소 불가
+    if order_status in ("CANCELLED", "UNPAID_CANCELLED"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미 취소된 주문의 품목은 취소할 수 없습니다.",
+        )
+
     # 배송 후 차단
     delivered_count = _count_delivered_issues(db, order_item.order_item_id)
     if delivered_count > 0:
@@ -555,6 +562,13 @@ def cancel_order_item(
     cancel_in: OrderItemCancelRequest,
 ) -> OrderItem:
     """품목 취소 (배송 후 차단, 전액 환불, PREPARING Send 취소)"""
+    # 이미 취소된 주문은 품목 취소 불가
+    if order_item.order.order_status in ("CANCELLED", "UNPAID_CANCELLED"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="이미 취소된 주문의 품목은 취소할 수 없습니다.",
+        )
+
     send_items = _get_active_send_items(db, order_item.order_item_id)
 
     # 배송 후 취소 불가 (MONTHLY/YEARLY 모두)

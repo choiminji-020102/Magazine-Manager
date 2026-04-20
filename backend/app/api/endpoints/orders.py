@@ -228,7 +228,7 @@ def cancel_order(
         details={
             "before": {"order_status": before_status},
             "after": {
-                "order_status": "CANCELLED",
+                "order_status": order.order_status,
                 "refund_amount": order.refund_amount,
                 "admin_memo": cancel_request.admin_memo,
             },
