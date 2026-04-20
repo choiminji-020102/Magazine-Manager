@@ -190,6 +190,7 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
         order_item = OrderItem(
             order_id=order.order_id,
             address_id=address_id,
+            external_order_item_id=item_in.external_order_item_id,
             product_code=product.product_code,
             product_kind=product.product_kind,
             product_name=product.product_name,

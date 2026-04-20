@@ -58,6 +58,7 @@ class OrderItemCreateInOrder(BaseModel):
     sale_price: Optional[int] = None        # 미입력 시 상품 판매가 자동 사용
     subscribe_period: int = 12              # 구독 기간 (개월), YEARLY 전용
     admin_memo: Optional[str] = None
+    external_order_item_id: Optional[str] = None  # Cafe24 등 외부몰 품목 식별자 (예: "20260101-0000001-01")
 
 
 # ── CRUD 스키마 ───────────────────────────────────────────────────────────────

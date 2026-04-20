@@ -46,6 +46,7 @@ export interface OrderItemCreateInOrder {
   sale_price?: number | null;   // 미입력 시 상품 판매가 자동 사용
   subscribe_period?: number;    // 기본값: 12
   admin_memo?: string | null;
+  external_order_item_id?: string | null;  // Cafe24 등 외부몰 품목 식별자
 }
 
 export interface OrderCreate {
