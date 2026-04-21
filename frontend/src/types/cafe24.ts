@@ -113,6 +113,7 @@ export interface Cafe24OrdersResponse {
 
 export interface Cafe24OrderImportRequest {
   external_order_ids: string[];
+  dry_run?: boolean;
 }
 
 export interface Cafe24SkippedOrder {
@@ -131,6 +132,7 @@ export interface Cafe24OrderImportResponse {
   imported_order_ids: string[];
   skipped_orders: Cafe24SkippedOrder[];
   warnings: Cafe24ImportWarning[];
+  dry_run?: boolean;
 }
 
 // Cafe24 주문 상세 (buyer + receivers + items)

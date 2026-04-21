@@ -650,11 +650,13 @@ async def import_orders(
     client: httpx.AsyncClient,
     current_admin: Admin,
     request: Request,
+    dry_run: bool = False,
 ) -> dict:
     """선택된 Cafe24 주문번호 배열을 일괄 import.
 
     각 주문은 독립 트랜잭션 (실패 시 그 주문만 rollback). 마지막에 활동 로그 1건 기록.
-    응답: {imported_count, skipped_count, imported_order_ids, skipped_orders, warnings}
+    dry_run=True면 저장하지 않고 매핑·검증 결과만 반환 (미리보기 용도).
+    응답: {imported_count, skipped_count, imported_order_ids, skipped_orders, warnings, dry_run}
     """
     if not external_order_ids:
         raise HTTPException(
@@ -684,7 +686,10 @@ async def import_orders(
 
         try:
             order_warnings = await _import_single_order(db, client, external_order_id, base)
-            db.commit()
+            if dry_run:
+                db.rollback()   # 미리보기: 저장 취소
+            else:
+                db.commit()
             imported_order_ids.append(external_order_id)
             warnings.extend(order_warnings)
         except ImportSkip as e:
@@ -701,25 +706,26 @@ async def import_orders(
             db.rollback()
             skipped_orders.append({"external_order_id": external_order_id, "reason": f"내부 오류: {e}"})
 
-    # 활동 로그 1건 (트랜잭션 외부, 자체 commit)
-    activity_log_service.create_log(
-        db=db,
-        action=ActivityAction.CREATE,
-        target_type=ActivityTargetType.CAFE24,
-        admin_id=current_admin.admin_id,
-        admin_name=current_admin.admin_name,
-        target_name="Cafe24 주문 Import",
-        details={
-            "period": {"start": period_start, "end": period_end},
-            "imported_count": len(imported_order_ids),
-            "skipped_count": len(skipped_orders),
-            "imported_order_ids": imported_order_ids,
-            "skipped_orders": skipped_orders,
-            "warnings": warnings,
-        },
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-    )
+    # 활동 로그 1건 (실제 실행 시에만, 트랜잭션 외부, 자체 commit)
+    if not dry_run:
+        activity_log_service.create_log(
+            db=db,
+            action=ActivityAction.CREATE,
+            target_type=ActivityTargetType.CAFE24,
+            admin_id=current_admin.admin_id,
+            admin_name=current_admin.admin_name,
+            target_name="Cafe24 주문 Import",
+            details={
+                "period": {"start": period_start, "end": period_end},
+                "imported_count": len(imported_order_ids),
+                "skipped_count": len(skipped_orders),
+                "imported_order_ids": imported_order_ids,
+                "skipped_orders": skipped_orders,
+                "warnings": warnings,
+            },
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
 
     return {
         "imported_count": len(imported_order_ids),
@@ -727,4 +733,5 @@ async def import_orders(
         "imported_order_ids": imported_order_ids,
         "skipped_orders": skipped_orders,
         "warnings": warnings,
+        "dry_run": dry_run,
     }

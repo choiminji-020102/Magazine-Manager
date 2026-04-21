@@ -384,11 +384,11 @@ export default function ProductListPage() {
                   <FormLabel required>상품 코드</FormLabel>
                   <Input
                     className="mt-1 h-8 text-sm font-mono"
-                    placeholder="예: M1001+202604"
+                    placeholder="예: M1001+202604 (정기구독)"
                     value={form.product_code}
                     onChange={(e) => setForm((f) => ({ ...f, product_code: e.target.value }))}
                   />
-                  <p className="mt-1 text-[11px] text-gray-400">YEARLY: 코드+YYYYMM, MONTHLY: 코드-YYYYMM</p>
+                  <p className="mt-1 text-[11px] text-gray-400">YEARLY 정기구독: 코드+YYYYMM · YEARLY 연장구독: 코드~YYYYMM · MONTHLY: 코드-YYYYMM</p>
                 </div>
                 <div>
                   <FormLabel required>상품 종류</FormLabel>

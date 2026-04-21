@@ -49,6 +49,12 @@ function parseKind(name: string): "YEARLY" | "MONTHLY" {
   return plain.includes("단품") ? "MONTHLY" : "YEARLY";
 }
 
+// 연장 구독 상품 여부: 상품명에 "연장" 포함
+function parseIsExtension(name: string): boolean {
+  const plain = name.replace(/<[^>]*>/g, " ");
+  return plain.includes("연장");
+}
+
 function parseIssue(name: string): string {
   const plain = name.replace(/<[^>]*>/g, " ");
   const m = plain.match(/(\d{2})년\s*(\d{1,2})월/);
@@ -58,9 +64,15 @@ function parseIssue(name: string): string {
   return `${year}${month}`;
 }
 
-function buildProductCode(prefix: string, kind: "YEARLY" | "MONTHLY", issue: string): string {
+function buildProductCode(
+  prefix: string,
+  kind: "YEARLY" | "MONTHLY",
+  issue: string,
+  isExtension: boolean = false,
+): string {
   if (!prefix || !issue) return "";
-  const sep = kind === "YEARLY" ? "+" : "-";
+  // YEARLY: '+' (정기구독) 또는 '~' (연장 구독) / MONTHLY: '-'
+  const sep = kind === "MONTHLY" ? "-" : (isExtension ? "~" : "+");
   return `${prefix}${sep}${issue}`;
 }
 
@@ -90,9 +102,10 @@ function initRow(p: Cafe24Product): ImportRow {
   const kind = parseKind(p.product_name);
   const prefix = parsePrefix(p.product_name);
   const issue = parseIssue(p.product_name);
+  const isExtension = parseIsExtension(p.product_name);
   return {
     cafe24: p,
-    product_code: buildProductCode(prefix, kind, issue),
+    product_code: buildProductCode(prefix, kind, issue, isExtension),
     product_kind: kind,
     product_name: stripHtml(p.product_name),
     list_price: String(cafe24PriceToInt(p.retail_price)),
@@ -128,13 +141,14 @@ export default function Cafe24ProductImportModal({ open, onClose, selectedProduc
   };
 
   // product_kind 변경 시 product_code의 구분자도 자동 변경
+  // YEARLY ↔ MONTHLY 전환 시 '+'/'~'/'-' 서로 치환 (연장 '~'은 YEARLY → MONTHLY 시 '-'로, MONTHLY → YEARLY 시 '+'로 복귀)
   const updateKind = (idx: number, kind: "YEARLY" | "MONTHLY") => {
     setRows((prev) =>
       prev.map((r, i) => {
         if (i !== idx) return r;
         let code = r.product_code;
         if (kind === "YEARLY") code = code.replace("-", "+");
-        else code = code.replace("+", "-");
+        else code = code.replace(/[+~]/, "-");
         return { ...r, product_kind: kind, product_code: code };
       })
     );

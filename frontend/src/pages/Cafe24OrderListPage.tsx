@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cafe24API } from "@/api/cafe24Api";
 import { PageHeader } from "@/components/common/PageHeader";
-import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -272,6 +271,78 @@ function SectionHeader({
   );
 }
 
+// ── Import 미리보기 모달 (dry-run 결과 + 실행 버튼) ─────────────────────────
+
+function PreviewModal({
+  open, onClose, onExecute, result, isExecuting,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onExecute: () => void;
+  result: Cafe24OrderImportResponse | null;
+  isExecuting: boolean;
+}) {
+  if (!result) return null;
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v && !isExecuting) onClose(); }}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Cafe24 주문 가져오기 미리보기</DialogTitle>
+          <p className="text-xs text-gray-500 mt-1">
+            저장 전 미리보기입니다. 아래 결과를 확인 후 "실행"을 눌러 실제 저장을 시작하세요.
+          </p>
+        </DialogHeader>
+        <div className="flex-1 overflow-auto space-y-4 py-2">
+          {/* 요약 */}
+          <div className="flex gap-4 text-sm">
+            <div><span className="text-green-600 font-medium">✅ 성공 예상</span> {result.imported_count}건</div>
+            <div><span className="text-red-500 font-medium">❌ 실패</span> {result.skipped_count}건</div>
+            <div><span className="text-amber-600 font-medium">⚠️ 경고</span> {result.warnings.length}건</div>
+          </div>
+
+          {/* 실패 상세 */}
+          {result.skipped_orders.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-gray-600 mb-2">실패 상세 ({result.skipped_orders.length}건)</h4>
+              <div className="space-y-1 text-xs max-h-60 overflow-auto border border-gray-200 rounded p-2 bg-gray-50">
+                {result.skipped_orders.map((s) => (
+                  <div key={s.external_order_id} className="flex gap-2">
+                    <span className="font-mono text-gray-700">{s.external_order_id}</span>
+                    <span className="text-red-500 flex-1">{s.reason}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 경고 상세 */}
+          {result.warnings.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-gray-600 mb-2">경고 상세 ({result.warnings.length}건)</h4>
+              <div className="space-y-1 text-xs max-h-60 overflow-auto border border-gray-200 rounded p-2 bg-amber-50">
+                {result.warnings.map((w, i) => (
+                  <div key={i} className="flex gap-2">
+                    <span className="font-mono text-gray-700">{w.external_order_id}</span>
+                    <span className="text-amber-700 flex-1">{w.message}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="secondary" onClick={onClose} disabled={isExecuting}>
+            취소
+          </Button>
+          <Button onClick={onExecute} disabled={isExecuting || result.imported_count === 0}>
+            {isExecuting ? "실행 중..." : `실행 (${result.imported_count}건 저장)`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Import 결과 모달 ────────────────────────────────────────────────────────
 
 function ImportResultModal({
@@ -341,7 +412,9 @@ export default function Cafe24OrderListPage() {
   const [endDate, setEndDate] = useState(defaults.end);
   const [queryDates, setQueryDates] = useState(defaults);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingIds, setPendingIds] = useState<string[]>([]);   // dry-run 시점의 선택 스냅샷 (실제 실행 시 이 배열 사용)
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewResult, setPreviewResult] = useState<Cafe24OrderImportResponse | null>(null);
   const [resultOpen, setResultOpen] = useState(false);
   const [importResult, setImportResult] = useState<Cafe24OrderImportResponse | null>(null);
 
@@ -361,11 +434,27 @@ export default function Cafe24OrderListPage() {
     setSelectedIds(new Set(importableIds));
   }, [importableIds]);
 
+  // Dry-run: 매핑·검증 결과 미리보기 (저장 안 함)
+  const dryRunMutation = useMutation({
+    mutationFn: (ids: string[]) =>
+      cafe24API.importOrders({ external_order_ids: ids, dry_run: true }),
+    onSuccess: (result) => {
+      setPreviewResult(result);
+      setPreviewOpen(true);
+    },
+    onError: (err: any) => {
+      toast.error(getErrorMessage(err) || "Cafe24 주문 미리보기 실패");
+    },
+  });
+
+  // 실제 실행: DB에 저장
   const importMutation = useMutation({
-    mutationFn: (ids: string[]) => cafe24API.importOrders({ external_order_ids: ids }),
+    mutationFn: (ids: string[]) =>
+      cafe24API.importOrders({ external_order_ids: ids, dry_run: false }),
     onSuccess: (result) => {
       setImportResult(result);
       setResultOpen(true);
+      setPreviewOpen(false);
       queryClient.invalidateQueries({
         queryKey: ["cafe24-orders", queryDates.start, queryDates.end],
       });
@@ -395,15 +484,18 @@ export default function Cafe24OrderListPage() {
 
   const selectedCount = selectedIds.size;
   const allSelected = selectedCount > 0 && selectedCount === importableIds.length;
+  // 미리보기 모달 열렸거나 실제 실행 중이면 필터·기간 변경 잠금 (대상 불일치 방지)
+  const filterLocked = previewOpen || dryRunMutation.isPending || importMutation.isPending;
 
   const handleImport = () => {
     if (selectedCount === 0) return;
-    setConfirmOpen(true);
+    const ids = Array.from(selectedIds);
+    setPendingIds(ids);   // dry-run 시점 스냅샷 — Preview/실행에서 일관 사용
+    dryRunMutation.mutate(ids);
   };
 
-  const confirmImport = () => {
-    setConfirmOpen(false);
-    importMutation.mutate(Array.from(selectedIds));
+  const executeImport = () => {
+    importMutation.mutate(pendingIds);   // 선택 변경에 영향받지 않도록 스냅샷 사용
   };
 
   return (
@@ -418,9 +510,11 @@ export default function Cafe24OrderListPage() {
           <Button
             size="sm"
             onClick={handleImport}
-            disabled={selectedCount === 0 || importMutation.isPending}
+            disabled={selectedCount === 0 || dryRunMutation.isPending || importMutation.isPending}
           >
-            {importMutation.isPending ? "가져오는 중..." : `선택 ${selectedCount}건 가져오기`}
+            {dryRunMutation.isPending
+              ? "미리보기 중..."
+              : `선택 ${selectedCount}건 가져오기`}
           </Button>
         }
       />
@@ -433,6 +527,7 @@ export default function Cafe24OrderListPage() {
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
+            disabled={filterLocked}
             className="mt-1 w-36"
           />
         </div>
@@ -442,18 +537,22 @@ export default function Cafe24OrderListPage() {
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
+            disabled={filterLocked}
             className="mt-1 w-36"
           />
         </div>
-        <Button size="sm" onClick={handleSearch} disabled={isLoading}>
+        <Button size="sm" onClick={handleSearch} disabled={isLoading || filterLocked}>
           조회
         </Button>
         <span className="text-xs text-gray-400">최대 3개월</span>
+        {filterLocked && (
+          <span className="text-xs text-amber-600">미리보기 중: 필터 변경 불가</span>
+        )}
         <div className="ml-auto flex items-center gap-2 text-xs text-gray-600">
           <input
             type="checkbox"
             checked={allSelected}
-            disabled={importableIds.length === 0}
+            disabled={importableIds.length === 0 || filterLocked}
             onChange={toggleSelectAll}
             className="h-4 w-4"
             id="select-all"
@@ -486,14 +585,12 @@ export default function Cafe24OrderListPage() {
         )}
       </div>
 
-      <ConfirmModal
-        open={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
-        onConfirm={confirmImport}
-        title="Cafe24 주문 가져오기"
-        description={`선택한 ${selectedCount}건의 주문을 내부 DB로 가져옵니다. 계속할까요?`}
-        confirmLabel="가져오기"
-        isLoading={importMutation.isPending}
+      <PreviewModal
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        onExecute={executeImport}
+        result={previewResult}
+        isExecuting={importMutation.isPending}
       />
 
       <ImportResultModal

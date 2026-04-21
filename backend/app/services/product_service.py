@@ -43,10 +43,11 @@ def create_product(db: Session, product_in: ProductCreate) -> Product:
     product_crud.check_code_duplicate(db=db, product_code=product_in.product_code)
 
     # product_kind와 product_code 형식 일치 검증
-    if product_in.product_kind == "YEARLY" and "+" not in product_in.product_code:
+    # YEARLY는 '+' (정기구독) 또는 '~' (연장 구독) 구분자 허용
+    if product_in.product_kind == "YEARLY" and "+" not in product_in.product_code and "~" not in product_in.product_code:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="YEARLY 상품의 product_code는 '+' 구분자와 시작 호를 포함해야 합니다. 예: M1001+202604",
+            detail="YEARLY 상품의 product_code는 '+' (정기구독) 또는 '~' (연장 구독) 구분자와 시작 호를 포함해야 합니다. 예: M1001+202604, M1001~202604",
         )
     if product_in.product_kind == "MONTHLY" and "-" not in product_in.product_code:
         raise HTTPException(
@@ -94,10 +95,11 @@ def update_product(db: Session, product: Product, product_in: ProductUpdate) -> 
         effective_kind = product_in.product_kind if product_in.product_kind is not None else product.product_kind
 
         # product_kind와 product_code 구분자 일치 검증
-        if effective_kind == "YEARLY" and "+" not in product_in.product_code:
+        # YEARLY는 '+' (정기구독) 또는 '~' (연장 구독) 구분자 허용
+        if effective_kind == "YEARLY" and "+" not in product_in.product_code and "~" not in product_in.product_code:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="YEARLY 상품의 product_code는 '+' 구분자와 시작 호를 포함해야 합니다. 예: M1001+202604",
+                detail="YEARLY 상품의 product_code는 '+' (정기구독) 또는 '~' (연장 구독) 구분자와 시작 호를 포함해야 합니다. 예: M1001+202604, M1001~202604",
             )
         if effective_kind == "MONTHLY" and "-" not in product_in.product_code:
             raise HTTPException(

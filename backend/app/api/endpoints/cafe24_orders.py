@@ -19,6 +19,7 @@ MALL_ID = settings.CAFE24_MALL_ID
 
 class Cafe24OrderImportRequest(BaseModel):
     external_order_ids: List[str] = Field(..., min_length=1, description="가져올 Cafe24 주문번호 배열")
+    dry_run: bool = Field(False, description="True면 매핑·검증만 수행하고 저장하지 않음 (미리보기)")
 
 
 @router.get("/")
@@ -183,4 +184,5 @@ async def import_cafe24_orders(
         client=request.app.state.http_client,
         current_admin=current_admin,
         request=request,
+        dry_run=payload.dry_run,
     )
