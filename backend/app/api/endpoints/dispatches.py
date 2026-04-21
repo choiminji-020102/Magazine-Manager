@@ -318,7 +318,8 @@ def _process_dispatch(
                 continue
 
             # 발송용 상품 코드 결정
-            # YEARLY: M1001+202601 → M1001-202602 (해당 issue의 MONTHLY 상품으로 변환)
+            # YEARLY 정기구독: W0+202601 → W0-202602 (해당 issue의 MONTHLY 상품으로 변환)
+            # YEARLY 연장구독: W0~202601 → W0-202602 (해당 issue의 MONTHLY 상품으로 변환)
             # MONTHLY: 그대로 사용
             send_product_code = order_item_service.convert_to_send_product_code(
                 order_item.product_code, order_item.product_kind, req.issue

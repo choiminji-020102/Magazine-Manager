@@ -14,7 +14,7 @@ class ProductKind(str, Enum):
 
 
 class ProductCreate(BaseModel):
-    product_code: str                                   # 필수, unique (예: "M1001+202604", "M1001-202604")
+    product_code: str                                   # 필수, unique (예: "W0+202604" 정기구독, "W0~202604" 연장구독, "W0-202604" 단품)
     product_kind: ProductKind                           # 필수 (YEARLY | MONTHLY)
     product_name: str                                   # 필수 (예: "말씀함께 2026년 4월호")
     external_product_code_cafe24: Optional[str] = None   # 카페24 상품코드

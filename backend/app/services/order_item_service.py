@@ -629,10 +629,16 @@ def update_last_send_issue(db: Session, order_item: OrderItem, issue: str) -> Or
 # ── Dispatch 대상 조회 ────────────────────────────────────────────────────────
 
 def convert_to_send_product_code(product_code: str, product_kind: str, issue: str) -> str:
-    """주문품목 product_code를 발송용 코드로 변환 (YEARLY: base+YYYYMM → base-{issue})"""
-    if product_kind == "YEARLY" and "+" in product_code:
-        base_code = product_code.split("+")[0]
-        return f"{base_code}-{issue}"
+    """주문품목 product_code를 발송용 코드로 변환
+    - YEARLY 정기구독: base+YYYYMM → base-{issue}
+    - YEARLY 연장구독: base~YYYYMM → base-{issue}
+    - MONTHLY: 변환 없음 (원본 그대로)
+    """
+    if product_kind == "YEARLY":
+        for sep in ("+", "~"):
+            if sep in product_code:
+                base_code = product_code.split(sep)[0]
+                return f"{base_code}-{issue}"
     return product_code
 
 

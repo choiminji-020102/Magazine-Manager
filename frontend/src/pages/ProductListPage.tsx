@@ -384,7 +384,7 @@ export default function ProductListPage() {
                   <FormLabel required>상품 코드</FormLabel>
                   <Input
                     className="mt-1 h-8 text-sm font-mono"
-                    placeholder="예: M1001+202604 (정기구독)"
+                    placeholder="예: W0+202604 (정기구독)"
                     value={form.product_code}
                     onChange={(e) => setForm((f) => ({ ...f, product_code: e.target.value }))}
                   />

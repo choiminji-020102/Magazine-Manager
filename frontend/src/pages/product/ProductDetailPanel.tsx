@@ -58,8 +58,9 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
   const previewStartIssue = useMemo(() => {
     const code = editForm.product_code;
     if (!code) return null;
-    if (code.includes("+")) return code.split("+")[1] || null;
-    if (code.includes("-")) return code.split("-")[1] || null;
+    for (const sep of ["+", "~", "-"]) {
+      if (code.includes(sep)) return code.split(sep)[1] || null;
+    }
     return null;
   }, [editForm.product_code]);
 

@@ -15,9 +15,9 @@ def parse_subscribe_start_issue(product_code: str) -> Optional[str]:
     """product_code에서 구독 시작 호(YYYYMM) 추출
 
     규칙:
-    - M1001+202601 (YEARLY 정기구독)  → "202601"
-    - M1001~202601 (YEARLY 연장 구독) → "202601"
-    - M1001-202601 (MONTHLY 단품)     → "202601"
+    - W0+202601 (YEARLY 정기구독)  → "202601"
+    - W0~202601 (YEARLY 연장 구독) → "202601"
+    - W0-202601 (MONTHLY 단품)     → "202601"
     - 구분자 없음                        → None
 
     연장 구독(`~`)은 정기구독(`+`)과 동일하게 YEARLY로 취급되며,
