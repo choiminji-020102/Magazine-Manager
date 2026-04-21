@@ -8,6 +8,8 @@ import type {
   Cafe24ProductImportRequest,
   Cafe24ProductImportResponse,
   Cafe24OrderDetail,
+  Cafe24OrderImportRequest,
+  Cafe24OrderImportResponse,
 } from "../types/cafe24";
 
 export type {
@@ -18,6 +20,8 @@ export type {
   Cafe24ProductImportRequest,
   Cafe24ProductImportResponse,
   Cafe24OrderDetail,
+  Cafe24OrderImportRequest,
+  Cafe24OrderImportResponse,
 };
 
 export const cafe24API = {
@@ -131,6 +135,23 @@ export const cafe24API = {
       return response.data;
     } catch (err) {
       logApiError(err as any, "CAFE24_IMPORT_PRODUCTS");
+      throw err;
+    }
+  },
+
+  /**
+   * Cafe24 주문 → DB 저장 (일괄)
+   * POST /cafe24/orders/import
+   */
+  importOrders: async (data: Cafe24OrderImportRequest): Promise<Cafe24OrderImportResponse> => {
+    try {
+      const response = await api.post<Cafe24OrderImportResponse>(
+        "/cafe24/orders/import",
+        data
+      );
+      return response.data;
+    } catch (err) {
+      logApiError(err as any, "CAFE24_IMPORT_ORDERS");
       throw err;
     }
   },

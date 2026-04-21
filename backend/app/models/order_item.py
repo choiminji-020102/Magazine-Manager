@@ -9,7 +9,7 @@ class OrderItem(Base):
 
     order_item_id = Column(BigInteger, primary_key=True, autoincrement=True)
 
-    external_order_item_id = Column(String(100), nullable=True, comment="외부 주문 품목 ID")
+    external_order_item_id = Column(String(100), nullable=True, comment="외부 주문 품목 ID - Cafe24")
 
     order_id = Column(BigInteger, ForeignKey("orders.order_id"), nullable=False, comment="주문 ID")
 

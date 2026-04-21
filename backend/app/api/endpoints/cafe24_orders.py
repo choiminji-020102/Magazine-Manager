@@ -29,7 +29,12 @@ async def list_cafe24_orders(
     db: Session = Depends(get_db),
     _=Depends(require_admin),
 ):
-    """Cafe24 주문 목록 조회 — 응답을 그대로 반환"""
+    """Cafe24 주문 목록 조회 — 매핑 문서 규칙대로 변환된 응답 반환.
+
+    각 주문마다 buyer/receivers/items 상세를 병렬 조회해 하나의 매핑된 주문 객체로 구성.
+    상품 매칭(external_product_code_cafe24)도 수행하여 내부 product_code/product_name까지 포함.
+    응답에 already_imported 플래그 포함.
+    """
     # 검색기간 3개월 제한 검증
     try:
         start = datetime.strptime(start_date, "%Y-%m-%d")
@@ -41,23 +46,12 @@ async def list_cafe24_orders(
     if end < start:
         raise HTTPException(status_code=400, detail="종료일이 시작일보다 이전일 수 없습니다.")
 
-    r = await cafe24_admin_service.call_cafe24(
-        method="GET",
-        url=f"https://{MALL_ID}.cafe24api.com/api/v2/admin/orders",
+    return await cafe24_import_service.list_mapped_orders(
         db=db,
+        start_date=start_date,
+        end_date=end_date,
         client=request.app.state.http_client,
-        params={
-            "start_date": start_date,
-            "end_date": end_date,
-            "limit": 1000,
-        },
     )
-    if r.is_error:
-        raise HTTPException(
-            status_code=r.status_code,
-            detail=f"Cafe24 주문 조회 실패: {r.text}",
-        )
-    return r.json()
 
 
 @router.get("/{order_id}/buyer")

@@ -61,25 +61,76 @@ export interface Cafe24ProductImportResponse {
   results: Cafe24ProductImportResultItem[];
 }
 
+// 매핑된 주문 품목 (백엔드에서 매핑 문서 규칙대로 변환됨)
+export interface Cafe24MappedOrderItem {
+  cafe24_product_code: string;              // Cafe24 원본
+  external_order_item_id: string;           // = items[].order_item_code
+  product_code: string | null;              // 매칭된 내부 Product.product_code (null이면 상품 미등록)
+  product_kind: "YEARLY" | "MONTHLY" | null;
+  product_name: string | null;
+  sale_price: number;
+  order_num: number;
+  subscribe_period: number | null;
+  option_value: string;                     // 원본 option_value (표시용)
+}
+
+// 매핑된 주문 (GET /cafe24/orders/ 응답의 orders[])
 export interface Cafe24Order {
-  order_id: string;
-  billing_name: string;
-  payment_method_name: string[];
-  payment_amount: string;
-  paid: string;
-  canceled: string;
-  order_date: string;
-  payment_date: string | null;
-  initial_order_amount?: {
-    order_price_amount?: string;
-    shipping_fee?: string;
-    [key: string]: any;
-  };
-  [key: string]: any;
+  external_order_id: string;
+  order_channel: "CAFE24";
+  order_status: "ORDERED" | "PAID" | "CANCELLED" | "UNPAID_CANCELLED" | "UNKNOWN" | null;
+  send_fee: number | null;
+  payment_method: string | null;            // cash/card/icash/tcash (또는 미매핑 원본)
+  order_at: string | null;                  // ISO 8601
+  payment_at: string | null;
+  cancelled_at: string | null;
+
+  customer_name: string | null;
+  customer_phone: string | null;
+  customer_email: string | null;
+
+  recipient_name: string | null;
+  recipient_phone: string | null;
+  country_code: string | null;
+  postal_code: string | null;
+  recipient_address: string | null;
+  customer_memo: string | null;
+
+  items: Cafe24MappedOrderItem[];
+
+  total_amount: number | null;
+  payment_amount: number | null;
+
+  already_imported: boolean;
+  detail_fetch_error?: string;              // 상세 조회 실패 시에만 존재
 }
 
 export interface Cafe24OrdersResponse {
   orders: Cafe24Order[];
+}
+
+// Cafe24 주문 Import 관련 타입
+
+export interface Cafe24OrderImportRequest {
+  external_order_ids: string[];
+}
+
+export interface Cafe24SkippedOrder {
+  external_order_id: string;
+  reason: string;
+}
+
+export interface Cafe24ImportWarning {
+  external_order_id: string;
+  message: string;
+}
+
+export interface Cafe24OrderImportResponse {
+  imported_count: number;
+  skipped_count: number;
+  imported_order_ids: string[];
+  skipped_orders: Cafe24SkippedOrder[];
+  warnings: Cafe24ImportWarning[];
 }
 
 // Cafe24 주문 상세 (buyer + receivers + items)

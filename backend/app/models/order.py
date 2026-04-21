@@ -9,7 +9,7 @@ class Order(Base):
 
     order_id = Column(BigInteger, primary_key=True, autoincrement=True)
 
-    external_order_id = Column(String(50), nullable=True, comment="외부 주문 ID - Cafe24")
+    external_order_id = Column(String(50), nullable=True, unique=True, comment="외부 주문 ID - Cafe24")
 
     customer_id = Column(BigInteger, ForeignKey("customers.customer_id"), nullable=False, comment="고객 ID")
 

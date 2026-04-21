@@ -15,6 +15,7 @@ from typing import List, Optional, Tuple
 
 import httpx
 from fastapi import HTTPException, Request, status as http_status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -37,7 +38,7 @@ PAYMENT_METHOD_MAP = {"cash": "cash", "card": "card", "icash": "icash", "tcash":
 
 # 할인 0 검증 대상 필드 (initial_order_amount.*)
 ORDER_DISCOUNT_FIELDS = [
-    "coupon_discount_price", "additional_discount_amount", "app_discount_amount",
+    "coupon_discount_price", "app_discount_amount",
     "membership_discount_amount", "set_product_discount_amount",
     "shipping_fee_discount_amount", "coupon_shipping_fee_amount",
     "market_other_discount_amount", "points_spent_amount",
@@ -45,9 +46,10 @@ ORDER_DISCOUNT_FIELDS = [
 ]
 
 # 할인 0 검증 대상 필드 (items[].*)
+# option_price는 제외: Cafe24가 옵션 없는 단품에도 product_price와 동일한 값을 내려줌 → "옵션 추가금" 의미 아님
 ITEM_DISCOUNT_FIELDS = [
     "coupon_discount_price", "additional_discount_price",
-    "app_item_discount_amount", "option_price",
+    "app_item_discount_amount",
 ]
 
 _PERIOD_YEAR_RE = re.compile(r"구독 기간=(\d+)년 연장")
@@ -427,6 +429,221 @@ async def _import_single_order(
 
 # ── 메인 오케스트레이션 ───────────────────────────────────────────────────────
 
+# ── 목록 조회용 매핑 (UI 표시 전용, 검증 없음) ────────────────────────────────
+
+async def list_mapped_orders(
+    db: Session,
+    start_date: str,
+    end_date: str,
+    client: httpx.AsyncClient,
+) -> dict:
+    """기간 내 Cafe24 주문 목록을 매핑 문서대로 변환해 반환.
+
+    - 각 주문마다 buyer/receivers/items 병렬 조회 후 매핑 적용
+    - UI 표시 목적이므로 검증(total_amount, sale_price, 할인 0 등)은 생략
+    - 상품 매칭 실패(미등록) 시 내부 필드는 null + Cafe24 원본 코드 표시
+    - 응답에 already_imported 플래그 포함
+    """
+    # 1) Cafe24 주문 목록 조회
+    base_by_id = await _fetch_base_orders(start_date, end_date, db, client)
+    order_ids = list(base_by_id.keys())
+
+    # 2) 내부 DB 중복 체크
+    existing_ids: set[str] = set()
+    if order_ids:
+        existing_ids = {
+            row[0] for row in db.query(Order.external_order_id).filter(
+                Order.external_order_id.in_(order_ids)
+            ).all()
+        }
+
+    # 3) 모든 주문의 buyer/receivers/items 병렬 조회
+    details = await asyncio.gather(
+        *[_fetch_order_detail(oid, db, client) for oid in order_ids],
+        return_exceptions=True,
+    )
+
+    # 4) 모든 Cafe24 상품 코드 모아 내부 Product 일괄 조회
+    all_cafe24_codes = set()
+    for detail in details:
+        if isinstance(detail, Exception):
+            continue
+        _, _, items_list = detail
+        for it in items_list:
+            code = it.get("product_code")
+            if code:
+                all_cafe24_codes.add(code)
+    products = db.query(Product).filter(
+        Product.external_product_code_cafe24.in_(all_cafe24_codes)
+    ).all() if all_cafe24_codes else []
+    product_map = {p.external_product_code_cafe24: p for p in products}
+
+    # 5) 각 주문 매핑
+    mapped_orders: List[dict] = []
+    for oid, detail in zip(order_ids, details):
+        base = base_by_id[oid]
+        if isinstance(detail, Exception):
+            mapped_orders.append(_build_mapped_error(oid, base, oid in existing_ids, str(detail)))
+            continue
+        buyer, receivers, items_list = detail
+        mapped = _build_mapped_order(
+            base=base,
+            buyer=buyer,
+            receivers=receivers,
+            items=items_list,
+            product_map=product_map,
+            already_imported=(oid in existing_ids),
+        )
+        mapped_orders.append(mapped)
+
+    return {"orders": mapped_orders}
+
+
+def _build_mapped_order(
+    *, base: dict, buyer: Optional[dict], receivers: List[dict], items: List[dict],
+    product_map: dict, already_imported: bool,
+) -> dict:
+    """단일 주문 매핑 — UI 표시용. 검증 수행 안 함."""
+    paid = base.get("paid")
+    canceled = base.get("canceled")
+
+    # order_status
+    if paid == "M" or canceled == "M":
+        order_status = "UNKNOWN"  # 부분결제/취소 — UI에 '지원안함'으로 표시
+    elif canceled == "T":
+        order_status = "CANCELLED" if paid == "T" else "UNPAID_CANCELLED"
+    elif paid == "T":
+        order_status = "PAID"
+    else:
+        order_status = "ORDERED"
+
+    # payment_method
+    pm_codes = base.get("payment_method") or []
+    pm_code = pm_codes[0] if pm_codes else None
+    payment_method = PAYMENT_METHOD_MAP.get(pm_code, pm_code)  # 미매핑은 원본 노출
+
+    # 금액
+    initial = base.get("initial_order_amount") or {}
+    send_fee = to_int(initial.get("shipping_fee"))
+    total_amount = to_int(initial.get("order_price_amount"))
+    payment_amount_val = to_int(base.get("payment_amount"))
+
+    # Customer
+    if buyer:
+        raw_phone = buyer.get("cellphone") or ""
+        customer_phone, _ = format_phone_number(raw_phone)
+        customer_name = buyer.get("name") or ""
+        customer_email = buyer.get("email") or None
+    else:
+        customer_phone = ""
+        customer_name = ""
+        customer_email = None
+
+    # Address (receivers[0])
+    receiver = receivers[0] if receivers else {}
+    raw_recipient_phone = receiver.get("cellphone") or ""
+    recipient_phone, _ = format_phone_number(raw_recipient_phone)
+    recipient_address = (
+        receiver.get("address_full")
+        or " ".join(filter(None, [receiver.get("address1"), receiver.get("address2")])).strip()
+        or ""
+    )
+    customer_memo = receiver.get("shipping_message") or None
+    if customer_memo == "":
+        customer_memo = None
+
+    # Items
+    mapped_items: List[dict] = []
+    for it in items:
+        cafe24_code = it.get("product_code")
+        product = product_map.get(cafe24_code)
+        sale_price = to_int(it.get("product_price"))
+        quantity = it.get("quantity") or 0
+        option_value = it.get("option_value") or ""
+
+        if product:
+            if product.product_kind == "YEARLY":
+                period = parse_subscribe_period(option_value)
+                subscribe_period = period if period is not None else None
+            else:
+                subscribe_period = 1
+            mapped_items.append({
+                "cafe24_product_code": cafe24_code,
+                "external_order_item_id": it.get("order_item_code"),
+                "product_code": product.product_code,
+                "product_kind": product.product_kind,
+                "product_name": product.product_name,
+                "sale_price": sale_price,
+                "order_num": quantity,
+                "subscribe_period": subscribe_period,
+                "option_value": option_value,
+            })
+        else:
+            mapped_items.append({
+                "cafe24_product_code": cafe24_code,
+                "external_order_item_id": it.get("order_item_code"),
+                "product_code": None,
+                "product_kind": None,
+                "product_name": None,
+                "sale_price": sale_price,
+                "order_num": quantity,
+                "subscribe_period": None,
+                "option_value": option_value,
+            })
+
+    return {
+        "external_order_id": base.get("order_id"),
+        "order_channel": "CAFE24",
+        "order_status": order_status,
+        "send_fee": send_fee,
+        "payment_method": payment_method,
+        "order_at": base.get("order_date"),
+        "payment_at": base.get("payment_date"),
+        "cancelled_at": base.get("cancel_date"),
+        "customer_name": customer_name,
+        "customer_phone": customer_phone,
+        "customer_email": customer_email,
+        "recipient_name": receiver.get("name") or "",
+        "recipient_phone": recipient_phone,
+        "country_code": "KR",
+        "postal_code": receiver.get("zipcode") or "",
+        "recipient_address": recipient_address,
+        "customer_memo": customer_memo,
+        "items": mapped_items,
+        "total_amount": total_amount,
+        "payment_amount": payment_amount_val,
+        "already_imported": already_imported,
+    }
+
+
+def _build_mapped_error(order_id: str, base: dict, already_imported: bool, error: str) -> dict:
+    """detail 조회 실패 시 최소 정보만 담은 매핑 실패 응답."""
+    return {
+        "external_order_id": order_id,
+        "order_channel": "CAFE24",
+        "order_status": None,
+        "send_fee": None,
+        "payment_method": None,
+        "order_at": base.get("order_date"),
+        "payment_at": base.get("payment_date"),
+        "cancelled_at": base.get("cancel_date"),
+        "customer_name": None,
+        "customer_phone": None,
+        "customer_email": None,
+        "recipient_name": None,
+        "recipient_phone": None,
+        "country_code": None,
+        "postal_code": None,
+        "recipient_address": None,
+        "customer_memo": None,
+        "items": [],
+        "total_amount": None,
+        "payment_amount": None,
+        "already_imported": already_imported,
+        "detail_fetch_error": error,
+    }
+
+
 async def import_orders(
     db: Session,
     external_order_ids: List[str],
@@ -473,6 +690,13 @@ async def import_orders(
         except ImportSkip as e:
             db.rollback()
             skipped_orders.append({"external_order_id": external_order_id, "reason": e.message})
+        except IntegrityError:
+            # 동시 INSERT 경쟁 상황에서 UNIQUE 제약 위반 → 다른 요청이 이미 import함
+            db.rollback()
+            skipped_orders.append({
+                "external_order_id": external_order_id,
+                "reason": "이미 import됨 (동시 요청 감지)",
+            })
         except Exception as e:
             db.rollback()
             skipped_orders.append({"external_order_id": external_order_id, "reason": f"내부 오류: {e}"})
