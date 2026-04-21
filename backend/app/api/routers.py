@@ -19,6 +19,7 @@ from app.api.endpoints import (
     send_items,
     sends,
     stats,
+    vip_slots,
 )
 
 api_router = APIRouter()
@@ -44,3 +45,4 @@ api_router.include_router(products.router)
 api_router.include_router(send_items.router)
 api_router.include_router(sends.router)
 api_router.include_router(stats.router)
+api_router.include_router(vip_slots.router)

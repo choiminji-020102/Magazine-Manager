@@ -130,26 +130,35 @@ def update_address(
     address_in: AddressUpdate,
     request: Request,
     db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin),
+    current_admin: Admin = Depends(require_manager),
 ):
-    """배송지 수정 (admin_memo만 수정 가능)"""
+    """배송지 수정 (admin_memo, vip1~vip6) — 모든 관리자 권한 가능"""
     address = address_service.get_address_by_id(db, address_id)
-    before_memo = address.admin_memo
+
+    tracked_fields = ("admin_memo", "vip1", "vip2", "vip3", "vip4", "vip5", "vip6")
+    before = {f: getattr(address, f) for f in tracked_fields}
 
     updated = address_service.update_address(db, address, address_in)
 
-    activity_log_service.create_log(
-        db=db,
-        action=ActivityAction.UPDATE,
-        target_type=ActivityTargetType.ADDRESS,
-        admin_id=current_admin.admin_id,
-        admin_name=current_admin.admin_name,
-        target_id=address_id,
-        target_name=updated.recipient_name,
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-        details={"before": {"admin_memo": before_memo}, "after": {"admin_memo": updated.admin_memo}},
-    )
+    after = {f: getattr(updated, f) for f in tracked_fields}
+    changed = [f for f in tracked_fields if before[f] != after[f]]
+
+    if changed:
+        activity_log_service.create_log(
+            db=db,
+            action=ActivityAction.UPDATE,
+            target_type=ActivityTargetType.ADDRESS,
+            admin_id=current_admin.admin_id,
+            admin_name=current_admin.admin_name,
+            target_id=address_id,
+            target_name=updated.recipient_name,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+            details={
+                "before": {f: before[f] for f in changed},
+                "after": {f: after[f] for f in changed},
+            },
+        )
 
     return ResponseModel(
         message="배송지 정보가 수정되었습니다.",

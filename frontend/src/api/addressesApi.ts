@@ -31,7 +31,7 @@ export const addressesApi = {
     return api.post<ResponseModel<AddressResponse>>("/addresses", data);
   },
 
-  // PUT /addresses/{address_id} - 배송지 수정 (admin_memo만)
+  // PUT /addresses/{address_id} - 배송지 수정 (admin_memo, vip1~vip6)
   updateAddress: (addressId: number, data: AddressUpdate) => {
     return api.put<ResponseModel<AddressResponse>>(`/addresses/${addressId}`, data);
   },

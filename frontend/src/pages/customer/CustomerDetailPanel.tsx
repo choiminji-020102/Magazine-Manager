@@ -23,11 +23,14 @@ import { customersApi } from "@/api/customersApi";
 import { ordersApi } from "@/api/ordersApi";
 import { inquiriesApi } from "@/api/inquiriesApi";
 import { addressesApi } from "@/api/addressesApi";
+import { vipSlotsApi } from "@/api/vipSlotsApi";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
 import { formatDate, formatPhone, formatPhoneInput, formatAmount } from "@/utils/format";
 import { PAYMENT_METHOD_LABEL } from "@/utils/constants";
+import { VipFlagsEditor } from "@/components/common/VipFlags";
 import type { AddressResponse } from "@/types/address";
+import type { VipSlotResponse } from "@/types/vipSlot";
 import type { OrderResponse } from "@/types/order";
 import type { InquiryResponse } from "@/types/inquiry";
 
@@ -181,6 +184,27 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
       addressesApi.updateAddress(addressId, { admin_memo: memo }),
     onSuccess: () => {
       toast.success("메모가 저장되었습니다.");
+      queryClient.invalidateQueries({ queryKey: ["customer", customerId] });
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+
+  const { data: vipSlots = [] } = useQuery({
+    queryKey: ["vip-slots"],
+    queryFn: () => vipSlotsApi.getVipSlots().then((res) => res.data.data ?? []),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const updateAddressVipMutation = useMutation({
+    mutationFn: ({ addressId, slotNumber, checked }: {
+      addressId: number;
+      slotNumber: number;
+      checked: boolean;
+    }) =>
+      addressesApi.updateAddress(addressId, {
+        [`vip${slotNumber}`]: checked,
+      } as Record<string, boolean>),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customer", customerId] });
     },
     onError: (err) => toast.error(getErrorMessage(err)),
@@ -509,10 +533,19 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
                 <AddressCard
                   key={address.address_id}
                   address={address}
+                  vipSlots={vipSlots}
                   onDelete={() => setDeleteAddressId(address.address_id)}
                   onUpdateMemo={(memo) =>
                     updateAddressMemoMutation.mutate({ addressId: address.address_id, memo })
                   }
+                  onToggleVip={(slotNumber, checked) =>
+                    updateAddressVipMutation.mutate({
+                      addressId: address.address_id,
+                      slotNumber,
+                      checked,
+                    })
+                  }
+                  vipDisabled={updateAddressVipMutation.isPending}
                 />
               ))
             ) : (
@@ -643,12 +676,18 @@ function OrderRow({ order, onClick }: { order: OrderResponse; onClick: () => voi
 // 배송지 카드
 function AddressCard({
   address,
+  vipSlots,
   onDelete,
   onUpdateMemo,
+  onToggleVip,
+  vipDisabled,
 }: {
   address: AddressResponse;
+  vipSlots: VipSlotResponse[];
   onDelete: () => void;
   onUpdateMemo: (memo: string | null) => void;
+  onToggleVip: (slotNumber: number, checked: boolean) => void;
+  vipDisabled?: boolean;
 }) {
   const [editingMemo, setEditingMemo] = useState(false);
   const [memoValue, setMemoValue] = useState(address.admin_memo ?? "");
@@ -705,6 +744,16 @@ function AddressCard({
             >
               {address.admin_memo ? `관리자 메모: ${address.admin_memo}` : "+ 관리자 메모 추가"}
             </button>
+          )}
+          {vipSlots.some((s) => s.is_enabled) && (
+            <div className="pt-2 mt-1 border-t border-gray-100">
+              <VipFlagsEditor
+                address={address}
+                slots={vipSlots}
+                onToggle={onToggleVip}
+                disabled={vipDisabled}
+              />
+            </div>
           )}
         </div>
         <button

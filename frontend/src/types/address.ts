@@ -12,7 +12,13 @@ export interface AddressCreate {
 }
 
 export interface AddressUpdate {
-  admin_memo?: string | null;   // 수정 가능한 유일한 필드
+  admin_memo?: string | null;
+  vip1?: boolean;
+  vip2?: boolean;
+  vip3?: boolean;
+  vip4?: boolean;
+  vip5?: boolean;
+  vip6?: boolean;
 }
 
 export interface AddressListQuery {
@@ -35,6 +41,12 @@ export interface AddressResponse {
   recipient_address: string;
   customer_memo?: string | null;
   admin_memo?: string | null;
+  vip1: boolean;
+  vip2: boolean;
+  vip3: boolean;
+  vip4: boolean;
+  vip5: boolean;
+  vip6: boolean;
   created_at: string;
   updated_at: string;
 }

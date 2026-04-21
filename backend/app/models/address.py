@@ -32,6 +32,14 @@ class Address(Base):
     customer_memo = Column(Text, nullable=True, comment="고객 배송 요청 사항")
     admin_memo = Column(Text, nullable=True, comment="관리자 메모")
 
+    # VIP 슬롯 플래그 (의미는 관리자가 설정 페이지에서 지정)
+    vip1 = Column(Boolean, nullable=False, server_default="0")
+    vip2 = Column(Boolean, nullable=False, server_default="0")
+    vip3 = Column(Boolean, nullable=False, server_default="0")
+    vip4 = Column(Boolean, nullable=False, server_default="0")
+    vip5 = Column(Boolean, nullable=False, server_default="0")
+    vip6 = Column(Boolean, nullable=False, server_default="0")
+
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 

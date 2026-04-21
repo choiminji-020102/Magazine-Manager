@@ -24,7 +24,13 @@ class AddressUpdate(BaseModel):
     # ⚠️ recipient_name, recipient_phone, recipient_address, postal_code,
     #    country_code, customer_memo 수정 불가 (불변 필드)
     # 주소 내용이 잘못된 경우: 신규 배송지 등록 후 OrderItem.address_id 교체
-    admin_memo: Optional[str] = None            # 수정 가능한 유일한 필드
+    admin_memo: Optional[str] = None
+    vip1: Optional[bool] = None
+    vip2: Optional[bool] = None
+    vip3: Optional[bool] = None
+    vip4: Optional[bool] = None
+    vip5: Optional[bool] = None
+    vip6: Optional[bool] = None
 
 
 # ── 응답 스키마 ───────────────────────────────────────────────────────────────
@@ -41,6 +47,12 @@ class AddressResponse(BaseModel):
     recipient_address: str
     customer_memo: Optional[str] = None
     admin_memo: Optional[str] = None
+    vip1: bool
+    vip2: bool
+    vip3: bool
+    vip4: bool
+    vip5: bool
+    vip6: bool
     created_at: datetime
     updated_at: datetime
 

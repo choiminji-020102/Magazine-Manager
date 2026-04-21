@@ -34,10 +34,12 @@ import { orderItemsApi } from "@/api/orderItemsApi";
 import { pausesApi } from "@/api/pausesApi";
 import { sendsApi } from "@/api/sendsApi";
 import { activityLogsApi } from "@/api/activityLogsApi";
+import { vipSlotsApi } from "@/api/vipSlotsApi";
 import { getLogDisplay } from "@/utils/activityLogDisplay";
 import { toast } from "@/hooks/use-toast";
 import { formatAmount, formatPhone, formatIssue, formatDate, formatDateTime } from "@/utils/format";
 import { getErrorMessage } from "@/utils/errorHandler";
+import { VipFlagsDisplay } from "@/components/common/VipFlags";
 import type { SubscriptionListItem } from "@/types/orderItem";
 import type { PauseResponse } from "@/types/pause";
 import type { SendResponse } from "@/types/send";
@@ -103,6 +105,12 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
           target_id: item.order_item_id,
         })
         .then((r) => r.data.items ?? []),
+  });
+
+  const { data: vipSlots = [] } = useQuery({
+    queryKey: ["vip-slots"],
+    queryFn: () => vipSlotsApi.getVipSlots().then((res) => res.data.data ?? []),
+    staleTime: 5 * 60 * 1000,
   });
 
   // 최신 데이터 (detail 로드 전이면 item 값 사용)
@@ -298,6 +306,9 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
           )}
           {detail?.address?.admin_memo && (
             <InfoRow label="관리자메모" value={detail.address.admin_memo} />
+          )}
+          {detail?.address && (
+            <VipFlagsDisplay address={detail.address} slots={vipSlots} />
           )}
         </Section>
 

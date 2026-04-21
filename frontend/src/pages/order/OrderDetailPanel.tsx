@@ -43,7 +43,9 @@ import { formatAmount, formatDate, formatDateTime, formatPhone, formatPhoneInput
 import { getErrorMessage } from "@/utils/errorHandler";
 import { PAYMENT_METHOD_LABEL, PAYMENT_METHOD_OPTIONS, CHANNEL_LABEL, CHANNEL_OPTIONS } from "@/utils/constants";
 import { addressesApi } from "@/api/addressesApi";
+import { vipSlotsApi } from "@/api/vipSlotsApi";
 import { AddressSearchField } from "@/components/common/AddressSearchField";
+import { VipFlagsDisplay } from "@/components/common/VipFlags";
 import type { OrderItemDetailResponse } from "@/types/orderItem";
 import { PaymentMethod } from "@/types/order";
 import SubscriptionDetailPanel from "../subscription/SubscriptionDetailPanel";
@@ -175,6 +177,12 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     queryKey: ["customerAddresses", order?.customer_id],
     queryFn: () => addressesApi.getAddressesByCustomer(order!.customer_id).then((r) => r.data),
     enabled: !!order?.customer_id && addressChangeOpen,
+  });
+
+  const { data: vipSlots = [] } = useQuery({
+    queryKey: ["vip-slots"],
+    queryFn: () => vipSlotsApi.getVipSlots().then((res) => res.data.data ?? []),
+    staleTime: 5 * 60 * 1000,
   });
 
   // 배송지 변경 mutation
@@ -516,6 +524,9 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
               )}
               {order.address?.admin_memo && (
                 <InfoRow label="관리자메모" value={order.address.admin_memo} />
+              )}
+              {order.address && (
+                <VipFlagsDisplay address={order.address} slots={vipSlots} />
               )}
             </Section>
 
