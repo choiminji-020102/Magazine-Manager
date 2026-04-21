@@ -1,17 +1,24 @@
 import asyncio
 from datetime import datetime
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.deps import require_admin
 from app.db.session import get_db
-from app.services import cafe24_admin_service
+from app.models.admin import Admin
+from app.services import cafe24_admin_service, cafe24_import_service
 
 router = APIRouter(prefix="/cafe24/orders", tags=["카페24 주문"])
 
 MALL_ID = settings.CAFE24_MALL_ID
+
+
+class Cafe24OrderImportRequest(BaseModel):
+    external_order_ids: List[str] = Field(..., min_length=1, description="가져올 Cafe24 주문번호 배열")
 
 
 @router.get("/")
@@ -161,3 +168,25 @@ async def get_cafe24_order_detail(
         result["items"] = items_r.json().get("items", [])
 
     return result
+
+
+@router.post("/import")
+async def import_cafe24_orders(
+    payload: Cafe24OrderImportRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_admin),
+):
+    """선택한 Cafe24 주문들을 내부 DB로 가져옴.
+
+    각 주문 단위 트랜잭션 (실패 시 그 주문만 skip).
+    응답: imported_count / skipped_count / imported_order_ids / skipped_orders / warnings
+    매핑·검증 규칙은 CAFE24_ORDER_IMPORT_MAPPING.md 참조.
+    """
+    return await cafe24_import_service.import_orders(
+        db=db,
+        external_order_ids=payload.external_order_ids,
+        client=request.app.state.http_client,
+        current_admin=current_admin,
+        request=request,
+    )
