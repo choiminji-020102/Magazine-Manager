@@ -3,11 +3,12 @@ from typing import List, Optional, Tuple
 
 # 서드파티 라이브러리
 from fastapi import HTTPException, status
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
 from app.core.utils import format_phone_number, now_kst
+from app.models.address import Address
 from app.models.customer import Customer
 from app.schemas.customer import CustomerCreate, CustomerUpdate
 
@@ -24,8 +25,39 @@ def list_customers(
     admin_memo: Optional[str] = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
-) -> Tuple[List[Customer], int]:
-    query = db.query(Customer).filter(Customer.is_deleted == is_deleted)
+) -> Tuple[List[Tuple[Customer, bool, bool, bool, bool, bool, bool]], int]:
+    """고객 목록 + 배송지 VIP 플래그 집계(OR).
+
+    반환: List[(Customer, vip1, vip2, vip3, vip4, vip5, vip6)]
+    """
+    # 고객별 VIP 플래그 OR 집계 서브쿼리 (N+1 방지)
+    vip_agg = (
+        db.query(
+            Address.customer_id.label("cid"),
+            func.max(Address.vip1).label("vip1"),
+            func.max(Address.vip2).label("vip2"),
+            func.max(Address.vip3).label("vip3"),
+            func.max(Address.vip4).label("vip4"),
+            func.max(Address.vip5).label("vip5"),
+            func.max(Address.vip6).label("vip6"),
+        )
+        .group_by(Address.customer_id)
+        .subquery()
+    )
+
+    query = (
+        db.query(
+            Customer,
+            func.coalesce(vip_agg.c.vip1, 0),
+            func.coalesce(vip_agg.c.vip2, 0),
+            func.coalesce(vip_agg.c.vip3, 0),
+            func.coalesce(vip_agg.c.vip4, 0),
+            func.coalesce(vip_agg.c.vip5, 0),
+            func.coalesce(vip_agg.c.vip6, 0),
+        )
+        .outerjoin(vip_agg, Customer.customer_id == vip_agg.c.cid)
+        .filter(Customer.is_deleted == is_deleted)
+    )
 
     if create_channel:
         query = query.filter(Customer.create_channel == create_channel)
@@ -51,7 +83,11 @@ def list_customers(
 
     total = query.count()
     offset = (page - 1) * limit
-    items = query.offset(offset).limit(limit).all()
+    rows = query.offset(offset).limit(limit).all()
+    items = [
+        (row[0], bool(row[1]), bool(row[2]), bool(row[3]), bool(row[4]), bool(row[5]), bool(row[6]))
+        for row in rows
+    ]
     return items, total
 
 

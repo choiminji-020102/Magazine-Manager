@@ -168,4 +168,10 @@ export interface OrderListResponse {
   payment_at?: string | null;
   cancelled_at?: string | null;
   item_count: number;
+  vip1: boolean;
+  vip2: boolean;
+  vip3: boolean;
+  vip4: boolean;
+  vip5: boolean;
+  vip6: boolean;
 }

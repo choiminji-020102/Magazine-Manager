@@ -14,6 +14,7 @@ from app.models.activity_log import ActivityAction, ActivityTargetType
 from app.schemas.customer import (
     CustomerCreate,
     CustomerDetailResponse,
+    CustomerListItem,
     CustomerListQuery,
     CustomerResponse,
     CustomerUpdate,
@@ -25,7 +26,7 @@ from app.services import activity_log_service, customer_service
 router = APIRouter(prefix="/customers", tags=["고객"])
 
 
-@router.get("", response_model=PaginatedResponse[CustomerResponse])
+@router.get("", response_model=PaginatedResponse[CustomerListItem])
 def get_customers(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),

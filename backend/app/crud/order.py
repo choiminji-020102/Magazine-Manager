@@ -36,7 +36,17 @@ def list_orders(
     from app.core.utils import format_phone_number
 
     query = (
-        db.query(Order, Customer.customer_name, Customer.customer_phone)
+        db.query(
+            Order,
+            Customer.customer_name,
+            Customer.customer_phone,
+            Address.vip1,
+            Address.vip2,
+            Address.vip3,
+            Address.vip4,
+            Address.vip5,
+            Address.vip6,
+        )
         .join(Customer, Order.customer_id == Customer.customer_id)
         .outerjoin(Address, Order.address_id == Address.address_id)
     )
@@ -83,7 +93,7 @@ def list_orders(
     results = query.offset(offset).limit(limit).all()
 
     items = []
-    for order, customer_name, customer_phone in results:
+    for order, customer_name, customer_phone, vip1, vip2, vip3, vip4, vip5, vip6 in results:
         item_count = db.query(OrderItem).filter(
             OrderItem.order_id == order.order_id,
             OrderItem.cancelled_at.is_(None),
@@ -107,6 +117,12 @@ def list_orders(
             payment_at=order.payment_at,
             cancelled_at=order.cancelled_at,
             item_count=item_count,
+            vip1=bool(vip1),
+            vip2=bool(vip2),
+            vip3=bool(vip3),
+            vip4=bool(vip4),
+            vip5=bool(vip5),
+            vip6=bool(vip6),
         ))
     return items, total
 

@@ -28,9 +28,11 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { customersApi } from "@/api/customersApi";
+import { vipSlotsApi } from "@/api/vipSlotsApi";
 import { toast } from "@/hooks/use-toast";
 import { formatDate, formatPhone, formatPhoneInput } from "@/utils/format";
-import type { CustomerResponse, CustomerChannel } from "@/types/customer";
+import { VipFlagsDisplay } from "@/components/common/VipFlags";
+import type { CustomerListItem, CustomerChannel } from "@/types/customer";
 import CustomerDetailPanel from "./customer/CustomerDetailPanel";
 
 const EMPTY_CREATE_FORM = {
@@ -130,7 +132,7 @@ export default function CustomerListPage() {
         .then((r) => r.data),
   });
 
-  const handleRowClick = useCallback((customer: CustomerResponse) => {
+  const handleRowClick = useCallback((customer: CustomerListItem) => {
     setSelectedId(customer.customer_id);
     setPanelOpen(true);
   }, []);
@@ -140,14 +142,23 @@ export default function CustomerListPage() {
     setTimeout(() => setSelectedId(null), 250);
   }, []);
 
-  const columns: ColumnDef<CustomerResponse>[] = [
+  const { data: vipSlots = [] } = useQuery({
+    queryKey: ["vip-slots"],
+    queryFn: () => vipSlotsApi.getVipSlots().then((res) => res.data.data ?? []),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const columns: ColumnDef<CustomerListItem>[] = [
     {
       key: "customer_name",
       header: "고객명",
       sortable: true,
       cell: (row) => (
         <div>
-          <div className="font-medium text-gray-900 text-[13px]">{row.customer_name}</div>
+          <div className="font-medium text-gray-900 text-[13px] flex items-center gap-1.5 flex-wrap">
+            <span>{row.customer_name}</span>
+            <VipFlagsDisplay address={row} slots={vipSlots} compact />
+          </div>
           {row.customer_email && (
             <div className="text-xs text-gray-400">{row.customer_email}</div>
           )}

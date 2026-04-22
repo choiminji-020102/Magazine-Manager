@@ -51,3 +51,13 @@ export interface CustomerResponse {
   updated_at: string;
   deleted_at?: string | null;
 }
+
+// 고객 목록용 응답 — 배송지 VIP 플래그 집계(OR) 포함
+export interface CustomerListItem extends CustomerResponse {
+  vip1: boolean;
+  vip2: boolean;
+  vip3: boolean;
+  vip4: boolean;
+  vip5: boolean;
+  vip6: boolean;
+}

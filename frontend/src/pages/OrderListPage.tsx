@@ -26,9 +26,11 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { ordersApi } from "@/api/ordersApi";
+import { vipSlotsApi } from "@/api/vipSlotsApi";
 import { toast } from "@/hooks/use-toast";
 import { formatAmount, formatDate, formatPhone } from "@/utils/format";
 import { PAYMENT_METHOD_LABEL, PAYMENT_METHOD_OPTIONS } from "@/utils/constants";
+import { VipFlagsDisplay } from "@/components/common/VipFlags";
 import type { OrderListResponse } from "@/types/order";
 import OrderDetailPanel from "./order/OrderDetailPanel";
 
@@ -124,6 +126,12 @@ export default function OrderListPage() {
     },
   });
 
+  const { data: vipSlots = [] } = useQuery({
+    queryKey: ["vip-slots"],
+    queryFn: () => vipSlotsApi.getVipSlots().then((res) => res.data.data ?? []),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const handleRowClick = useCallback((order: OrderListResponse) => {
     setSelectedOrderId(order.order_id);
     setPanelOpen(true);
@@ -148,8 +156,9 @@ export default function OrderListPage() {
       header: "고객",
       cell: (row) => (
         <div>
-          <div className="font-medium text-gray-900 text-[13px]">
-            {row.customer_name ?? "-"}
+          <div className="font-medium text-gray-900 text-[13px] flex items-center gap-1.5 flex-wrap">
+            <span>{row.customer_name ?? "-"}</span>
+            <VipFlagsDisplay address={row} slots={vipSlots} compact />
           </div>
           <div className="text-xs text-gray-400">
             {formatPhone(row.customer_phone)}

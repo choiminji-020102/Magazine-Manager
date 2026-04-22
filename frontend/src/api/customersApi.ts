@@ -6,12 +6,13 @@ import type {
   CustomerUpdate,
   CustomerResponse,
   CustomerDetailResponse,
+  CustomerListItem,
 } from "../types/customer";
 
 export const customersApi = {
-  // GET /customers - 고객 목록 조회
+  // GET /customers - 고객 목록 조회 (VIP 플래그 집계 포함)
   getCustomers: (params: CustomerListQuery) => {
-    return api.get<PaginatedResponse<CustomerResponse>>("/customers", { params });
+    return api.get<PaginatedResponse<CustomerListItem>>("/customers", { params });
   },
 
   // GET /customers/{customer_id} - 고객 상세 조회 (주문·배송지 포함)

@@ -51,6 +51,16 @@ class CustomerDetailResponse(CustomerResponse):
     addresses: List[AddressResponse] = []
 
 
+class CustomerListItem(CustomerResponse):
+    """고객 목록용 응답 — 배송지 VIP 플래그 집계(OR) 포함"""
+    vip1: bool = False
+    vip2: bool = False
+    vip3: bool = False
+    vip4: bool = False
+    vip5: bool = False
+    vip6: bool = False
+
+
 class CustomerListQuery(BaseModel):
     page: int = Field(1, ge=1)
     limit: int = Field(20, ge=1, le=100)

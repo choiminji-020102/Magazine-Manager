@@ -28,10 +28,12 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { orderItemsApi } from "@/api/orderItemsApi";
 import { pausesApi } from "@/api/pausesApi";
+import { vipSlotsApi } from "@/api/vipSlotsApi";
 import SubscriptionDetailPanel from "./subscription/SubscriptionDetailPanel";
 import { toast } from "@/hooks/use-toast";
 import { formatAmount, formatDate, formatPhone, formatIssue } from "@/utils/format";
 import { PRODUCT_KIND_LABEL } from "@/utils/constants";
+import { VipFlagsDisplay } from "@/components/common/VipFlags";
 import type { SubscriptionListItem } from "@/types/orderItem";
 import type { PauseResponse, PauseByIssueResponse } from "@/types/pause";
 
@@ -226,6 +228,12 @@ function SubscriptionListTab() {
     setPage(1);
   };
 
+  const { data: vipSlots = [] } = useQuery({
+    queryKey: ["vip-slots"],
+    queryFn: () => vipSlotsApi.getVipSlots().then((res) => res.data.data ?? []),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const activeChips = [
     ...(productKind
       ? [{ key: "productKind", label: `종류: ${PRODUCT_KIND_LABEL[productKind] ?? productKind}`, onRemove: () => { setProductKind(""); setPage(1); } }]
@@ -274,7 +282,10 @@ function SubscriptionListTab() {
       header: "고객",
       cell: (row) => (
         <div>
-          <div className="font-medium text-gray-900 text-[13px]">{row.customer_name ?? "-"}</div>
+          <div className="font-medium text-gray-900 text-[13px] flex items-center gap-1.5 flex-wrap">
+            <span>{row.customer_name ?? "-"}</span>
+            {row.address && <VipFlagsDisplay address={row.address} slots={vipSlots} compact />}
+          </div>
           <div className="text-xs text-gray-400">{formatPhone(row.customer_phone)}</div>
         </div>
       ),

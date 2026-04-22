@@ -197,6 +197,12 @@ class OrderListResponse(BaseModel):
     payment_at: Optional[datetime] = None
     cancelled_at: Optional[datetime] = None
     item_count: int = 0
+    vip1: bool = False
+    vip2: bool = False
+    vip3: bool = False
+    vip4: bool = False
+    vip5: bool = False
+    vip6: bool = False
 
 
 # ── 목록 쿼리 스키마 ──────────────────────────────────────────────────────────

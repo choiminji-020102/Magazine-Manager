@@ -7,11 +7,11 @@ from sqlalchemy.orm import Session
 # 로컬 애플리케이션
 from app.crud import customer as customer_crud
 from app.models.customer import Customer
-from app.schemas.customer import CustomerCreate, CustomerListQuery, CustomerUpdate
+from app.schemas.customer import CustomerCreate, CustomerListItem, CustomerListQuery, CustomerUpdate
 
 
-def get_customers(db: Session, query: CustomerListQuery) -> Tuple[List[Customer], int]:
-    return customer_crud.list_customers(
+def get_customers(db: Session, query: CustomerListQuery) -> Tuple[List[CustomerListItem], int]:
+    rows, total = customer_crud.list_customers(
         db=db,
         page=query.page,
         limit=query.limit,
@@ -24,6 +24,17 @@ def get_customers(db: Session, query: CustomerListQuery) -> Tuple[List[Customer]
         sort_by=query.sort_by,
         sort_order=query.sort_order,
     )
+    items: List[CustomerListItem] = []
+    for customer, vip1, vip2, vip3, vip4, vip5, vip6 in rows:
+        base = CustomerListItem.model_validate(customer)
+        base.vip1 = vip1
+        base.vip2 = vip2
+        base.vip3 = vip3
+        base.vip4 = vip4
+        base.vip5 = vip5
+        base.vip6 = vip6
+        items.append(base)
+    return items, total
 
 
 def get_customer_by_id(db: Session, customer_id: int, include_deleted: bool = False) -> Customer:

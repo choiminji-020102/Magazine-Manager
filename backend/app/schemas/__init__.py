@@ -13,7 +13,7 @@ from app.schemas.admin import (
 )
 from app.schemas.customer import (
     CustomerCreate, CustomerUpdate, CustomerResponse,
-    CustomerDetailResponse, CustomerListQuery,
+    CustomerDetailResponse, CustomerListItem, CustomerListQuery,
 )
 from app.schemas.product import (
 	ProductCreate, ProductUpdate, ProductResponse
