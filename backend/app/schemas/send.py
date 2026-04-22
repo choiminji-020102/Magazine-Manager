@@ -80,7 +80,7 @@ class SendBatchStatusResponse(BaseModel):
 
 class SendTrackingUpdate(BaseModel):
     tracking_no: str                            # 필수
-    courier_company: str                        # 필수 (CJ대한통운 | 자체배송)
+    courier_company: str                        # 필수 (CJ대한통운 | 기출유우편 | 일반우편 | 찾아가기)
 
 
 # ── 응답 스키마 ───────────────────────────────────────────────────────────────

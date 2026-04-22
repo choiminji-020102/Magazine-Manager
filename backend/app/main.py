@@ -57,6 +57,12 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=[
+        "Content-Disposition",
+        "X-Included-Count",
+        "X-Skipped-Count",
+        "X-Courier-Company",
+    ],
 )
 
 # API 라우터 등록

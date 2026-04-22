@@ -5,8 +5,6 @@ from typing import List, Optional
 # 서드파티 라이브러리
 import openpyxl
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from fastapi.responses import StreamingResponse
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
@@ -362,12 +360,9 @@ def _process_dispatch(
                 customer_memo=addr.customer_memo,
             )
 
-            # 배송사 자동 설정
-            if product_kind == "YEARLY":
-                send.courier_company = "자체배송"
-                send.tracking_no = "자체배송"
-            elif product_kind == "MONTHLY":
-                send.courier_company = "CJ대한통운"
+            # courier_company / tracking_no 는 Send 생성 시 세팅하지 않음
+            # → 엑셀 다운로드 시점에 기출유 엑셀별 고정값(CJ대한통운/기출유우편/일반우편)으로 세팅
+            # → tracking_no 는 기출유 송장 업로드로 채워짐
 
             # SendItem 생성
             send_item_crud.create_send_item(
@@ -511,118 +506,11 @@ def generate_monthly_dispatch(
     )
 
 
-# ── 엑셀 다운로드 / 송장 업로드 ────────────────────────────────────────────────
-
-def _build_dispatch_excel(db: Session, issue: str, product_kind: str) -> io.BytesIO:
-    """기출유 제출용 엑셀 파일 생성 (YEARLY 우편 / MONTHLY 택배 공통)"""
-    # issue의 해당 product_kind Send + SendItem 조회 (PREPARING, 미취소)
-    rows = (
-        db.query(Send, SendItem)
-        .join(SendItem, Send.send_id == SendItem.send_id)
-        .join(OrderItem, SendItem.order_item_id == OrderItem.order_item_id)
-        .filter(
-            SendItem.issue == issue,
-            SendItem.cancelled_at.is_(None),
-            Send.cancelled_at.is_(None),
-            Send.send_status == "PREPARING",
-            OrderItem.product_kind == product_kind,
-        )
-        .order_by(Send.send_id.asc(), SendItem.send_item_id.asc())
-        .all()
-    )
-
-    # send_id → (send, {product_name: send_num}) 피벗
-    send_map: dict = {}
-    product_names: list = []
-
-    for send, send_item in rows:
-        if send.send_id not in send_map:
-            send_map[send.send_id] = {"send": send, "products": {}}
-        pname = send_item.product_name
-        send_map[send.send_id]["products"][pname] = (
-            send_map[send.send_id]["products"].get(pname, 0) + send_item.send_num
-        )
-        if pname not in product_names:
-            product_names.append(pname)
-
-    # 엑셀 생성
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "발송목록"
-
-    # 스타일 정의
-    header_font = Font(bold=True, color="FFFFFF")
-    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-    header_align = Alignment(horizontal="center", vertical="center")
-    thin_border = Border(
-        left=Side(style="thin"),
-        right=Side(style="thin"),
-        top=Side(style="thin"),
-        bottom=Side(style="thin"),
-    )
-    center_align = Alignment(horizontal="center", vertical="center")
-
-    # 헤더: 날짜 / 이름 / 연락처 / 우편번호 / 주소 / [상품명들] / 합계 / 비고 / 송장번호 / 발송ID
-    headers = ["날짜", "이름", "연락처", "우편번호", "주소"] + product_names + ["합계", "비고", "송장번호", "발송ID"]
-    for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = header_align
-        cell.border = thin_border
-
-    # issue → "2월호" 형식
-    month = int(issue[4:6])
-    issue_label = f"{month}월호"
-
-    # 데이터 행
-    for row_idx, (send_id, data) in enumerate(send_map.items(), 2):
-        send = data["send"]
-        products = data["products"]
-
-        # 날짜: "02월 13일"
-        if send.official_send_date:
-            date_str = f"{send.official_send_date.month:02d}월 {send.official_send_date.day:02d}일"
-        else:
-            date_str = ""
-
-        total = sum(products.values())
-
-        row_data = [
-            date_str,
-            send.recipient_name,
-            send.recipient_phone,
-            send.postal_code,
-            send.recipient_address,
-        ]
-        for pname in product_names:
-            qty = products.get(pname, "")
-            row_data.append(qty if qty else "")
-        row_data.append(total)
-        row_data.append(issue_label)
-        row_data.append("")       # 송장번호 (기출유가 채워 넣음)
-        row_data.append(send_id)  # 발송ID (매칭 키)
-
-        for col_idx, value in enumerate(row_data, 1):
-            cell = ws.cell(row=row_idx, column=col_idx, value=value)
-            cell.border = thin_border
-            # 수량 컬럼 중앙 정렬
-            if col_idx > 5:
-                cell.alignment = center_align
-
-    # 열 너비 자동 설정
-    fixed_widths = [12, 12, 16, 10, 40]  # 날짜/이름/연락처/우편번호/주소
-    product_widths = [12] * len(product_names)
-    tail_widths = [8, 10, 14, 10]  # 합계/비고/송장번호/발송ID
-    all_widths = fixed_widths + product_widths + tail_widths
-    for col_idx, width in enumerate(all_widths, 1):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = width
-
-    output = io.BytesIO()
-    wb.save(output)
-    output.seek(0)
-    return output
-
+# ── 송장 업로드 ────────────────────────────────────────────────────────────────
+#
+# 기출유 엑셀 다운로드 관련 엔드포인트는 `dispatch_excel.py`로 완전히 분리됨.
+# (`GICHULYU_EXCEL_SPEC.md` 참고)
+# 이 파일에는 기출유가 송장번호를 입력해 반환한 엑셀을 업로드받는 로직만 남는다.
 
 def _process_tracking_upload(
     db: Session,
@@ -718,44 +606,6 @@ def _process_tracking_upload(
     return results
 
 
-@router.get(
-    "/dispatches/yearly/export",
-    response_class=StreamingResponse,
-)
-def export_yearly_dispatch(
-    issue: str,
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin),
-):
-    """YEARLY 기출유 우편 발송 엑셀 다운로드"""
-    output = _build_dispatch_excel(db=db, issue=issue, product_kind="YEARLY")
-    filename = f"yearly_dispatch_{issue}.xlsx"
-    return StreamingResponse(
-        output,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
-    )
-
-
-@router.get(
-    "/dispatches/monthly/export",
-    response_class=StreamingResponse,
-)
-def export_monthly_dispatch(
-    issue: str,
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin),
-):
-    """MONTHLY 기출유 택배 발송 엑셀 다운로드"""
-    output = _build_dispatch_excel(db=db, issue=issue, product_kind="MONTHLY")
-    filename = f"monthly_dispatch_{issue}.xlsx"
-    return StreamingResponse(
-        output,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
-    )
-
-
 @router.post(
     "/dispatches/yearly/upload-tracking",
     response_model=ResponseModel[DispatchTrackingUploadResponse],
@@ -767,13 +617,18 @@ def upload_yearly_tracking(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin),
 ):
-    """YEARLY 기출유 우편 송장 업로드 → SHIPPING 전환 (자체배송)"""
+    """YEARLY 기출유 우편 송장 업로드 → SHIPPING 전환 (기출유우편)
+
+    ⚠️ 주의: 현재 이 엔드포인트는 기존 엑셀 포맷(발송ID 컬럼 포함)에 의존.
+    신규 기출유 엑셀(`GICHULYU_EXCEL_SPEC.md`)에는 발송ID 컬럼이 없으므로
+    실제 업로드는 별도 리팩터링 완료 전까지 동작하지 않을 수 있다.
+    """
     file_bytes = file.file.read()
     results = _process_tracking_upload(
         db=db,
         issue=issue,
         file_bytes=file_bytes,
-        courier_company="자체배송",
+        courier_company="기출유우편",
     )
 
     success_count = sum(1 for r in results if r.success)

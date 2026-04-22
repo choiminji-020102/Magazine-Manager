@@ -9,6 +9,7 @@ from app.api.endpoints import (
     cafe24_orders,
     cafe24_products,
     customers,
+    dispatch_excel,
     dispatches,
     health,
     inquiries,
@@ -35,6 +36,7 @@ api_router.include_router(cafe24_oauths.router)
 api_router.include_router(cafe24_orders.router)
 api_router.include_router(cafe24_products.router)
 api_router.include_router(customers.router)
+api_router.include_router(dispatch_excel.router)
 api_router.include_router(dispatches.router)
 api_router.include_router(health.router)
 api_router.include_router(inquiries.router)
