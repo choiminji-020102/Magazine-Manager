@@ -37,8 +37,8 @@ export function VipFlagsDisplay({
   if (active.length === 0) return null;
 
   const chipClass = compact
-    ? "inline-flex items-center px-1.5 py-0 rounded bg-amber-100 text-amber-700 text-[10px] font-medium leading-4"
-    : "inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium";
+    ? "inline-flex items-center px-1.5 py-0 rounded bg-amber-50 text-amber-700 text-[10px] font-medium leading-4"
+    : "inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-xs font-medium";
 
   return (
     <div className="flex flex-wrap gap-1">

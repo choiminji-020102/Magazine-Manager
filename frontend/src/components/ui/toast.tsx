@@ -21,9 +21,9 @@ ToastViewport.displayName = ToastPrimitive.Viewport.displayName;
 
 const toastVariants = {
   default: "bg-white border border-gray-200 text-gray-900",
-  success: "bg-green-50 border border-green-200 text-green-900",
-  error: "bg-red-50 border border-red-200 text-red-900",
-  warning: "bg-amber-50 border border-amber-200 text-amber-900",
+  success: "bg-green-50 border border-green-200 text-green-800",
+  error: "bg-red-50 border border-red-200 text-red-800",
+  warning: "bg-amber-50 border border-amber-200 text-amber-800",
 };
 
 export type ToastVariant = keyof typeof toastVariants;

@@ -544,8 +544,8 @@ export default function OrderCreatePage() {
                           <div
                             className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded mb-1 ${
                               p.product_kind === "YEARLY"
-                                ? "bg-purple-100 text-purple-700"
-                                : "bg-emerald-100 text-emerald-700"
+                                ? "bg-purple-50 text-purple-700"
+                                : "bg-sky-50 text-sky-700"
                             }`}
                           >
                             {p.product_kind === "YEARLY" ? "정기구독" : "단품"}
@@ -582,7 +582,7 @@ export default function OrderCreatePage() {
                       </div>
                       <button
                         onClick={() => removeOrderItem(item.product.product_id)}
-                        className="text-gray-300 hover:text-red-400 text-xs"
+                        className="text-gray-300 hover:text-red-500 text-xs"
                       >
                         ✕
                       </button>

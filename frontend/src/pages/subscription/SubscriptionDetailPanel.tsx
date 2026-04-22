@@ -338,7 +338,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
         {/* 구독 기간 */}
         <Section title="구독 기간">
           {/* 현재 시작 → 종료 강조 카드 */}
-          <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-3">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-3">
             <div className="flex items-center justify-between gap-2">
               <div className="text-center min-w-0">
                 <p className="text-[10px] text-gray-400 mb-0.5">시작</p>

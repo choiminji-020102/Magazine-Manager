@@ -761,7 +761,7 @@ function MonthlyTab() {
         {isValidIssue && (
           <span className="text-sm text-blue-600 font-medium">{formatIssue(dispatchIssue)}</span>
         )}
-        <span className="text-xs text-amber-600 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded ml-auto">
+        <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded ml-auto">
           오후 3시 마감
         </span>
       </div>
@@ -1375,7 +1375,7 @@ function SendDetailPanel({ sendId, onClose }: { sendId: number; onClose: () => v
                           <td className="px-3 py-2 text-right text-gray-700">{formatAmount(item.cost_price)}</td>
                           <td className="px-3 py-2 text-right">
                             {item.cancelled_at ? (
-                              <span className="text-xs text-red-400">취소됨</span>
+                              <span className="text-xs text-red-500">취소됨</span>
                             ) : (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>

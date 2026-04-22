@@ -66,7 +66,7 @@ export default function InitAdminPage() {
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-          <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-100">
+          <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
             <p className="text-xs text-blue-700">
               아직 등록된 관리자가 없습니다. 최초 슈퍼관리자 계정을 생성해주세요.
             </p>

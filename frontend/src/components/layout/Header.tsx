@@ -28,7 +28,7 @@ export function Header({ title }: HeaderProps) {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 focus:outline-none">
-            <div className="h-7 w-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold">
+            <div className="h-7 w-7 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center text-xs font-semibold">
               {currentAdmin?.admin_name?.slice(0, 1) ?? "A"}
             </div>
             <span className="hidden sm:block font-medium">

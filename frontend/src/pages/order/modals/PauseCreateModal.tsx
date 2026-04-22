@@ -131,7 +131,7 @@ export function PauseCreateModal({ open, onClose, item, onSuccess }: Props) {
                     key={pause.pause_id}
                     className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5 text-xs"
                   >
-                    <span className="font-medium text-amber-800">
+                    <span className="font-medium text-amber-700">
                       {formatIssue(pause.pause_issue)}
                     </span>
                     <div className="flex items-center gap-2">
@@ -140,7 +140,7 @@ export function PauseCreateModal({ open, onClose, item, onSuccess }: Props) {
                       )}
                       <button
                         onClick={() => deleteMutation.mutate(pause.pause_id)}
-                        className="text-red-400 hover:text-red-600 text-xs"
+                        className="text-red-500 hover:text-red-700 text-xs"
                       >
                         삭제
                       </button>
