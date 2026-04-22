@@ -52,7 +52,7 @@ ITEM_DISCOUNT_FIELDS = [
     "app_item_discount_amount",
 ]
 
-_PERIOD_YEAR_RE = re.compile(r"구독 기간=(\d+)년 연장")
+_PERIOD_YEAR_RE = re.compile(r"구독 (?:기간|연장)=(\d+)년 연장")
 _OPTION_PERIOD_RE = re.compile(r"기간:\s*(\d+)/(\d+)\s*~")
 
 
