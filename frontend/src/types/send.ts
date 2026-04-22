@@ -44,7 +44,7 @@ export interface SendStatusUpdate {
 
 export interface SendTrackingUpdate {
   tracking_no: string;
-  courier_company: string;  // CJ대한통운 | 자체배송
+  courier_company: string;  // CJ대한통운 | 기출유우편 | 일반우편 | 찾아가기
 }
 
 export interface SendResponse {
@@ -86,6 +86,8 @@ export interface SendListQuery {
   is_cancelled?: boolean | null;
   recipient_search?: string | null;
   postal_code?: string | null;
+  issue?: string | null;
+  product_kind?: string | null;  // YEARLY | MONTHLY
   sort_by?: string;
   sort_order?: string;
 }

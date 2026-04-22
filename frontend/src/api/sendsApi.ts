@@ -25,6 +25,7 @@ export const sendsApi = {
     recipient_search?: string | null;
     postal_code?: string | null;
     issue?: string | null;
+    product_kind?: string | null;   // YEARLY | MONTHLY (SendItem → OrderItem 조인)
     sort_by?: string;
     sort_order?: string;
   }) => {

@@ -5,7 +5,6 @@ import type {
   DispatchGenerateRequest,
   DispatchGenerateResponse,
   DispatchSummaryResponse,
-  DispatchTrackingUploadResponse,
 } from "../types/dispatch";
 
 export const dispatchApi = {
@@ -75,47 +74,6 @@ export const dispatchApi = {
     );
   },
 
-  // GET /dispatches/yearly/export - YEARLY 엑셀 다운로드
-  exportYearlyDispatch: (issue: string) => {
-    return api.get("/dispatches/yearly/export", {
-      params: { issue },
-      responseType: "blob",
-    });
-  },
-
-  // GET /dispatches/monthly/export - MONTHLY 엑셀 다운로드
-  exportMonthlyDispatch: (issue: string) => {
-    return api.get("/dispatches/monthly/export", {
-      params: { issue },
-      responseType: "blob",
-    });
-  },
-
-  // POST /dispatches/yearly/upload-tracking - YEARLY 송장 업로드
-  uploadYearlyTracking: (issue: string, file: File) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    return api.post<ResponseModel<DispatchTrackingUploadResponse>>(
-      "/dispatches/yearly/upload-tracking",
-      formData,
-      {
-        params: { issue },
-        headers: { "Content-Type": "multipart/form-data" },
-      }
-    );
-  },
-
-  // POST /dispatches/monthly/upload-tracking - MONTHLY 송장 업로드
-  uploadMonthlyTracking: (issue: string, file: File) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    return api.post<ResponseModel<DispatchTrackingUploadResponse>>(
-      "/dispatches/monthly/upload-tracking",
-      formData,
-      {
-        params: { issue },
-        headers: { "Content-Type": "multipart/form-data" },
-      }
-    );
-  },
+  // 엑셀 다운로드 관련 기능은 `dispatchExcelApi.ts`로 완전히 분리됨.
+  // 송장 업로드(/upload-tracking)는 신규 엑셀 포맷과 호환되지 않아 제거. 별도 작업으로 복귀 예정.
 };

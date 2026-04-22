@@ -131,6 +131,7 @@ class SendListQuery(BaseModel):
     recipient_search: Optional[str] = None      # 수령인 이름/연락처
     postal_code: Optional[str] = None
     issue: Optional[str] = None                 # SendItem.issue 기준 필터 (YYYYMM)
+    product_kind: Optional[str] = None          # YEARLY | MONTHLY (SendItem → OrderItem 조인)
     sort_by: str = "created_at"
     sort_order: str = "desc"
 
@@ -149,6 +150,7 @@ class SendListQuery(BaseModel):
         recipient_search: Optional[str] = Query(None),
         postal_code: Optional[str] = Query(None),
         issue: Optional[str] = Query(None),
+        product_kind: Optional[str] = Query(None),
         sort_by: str = Query("created_at"),
         sort_order: str = Query("desc"),
     ):
@@ -165,6 +167,7 @@ class SendListQuery(BaseModel):
             recipient_search=recipient_search,
             postal_code=postal_code,
             issue=issue,
+            product_kind=product_kind,
             sort_by=sort_by,
             sort_order=sort_order,
         )

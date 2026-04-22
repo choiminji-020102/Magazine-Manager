@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Download, Upload, X, Edit2, MoreHorizontal } from "lucide-react";
+import { Download, X, Edit2, MoreHorizontal, ChevronDown } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,8 @@ import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { FilterBar } from "@/components/common/FilterBar";
 import { PageHeader } from "@/components/common/PageHeader";
 import { SlidingPanel } from "@/components/common/SlidingPanel";
+import MonthlyExcelDialog from "@/components/dispatch-excel/MonthlyExcelDialog";
+import YearlyExcelDialog from "@/components/dispatch-excel/YearlyExcelDialog";
 import { useDebounce } from "@/hooks/useDebounce";
 import { dispatchApi } from "@/api/dispatchApi";
 import { sendsApi } from "@/api/sendsApi";
@@ -34,7 +36,7 @@ import { sendItemsApi } from "@/api/sendItemsApi";
 
 import { toast } from "@/hooks/use-toast";
 import { formatDate, formatDateTime, formatIssue, formatPhone, formatPhoneInput, formatAmount } from "@/utils/format";
-import type { DispatchGenerateResponse, DispatchTrackingUploadResponse, DispatchTarget } from "@/types/dispatch";
+import type { DispatchGenerateResponse, DispatchTarget } from "@/types/dispatch";
 import type { SendResponse, SendDetailResponse, SendUpdate, SendBatchStatusResponse } from "@/types/send";
 import type { SendItemResponse } from "@/types/sendItem";
 
@@ -298,7 +300,7 @@ function ResultDialog({
 
 // ─────────────────────────────────────────────
 // 정기구독 탭
-// PREPARING → SHIPPING (기출유 엑셀 업로드) → DELIVERED (2-3일 후)
+// PREPARING → SHIPPING (기출유/우체국 엑셀 다운로드 시점에 자동 전환) → DELIVERED (2-3일 후)
 // ─────────────────────────────────────────────
 function YearlyTab() {
   const queryClient = useQueryClient();
@@ -315,7 +317,7 @@ function YearlyTab() {
   const [generateConfirmOpen, setGenerateConfirmOpen] = useState(false);
   const [generateResult, setGenerateResult] = useState<DispatchGenerateResponse | null>(null);
   const [batchResult, setBatchResult] = useState<SendBatchStatusResponse | null>(null);
-  const [downloading, setDownloading] = useState(false);
+  const [excelDialogVariant, setExcelDialogVariant] = useState<"gichulyu" | "postoffice" | null>(null);
   const limit = 20;
 
   const debouncedRecipientSearch = useDebounce(recipientSearch, 300);
@@ -329,7 +331,7 @@ function YearlyTab() {
   });
   const targets: DispatchTarget[] = targetsRes?.data?.targets ?? [];
 
-  // 발송 현황 조회 (해당 호 기준)
+  // 발송 현황 조회 (해당 호 기준 + YEARLY 품목만)
   const { data: sendsData, isLoading: sendsLoading } = useQuery({
     queryKey: ["sends-yearly", dispatchIssue, sendPage, limit, sendStatus, debouncedRecipientSearch, postalCode],
     queryFn: () =>
@@ -338,7 +340,7 @@ function YearlyTab() {
         limit,
         send_status: sendStatus || null,
         recipient_search: debouncedRecipientSearch || null,
-        courier_company: "자체배송",
+        product_kind: "YEARLY",
         postal_code: postalCode || null,
         issue: isValidIssue ? dispatchIssue : null,
       }).then((r) => r.data),
@@ -368,23 +370,10 @@ function YearlyTab() {
     onError: () => toast.error("발송 생성 실패"),
   });
 
-  // 기출유 엑셀 다운로드
-  const handleDownload = async () => {
-    if (!isValidIssue) { toast.error("발송 호를 입력하세요. (YYYYMM)"); return; }
-    setDownloading(true);
-    try {
-      const res = await dispatchApi.exportYearlyDispatch(dispatchIssue);
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `dispatch_yearly_${dispatchIssue}.xlsx`;
-      link.click();
-      window.URL.revokeObjectURL(url);
-    } catch {
-      toast.error("엑셀 다운로드 실패");
-    } finally {
-      setDownloading(false);
-    }
+  // 엑셀 다운로드 성공 후 발송 현황 쿼리 재요청 (SHIPPING 전환 반영)
+  const handleExcelSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["sends-yearly"] });
+    setSendSelectedIds(new Set());
   };
 
   // 기출유 전송 완료 (PREPARING → SHIPPING)
@@ -499,11 +488,23 @@ function YearlyTab() {
           }
           actions={
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownload}
-                disabled={downloading || !isValidIssue}>
-                {downloading ? <LoadingSpinner size="sm" /> : <Download className="h-3.5 w-3.5" />}
-                기출유 엑셀
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1.5" disabled={!isValidIssue}>
+                    <Download className="h-3.5 w-3.5" />
+                    엑셀 다운로드
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setExcelDialogVariant("gichulyu")}>
+                    기출유 정기구독 (말씀함께)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setExcelDialogVariant("postoffice")}>
+                    우체국 정기구독 (청소년이하)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               {preparingCount > 0 && (
                 <Button
                   size="sm"
@@ -614,13 +615,22 @@ function YearlyTab() {
 
       <ResultDialog title="발송 생성 완료" result={generateResult} onClose={() => setGenerateResult(null)} labels={{ total: "전체", success: "생성됨", fail: "실패" }} />
       <ResultDialog title="일괄 상태 전환 완료" result={batchResult} onClose={() => setBatchResult(null)} />
+
+      {/* 기출유/우체국 정기구독 엑셀 다운로드 다이얼로그 */}
+      <YearlyExcelDialog
+        open={excelDialogVariant !== null}
+        onClose={() => setExcelDialogVariant(null)}
+        issue={dispatchIssue}
+        variant={excelDialogVariant ?? "gichulyu"}
+        onSuccess={handleExcelSuccess}
+      />
     </div>
   );
 }
 
 // ─────────────────────────────────────────────
 // 단품 탭
-// PREPARING → SHIPPING (기출유 송장 업로드) → DELIVERED (2-3일 후)
+// PREPARING → SHIPPING (기출유 단품 엑셀 다운로드 시점에 자동 전환) → DELIVERED (2-3일 후)
 // ─────────────────────────────────────────────
 function MonthlyTab() {
   const queryClient = useQueryClient();
@@ -636,9 +646,7 @@ function MonthlyTab() {
   const [generateConfirmOpen, setGenerateConfirmOpen] = useState(false);
   const [generateResult, setGenerateResult] = useState<DispatchGenerateResponse | null>(null);
   const [batchResult, setBatchResult] = useState<SendBatchStatusResponse | null>(null);
-  const [trackingResult, setTrackingResult] = useState<DispatchTrackingUploadResponse | null>(null);
-  const [downloading, setDownloading] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [excelDialogOpen, setExcelDialogOpen] = useState(false);
   const limit = 20;
 
   const debouncedRecipientSearch = useDebounce(recipientSearch, 300);
@@ -652,7 +660,7 @@ function MonthlyTab() {
   });
   const targets: DispatchTarget[] = targetsRes?.data?.targets ?? [];
 
-  // 발송 현황 조회 (해당 호 기준)
+  // 발송 현황 조회 (해당 호 기준 + MONTHLY 품목만)
   const { data: sendsData, isLoading: sendsLoading } = useQuery({
     queryKey: ["sends-monthly", dispatchIssue, sendPage, limit, sendStatus, debouncedRecipientSearch],
     queryFn: () =>
@@ -661,7 +669,7 @@ function MonthlyTab() {
         limit,
         send_status: sendStatus || null,
         recipient_search: debouncedRecipientSearch || null,
-        courier_company: "CJ대한통운",
+        product_kind: "MONTHLY",
         issue: isValidIssue ? dispatchIssue : null,
       }).then((r) => r.data),
   });
@@ -711,41 +719,10 @@ function MonthlyTab() {
     onError: () => toast.error("상태 전환 실패"),
   });
 
-  const handleDownload = async () => {
-    if (!isValidIssue) { toast.error("발송 호를 입력하세요. (YYYYMM)"); return; }
-    setDownloading(true);
-    try {
-      const res = await dispatchApi.exportMonthlyDispatch(dispatchIssue);
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `dispatch_monthly_${dispatchIssue}.xlsx`;
-      link.click();
-      window.URL.revokeObjectURL(url);
-    } catch {
-      toast.error("엑셀 다운로드 실패");
-    } finally {
-      setDownloading(false);
-    }
-  };
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!isValidIssue) { toast.error("발송 호를 먼저 입력하세요."); return; }
-    setUploading(true);
-    try {
-      const res = await dispatchApi.uploadMonthlyTracking(dispatchIssue, file);
-      const result = res.data?.data!;
-      setTrackingResult(result);
-      toast.success(`${result?.success_count ?? 0}건 송장 업로드 완료`);
-      queryClient.invalidateQueries({ queryKey: ["sends-monthly"] });
-    } catch {
-      toast.error("송장 업로드 실패");
-    } finally {
-      setUploading(false);
-      e.target.value = "";
-    }
+  // 엑셀 다운로드 성공 후 발송 현황 쿼리 재요청 (SHIPPING 전환 반영)
+  const handleExcelSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["sends-monthly"] });
+    setSendSelectedIds(new Set());
   };
 
   // 기출유 전송 완료 (PREPARING → SHIPPING)
@@ -840,23 +817,16 @@ function MonthlyTab() {
           }
           actions={
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownload}
-                disabled={downloading || !isValidIssue}>
-                {downloading ? <LoadingSpinner size="sm" /> : <Download className="h-3.5 w-3.5" />}
-                기출유 엑셀
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setExcelDialogOpen(true)}
+                disabled={!isValidIssue}
+              >
+                <Download className="h-3.5 w-3.5" />
+                기출유 단품 엑셀
               </Button>
-              <label>
-                <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleUpload}
-                  disabled={uploading || !isValidIssue} />
-                <Button variant="outline" size="sm" className="gap-1.5" disabled={uploading || !isValidIssue}
-                  onClick={(e) => {
-                    if (!isValidIssue) { toast.error("발송 호를 먼저 입력하세요."); e.preventDefault(); return; }
-                    (e.currentTarget.parentElement?.querySelector("input") as HTMLElement)?.click();
-                  }}>
-                  {uploading ? <LoadingSpinner size="sm" /> : <Upload className="h-3.5 w-3.5" />}
-                  송장 업로드
-                </Button>
-              </label>
               {preparingCount > 0 && (
                 <Button size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
                   onClick={() => batchShippingMutation.mutate()} disabled={batchShippingMutation.isPending}>
@@ -953,50 +923,13 @@ function MonthlyTab() {
       <ResultDialog title="발송 생성 완료" result={generateResult} onClose={() => setGenerateResult(null)} labels={{ total: "전체", success: "생성됨", fail: "실패" }} />
       <ResultDialog title="일괄 상태 전환 완료" result={batchResult} onClose={() => setBatchResult(null)} />
 
-      {/* 송장 업로드 결과 */}
-      <Dialog open={!!trackingResult} onOpenChange={(o) => !o && setTrackingResult(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>송장 업로드 완료</DialogTitle>
-          </DialogHeader>
-          {trackingResult && (
-            <div className="space-y-3 py-2">
-              <div className="grid grid-cols-3 gap-3">
-                <div className="text-center bg-gray-50 rounded-lg py-2.5">
-                  <div className="text-lg font-semibold text-gray-900">{trackingResult.total}</div>
-                  <div className="text-xs text-gray-500">전체</div>
-                </div>
-                <div className="text-center bg-green-50 rounded-lg py-2.5">
-                  <div className="text-lg font-semibold text-green-700">{trackingResult.success_count}</div>
-                  <div className="text-xs text-green-600">성공</div>
-                </div>
-                <div className="text-center bg-red-50 rounded-lg py-2.5">
-                  <div className="text-lg font-semibold text-red-600">{trackingResult.fail_count}</div>
-                  <div className="text-xs text-red-500">실패</div>
-                </div>
-              </div>
-              {trackingResult.fail_count > 0 && (
-                <div className="text-xs text-red-500 space-y-0.5 max-h-28 overflow-y-auto bg-red-50 rounded-lg p-2.5">
-                  {trackingResult.results
-                    .filter((r) => !r.success)
-                    .map((r) => (
-                      <div key={r.send_id} className="flex gap-2">
-                        <span className="font-mono text-gray-500 flex-shrink-0">#{r.send_id}</span>
-                        <span>{r.message ?? "알 수 없는 오류"}</span>
-                      </div>
-                    ))}
-                </div>
-              )}
-              {trackingResult.fail_count === 0 && (
-                <p className="text-xs text-green-600 text-center">모든 송장번호가 성공적으로 처리되었습니다.</p>
-              )}
-            </div>
-          )}
-          <DialogFooter>
-            <Button onClick={() => setTrackingResult(null)}>확인</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* 기출유 단품 엑셀 다운로드 다이얼로그 */}
+      <MonthlyExcelDialog
+        open={excelDialogOpen}
+        onClose={() => setExcelDialogOpen(false)}
+        issue={dispatchIssue}
+        onSuccess={handleExcelSuccess}
+      />
     </div>
   );
 }

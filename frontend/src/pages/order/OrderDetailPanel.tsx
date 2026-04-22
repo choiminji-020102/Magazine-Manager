@@ -1260,7 +1260,9 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="CJ대한통운">CJ대한통운</SelectItem>
-                  <SelectItem value="자체배송">자체배송</SelectItem>
+                  <SelectItem value="기출유우편">기출유우편</SelectItem>
+                  <SelectItem value="일반우편">일반우편</SelectItem>
+                  <SelectItem value="찾아가기">찾아가기</SelectItem>
                 </SelectContent>
               </Select>
             </div>

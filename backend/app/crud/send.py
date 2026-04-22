@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
 from app.core.utils import now_kst
+from app.models.order_item import OrderItem
 from app.models.send import Send
 from app.models.send_item import SendItem
 from app.schemas.send import SendListQuery, SendUpdate
@@ -66,6 +67,18 @@ def list_sends(db: Session, query: SendListQuery) -> Tuple[List[Send], int]:
         q = q.join(SendItem, Send.send_id == SendItem.send_id).filter(
             SendItem.issue == query.issue
         ).distinct()
+    if query.product_kind:
+        # Send → SendItem → OrderItem.product_kind 로 필터
+        # issue 필터와 SendItem 조인이 중복되지 않도록 별칭 없이 안전 조인
+        from sqlalchemy.orm import aliased
+        si_alias = aliased(SendItem)
+        oi_alias = aliased(OrderItem)
+        q = (
+            q.join(si_alias, si_alias.send_id == Send.send_id)
+            .join(oi_alias, oi_alias.order_item_id == si_alias.order_item_id)
+            .filter(oi_alias.product_kind == query.product_kind)
+            .distinct()
+        )
 
     allowed_sort = {
         "created_at", "updated_at", "official_send_date",

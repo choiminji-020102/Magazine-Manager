@@ -10,7 +10,6 @@
 
 # 표준 라이브러리
 import io
-from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
 # 서드파티 라이브러리
@@ -22,6 +21,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
+from app.core.utils import now_kst
 from app.models.order_item import OrderItem
 from app.models.send import Send
 from app.models.send_item import SendItem
@@ -643,7 +643,7 @@ def mark_sends_as_shipping(
     if not send_ids:
         return 0
 
-    now = datetime.utcnow()
+    now = now_kst()
     updated = (
         db.query(Send)
         .filter(
