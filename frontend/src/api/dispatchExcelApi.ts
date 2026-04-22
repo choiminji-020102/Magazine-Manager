@@ -33,7 +33,15 @@ function parseExcelDownloadMeta(
 
   const included = Number(response.headers["x-included-count"] ?? 0);
   const skipped = Number(response.headers["x-skipped-count"] ?? 0);
-  const courier = String(response.headers["x-courier-company"] ?? "");
+
+  // 백엔드가 한글을 URL-encode해서 보내므로 디코딩 필요 (latin-1 헤더 제약)
+  const rawCourier = String(response.headers["x-courier-company"] ?? "");
+  let courier = rawCourier;
+  try {
+    courier = decodeURIComponent(rawCourier);
+  } catch {
+    // 디코딩 실패 시 원본 유지
+  }
 
   return {
     filename,

@@ -49,6 +49,23 @@ def _build_content_disposition(filename: str) -> str:
     return f"attachment; filename=\"download.xlsx\"; filename*=UTF-8''{encoded}"
 
 
+def _build_excel_response_headers(
+    filename: str,
+    included_count: int,
+    skipped_count: int,
+    courier_company: str,
+) -> dict:
+    """HTTP 헤더는 latin-1만 허용 → 한글은 URL-encode해서 전송.
+    프론트에서 `decodeURIComponent`로 복원한다.
+    """
+    return {
+        "Content-Disposition": _build_content_disposition(filename),
+        "X-Included-Count": str(included_count),
+        "X-Skipped-Count": str(skipped_count),
+        "X-Courier-Company": quote(courier_company),
+    }
+
+
 # ── 후보 조회 ─────────────────────────────────────────────────────────────────
 
 @router.get(
@@ -159,11 +176,26 @@ def download_monthly_excel(
             detail="엑셀에 포함할 수 있는 발송이 없습니다. (모두 조건 불일치)",
         )
 
+    filename = dispatch_excel_service.monthly_filename(req.send_date)
+    courier = dispatch_excel_service.COURIER_MONTHLY
+
+    # Response 먼저 생성해서 헤더 인코딩 오류를 선검증 → 상태 전환 전에 예외 발생
+    response = StreamingResponse(
+        output,
+        media_type=XLSX_MEDIA_TYPE,
+        headers=_build_excel_response_headers(
+            filename=filename,
+            included_count=len(included_ids),
+            skipped_count=len(skipped),
+            courier_company=courier,
+        ),
+    )
+
     # 상태 전환
     updated_count = dispatch_excel_service.mark_sends_as_shipping(
         db=db,
         send_ids=included_ids,
-        courier_company=dispatch_excel_service.COURIER_MONTHLY,
+        courier_company=courier,
     )
 
     # 활동 로그
@@ -180,7 +212,7 @@ def download_monthly_excel(
         details={
             "excel_type": "GICHULYU_MONTHLY",
             "send_date": req.send_date,
-            "courier_company": dispatch_excel_service.COURIER_MONTHLY,
+            "courier_company": courier,
             "requested_count": len(req.send_ids),
             "included_count": len(included_ids),
             "skipped_count": len(skipped),
@@ -189,17 +221,7 @@ def download_monthly_excel(
         },
     )
 
-    filename = dispatch_excel_service.monthly_filename(req.send_date)
-    return StreamingResponse(
-        output,
-        media_type=XLSX_MEDIA_TYPE,
-        headers={
-            "Content-Disposition": _build_content_disposition(filename),
-            "X-Included-Count": str(len(included_ids)),
-            "X-Skipped-Count": str(len(skipped)),
-            "X-Courier-Company": dispatch_excel_service.COURIER_MONTHLY,
-        },
-    )
+    return response
 
 
 @router.post(
@@ -230,10 +252,25 @@ def download_yearly_gichulyu_excel(
             detail="엑셀에 포함할 수 있는 발송이 없습니다. (모두 조건 불일치)",
         )
 
+    filename = dispatch_excel_service.yearly_gichulyu_filename(req.issue)
+    courier = dispatch_excel_service.COURIER_YEARLY_GICHULYU
+
+    # Response 선생성 (헤더 인코딩 오류 선검증)
+    response = StreamingResponse(
+        output,
+        media_type=XLSX_MEDIA_TYPE,
+        headers=_build_excel_response_headers(
+            filename=filename,
+            included_count=len(included_ids),
+            skipped_count=len(skipped),
+            courier_company=courier,
+        ),
+    )
+
     updated_count = dispatch_excel_service.mark_sends_as_shipping(
         db=db,
         send_ids=included_ids,
-        courier_company=dispatch_excel_service.COURIER_YEARLY_GICHULYU,
+        courier_company=courier,
     )
 
     activity_log_service.create_log(
@@ -249,7 +286,7 @@ def download_yearly_gichulyu_excel(
         details={
             "excel_type": "GICHULYU_YEARLY",
             "issue": req.issue,
-            "courier_company": dispatch_excel_service.COURIER_YEARLY_GICHULYU,
+            "courier_company": courier,
             "requested_count": len(req.send_ids),
             "included_count": len(included_ids),
             "skipped_count": len(skipped),
@@ -258,17 +295,7 @@ def download_yearly_gichulyu_excel(
         },
     )
 
-    filename = dispatch_excel_service.yearly_gichulyu_filename(req.issue)
-    return StreamingResponse(
-        output,
-        media_type=XLSX_MEDIA_TYPE,
-        headers={
-            "Content-Disposition": _build_content_disposition(filename),
-            "X-Included-Count": str(len(included_ids)),
-            "X-Skipped-Count": str(len(skipped)),
-            "X-Courier-Company": dispatch_excel_service.COURIER_YEARLY_GICHULYU,
-        },
-    )
+    return response
 
 
 @router.post(
@@ -299,10 +326,25 @@ def download_yearly_postoffice_excel(
             detail="엑셀에 포함할 수 있는 발송이 없습니다. (모두 조건 불일치)",
         )
 
+    filename = dispatch_excel_service.yearly_postoffice_filename(req.issue)
+    courier = dispatch_excel_service.COURIER_YEARLY_POSTOFFICE
+
+    # Response 선생성 (헤더 인코딩 오류 선검증)
+    response = StreamingResponse(
+        output,
+        media_type=XLSX_MEDIA_TYPE,
+        headers=_build_excel_response_headers(
+            filename=filename,
+            included_count=len(included_ids),
+            skipped_count=len(skipped),
+            courier_company=courier,
+        ),
+    )
+
     updated_count = dispatch_excel_service.mark_sends_as_shipping(
         db=db,
         send_ids=included_ids,
-        courier_company=dispatch_excel_service.COURIER_YEARLY_POSTOFFICE,
+        courier_company=courier,
     )
 
     activity_log_service.create_log(
@@ -318,7 +360,7 @@ def download_yearly_postoffice_excel(
         details={
             "excel_type": "POSTOFFICE_YEARLY",
             "issue": req.issue,
-            "courier_company": dispatch_excel_service.COURIER_YEARLY_POSTOFFICE,
+            "courier_company": courier,
             "requested_count": len(req.send_ids),
             "included_count": len(included_ids),
             "skipped_count": len(skipped),
@@ -327,14 +369,4 @@ def download_yearly_postoffice_excel(
         },
     )
 
-    filename = dispatch_excel_service.yearly_postoffice_filename(req.issue)
-    return StreamingResponse(
-        output,
-        media_type=XLSX_MEDIA_TYPE,
-        headers={
-            "Content-Disposition": _build_content_disposition(filename),
-            "X-Included-Count": str(len(included_ids)),
-            "X-Skipped-Count": str(len(skipped)),
-            "X-Courier-Company": dispatch_excel_service.COURIER_YEARLY_POSTOFFICE,
-        },
-    )
+    return response
