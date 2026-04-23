@@ -55,6 +55,40 @@ async def list_cafe24_orders(
     )
 
 
+@router.get("/raw")
+async def list_cafe24_orders_raw(
+    request: Request,
+    start_date: str = Query(..., description="검색 시작일 (YYYY-MM-DD)"),
+    end_date: str = Query(..., description="검색 종료일 (YYYY-MM-DD)"),
+    limit: int = Query(1000, ge=1, le=1000, description="페이지당 항목 수"),
+    offset: int = Query(0, ge=0, description="오프셋"),
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    """Cafe24 주문 목록 원본 조회 — 매핑/변환 없이 Cafe24 응답 그대로 반환.
+
+    디버깅/조회 전용. UI용 주문 목록은 GET /cafe24/orders/ 사용.
+    """
+    r = await cafe24_admin_service.call_cafe24(
+        method="GET",
+        url=f"https://{MALL_ID}.cafe24api.com/api/v2/admin/orders",
+        db=db,
+        client=request.app.state.http_client,
+        params={
+            "start_date": start_date,
+            "end_date": end_date,
+            "limit": limit,
+            "offset": offset,
+        },
+    )
+    if r.is_error:
+        raise HTTPException(
+            status_code=r.status_code,
+            detail=f"Cafe24 주문 목록 원본 조회 실패: {r.text}",
+        )
+    return r.json()
+
+
 @router.get("/{order_id}/buyer")
 async def get_cafe24_order_buyer(
     order_id: str,
