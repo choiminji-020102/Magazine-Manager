@@ -69,13 +69,9 @@ function getDefaultDates() {
 
 function ItemBox({ item }: { item: Cafe24MappedOrderItem }) {
   const matched = item.product_code !== null;
-  const stats = (
-    <span className="text-gray-600 whitespace-nowrap">
-      수량 {item.order_num}개
-      <span className="mx-1 text-gray-300">·</span>
-      판매가 {formatPrice(item.sale_price)}
-    </span>
-  );
+  const isYearly = item.product_kind === "YEARLY";
+  const years = isYearly && item.subscribe_period ? item.subscribe_period / 12 : null;
+
   return (
     <div
       className={`border rounded px-2 py-1 text-xs ${
@@ -91,20 +87,31 @@ function ItemBox({ item }: { item: Cafe24MappedOrderItem }) {
         ) : (
           <span className="text-red-600 font-medium shrink-0">⚠️ 미등록</span>
         )}
-        <div className="flex items-center gap-2 shrink-0">
-          {stats}
-          {matched && (
-            <span
-              className={`px-1.5 py-0.5 rounded text-[11px] ${
-                item.product_kind === "YEARLY"
-                  ? "bg-indigo-50 text-indigo-700"
-                  : "bg-amber-50 text-amber-700"
-              }`}
-            >
-              {item.product_kind}
-            </span>
-          )}
-        </div>
+        {matched && (
+          <span
+            className={`px-1.5 py-0.5 rounded text-[11px] shrink-0 ${
+              isYearly ? "bg-purple-50 text-purple-700" : "bg-sky-50 text-sky-700"
+            }`}
+          >
+            {item.product_kind}
+          </span>
+        )}
+      </div>
+      <div className="text-gray-600 leading-tight break-all mt-0.5">
+        {matched && isYearly && years !== null && item.sale_price !== null && item.line_total !== null ? (
+          <>
+            1년단가 {formatPrice(item.unit_price)} × {years}년 = {formatPrice(item.sale_price)}
+            {" / "}수량 {item.order_num}개 → <span className="font-medium text-gray-900">{formatPrice(item.line_total)}원</span>
+          </>
+        ) : matched && item.sale_price !== null && item.line_total !== null ? (
+          <>
+            단가 {formatPrice(item.sale_price)} × 수량 {item.order_num}개 → <span className="font-medium text-gray-900">{formatPrice(item.line_total)}원</span>
+          </>
+        ) : (
+          <>
+            단가 {formatPrice(item.unit_price)} × 수량 {item.order_num}개 <span className="text-red-600">(상품 미매칭)</span>
+          </>
+        )}
       </div>
       {item.option_value && (
         <div className="text-gray-500 leading-tight break-all mt-0.5">

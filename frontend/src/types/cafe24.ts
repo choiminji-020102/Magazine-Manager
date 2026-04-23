@@ -68,8 +68,10 @@ export interface Cafe24MappedOrderItem {
   product_code: string | null;              // 매칭된 내부 Product.product_code (null이면 상품 미등록)
   product_kind: "YEARLY" | "MONTHLY" | null;
   product_name: string | null;
-  sale_price: number;
+  unit_price: number;                       // Cafe24 1년 단가 (product_price 원본)
+  sale_price: number | null;                // 1세트 실제 지불액 = unit_price × 년수 (매칭 실패 시 null)
   order_num: number;
+  line_total: number | null;                // 라인 총액 = sale_price × order_num (매칭 실패 시 null)
   subscribe_period: number | null;
   option_value: string;                     // 원본 option_value (표시용)
 }

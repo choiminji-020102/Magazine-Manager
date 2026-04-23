@@ -288,20 +288,53 @@ async def _import_single_order(
     if canceled == "T" and not cancelled_at:
         warn("canceled=T인데 cancel_date 없음")
 
-    # 5) 금액 계산 + total_amount 검증
+    # 5) 상품 매칭 + sale_price(1년 단가) 검증 + YEARLY 옵션 년수 계산
+    # Cafe24 product_price는 옵션(1/2/3년 연장)과 무관하게 항상 1년 단가로 내려오므로
+    # 내부 Product.sale_price(1년 단가)와 직접 비교 가능. 실제 결제 총액은 option_value에서 년수를 파싱해 곱함.
+    cafe24_codes = list({it.get("product_code") for it in items if it.get("product_code")})
+    products = db.query(Product).filter(
+        Product.external_product_code_cafe24.in_(cafe24_codes)
+    ).all()
+    product_map = {p.external_product_code_cafe24: p for p in products}
+
+    item_years: dict[str, int] = {}  # external_order_item_id → 년수 (MONTHLY=1)
+    for it in items:
+        cafe24_code = it.get("product_code")
+        product = product_map.get(cafe24_code)
+        if not product:
+            raise ImportSkip(f"상품 매칭 실패: {cafe24_code}")
+        cafe24_price = to_int(it.get("product_price"))
+        if cafe24_price != product.sale_price:
+            raise ImportSkip(
+                f"sale_price 불일치 (상품 {cafe24_code}): Cafe24={cafe24_price}, Product.sale_price={product.sale_price}"
+            )
+        if product.product_kind == "YEARLY":
+            period_months = parse_subscribe_period(it.get("option_value") or "")
+            if period_months is None:
+                raise ImportSkip(
+                    f"YEARLY 상품 {cafe24_code}의 option_value에서 구독 기간 파싱 실패: {(it.get('option_value') or '')!r}"
+                )
+            item_years[it.get("order_item_code")] = period_months // 12
+        else:
+            item_years[it.get("order_item_code")] = 1
+
+    # 6) 금액 계산 + total_amount 검증 (YEARLY는 product_price × quantity × 년수)
     initial = base_order.get("initial_order_amount") or {}
-    items_sum = sum(to_int(it.get("product_price")) * (it.get("quantity") or 0) for it in items)
+    items_sum = sum(
+        to_int(it.get("product_price")) * (it.get("quantity") or 0) * item_years[it.get("order_item_code")]
+        for it in items
+    )
     cafe24_total = to_int(initial.get("order_price_amount"))
     if cafe24_total != items_sum:
         raise ImportSkip(
-            f"total_amount 불일치: order_price_amount={cafe24_total}, Σ(product_price×quantity)={items_sum}"
+            f"total_amount 불일치: order_price_amount={cafe24_total}, Σ(product_price×quantity×years)={items_sum}"
         )
 
-    # 6) send_fee (Cafe24 값 그대로)
+    # 7) send_fee (Cafe24 값 그대로)
     send_fee = to_int(initial.get("shipping_fee"))
     expected_payment = items_sum + send_fee
 
-    # 7) payment_amount / total_amount_due 검증 (경고)
+    # 8) payment_amount / total_amount_due 검증 (경고)
     cafe24_payment = to_int(base_order.get("payment_amount"))
     cafe24_due = to_int(initial.get("total_amount_due"))
     if paid == "T":
@@ -313,29 +346,11 @@ async def _import_single_order(
         if cafe24_due != expected_payment:
             warn(f"paid=F인데 total_amount_due({cafe24_due}) ≠ 계산({expected_payment})")
 
-    # 8) 주문 레벨 할인 0 검증 (경고)
+    # 9) 주문 레벨 할인 0 검증 (경고)
     for f in ORDER_DISCOUNT_FIELDS:
         v = to_int(initial.get(f))
         if v != 0:
             warn(f"할인 필드 {f}={v} (정책 위반)")
-
-    # 9) 상품 매칭 (한 번에 prefetch) + sale_price 일치 검증
-    cafe24_codes = list({it.get("product_code") for it in items if it.get("product_code")})
-    products = db.query(Product).filter(
-        Product.external_product_code_cafe24.in_(cafe24_codes)
-    ).all()
-    product_map = {p.external_product_code_cafe24: p for p in products}
-
-    for it in items:
-        cafe24_code = it.get("product_code")
-        product = product_map.get(cafe24_code)
-        if not product:
-            raise ImportSkip(f"상품 매칭 실패: {cafe24_code}")
-        cafe24_price = to_int(it.get("product_price"))
-        if cafe24_price != product.sale_price:
-            raise ImportSkip(
-                f"sale_price 불일치 (상품 {cafe24_code}): Cafe24={cafe24_price}, Product.sale_price={product.sale_price}"
-            )
 
     # 10) 품목 레벨 할인 0 검증 (경고)
     for it in items:
@@ -367,7 +382,7 @@ async def _import_single_order(
     db.add(order)
     db.flush()  # order.order_id 확보
 
-    # 13) OrderItem 생성
+    # 13) OrderItem 생성 (sale_price는 1세트 실제 지불액 = 1년 단가 × 년수)
     for it in items:
         cafe24_code = it.get("product_code")
         product = product_map[cafe24_code]
@@ -376,18 +391,14 @@ async def _import_single_order(
                 f"상품 {cafe24_code}의 subscribe_start_issue가 비어있음 (product_code: {product.product_code})"
             )
         quantity = it.get("quantity") or 0
-        sale_price = to_int(it.get("product_price"))
         external_item_id = it.get("order_item_code")
         option_value = it.get("option_value") or ""
+        years = item_years[external_item_id]
+        sale_price = to_int(it.get("product_price")) * years
 
         # 구독 기간
         if product.product_kind == "YEARLY":
-            period = parse_subscribe_period(option_value)
-            if period is None:
-                raise ImportSkip(
-                    f"YEARLY 상품 {cafe24_code}의 option_value에서 구독 기간 파싱 실패: {option_value!r}"
-                )
-            subscribe_period = period
+            subscribe_period = years * 12
             subscribe_end_issue = calculate_subscribe_end_issue(
                 product.subscribe_start_issue, subscribe_period
             )
@@ -553,11 +564,14 @@ def _build_mapped_order(
         customer_memo = None
 
     # Items
+    # unit_price = Cafe24 1년 단가 (product_price 원본) — 옵션과 무관하게 동일 값
+    # sale_price = 1세트 실제 지불액 = unit_price × years (MONTHLY는 unit_price 그대로)
+    # line_total = 라인 총액 = sale_price × order_num
     mapped_items: List[dict] = []
     for it in items:
         cafe24_code = it.get("product_code")
         product = product_map.get(cafe24_code)
-        sale_price = to_int(it.get("product_price"))
+        unit_price = to_int(it.get("product_price"))
         quantity = it.get("quantity") or 0
         option_value = it.get("option_value") or ""
 
@@ -565,16 +579,22 @@ def _build_mapped_order(
             if product.product_kind == "YEARLY":
                 period = parse_subscribe_period(option_value)
                 subscribe_period = period if period is not None else None
+                years = period // 12 if period is not None else None
+                sale_price = unit_price * years if years is not None else None
             else:
                 subscribe_period = 1
+                sale_price = unit_price
+            line_total = sale_price * quantity if sale_price is not None else None
             mapped_items.append({
                 "cafe24_product_code": cafe24_code,
                 "external_order_item_id": it.get("order_item_code"),
                 "product_code": product.product_code,
                 "product_kind": product.product_kind,
                 "product_name": product.product_name,
+                "unit_price": unit_price,
                 "sale_price": sale_price,
                 "order_num": quantity,
+                "line_total": line_total,
                 "subscribe_period": subscribe_period,
                 "option_value": option_value,
             })
@@ -585,8 +605,10 @@ def _build_mapped_order(
                 "product_code": None,
                 "product_kind": None,
                 "product_name": None,
-                "sale_price": sale_price,
+                "unit_price": unit_price,
+                "sale_price": None,
                 "order_num": quantity,
+                "line_total": None,
                 "subscribe_period": None,
                 "option_value": option_value,
             })
