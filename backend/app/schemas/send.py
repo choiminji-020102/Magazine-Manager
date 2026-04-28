@@ -91,6 +91,50 @@ class SendTrackingUpdate(BaseModel):
         return self
 
 
+class SendResendRequest(BaseModel):
+    """SHIPPING/DELIVERED Send에 대한 재배송 이력 입력 (POST /sends/{send_id}/resend).
+
+    Send 본체 변경 없음 — 활동 로그(action=RESEND) details에만 기록.
+    reason/send_method/courier_company는 필수, tracking_no/memo는 선택.
+    send_method ↔ courier_company 자동 도출 안 함 (프론트에서 도출 + 운영자 수정).
+    tracking_no는 SendTrackingUpdate와 동일 정규화 (strip 후 숫자만, 빈/공백 → None).
+    """
+    reason: str
+    send_method: SendMethodLiteral
+    courier_company: CourierCompanyLiteral
+    tracking_no: Optional[str] = None
+    memo: Optional[str] = None
+
+    @field_validator("reason", mode="before")
+    @classmethod
+    def _strip_reason(cls, v):
+        if isinstance(v, str):
+            stripped = v.strip()
+            if stripped == "":
+                raise ValueError("reason은 비어있을 수 없습니다.")
+            return stripped
+        return v
+
+    @field_validator("memo", mode="before")
+    @classmethod
+    def _strip_memo_or_none(cls, v):
+        if isinstance(v, str):
+            return v.strip() or None
+        return v
+
+    @model_validator(mode="after")
+    def _normalize_tracking_no(self) -> "SendResendRequest":
+        if isinstance(self.tracking_no, str):
+            stripped = self.tracking_no.strip()
+            if stripped == "":
+                self.tracking_no = None
+            elif not stripped.isdigit():
+                raise ValueError("tracking_no는 숫자만 입력 가능합니다 (공백·하이픈·문자 불가).")
+            else:
+                self.tracking_no = stripped
+        return self
+
+
 # ── 응답 스키마 ───────────────────────────────────────────────────────────────
 
 class SendResponse(BaseModel):

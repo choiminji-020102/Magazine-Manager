@@ -22,6 +22,7 @@ from app.schemas.send import (
     SendBatchStatusResult,
     SendDetailResponse,
     SendListQuery,
+    SendResendRequest,
     SendResponse,
     SendStatusUpdate,
     SendTrackingUpdate,
@@ -410,6 +411,48 @@ def cancel_send(
     return ResponseModel(
         message="발송이 취소되었습니다.",
         data=SendResponse.model_validate(cancelled),
+    )
+
+
+# ── 재배송 ──────────────────────────────────────────────────────────────────
+
+@router.post(
+    "/sends/{send_id}/resend",
+    response_model=ResponseModel[SendResponse],
+)
+def resend_send(
+    send_id: int,
+    resend_in: SendResendRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_admin),
+):
+    """SHIPPING/DELIVERED Send 재배송 이력 기록 (Send 본체 변경 없음, 활동 로그만 추가)."""
+    send = send_service.get_send_by_id(db, send_id)
+    send = send_service.resend_send(db, send)
+
+    activity_log_service.create_log(
+        db=db,
+        action=ActivityAction.RESEND,
+        target_type=ActivityTargetType.SEND,
+        admin_id=current_admin.admin_id,
+        admin_name=current_admin.admin_name,
+        target_id=send_id,
+        target_name=send.recipient_name,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        details={
+            "reason": resend_in.reason,
+            "send_method": resend_in.send_method,
+            "courier_company": resend_in.courier_company,
+            "tracking_no": resend_in.tracking_no,
+            "memo": resend_in.memo,
+        },
+    )
+
+    return ResponseModel(
+        message="재배송 이력이 기록되었습니다.",
+        data=SendResponse.model_validate(send),
     )
 
 

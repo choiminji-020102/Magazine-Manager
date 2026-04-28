@@ -405,6 +405,19 @@ def cancel_send(db: Session, send: Send) -> Send:
     return send_crud.cancel_send(db=db, send=send)
 
 
+def resend_send(db: Session, send: Send) -> Send:
+    """재배송 처리 — Send 본체 변경 없이 활동 로그만 기록 (활동 로그 기록은 호출자 책임).
+
+    SHIPPING/DELIVERED Send에서만 호출 가능. PREPARING/CANCELLED 거부.
+    """
+    if send.send_status not in ("SHIPPING", "DELIVERED"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"재배송은 SHIPPING/DELIVERED 상태에서만 가능합니다. 현재 상태: {send.send_status}",
+        )
+    return send
+
+
 def delete_preparing_send_items_for_order_items(
     db: Session, order_item_ids: List[int]
 ) -> Tuple[int, int]:
