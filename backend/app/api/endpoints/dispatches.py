@@ -1,8 +1,5 @@
-# 표준 라이브러리
-from typing import List, Optional
-
 # 서드파티 라이브러리
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
@@ -15,7 +12,6 @@ from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.schemas.common import ResponseModel
 from app.schemas.dispatch import (
     DispatchSummaryResponse,
-    DispatchTarget,
     DispatchTargetListQuery,
     DispatchTargetsResponse,
     PaidNotPreparedCountResponse,
