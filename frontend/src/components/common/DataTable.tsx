@@ -22,6 +22,10 @@ interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   selectedIds?: Set<string | number>;
   onSelectionChange?: (ids: Set<string | number>) => void;
+  /** 행별 선택 가능 여부. false 반환 시 체크박스 비활성화 + 전체선택에서도 제외 */
+  isRowSelectable?: (row: T) => boolean;
+  /** 선택 불가 행의 체크박스 자리에 표시할 라벨. 제공 시 셀 폭이 넓어지고 success 톤 배경이 적용됨 */
+  disabledRowLabel?: (row: T) => ReactNode;
   isLoading?: boolean;
   emptyMessage?: string;
   activeRowId?: string | number | null;
@@ -69,6 +73,8 @@ export function DataTable<T>({
   onRowClick,
   selectedIds,
   onSelectionChange,
+  isRowSelectable,
+  disabledRowLabel,
   isLoading,
   emptyMessage = "데이터가 없습니다.",
   activeRowId,
@@ -78,20 +84,24 @@ export function DataTable<T>({
   onSortChange,
 }: DataTableProps<T>) {
   const hasSelection = !!onSelectionChange;
+  const selectableRows = isRowSelectable
+    ? data.filter((row) => isRowSelectable(row))
+    : data;
   const allSelected =
-    data.length > 0 && data.every((row) => selectedIds?.has(getRowId(row)));
+    selectableRows.length > 0 &&
+    selectableRows.every((row) => selectedIds?.has(getRowId(row)));
   const someSelected =
-    !allSelected && data.some((row) => selectedIds?.has(getRowId(row)));
+    !allSelected && selectableRows.some((row) => selectedIds?.has(getRowId(row)));
 
   const toggleAll = () => {
     if (!onSelectionChange) return;
     if (allSelected) {
       const next = new Set(selectedIds);
-      data.forEach((row) => next.delete(getRowId(row)));
+      selectableRows.forEach((row) => next.delete(getRowId(row)));
       onSelectionChange(next);
     } else {
       const next = new Set(selectedIds);
-      data.forEach((row) => next.add(getRowId(row)));
+      selectableRows.forEach((row) => next.add(getRowId(row)));
       onSelectionChange(next);
     }
   };
@@ -117,6 +127,7 @@ export function DataTable<T>({
   };
 
   const totalCols = columns.length + (hasSelection ? 1 : 0);
+  const selectionColClass = disabledRowLabel ? "w-14" : "w-10";
 
   return (
     <div className="w-full overflow-x-auto">
@@ -124,10 +135,11 @@ export function DataTable<T>({
         <thead>
           <tr className="border-b border-gray-200 bg-white">
             {hasSelection && (
-              <th className="w-10 px-3 py-2.5 text-left">
+              <th className={cn(selectionColClass, "px-3 py-2.5 text-left")}>
                 <Checkbox
                   checked={allSelected ? true : someSelected ? "indeterminate" : false}
                   onCheckedChange={toggleAll}
+                  disabled={selectableRows.length === 0}
                 />
               </th>
             )}
@@ -181,6 +193,7 @@ export function DataTable<T>({
               const isActive = activeRowId != null && activeRowId === id;
               const isSelected = selectedIds?.has(id);
               const isEvenRow = index % 2 === 1;
+              const rowSelectable = isRowSelectable ? isRowSelectable(row) : true;
 
               return (
                 <tr
@@ -201,13 +214,24 @@ export function DataTable<T>({
                 >
                   {hasSelection && (
                     <td
-                      className="w-10 px-3 py-2.5"
+                      className={cn(
+                        selectionColClass,
+                        "px-3 py-2.5",
+                        !rowSelectable && disabledRowLabel && "bg-green-50"
+                      )}
                       onClick={(e) => {
                         e.stopPropagation();
-                        toggleRow(id);
+                        if (rowSelectable) toggleRow(id);
                       }}
                     >
-                      <Checkbox checked={isSelected ?? false} />
+                      {!rowSelectable && disabledRowLabel ? (
+                        disabledRowLabel(row)
+                      ) : (
+                        <Checkbox
+                          checked={rowSelectable ? isSelected ?? false : false}
+                          disabled={!rowSelectable}
+                        />
+                      )}
                     </td>
                   )}
                   {columns.map((col) => (

@@ -27,6 +27,8 @@ interface NavItem {
   path: string;
   icon: React.ComponentType<{ className?: string }>;
   requireSuperAdmin?: boolean;
+  // 활성화될 경로 목록(완전 일치). 미지정 시 [path]로 동작(=path와 정확히 일치할 때만 활성).
+  activeOn?: string[];
 }
 
 interface NavGroup {
@@ -43,7 +45,8 @@ const navigation: NavGroup[] = [
   {
     group: "업무",
     items: [
-      { label: "주문 목록", path: "/orders", icon: ShoppingCart },
+      { label: "전체 주문 조회", path: "/orders", icon: ShoppingCart, activeOn: ["/orders", "/orders/new"] },
+      { label: "입금전 관리", path: "/orders/unpaid", icon: ShoppingCart },
       { label: "구독 목록", path: "/subscriptions", icon: BookOpen },
       { label: "발송 관리", path: "/shipping", icon: Truck },
     ],
@@ -165,10 +168,8 @@ export function Sidebar() {
               )}
               {visibleItems.map((item) => {
                 const Icon = item.icon;
-                const isActive =
-                  item.path === "/"
-                    ? location.pathname === "/"
-                    : location.pathname.startsWith(item.path);
+                const matchPaths = item.activeOn ?? [item.path];
+                const isActive = matchPaths.includes(location.pathname);
 
                 return (
                   <NavLink

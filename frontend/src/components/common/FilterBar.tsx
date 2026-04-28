@@ -14,6 +14,10 @@ interface FilterBarProps {
   hasActiveFilters?: boolean;
   onReset?: () => void;
   chips?: FilterChip[];
+  // true이면 토글 버튼을 숨기고 고급 필터를 항상 펼친 상태로 표시
+  alwaysExpanded?: boolean;
+  // 우측에 노출할 페이지 액션(예: 등록 버튼). 토글 버튼 자리에 함께 배치됨
+  actions?: React.ReactNode;
 }
 
 export function FilterBar({
@@ -23,8 +27,11 @@ export function FilterBar({
   hasActiveFilters = false,
   onReset,
   chips = [],
+  alwaysExpanded = false,
+  actions,
 }: FilterBarProps) {
   const [expanded, setExpanded] = useState(false);
+  const showAdvanced = alwaysExpanded || expanded;
 
   return (
     <div className="bg-white border-b border-gray-200">
@@ -32,7 +39,7 @@ export function FilterBar({
       <div className="flex items-center gap-2 px-5 py-2.5 flex-wrap">
         {basic}
         <div className="flex items-center gap-1.5 ml-auto">
-          {advanced && (
+          {advanced && !alwaysExpanded && (
             <Button
               variant="outline"
               size="sm"
@@ -68,12 +75,17 @@ export function FilterBar({
               초기화
             </Button>
           )}
+          {actions}
         </div>
       </div>
 
       {/* 고급 필터 행 */}
-      {expanded && advanced && (
-        <div className="flex items-center gap-2 px-5 py-2.5 flex-wrap border-t border-gray-100 bg-gray-50">
+      {showAdvanced && advanced && (
+        <div
+          className={`flex items-center gap-2 px-5 py-2.5 flex-wrap border-t border-gray-100 ${
+            alwaysExpanded ? "bg-white" : "bg-gray-50"
+          }`}
+        >
           {advanced}
         </div>
       )}
