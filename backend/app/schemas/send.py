@@ -98,13 +98,14 @@ class SendTrackingUpdate(BaseModel):
 
     @model_validator(mode="after")
     def _normalize_and_validate(self) -> "SendTrackingUpdate":
-        # 빈/공백 문자열 → None (옵션 B: 안전망. "송장번호 지우기" 의도면 별도 엔드포인트로)
-        if isinstance(self.tracking_no, str) and self.tracking_no.strip() == "":
-            self.tracking_no = None
-        if isinstance(self.send_method, str) and self.send_method.strip() == "":
-            self.send_method = None
-        if isinstance(self.courier_company, str) and self.courier_company.strip() == "":
-            self.courier_company = None
+        # 1. 모든 문자열 필드 strip (앞뒤 공백 제거 — 운송장 검색·추적 사이트 매칭 정확도 위함)
+        # 2. strip 결과가 빈 문자열이면 None으로 (옵션 B: 안전망. "지우기" 의도면 별도 엔드포인트로)
+        if isinstance(self.tracking_no, str):
+            self.tracking_no = self.tracking_no.strip() or None
+        if isinstance(self.send_method, str):
+            self.send_method = self.send_method.strip() or None
+        if isinstance(self.courier_company, str):
+            self.courier_company = self.courier_company.strip() or None
         # 정규화 후 셋 다 비어있으면 거부
         if self.tracking_no is None and self.send_method is None and self.courier_company is None:
             raise ValueError("tracking_no, send_method, courier_company 중 최소 1개를 입력해야 합니다.")

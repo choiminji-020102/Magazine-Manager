@@ -266,8 +266,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
   });
 
   // 발송 액션 상태
-  const [sendTrackingTarget, setSendTrackingTarget] = useState<number | null>(null);
-  const [trackingForm, setTrackingForm] = useState({ tracking_no: "", courier_company: "CJ대한통운" });
   const [sendCancelTarget, setSendCancelTarget] = useState<number | null>(null);
 
   const sendShippingMutation = useMutation({
@@ -284,20 +282,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     onSuccess: () => {
       toast.success("배송완료로 전환되었습니다.");
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
-    },
-    onError: (err) => toast.error(getErrorMessage(err)),
-  });
-
-  const sendTrackingMutation = useMutation({
-    mutationFn: (sendId: number) => sendsApi.updateTracking(sendId, {
-      tracking_no: trackingForm.tracking_no,
-      courier_company: trackingForm.courier_company,
-    }),
-    onSuccess: () => {
-      toast.success("운송장이 등록되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
-      setSendTrackingTarget(null);
-      setTrackingForm({ tracking_no: "", courier_company: "CJ대한통운" });
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });
@@ -774,17 +758,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                             배송완료 전환
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setSendTrackingTarget(send.send_id);
-                            setTrackingForm({
-                              tracking_no: send.tracking_no ?? "",
-                              courier_company: send.courier_company ?? "CJ대한통운",
-                            });
-                          }}
-                        >
-                          운송장 등록
-                        </DropdownMenuItem>
                         {send.send_status === "PREPARING" && (
                           <>
                             <DropdownMenuSeparator />
@@ -1241,58 +1214,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
           orderId={orderId}
         />
       )}
-
-      {/* 운송장 등록 다이얼로그 */}
-      <Dialog open={sendTrackingTarget !== null} onOpenChange={(o) => { if (!o) { setSendTrackingTarget(null); setTrackingForm({ tracking_no: "", courier_company: "CJ대한통운" }); } }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>운송장 등록</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-1">
-            <div>
-              <Label className="text-xs font-medium text-gray-600">택배사</Label>
-              <Select
-                value={trackingForm.courier_company}
-                onValueChange={(v) => setTrackingForm((f) => ({ ...f, courier_company: v }))}
-              >
-                <SelectTrigger className="mt-1 h-8 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CJ대한통운">CJ대한통운</SelectItem>
-                  <SelectItem value="기출유우편">기출유우편</SelectItem>
-                  <SelectItem value="일반우편">일반우편</SelectItem>
-                  <SelectItem value="찾아가기">찾아가기</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs font-medium text-gray-600">
-                운송장 번호 <span className="text-red-500 ml-0.5">*</span>
-              </Label>
-              <Input
-                className="mt-1 h-8 text-sm font-mono"
-                placeholder="운송장 번호 입력"
-                value={trackingForm.tracking_no}
-                onChange={(e) => setTrackingForm((f) => ({ ...f, tracking_no: e.target.value }))}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => { setSendTrackingTarget(null); setTrackingForm({ tracking_no: "", courier_company: "CJ대한통운" }); }}>
-              취소
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => sendTrackingTarget && sendTrackingMutation.mutate(sendTrackingTarget)}
-              disabled={!trackingForm.tracking_no || sendTrackingMutation.isPending}
-            >
-              {sendTrackingMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-              등록
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* 발송 취소 확인 모달 */}
       <ConfirmModal
