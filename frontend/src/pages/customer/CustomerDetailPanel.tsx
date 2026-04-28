@@ -666,7 +666,7 @@ function OrderRow({ order, onClick }: { order: OrderResponse; onClick: () => voi
         <span className="text-xs text-gray-400">{formatDate(order.order_at)}</span>
       </div>
       <div className="flex items-center justify-between text-xs">
-        <span className="text-gray-500">{order.payment_method ? (PAYMENT_METHOD_LABEL[order.payment_method] ?? order.payment_method) : "결제방법 미지정"}</span>
+        <span className="text-gray-500">{order.payment_method ? (PAYMENT_METHOD_LABEL[order.payment_method] ?? order.payment_method) : "결제 방법 미지정"}</span>
         <span className="font-medium text-gray-900">{formatAmount(order.payment_amount)}</span>
       </div>
     </div>
@@ -758,7 +758,7 @@ function AddressCard({
         </div>
         <button
           onClick={onDelete}
-          className="text-gray-300 hover:text-red-400 flex-shrink-0 p-0.5 rounded transition-colors"
+          className="text-gray-300 hover:text-red-500 flex-shrink-0 p-0.5 rounded transition-colors"
           title="배송지 삭제"
         >
           <X className="h-3.5 w-3.5" />

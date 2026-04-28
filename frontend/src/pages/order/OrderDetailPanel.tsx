@@ -598,7 +598,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                 <InfoRow label="주문채널" value={CHANNEL_LABEL[order.order_channel] ?? order.order_channel} />
               )}
               {editMode ? (
-                <EditRow label="결제방법">
+                <EditRow label="결제 방법">
                   <Select
                     value={editForm.payment_method}
                     onValueChange={(v) => setEditForm((f) => ({ ...f, payment_method: v }))}
@@ -614,7 +614,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                   </Select>
                 </EditRow>
               ) : (
-                <InfoRow label="결제방법" value={order.payment_method ? PAYMENT_METHOD_LABEL[order.payment_method] ?? order.payment_method : undefined} />
+                <InfoRow label="결제 방법" value={order.payment_method ? PAYMENT_METHOD_LABEL[order.payment_method] ?? order.payment_method : undefined} />
               )}
               <InfoRow label="주문일시" value={formatDateTime(order.order_at)} />
               {editMode ? (
