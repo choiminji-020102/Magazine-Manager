@@ -57,6 +57,24 @@ class Order(Base):
         lazy="select"
     )
 
+    @property
+    def sends(self):
+        # OrderItem→SendItem→Send 경유로 이 주문에 묶인 모든 Send (distinct, send_id 정렬).
+        # 새 흐름에서 한 Send가 여러 Order에 묶일 수 있어 derived로 채움.
+        seen: set[int] = set()
+        result: list = []
+        for oi in self.items or []:
+            for si in oi.send_items or []:
+                if si.cancelled_at is not None:
+                    continue
+                send = si.send
+                if send is None or send.send_id in seen:
+                    continue
+                seen.add(send.send_id)
+                result.append(send)
+        result.sort(key=lambda s: s.send_id)
+        return result
+
     __table_args__ = (
         Index("ix_orders_customer_id", "customer_id"),
         Index("ix_orders_order_status", "order_status"),
