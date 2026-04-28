@@ -81,7 +81,9 @@ class SendBatchStatusResponse(BaseModel):
 class SendTrackingUpdate(BaseModel):
     """SHIPPING/DELIVERED Send의 운송장/배송업체/배송방법 수정 (PATCH).
 
-    셋 다 Optional — 들어온 필드만 갱신. 셋 다 None이면 400 거부.
+    셋 다 Optional — 들어온 필드만 갱신.
+    빈 문자열/공백 문자열은 None으로 취급(안전망 — 실수로 빈 칸 전송 시 데이터 손상 방지).
+    정규화 후 셋 다 None이면 422 거부.
     send_method와 courier_company는 완전 독립 (자동 도출 안 함).
     """
     tracking_no: Optional[str] = None
@@ -95,7 +97,15 @@ class SendTrackingUpdate(BaseModel):
     )
 
     @model_validator(mode="after")
-    def _at_least_one(self) -> "SendTrackingUpdate":
+    def _normalize_and_validate(self) -> "SendTrackingUpdate":
+        # 빈/공백 문자열 → None (옵션 B: 안전망. "송장번호 지우기" 의도면 별도 엔드포인트로)
+        if isinstance(self.tracking_no, str) and self.tracking_no.strip() == "":
+            self.tracking_no = None
+        if isinstance(self.send_method, str) and self.send_method.strip() == "":
+            self.send_method = None
+        if isinstance(self.courier_company, str) and self.courier_company.strip() == "":
+            self.courier_company = None
+        # 정규화 후 셋 다 비어있으면 거부
         if self.tracking_no is None and self.send_method is None and self.courier_company is None:
             raise ValueError("tracking_no, send_method, courier_company 중 최소 1개를 입력해야 합니다.")
         return self

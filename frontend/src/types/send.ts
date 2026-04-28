@@ -43,8 +43,12 @@ export interface SendStatusUpdate {
 }
 
 export interface SendTrackingUpdate {
-  tracking_no: string;
-  courier_company: string;  // CJ대한통운 | 기출유우편 | 일반우편 | 찾아가기
+  // 셋 다 Optional — 들어온 필드만 갱신. 셋 다 누락이면 백엔드 422.
+  // SHIPPING/DELIVERED Send에만 허용 (PREPARING/CANCELLED 거부, 백엔드 400).
+  // send_method ↔ courier_company 자동 도출 안 함 (완전 독립).
+  tracking_no?: string | null;
+  send_method?: string | null;     // 기출유우편 | 기출유택배 | 일반우편 | 찾아가기
+  courier_company?: string | null; // CJ대한통운 | 자체배송
 }
 
 export interface SendResponse {

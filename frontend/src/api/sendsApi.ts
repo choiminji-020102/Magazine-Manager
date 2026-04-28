@@ -67,7 +67,7 @@ export const sendsApi = {
     return api.post<ResponseModel<SendBatchStatusResponse>>("/sends/batch/delivered", { send_ids: sendIds });
   },
 
-  // PATCH /sends/{send_id}/tracking - 운송장 정보 등록
+  // PATCH /sends/{send_id}/tracking - SHIPPING/DELIVERED Send 운송장/배송업체/배송방법 수정
   updateTracking: (sendId: number, data: SendTrackingUpdate) => {
     return api.patch<ResponseModel<SendResponse>>(`/sends/${sendId}/tracking`, data);
   },
