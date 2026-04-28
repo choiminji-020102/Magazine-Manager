@@ -27,8 +27,13 @@ from app.schemas.dispatch import (
     DispatchTargetsResponse,
     DispatchTrackingUploadResponse,
     DispatchTrackingUploadResult,
+    PaidNotPreparedCountResponse,
+    RegeneratePreparingSendsRequest,
+    RegeneratePreparingSendsResponse,
+    TransitionToShippingRequest,
+    TransitionToShippingResponse,
 )
-from app.services import activity_log_service, order_item_service, product_service
+from app.services import activity_log_service, dispatch_grouping_service, order_item_service, product_service, send_service
 from app.crud import send as send_crud
 from app.crud import send_item as send_item_crud
 from app.crud import order_item as order_item_crud
@@ -509,7 +514,7 @@ def generate_monthly_dispatch(
 # ── 송장 업로드 ────────────────────────────────────────────────────────────────
 #
 # 기출유 엑셀 다운로드 관련 엔드포인트는 `dispatch_excel.py`로 완전히 분리됨.
-# (`GICHULYU_EXCEL_SPEC.md` 참고)
+# (`SHIPPING_REFACTOR_PLAN.md` §5 참고)
 # 이 파일에는 기출유가 송장번호를 입력해 반환한 엑셀을 업로드받는 로직만 남는다.
 
 def _process_tracking_upload(
@@ -620,7 +625,7 @@ def upload_yearly_tracking(
     """YEARLY 기출유 우편 송장 업로드 → SHIPPING 전환 (기출유우편)
 
     ⚠️ 주의: 현재 이 엔드포인트는 기존 엑셀 포맷(발송ID 컬럼 포함)에 의존.
-    신규 기출유 엑셀(`GICHULYU_EXCEL_SPEC.md`)에는 발송ID 컬럼이 없으므로
+    신규 기출유 엑셀(`SHIPPING_REFACTOR_PLAN.md` §5)에는 발송ID 컬럼이 없으므로
     실제 업로드는 별도 리팩터링 완료 전까지 동작하지 않을 수 있다.
     """
     file_bytes = file.file.read()
@@ -703,5 +708,133 @@ def upload_monthly_tracking(
             success_count=success_count,
             fail_count=fail_count,
             results=results,
+        ),
+    )
+
+
+@router.post(
+    "/dispatches/regenerate-preparing-sends",
+    response_model=ResponseModel[RegeneratePreparingSendsResponse],
+    status_code=status.HTTP_200_OK,
+)
+def regenerate_preparing_sends_endpoint(
+    req: RegeneratePreparingSendsRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_admin),
+):
+    """[발송 생성] — PREPARING Send를 scope에 따라 일괄 재계산.
+
+    - scope=monthly: 단품 PREPARING만 (issue 무관)
+    - scope=yearly: 정기구독 PREPARING만 (issue 필수)
+    - scope=all: 모두 (정기구독 발송 시 issue 필수)
+    """
+    deleted_count, created_count = send_service.regenerate_preparing_sends(
+        db=db,
+        scope=req.scope,
+        issue=req.issue,
+    )
+
+    db.commit()
+
+    activity_log_service.create_log(
+        db=db,
+        action=ActivityAction.DISPATCH,
+        target_type=ActivityTargetType.SEND,
+        admin_id=current_admin.admin_id,
+        admin_name=current_admin.admin_name,
+        target_id=None,
+        target_name=f"[발송 생성] scope={req.scope}" + (f" / {req.issue}호" if req.issue else ""),
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        details={
+            "scope": req.scope,
+            "issue": req.issue,
+            "deleted_count": deleted_count,
+            "created_count": created_count,
+        },
+    )
+
+    return ResponseModel(
+        message="PREPARING Send 재계산 완료",
+        data=RegeneratePreparingSendsResponse(
+            scope=req.scope,
+            issue=req.issue,
+            deleted_count=deleted_count,
+            created_count=created_count,
+        ),
+    )
+
+
+@router.post(
+    "/dispatches/transition-to-shipping",
+    response_model=ResponseModel[TransitionToShippingResponse],
+    status_code=status.HTTP_200_OK,
+)
+def transition_to_shipping_endpoint(
+    req: TransitionToShippingRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_admin),
+):
+    """선택된 PREPARING Send들을 SHIPPING으로 일괄 전환.
+
+    send_method, courier_company는 항상 필수.
+    tracking_no는 박스(Send)마다 개별 입력. send_method=기출유택배일 때 모든 박스 필수.
+    한 건이라도 PREPARING이 아니면 전체 거부 (all-or-nothing).
+    """
+    sends_input = [(s.send_id, s.tracking_no) for s in req.sends]
+
+    transitioned_count = send_service.transition_sends_to_shipping_batch(
+        db=db,
+        sends_input=sends_input,
+        send_method=req.send_method,
+        courier_company=req.courier_company,
+    )
+
+    db.commit()
+
+    activity_log_service.create_log(
+        db=db,
+        action=ActivityAction.DISPATCH,
+        target_type=ActivityTargetType.SEND,
+        admin_id=current_admin.admin_id,
+        admin_name=current_admin.admin_name,
+        target_id=None,
+        target_name=f"[배송중 전환] {transitioned_count}건",
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        details={
+            "send_method": req.send_method,
+            "courier_company": req.courier_company,
+            "sends": [{"send_id": s.send_id, "tracking_no": s.tracking_no} for s in req.sends],
+            "transitioned_count": transitioned_count,
+        },
+    )
+
+    return ResponseModel(
+        message=f"배송중 전환 완료: {transitioned_count}건",
+        data=TransitionToShippingResponse(transitioned_count=transitioned_count),
+    )
+
+
+@router.get(
+    "/dispatches/paid-not-prepared-count",
+    response_model=ResponseModel[PaidNotPreparedCountResponse],
+)
+def paid_not_prepared_count_endpoint(
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_manager),
+):
+    """PAID지만 PREPARING에 안 들어간 OrderItem 카운트 (PreparingSendListPage 알림 배너용).
+
+    [발송 생성]을 다시 눌러야 PREPARING에 추가될 OrderItem이 몇 개인지 알려준다.
+    """
+    yearly, monthly = dispatch_grouping_service.count_paid_not_prepared(db)
+    return ResponseModel(
+        data=PaidNotPreparedCountResponse(
+            monthly_count=monthly,
+            yearly_count=yearly,
+            total_count=monthly + yearly,
         ),
     )
