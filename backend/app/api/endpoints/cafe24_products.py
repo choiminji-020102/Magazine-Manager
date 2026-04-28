@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.core.deps import require_admin
 from app.db.session import get_db
 from app.models.admin import Admin
+from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductResponse
 from app.services import cafe24_admin_service, product_service, activity_log_service
 from app.schemas.activity_log import ActivityAction, ActivityTargetType
@@ -51,10 +52,26 @@ async def list_cafe24_products(
             detail=f"Cafe24 상품 조회 실패: {r.text}",
         )
     data = r.json()
-    # 필요한 필드만 필터링
+    raw_products = data.get("products", [])
+
+    # 이미 DB에 등록된 Cafe24 상품코드 일괄 조회
+    cafe24_codes = [p.get("product_code") for p in raw_products if p.get("product_code")]
+    imported_codes = set()
+    if cafe24_codes:
+        imported_codes = {
+            row[0]
+            for row in db.query(Product.external_product_code_cafe24)
+            .filter(Product.external_product_code_cafe24.in_(cafe24_codes))
+            .all()
+        }
+
+    # 필요한 필드만 필터링 + already_imported 주입
     data["products"] = [
-        {k: v for k, v in p.items() if k in PRODUCT_PICK_FIELDS}
-        for p in data.get("products", [])
+        {
+            **{k: v for k, v in p.items() if k in PRODUCT_PICK_FIELDS},
+            "already_imported": p.get("product_code") in imported_codes,
+        }
+        for p in raw_products
     ]
     return data
 

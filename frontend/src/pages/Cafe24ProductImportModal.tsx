@@ -19,7 +19,7 @@ import {
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { cafe24API } from "@/api/cafe24Api";
 import { toast } from "@/hooks/use-toast";
-import type { Cafe24Product, Cafe24ProductImportItem } from "@/types/cafe24";
+import type { Cafe24Product, Cafe24ProductImportItem, Cafe24ProductImportResponse } from "@/types/cafe24";
 
 // ── 자동 파싱 ────────────────────────────────────────────────────────────────
 
@@ -121,10 +121,11 @@ function initRow(p: Cafe24Product): ImportRow {
 interface Props {
   open: boolean;
   onClose: () => void;
+  onImported?: (result: Cafe24ProductImportResponse) => void;
   selectedProducts: Cafe24Product[];
 }
 
-export default function Cafe24ProductImportModal({ open, onClose, selectedProducts }: Props) {
+export default function Cafe24ProductImportModal({ open, onClose, onImported, selectedProducts }: Props) {
   const queryClient = useQueryClient();
   const [rows, setRows] = useState<ImportRow[]>([]);
 
@@ -170,20 +171,10 @@ export default function Cafe24ProductImportModal({ open, onClose, selectedProduc
       return cafe24API.importProducts({ items });
     },
     onSuccess: (data) => {
-      const msgs: string[] = [];
-      if (data.created_count > 0) msgs.push(`${data.created_count}개 등록`);
-      if (data.skipped_count > 0) msgs.push(`${data.skipped_count}개 건너뜀(이미 등록)`);
-      if (data.failed_count > 0) msgs.push(`${data.failed_count}개 실패`);
-      toast.success(msgs.join(", "));
-
-      // 실패 상세 표시
-      data.results
-        .filter((r) => r.status === "failed")
-        .forEach((r) => toast.error(`${r.product_code}: ${r.message}`));
-
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["cafe24-products"] });
       onClose();
+      onImported?.(data);
     },
     onError: () => toast.error("상품 등록 실패"),
   });
@@ -201,7 +192,7 @@ export default function Cafe24ProductImportModal({ open, onClose, selectedProduc
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Cafe24 상품 등록 ({selectedProducts.length}개)</DialogTitle>
+          <DialogTitle>Cafe24 상품 가져오기 ({selectedProducts.length}개)</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 py-2">
@@ -318,7 +309,7 @@ export default function Cafe24ProductImportModal({ open, onClose, selectedProduc
             disabled={importMutation.isPending || hasEmptyCode || rows.length === 0}
           >
             {importMutation.isPending && <LoadingSpinner size="sm" className="mr-1.5" />}
-            {rows.length}개 등록
+            {rows.length}개 가져오기
           </Button>
         </DialogFooter>
       </DialogContent>

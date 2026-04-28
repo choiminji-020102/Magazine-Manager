@@ -23,6 +23,7 @@ export interface Cafe24Product {
   product_weight: string;
   created_date: string;
   updated_date: string;
+  already_imported: boolean;
 }
 
 export interface Cafe24ProductsResponse {
