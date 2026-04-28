@@ -67,17 +67,3 @@ export interface DispatchSummaryResponse {
   by_product: DispatchProductStat[];
   by_status: Record<string, number>;
 }
-
-export interface DispatchTrackingUploadResult {
-  send_id: number;
-  success: boolean;
-  message?: string | null;
-}
-
-export interface DispatchTrackingUploadResponse {
-  issue: string;
-  total: number;
-  success_count: number;
-  fail_count: number;
-  results: DispatchTrackingUploadResult[];
-}

@@ -1,10 +1,8 @@
 # 표준 라이브러리
-import io
 from typing import List, Optional
 
 # 서드파티 라이브러리
-import openpyxl
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
@@ -25,8 +23,6 @@ from app.schemas.dispatch import (
     DispatchTarget,
     DispatchTargetListQuery,
     DispatchTargetsResponse,
-    DispatchTrackingUploadResponse,
-    DispatchTrackingUploadResult,
     PaidNotPreparedCountResponse,
     RegeneratePreparingSendsRequest,
     RegeneratePreparingSendsResponse,
@@ -504,207 +500,6 @@ def generate_monthly_dispatch(
         data=DispatchGenerateResponse(
             issue=req.issue,
             total_requested=len(req.order_item_ids),
-            success_count=success_count,
-            fail_count=fail_count,
-            results=results,
-        ),
-    )
-
-
-# ── 송장 업로드 ────────────────────────────────────────────────────────────────
-#
-# 기출유 엑셀 다운로드 관련 엔드포인트는 `dispatch_excel.py`로 완전히 분리됨.
-# (`SHIPPING_REFACTOR_PLAN.md` §5 참고)
-# 이 파일에는 기출유가 송장번호를 입력해 반환한 엑셀을 업로드받는 로직만 남는다.
-
-def _process_tracking_upload(
-    db: Session,
-    issue: str,
-    file_bytes: bytes,
-    courier_company: str,
-) -> List[DispatchTrackingUploadResult]:
-    """송장 엑셀 업로드 처리 공통 로직"""
-    try:
-        wb = openpyxl.load_workbook(io.BytesIO(file_bytes))
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="엑셀 파일을 읽을 수 없습니다.",
-        )
-
-    ws = wb.active
-    header_row = [ws.cell(row=1, column=c).value for c in range(1, ws.max_column + 1)]
-
-    # '발송ID', '송장번호' 컬럼 위치 찾기
-    try:
-        send_id_col = header_row.index("발송ID") + 1
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="엑셀 파일에 '발송ID' 컬럼이 없습니다. 내보내기한 파일을 그대로 사용해 주세요.",
-        )
-    try:
-        tracking_col = header_row.index("송장번호") + 1
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="엑셀 파일에 '송장번호' 컬럼이 없습니다.",
-        )
-
-    results: List[DispatchTrackingUploadResult] = []
-
-    for row_idx in range(2, ws.max_row + 1):
-        raw_send_id = ws.cell(row=row_idx, column=send_id_col).value
-        raw_tracking = ws.cell(row=row_idx, column=tracking_col).value
-
-        # 빈 행 스킵
-        if raw_send_id is None:
-            continue
-        # 송장번호 없으면 스킵 (처리 안 된 행)
-        if not raw_tracking or str(raw_tracking).strip() == "":
-            continue
-
-        try:
-            send_id = int(raw_send_id)
-        except (ValueError, TypeError):
-            results.append(DispatchTrackingUploadResult(
-                send_id=0,
-                success=False,
-                message=f"행 {row_idx}: 발송ID 형식 오류 ({raw_send_id})",
-            ))
-            continue
-
-        send = db.query(Send).filter(Send.send_id == send_id).first()
-        if not send:
-            results.append(DispatchTrackingUploadResult(
-                send_id=send_id,
-                success=False,
-                message="발송 레코드를 찾을 수 없습니다.",
-            ))
-            continue
-
-        if send.cancelled_at is not None:
-            results.append(DispatchTrackingUploadResult(
-                send_id=send_id,
-                success=False,
-                message="취소된 발송입니다.",
-            ))
-            continue
-
-        if send.send_status in ("SHIPPING", "DELIVERED"):
-            results.append(DispatchTrackingUploadResult(
-                send_id=send_id,
-                success=False,
-                message=f"이미 {send.send_status} 상태입니다.",
-            ))
-            continue
-
-        tracking_no = str(raw_tracking).strip()
-        send_crud.update_tracking(db=db, send=send, tracking_no=tracking_no, courier_company=courier_company)
-
-        results.append(DispatchTrackingUploadResult(
-            send_id=send_id,
-            success=True,
-        ))
-
-    db.commit()
-    return results
-
-
-@router.post(
-    "/dispatches/yearly/upload-tracking",
-    response_model=ResponseModel[DispatchTrackingUploadResponse],
-)
-def upload_yearly_tracking(
-    issue: str,
-    request: Request,
-    file: UploadFile = File(..., description="기출유에서 송장번호 입력 후 반환한 엑셀 파일"),
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin),
-):
-    """YEARLY 기출유 우편 송장 업로드 → SHIPPING 전환 (기출유우편)
-
-    ⚠️ 주의: 현재 이 엔드포인트는 기존 엑셀 포맷(발송ID 컬럼 포함)에 의존.
-    신규 기출유 엑셀(`SHIPPING_REFACTOR_PLAN.md` §5)에는 발송ID 컬럼이 없으므로
-    실제 업로드는 별도 리팩터링 완료 전까지 동작하지 않을 수 있다.
-    """
-    file_bytes = file.file.read()
-    results = _process_tracking_upload(
-        db=db,
-        issue=issue,
-        file_bytes=file_bytes,
-        courier_company="기출유우편",
-    )
-
-    success_count = sum(1 for r in results if r.success)
-    fail_count = len(results) - success_count
-
-    activity_log_service.create_log(
-        db=db,
-        action=ActivityAction.UPDATE,
-        target_type=ActivityTargetType.SEND,
-        admin_id=current_admin.admin_id,
-        admin_name=current_admin.admin_name,
-        target_id=None,
-        target_name=f"YEARLY {issue}호 송장 업로드",
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-        details={"issue": issue, "success_count": success_count, "fail_count": fail_count},
-    )
-
-    return ResponseModel(
-        message=f"송장 업로드 완료: 성공 {success_count}건, 실패 {fail_count}건",
-        data=DispatchTrackingUploadResponse(
-            issue=issue,
-            total=len(results),
-            success_count=success_count,
-            fail_count=fail_count,
-            results=results,
-        ),
-    )
-
-
-@router.post(
-    "/dispatches/monthly/upload-tracking",
-    response_model=ResponseModel[DispatchTrackingUploadResponse],
-)
-def upload_monthly_tracking(
-    issue: str,
-    request: Request,
-    file: UploadFile = File(..., description="기출유에서 송장번호 입력 후 반환한 엑셀 파일"),
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin),
-):
-    """MONTHLY 기출유 택배 송장 업로드 → SHIPPING 전환 (CJ대한통운)"""
-    file_bytes = file.file.read()
-    results = _process_tracking_upload(
-        db=db,
-        issue=issue,
-        file_bytes=file_bytes,
-        courier_company="CJ대한통운",
-    )
-
-    success_count = sum(1 for r in results if r.success)
-    fail_count = len(results) - success_count
-
-    activity_log_service.create_log(
-        db=db,
-        action=ActivityAction.UPDATE,
-        target_type=ActivityTargetType.SEND,
-        admin_id=current_admin.admin_id,
-        admin_name=current_admin.admin_name,
-        target_id=None,
-        target_name=f"MONTHLY {issue}호 송장 업로드",
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-        details={"issue": issue, "success_count": success_count, "fail_count": fail_count},
-    )
-
-    return ResponseModel(
-        message=f"송장 업로드 완료: 성공 {success_count}건, 실패 {fail_count}건",
-        data=DispatchTrackingUploadResponse(
-            issue=issue,
-            total=len(results),
             success_count=success_count,
             fail_count=fail_count,
             results=results,

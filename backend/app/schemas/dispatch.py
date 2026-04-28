@@ -108,22 +108,6 @@ class DispatchSummaryResponse(BaseModel):
     by_status: Dict[str, int]                          # Send 상태별 카운트
 
 
-class DispatchTrackingUploadResult(BaseModel):
-    """송장 업로드 단건 결과"""
-    send_id: int
-    success: bool
-    message: Optional[str] = None
-
-
-class DispatchTrackingUploadResponse(BaseModel):
-    """송장 업로드 결과"""
-    issue: str
-    total: int
-    success_count: int
-    fail_count: int
-    results: List[DispatchTrackingUploadResult]
-
-
 class RegeneratePreparingSendsRequest(BaseModel):
     """[발송 생성] 요청.
 

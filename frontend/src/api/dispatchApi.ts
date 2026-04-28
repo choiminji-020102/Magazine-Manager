@@ -75,5 +75,4 @@ export const dispatchApi = {
   },
 
   // 엑셀 다운로드 관련 기능은 `dispatchExcelApi.ts`로 완전히 분리됨.
-  // 송장 업로드(/upload-tracking)는 신규 엑셀 포맷과 호환되지 않아 제거. 별도 작업으로 복귀 예정.
 };
