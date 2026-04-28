@@ -115,6 +115,14 @@ class SendResendRequest(BaseModel):
             return stripped
         return v
 
+    @field_validator("send_method", "courier_company", mode="before")
+    @classmethod
+    def _strip_enum(cls, v):
+        # 운영자 실수로 앞뒤 공백 들어가도 Literal 매칭되도록 strip (PATCH /tracking과 동일 패턴)
+        if isinstance(v, str):
+            return v.strip()
+        return v
+
     @field_validator("memo", mode="before")
     @classmethod
     def _strip_memo_or_none(cls, v):
