@@ -261,3 +261,46 @@ def auto_deliver_shipped_sends(db: Session, days: int = 3) -> int:
     if sends:
         db.commit()
     return len(sends)
+
+
+def delete_preparing_sends(db: Session, scope: str) -> int:
+    """PREPARING Send + SendItem 일괄 삭제. 삭제된 Send 수 반환.
+
+    scope:
+      - "monthly" : SendItem이 MONTHLY OrderItem과 연결된 PREPARING Send만
+      - "yearly"  : SendItem이 YEARLY OrderItem과 연결된 PREPARING Send만
+
+    SHIPPING/DELIVERED/CANCELLED Send는 절대 건드리지 않음.
+    Bulk DELETE 사용 (SendItem 먼저 → Send 나중, FK 순서 준수).
+    호출자가 db.commit() 책임.
+    """
+    if scope not in ("monthly", "yearly"):
+        raise ValueError(f"잘못된 scope: {scope}")
+
+    kind = "MONTHLY" if scope == "monthly" else "YEARLY"
+    target_ids_query = (
+        db.query(Send.send_id)
+        .join(SendItem, SendItem.send_id == Send.send_id)
+        .join(OrderItem, OrderItem.order_item_id == SendItem.order_item_id)
+        .filter(
+            Send.send_status == "PREPARING",
+            OrderItem.product_kind == kind,
+        )
+        .distinct()
+    )
+
+    target_send_ids = [row[0] for row in target_ids_query.all()]
+    if not target_send_ids:
+        return 0
+
+    # SendItem 먼저 삭제 (FK)
+    db.query(SendItem).filter(
+        SendItem.send_id.in_(target_send_ids)
+    ).delete(synchronize_session=False)
+
+    # Send 삭제
+    deleted = db.query(Send).filter(
+        Send.send_id.in_(target_send_ids)
+    ).delete(synchronize_session=False)
+
+    return deleted
