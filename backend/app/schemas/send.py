@@ -1,10 +1,10 @@
 # 표준 라이브러리
 from datetime import date, datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 # 서드파티 라이브러리
 from fastapi import Query
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # 로컬 애플리케이션
 from app.schemas.send_item import SendItemResponse
@@ -78,32 +78,35 @@ class SendBatchStatusResponse(BaseModel):
     results: List[SendBatchStatusResult]
 
 
+SendMethodLiteral = Literal["기출유우편", "기출유택배", "일반우편", "찾아가기"]
+CourierCompanyLiteral = Literal["CJ대한통운", "자체배송"]
+
+
 class SendTrackingUpdate(BaseModel):
     """SHIPPING/DELIVERED Send의 운송장/배송업체/배송방법 수정 (PATCH).
 
     셋 다 Optional — 들어온 필드만 갱신.
     빈 문자열/공백 문자열은 None으로 취급(안전망 — 실수로 빈 칸 전송 시 데이터 손상 방지).
-    정규화 후 셋 다 None이면 422 거부.
+    send_method/courier_company는 Literal로 enum 강제 (잘못된 값 → 422).
+    tracking_no는 strip 후 숫자만 허용 (공백·하이픈·문자 → 422).
+    정규화 후 셋 다 None이면 422.
     send_method와 courier_company는 완전 독립 (자동 도출 안 함).
     """
     tracking_no: Optional[str] = None
-    send_method: Optional[str] = Field(
-        default=None,
-        description="기출유우편 | 기출유택배 | 일반우편 | 찾아가기",
-    )
-    courier_company: Optional[str] = Field(
-        default=None,
-        description="CJ대한통운 | 자체배송",
-    )
+    send_method: Optional[SendMethodLiteral] = None
+    courier_company: Optional[CourierCompanyLiteral] = None
+
+    # send_method/courier_company는 strip → 빈 문자열이면 None (Literal 검증 통과시키기 위함)
+    @field_validator("send_method", "courier_company", mode="before")
+    @classmethod
+    def _strip_or_none(cls, v):
+        if isinstance(v, str):
+            return v.strip() or None
+        return v
 
     @model_validator(mode="after")
-    def _normalize_and_validate(self) -> "SendTrackingUpdate":
-        # 1. send_method/courier_company는 strip → 빈 문자열이면 None (옵션 B 안전망)
-        if isinstance(self.send_method, str):
-            self.send_method = self.send_method.strip() or None
-        if isinstance(self.courier_company, str):
-            self.courier_company = self.courier_company.strip() or None
-        # 2. tracking_no는 strip 후 ① 빈 문자열이면 None ② 그 외엔 숫자만 허용 (공백/하이픈/문자 불가)
+    def _validate_tracking_and_at_least_one(self) -> "SendTrackingUpdate":
+        # tracking_no: strip 후 ① 빈 문자열이면 None ② 그 외엔 숫자만 허용
         if isinstance(self.tracking_no, str):
             stripped = self.tracking_no.strip()
             if stripped == "":
@@ -112,7 +115,7 @@ class SendTrackingUpdate(BaseModel):
                 raise ValueError("tracking_no는 숫자만 입력 가능합니다 (공백·하이픈·문자 불가).")
             else:
                 self.tracking_no = stripped
-        # 3. 정규화 후 셋 다 비어있으면 거부
+        # 정규화 후 셋 다 비어있으면 거부
         if self.tracking_no is None and self.send_method is None and self.courier_company is None:
             raise ValueError("tracking_no, send_method, courier_company 중 최소 1개를 입력해야 합니다.")
         return self
