@@ -561,7 +561,7 @@ def cancel_order_item(
     order_item: OrderItem,
     cancel_in: OrderItemCancelRequest,
 ) -> OrderItem:
-    """품목 취소 (배송 후 차단, 전액 환불, PREPARING Send 취소)"""
+    """품목 취소 (배송 후 차단, 전액 환불, PREPARING Send 수술적 제거)"""
     # 이미 취소된 주문은 품목 취소 불가
     if order_item.order.order_status in ("CANCELLED", "UNPAID_CANCELLED"):
         raise HTTPException(
