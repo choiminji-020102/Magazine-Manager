@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CheckCircle2, XCircle, AlertTriangle, Info } from "lucide-react";
 import { cafe24API } from "@/api/cafe24Api";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
+import { ImportStatCard, ImportDetailCard } from "@/components/common/ImportResultCards";
 import type {
   Cafe24Order,
   Cafe24MappedOrderItem,
@@ -46,8 +48,8 @@ const ORDER_STATUS_BADGE: Record<string, { label: string; cls: string }> = {
 };
 
 function statusBadge(order_status: Cafe24Order["order_status"]) {
-  if (!order_status) return { label: "-", cls: "bg-slate-50 text-slate-500" };
-  return ORDER_STATUS_BADGE[order_status] ?? { label: order_status, cls: "bg-slate-50 text-slate-600" };
+  if (!order_status) return { label: "-", cls: "bg-gray-50 text-gray-500" };
+  return ORDER_STATUS_BADGE[order_status] ?? { label: order_status, cls: "bg-gray-50 text-gray-600" };
 }
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
@@ -141,7 +143,7 @@ function OrderCard({
 
   if (order.detail_fetch_error) {
     return (
-      <div className="border border-red-300 rounded bg-red-50 p-4 text-sm text-red-700">
+      <div className="border border-red-200 rounded bg-red-50 p-4 text-sm text-red-700">
         <div className="font-mono mb-1">{order.external_order_id}</div>
         상세 조회 실패: {order.detail_fetch_error}
       </div>
@@ -149,16 +151,16 @@ function OrderCard({
   }
 
   return (
-    <div className={`border border-slate-200 rounded-lg overflow-hidden grid grid-cols-[50px_280px_1fr_1fr] grid-rows-[auto_1fr] shadow-sm bg-white ${isImported ? "opacity-90" : ""}`}>
+    <div className={`border border-gray-200 rounded-lg overflow-hidden grid grid-cols-[50px_280px_1fr_1fr] grid-rows-[auto_1fr] shadow-sm bg-white ${isImported ? "opacity-90" : ""}`}>
       {/* 좌측: 체크박스 / 이미 가져옴 표시 통합 (row-span 2) */}
       <div
-        className={`row-span-2 flex flex-col items-center justify-center gap-1 border-r border-slate-100 ${
-          isImported ? "bg-emerald-50" : "bg-white"
+        className={`row-span-2 flex flex-col items-center justify-center gap-1 border-r border-gray-100 ${
+          isImported ? "bg-green-50" : "bg-white"
         }`}
         title={isImported ? "이미 가져옴" : "신규"}
       >
         {isImported ? (
-          <div className="text-[10px] text-emerald-700 font-medium leading-tight text-center">
+          <div className="text-[10px] text-green-700 font-medium leading-tight text-center">
             <div>이미</div>
             <div>가져옴</div>
           </div>
@@ -174,13 +176,13 @@ function OrderCard({
       </div>
 
       {/* 주문 (row-span 2, 세로 전체) */}
-      <section className="row-span-2 border-r border-slate-100 text-xs">
+      <section className="row-span-2 border-r border-gray-100 text-xs">
         <SectionHeader title="주문">
           <span className={`px-1.5 py-0.5 rounded text-[11px] font-medium ${status.cls}`}>
             {status.label}
           </span>
           {order.payment_method && (
-            <span className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-white text-slate-700">
+            <span className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-white text-gray-700">
               {pmLabel}
             </span>
           )}
@@ -201,7 +203,7 @@ function OrderCard({
       </section>
 
       {/* 고객 (2열 상단) */}
-      <section className="border-r border-b border-slate-100 text-xs">
+      <section className="border-r border-b border-gray-100 text-xs">
         <SectionHeader title="고객" />
         <div className="px-3 py-2 space-y-0.5">
           <InfoRow label="이름" value={order.customer_name || "-"} />
@@ -213,7 +215,7 @@ function OrderCard({
       {/* 품목 (3열 세로 전체) */}
       <section className="row-span-2 text-xs">
         <SectionHeader title="품목">
-          <span className="text-slate-400 normal-case tracking-normal text-xs font-normal">
+          <span className="text-gray-400 normal-case tracking-normal text-xs font-normal">
             ({order.items.length}건)
           </span>
         </SectionHeader>
@@ -231,7 +233,7 @@ function OrderCard({
       </section>
 
       {/* 배송지 (2열 하단) */}
-      <section className="border-r border-slate-100 text-xs">
+      <section className="border-r border-gray-100 text-xs">
         <SectionHeader title="배송지" />
         <div className="px-3 py-2 space-y-0.5">
           <InfoRow label="수령인" value={order.recipient_name || "-"} />
@@ -269,11 +271,99 @@ function SectionHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="h-9 px-3 bg-slate-100 flex items-center gap-1.5">
-      <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+    <div className="h-9 px-3 bg-gray-100 flex items-center gap-1.5">
+      <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
         {title}
       </span>
       {children}
+    </div>
+  );
+}
+
+// ── 공통 요약/상세 뷰 ───────────────────────────────────────────────────────
+
+function ImportResultView({
+  result, mode,
+}: {
+  result: Cafe24OrderImportResponse;
+  mode: "preview" | "result";
+}) {
+  const successLabel = mode === "preview" ? "성공 예상" : "성공";
+  const hasNothingToSave = mode === "preview" && result.imported_count === 0;
+
+  return (
+    <div className="space-y-4">
+      {/* 요약 카드 3개 */}
+      <div className="grid grid-cols-3 gap-2">
+        <ImportStatCard
+          label={successLabel}
+          count={result.imported_count}
+          icon={<CheckCircle2 className="h-5 w-5" />}
+          tone="success"
+        />
+        <ImportStatCard
+          label="실패"
+          count={result.skipped_count}
+          icon={<XCircle className="h-5 w-5" />}
+          tone="danger"
+        />
+        <ImportStatCard
+          label="경고"
+          count={result.warnings.length}
+          icon={<AlertTriangle className="h-5 w-5" />}
+          tone="warning"
+        />
+      </div>
+
+      {/* 저장할 항목 없음 안내 (미리보기 전용) */}
+      {hasNothingToSave && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+          <Info className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+          <div className="text-xs text-amber-700 leading-relaxed">
+            저장할 항목이 없습니다. 아래 실패 상세를 확인한 뒤 선택을 조정해 주세요.
+          </div>
+        </div>
+      )}
+
+      {/* 실패 상세 */}
+      {result.skipped_orders.length > 0 && (
+        <section>
+          <h4 className="text-xs font-semibold text-red-600 mb-1.5 flex items-center gap-1">
+            <XCircle className="h-3.5 w-3.5" />
+            실패 상세 ({result.skipped_orders.length}건)
+          </h4>
+          <div className="space-y-1.5 max-h-56 overflow-auto pr-1">
+            {result.skipped_orders.map((s) => (
+              <ImportDetailCard
+                key={s.external_order_id}
+                itemKey={s.external_order_id}
+                message={s.reason}
+                tone="danger"
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 경고 상세 */}
+      {result.warnings.length > 0 && (
+        <section>
+          <h4 className="text-xs font-semibold text-amber-700 mb-1.5 flex items-center gap-1">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            경고 상세 ({result.warnings.length}건)
+          </h4>
+          <div className="space-y-1.5 max-h-56 overflow-auto pr-1">
+            {result.warnings.map((w, i) => (
+              <ImportDetailCard
+                key={i}
+                itemKey={w.external_order_id}
+                message={w.message}
+                tone="warning"
+              />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
@@ -296,53 +386,22 @@ function PreviewModal({
         <DialogHeader>
           <DialogTitle>Cafe24 주문 가져오기 미리보기</DialogTitle>
           <p className="text-xs text-gray-500 mt-1">
-            저장 전 미리보기입니다. 아래 결과를 확인 후 "실행"을 눌러 실제 저장을 시작하세요.
+            저장 전 미리보기입니다. 결과를 확인한 뒤 "실행"을 눌러 실제 저장을 시작하세요.
           </p>
         </DialogHeader>
-        <div className="flex-1 overflow-auto space-y-4 py-2">
-          {/* 요약 */}
-          <div className="flex gap-4 text-sm">
-            <div><span className="text-green-600 font-medium">✅ 성공 예상</span> {result.imported_count}건</div>
-            <div><span className="text-red-500 font-medium">❌ 실패</span> {result.skipped_count}건</div>
-            <div><span className="text-amber-600 font-medium">⚠️ 경고</span> {result.warnings.length}건</div>
-          </div>
-
-          {/* 실패 상세 */}
-          {result.skipped_orders.length > 0 && (
-            <div>
-              <h4 className="text-xs font-semibold text-gray-600 mb-2">실패 상세 ({result.skipped_orders.length}건)</h4>
-              <div className="space-y-1 text-xs max-h-60 overflow-auto border border-gray-200 rounded p-2 bg-gray-50">
-                {result.skipped_orders.map((s) => (
-                  <div key={s.external_order_id} className="flex gap-2">
-                    <span className="font-mono text-gray-700">{s.external_order_id}</span>
-                    <span className="text-red-500 flex-1">{s.reason}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 경고 상세 */}
-          {result.warnings.length > 0 && (
-            <div>
-              <h4 className="text-xs font-semibold text-gray-600 mb-2">경고 상세 ({result.warnings.length}건)</h4>
-              <div className="space-y-1 text-xs max-h-60 overflow-auto border border-gray-200 rounded p-2 bg-amber-50">
-                {result.warnings.map((w, i) => (
-                  <div key={i} className="flex gap-2">
-                    <span className="font-mono text-gray-700">{w.external_order_id}</span>
-                    <span className="text-amber-700 flex-1">{w.message}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        <div className="flex-1 overflow-auto py-2">
+          <ImportResultView result={result} mode="preview" />
         </div>
         <DialogFooter>
           <Button variant="secondary" onClick={onClose} disabled={isExecuting}>
             취소
           </Button>
           <Button onClick={onExecute} disabled={isExecuting || result.imported_count === 0}>
-            {isExecuting ? "실행 중..." : `실행 (${result.imported_count}건 저장)`}
+            {isExecuting
+              ? "실행 중..."
+              : result.imported_count === 0
+              ? "저장할 항목 없음"
+              : `실행 (${result.imported_count}건 저장)`}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -366,40 +425,8 @@ function ImportResultModal({
         <DialogHeader>
           <DialogTitle>Cafe24 주문 가져오기 결과</DialogTitle>
         </DialogHeader>
-        <div className="flex-1 overflow-auto space-y-4 py-2">
-          <div className="flex gap-4 text-sm">
-            <div><span className="text-green-600 font-medium">✅ 성공</span> {result.imported_count}건</div>
-            <div><span className="text-red-500 font-medium">❌ 실패</span> {result.skipped_count}건</div>
-            <div><span className="text-amber-600 font-medium">⚠️ 경고</span> {result.warnings.length}건</div>
-          </div>
-
-          {result.skipped_orders.length > 0 && (
-            <div>
-              <h4 className="text-xs font-semibold text-gray-600 mb-2">실패 상세 ({result.skipped_orders.length}건)</h4>
-              <div className="space-y-1 text-xs max-h-60 overflow-auto border border-gray-200 rounded p-2 bg-gray-50">
-                {result.skipped_orders.map((s) => (
-                  <div key={s.external_order_id} className="flex gap-2">
-                    <span className="font-mono text-gray-700">{s.external_order_id}</span>
-                    <span className="text-red-500 flex-1">{s.reason}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {result.warnings.length > 0 && (
-            <div>
-              <h4 className="text-xs font-semibold text-gray-600 mb-2">경고 상세 ({result.warnings.length}건)</h4>
-              <div className="space-y-1 text-xs max-h-60 overflow-auto border border-gray-200 rounded p-2 bg-amber-50">
-                {result.warnings.map((w, i) => (
-                  <div key={i} className="flex gap-2">
-                    <span className="font-mono text-gray-700">{w.external_order_id}</span>
-                    <span className="text-amber-700 flex-1">{w.message}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        <div className="flex-1 overflow-auto py-2">
+          <ImportResultView result={result} mode="result" />
         </div>
         <DialogFooter>
           <Button onClick={onClose}>확인</Button>
@@ -571,7 +598,7 @@ export default function Cafe24OrderListPage() {
       </div>
 
       {/* 카드 목록 */}
-      <div className="flex-1 min-h-0 overflow-auto p-3 space-y-2 bg-slate-50">
+      <div className="flex-1 min-h-0 overflow-auto p-3 space-y-2 bg-gray-50">
         {isLoading ? (
           <div className="py-10 text-center">
             <LoadingSpinner size="sm" />

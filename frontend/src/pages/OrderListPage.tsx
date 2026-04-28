@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DataTable, type ColumnDef } from "@/components/common/DataTable";
 import { FilterBar } from "@/components/common/FilterBar";
-import { PageHeader } from "@/components/common/PageHeader";
 import { Pagination } from "@/components/common/Pagination";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { SlidingPanel } from "@/components/common/SlidingPanel";
@@ -256,16 +255,6 @@ export default function OrderListPage() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      {/* 헤더 */}
-      <PageHeader
-        actions={
-          <Button variant="secondary" size="sm" onClick={() => navigate("/orders/new")}>
-            <Plus className="h-3.5 w-3.5 mr-1" />
-            오프라인 주문 등록
-          </Button>
-        }
-      />
-
       {/* 필터 바 */}
       <FilterBar
         basic={
@@ -290,6 +279,20 @@ export default function OrderListPage() {
                 ))}
               </SelectContent>
             </Select>
+            <Select
+              value={paymentMethod}
+              onValueChange={(v) => { setPaymentMethod(v === "_all" ? "" : v); setPage(1); }}
+            >
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="결제 방법" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">전체 결제 방법</SelectItem>
+                {PAYMENT_METHOD_OPTIONS.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Input
               className="w-44"
               placeholder="주문자 이름/뒤4자리"
@@ -301,6 +304,12 @@ export default function OrderListPage() {
               placeholder="수령인 이름/뒤4자리"
               value={recipientSearch}
               onChange={(e) => { setRecipientSearch(e.target.value); setPage(1); }}
+            />
+            <Input
+              className="w-32"
+              placeholder="관리자 메모"
+              value={adminMemo}
+              onChange={(e) => { setAdminMemo(e.target.value); setPage(1); }}
             />
           </>
         }
@@ -327,26 +336,6 @@ export default function OrderListPage() {
               value={externalOrderId}
               onChange={(e) => { setExternalOrderId(e.target.value); setPage(1); }}
             />
-            <Select
-              value={paymentMethod}
-              onValueChange={(v) => { setPaymentMethod(v === "_all" ? "" : v); setPage(1); }}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="결제방법" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_all">전체</SelectItem>
-                {PAYMENT_METHOD_OPTIONS.map((m) => (
-                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              className="w-32"
-              placeholder="관리자 메모"
-              value={adminMemo}
-              onChange={(e) => { setAdminMemo(e.target.value); setPage(1); }}
-            />
             <Select value={sortBy} onValueChange={(v) => { setSortBy(v); setPage(1); }}>
               <SelectTrigger className="w-28">
                 <SelectValue placeholder="정렬" />
@@ -369,7 +358,13 @@ export default function OrderListPage() {
             </Select>
           </>
         }
-        advancedActiveCount={[startDate, endDate, externalOrderId, paymentMethod, adminMemo, sortBy !== "created_at" ? sortBy : "", sortOrder !== "desc" ? sortOrder : ""].filter(Boolean).length}
+        alwaysExpanded
+        actions={
+          <Button variant="secondary" size="sm" onClick={() => navigate("/orders/new")}>
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            오프라인 주문 등록
+          </Button>
+        }
         hasActiveFilters={!!(channel || status || customerSearch || recipientSearch || startDate || endDate || externalOrderId || paymentMethod || adminMemo)}
         onReset={() => {
           setChannel(""); setStatus(""); setCustomerSearch(""); setRecipientSearch("");
