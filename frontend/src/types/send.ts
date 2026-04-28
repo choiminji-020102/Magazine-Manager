@@ -2,30 +2,6 @@
 
 import type { SendItemResponse } from "./sendItem";
 
-export interface SendItemInput {
-  order_item_id: number;
-  issue: string;        // 발송 호 (YYYYMM)
-  send_num?: number;    // 기본값: 1
-}
-
-export interface SendAddressInput {
-  recipient_name: string;
-  recipient_phone: string;
-  country_code?: string;  // 기본값: "KR"
-  postal_code: string;
-  recipient_address: string;
-  customer_memo?: string | null;
-}
-
-export interface SendCreate {
-  order_id: number;
-  address_id?: number | null;
-  address?: SendAddressInput | null;
-  official_send_date?: string | null;
-  admin_memo?: string | null;
-  items: SendItemInput[];
-}
-
 export interface SendUpdate {
   recipient_name?: string | null;
   recipient_phone?: string | null;
@@ -53,9 +29,10 @@ export interface SendTrackingUpdate {
 
 export interface SendResponse {
   send_id: number;
-  order_id: number;
+  order_ids: number[];                    // SendItem→OrderItem 경유 derived (백엔드 @property)
   address_id?: number | null;
   send_status: string;
+  send_method?: string | null;            // 기출유우편 | 기출유택배 | 일반우편 | 찾아가기
   courier_company?: string | null;
   tracking_no?: string | null;
   recipient_name: string;
@@ -65,8 +42,6 @@ export interface SendResponse {
   recipient_address: string;
   customer_memo?: string | null;
   admin_memo?: string | null;
-  official_send_date?: string | null;
-  prepared_at?: string | null;
   shipped_at?: string | null;
   delivered_at?: string | null;
   cancelled_at?: string | null;
@@ -84,7 +59,6 @@ export interface SendListQuery {
   send_status?: string | null;
   courier_company?: string | null;
   tracking_no?: string | null;
-  official_send_date?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   is_cancelled?: boolean | null;

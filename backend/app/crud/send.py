@@ -1,5 +1,4 @@
 # 표준 라이브러리
-from datetime import date, datetime
 from typing import List, Optional, Tuple
 
 # 서드파티 라이브러리
@@ -26,10 +25,13 @@ def read_send_by_id(db: Session, send_id: int) -> Send:
 
 
 def read_sends_by_order_id(db: Session, order_id: int) -> List[Send]:
-    """주문 ID로 발송 목록 조회"""
+    """주문 ID로 발송 목록 조회 (SendItem→OrderItem→order_id 경유)."""
     return (
         db.query(Send)
-        .filter(Send.order_id == order_id)
+        .join(SendItem, SendItem.send_id == Send.send_id)
+        .join(OrderItem, OrderItem.order_item_id == SendItem.order_item_id)
+        .filter(OrderItem.order_id == order_id)
+        .distinct()
         .order_by(Send.created_at.desc())
         .all()
     )
@@ -45,8 +47,6 @@ def list_sends(db: Session, query: SendListQuery) -> Tuple[List[Send], int]:
         q = q.filter(Send.courier_company == query.courier_company)
     if query.tracking_no:
         q = q.filter(Send.tracking_no.like(f"%{query.tracking_no}%"))
-    if query.official_send_date:
-        q = q.filter(Send.official_send_date == query.official_send_date)
     if query.start_date:
         q = q.filter(Send.created_at >= query.start_date)
     if query.end_date:
@@ -81,8 +81,8 @@ def list_sends(db: Session, query: SendListQuery) -> Tuple[List[Send], int]:
         )
 
     allowed_sort = {
-        "created_at", "updated_at", "official_send_date",
-        "prepared_at", "shipped_at", "delivered_at",
+        "created_at", "updated_at",
+        "shipped_at", "delivered_at",
     }
     sort_col = getattr(Send, query.sort_by if query.sort_by in allowed_sort else "created_at")
     q = q.order_by(sort_col.asc() if query.sort_order == "asc" else sort_col.desc())
@@ -90,38 +90,6 @@ def list_sends(db: Session, query: SendListQuery) -> Tuple[List[Send], int]:
     total = q.count()
     items = q.offset((query.page - 1) * query.limit).limit(query.limit).all()
     return items, total
-
-
-def create_send(
-    db: Session,
-    order_id: int,
-    address_id: Optional[int],
-    official_send_date: Optional[date],
-    admin_memo: Optional[str],
-    recipient_name: str,
-    recipient_phone: str,
-    country_code: str,
-    postal_code: str,
-    recipient_address: str,
-    customer_memo: Optional[str],
-) -> Send:
-    """발송 생성 (send_status = PREPARING 고정)"""
-    send = Send(
-        order_id=order_id,
-        address_id=address_id,
-        send_status="PREPARING",
-        official_send_date=official_send_date,
-        admin_memo=admin_memo,
-        recipient_name=recipient_name,
-        recipient_phone=recipient_phone,
-        country_code=country_code,
-        postal_code=postal_code,
-        recipient_address=recipient_address,
-        customer_memo=customer_memo,
-    )
-    db.add(send)
-    db.flush()
-    return send
 
 
 def update_send(db: Session, send: Send, send_in: SendUpdate) -> Send:

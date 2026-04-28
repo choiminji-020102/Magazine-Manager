@@ -35,7 +35,7 @@ from app.schemas.pause import (
 	PauseCreate, PauseUpdate, PauseResponse, PauseByIssueResponse
 )
 from app.schemas.send import (
-    SendCreate, SendUpdate, SendResponse, SendDetailResponse,
+    SendUpdate, SendResponse, SendDetailResponse,
     SendStatusUpdate, SendTrackingUpdate,
 )
 from app.schemas.send_item import (

@@ -47,6 +47,21 @@ class Send(Base):
         lazy="select"
     )
 
+    @property
+    def order_ids(self) -> list[int]:
+        # SendItem → OrderItem 경유로 이 Send에 묶인 모든 주문 ID (distinct, 정렬)
+        seen: set[int] = set()
+        result: list[int] = []
+        for si in self.items or []:
+            if si.cancelled_at is not None:
+                continue
+            oi = si.order_item
+            if oi is None or oi.order_id in seen:
+                continue
+            seen.add(oi.order_id)
+            result.append(oi.order_id)
+        return sorted(result)
+
     __table_args__ = (
         Index("ix_sends_send_status", "send_status"),
         Index("ix_sends_postal_code", "postal_code"),

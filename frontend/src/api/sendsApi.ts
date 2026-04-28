@@ -1,7 +1,6 @@
 import api from "./axios";
 import type { ResponseModel, PaginatedResponse } from "../types/api";
 import type {
-  SendCreate,
   SendUpdate,
   SendResponse,
   SendDetailResponse,
@@ -18,7 +17,6 @@ export const sendsApi = {
     send_status?: string | null;
     courier_company?: string | null;
     tracking_no?: string | null;
-    official_send_date?: string | null;
     start_date?: string | null;
     end_date?: string | null;
     is_cancelled?: boolean | null;
@@ -40,11 +38,6 @@ export const sendsApi = {
   // GET /sends/{send_id} - 발송 상세 조회
   getSend: (sendId: number) => {
     return api.get<ResponseModel<SendDetailResponse>>(`/sends/${sendId}`);
-  },
-
-  // POST /sends - 발송 등록
-  createSend: (data: SendCreate) => {
-    return api.post<ResponseModel<SendDetailResponse>>("/sends", data);
   },
 
   // PUT /sends/{send_id} - 발송 수정
@@ -82,7 +75,6 @@ export const sendsApi = {
     page?: number;
     limit?: number;
     send_status?: string | null;
-    official_send_date?: string | null;
     sort_by?: string;
     sort_order?: string;
   }) => {
@@ -90,7 +82,7 @@ export const sendsApi = {
   },
 
   // GET /sends/export/excel - 발송 데이터 엑셀 다운로드
-  exportSendsToExcel: (params?: { official_send_date?: string | null; send_status?: string | null }) => {
+  exportSendsToExcel: (params?: { send_status?: string | null }) => {
     return api.get("/sends/export/excel", {
       params,
       responseType: "blob",

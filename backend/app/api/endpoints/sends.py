@@ -20,7 +20,6 @@ from app.schemas.send import (
     SendBatchStatusRequest,
     SendBatchStatusResponse,
     SendBatchStatusResult,
-    SendCreate,
     SendDetailResponse,
     SendListQuery,
     SendResponse,
@@ -109,7 +108,6 @@ def get_sends_by_order(
     response_class=StreamingResponse,
 )
 def export_sends_to_excel(
-    official_send_date: Optional[date] = None,
     send_status: Optional[str] = None,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin),
@@ -121,8 +119,6 @@ def export_sends_to_excel(
     query = (
         db.query(
             Send.send_id,
-            Send.order_id,
-            Send.official_send_date,
             Send.courier_company,
             Send.tracking_no,
             Send.send_status,
@@ -144,8 +140,6 @@ def export_sends_to_excel(
         .filter(Send.cancelled_at.is_(None), SendItem.cancelled_at.is_(None))
     )
 
-    if official_send_date:
-        query = query.filter(Send.official_send_date == official_send_date)
     if send_status:
         query = query.filter(Send.send_status == send_status)
 
@@ -166,7 +160,7 @@ def export_sends_to_excel(
     )
 
     headers = [
-        "발송ID", "주문ID", "공식발송일", "택배사", "운송장번호", "발송상태",
+        "발송ID", "택배사", "운송장번호", "발송상태",
         "수령인", "연락처", "우편번호", "주소", "배송메모",
         "발송품목ID", "주문품목ID", "상품코드", "상품명", "발송호", "수량", "제작단가", "생성일시",
     ]
@@ -181,8 +175,6 @@ def export_sends_to_excel(
     for row_idx, row in enumerate(results, 2):
         data = [
             row.send_id,
-            row.order_id,
-            str(row.official_send_date) if row.official_send_date else "",
             row.courier_company or "",
             row.tracking_no or "",
             row.send_status,
@@ -205,7 +197,7 @@ def export_sends_to_excel(
             cell = ws.cell(row=row_idx, column=col_idx, value=value)
             cell.border = thin_border
 
-    column_widths = [10, 10, 12, 12, 18, 12, 12, 15, 10, 40, 20, 12, 12, 18, 30, 10, 8, 10, 20]
+    column_widths = [10, 12, 18, 12, 12, 15, 10, 40, 20, 12, 12, 18, 30, 10, 8, 10, 20]
     for col_idx, width in enumerate(column_widths, 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = width
 
@@ -214,8 +206,6 @@ def export_sends_to_excel(
     output.seek(0)
 
     filename = f"sends_{date.today().strftime('%Y%m%d')}.xlsx"
-    if official_send_date:
-        filename = f"sends_{official_send_date.strftime('%Y%m%d')}.xlsx"
 
     return StreamingResponse(
         output,
@@ -242,48 +232,6 @@ def get_send(
 
     return ResponseModel(
         message="발송 정보를 조회했습니다.",
-        data=response,
-    )
-
-
-# ── 생성 ──────────────────────────────────────────────────────────────────────
-
-@router.post(
-    "/sends",
-    response_model=ResponseModel[SendDetailResponse],
-    status_code=status.HTTP_201_CREATED,
-)
-def create_send(
-    send_in: SendCreate,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin),
-):
-    """발송 등록"""
-    send = send_service.create_send(db, send_in)
-    items = send_service.get_send_items(db, send.send_id)
-
-    activity_log_service.create_log(
-        db=db,
-        action=ActivityAction.CREATE,
-        target_type=ActivityTargetType.SEND,
-        admin_id=current_admin.admin_id,
-        admin_name=current_admin.admin_name,
-        target_id=send.send_id,
-        target_name=send.recipient_name,
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-        details={
-            "order_id": send.order_id,
-            "item_count": len(items),
-        },
-    )
-
-    response = SendDetailResponse.model_validate(send)
-    response.items = [SendItemResponse.model_validate(i) for i in items]
-
-    return ResponseModel(
-        message="발송이 등록되었습니다.",
         data=response,
     )
 

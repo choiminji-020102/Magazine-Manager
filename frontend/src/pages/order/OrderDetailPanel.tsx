@@ -805,18 +805,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                     <div className="text-xs text-gray-300">운송장 미등록</div>
                   )}
                   {/* 타임스탬프 */}
-                  {send.official_send_date && (
-                    <div className="flex items-start gap-3">
-                      <span className="text-xs text-gray-400 w-24 flex-shrink-0">발송예정일</span>
-                      <span className="text-xs text-gray-700">{formatDate(send.official_send_date)}</span>
-                    </div>
-                  )}
-                  {send.prepared_at && (
-                    <div className="flex items-start gap-3">
-                      <span className="text-xs text-gray-400 w-24 flex-shrink-0">준비완료</span>
-                      <span className="text-xs text-gray-700">{formatDateTime(send.prepared_at)}</span>
-                    </div>
-                  )}
                   {send.shipped_at && (
                     <div className="flex items-start gap-3">
                       <span className="text-xs text-gray-400 w-24 flex-shrink-0">배송시작</span>
