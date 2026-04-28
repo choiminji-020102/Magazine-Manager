@@ -418,6 +418,24 @@ def resend_send(db: Session, send: Send) -> Send:
     return send
 
 
+def revert_send_to_shipping(db: Session, send: Send) -> Send:
+    """DELIVERED → SHIPPING 되돌리기 (운영 실수 보정용). delivered_at 클리어.
+
+    DELIVERED Send에서만 호출 가능. PREPARING/SHIPPING/CANCELLED 거부.
+    tracking_no/shipped_at 등 다른 필드는 그대로 유지.
+    """
+    if send.send_status != "DELIVERED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"되돌리기는 DELIVERED 상태에서만 가능합니다. 현재 상태: {send.send_status}",
+        )
+    send.send_status = "SHIPPING"
+    send.delivered_at = None
+    db.commit()
+    db.refresh(send)
+    return send
+
+
 def delete_preparing_send_items_for_order_items(
     db: Session, order_item_ids: List[int]
 ) -> Tuple[int, int]:

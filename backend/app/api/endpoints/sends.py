@@ -456,6 +456,45 @@ def resend_send(
     )
 
 
+# ── 되돌리기 ───────────────────────────────────────────────────────────────
+
+@router.post(
+    "/sends/{send_id}/revert-to-shipping",
+    response_model=ResponseModel[SendResponse],
+)
+def revert_to_shipping(
+    send_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_admin),
+):
+    """DELIVERED Send를 SHIPPING으로 되돌림 (운영 실수 보정용). delivered_at 클리어."""
+    send = send_service.get_send_by_id(db, send_id)
+    reverted = send_service.revert_send_to_shipping(db, send)
+
+    activity_log_service.create_log(
+        db=db,
+        action=ActivityAction.UPDATE,
+        target_type=ActivityTargetType.SEND,
+        admin_id=current_admin.admin_id,
+        admin_name=current_admin.admin_name,
+        target_id=send_id,
+        target_name=reverted.recipient_name,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        details={
+            "before": "DELIVERED",
+            "after": "SHIPPING",
+            "reason": "운영자 되돌리기",
+        },
+    )
+
+    return ResponseModel(
+        message="배송중 상태로 되돌렸습니다.",
+        data=SendResponse.model_validate(reverted),
+    )
+
+
 # ── 일괄 상태 전환 ──────────────────────────────────────────────────────────
 
 @router.post(
