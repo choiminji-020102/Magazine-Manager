@@ -20,6 +20,7 @@ class ActivityAction(str, Enum):
     LOGOUT = "LOGOUT"
     SIGNUP = "SIGNUP"
     ANSWER = "ANSWER"
+    RESEND = "RESEND"
 
 
 class ActivityTargetType(str, Enum):
@@ -38,7 +39,6 @@ class ActivityTargetType(str, Enum):
     # REFRESH_TOKEN = "REFRESH_TOKEN"
     SEND_ITEM = "SEND_ITEM"
     SEND = "SEND"
-    DISPATCH = "DISPATCH"
 
 
 class ActivityLog(Base):

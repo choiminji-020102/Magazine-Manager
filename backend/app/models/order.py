@@ -56,13 +56,6 @@ class Order(Base):
         back_populates="order",
         lazy="select"
     )
-    sends = relationship(
-        "Send",
-        primaryjoin="Order.order_id == Send.order_id",
-        foreign_keys="Send.order_id",
-        back_populates="order",
-        lazy="select"
-    )
 
     __table_args__ = (
         Index("ix_orders_customer_id", "customer_id"),
