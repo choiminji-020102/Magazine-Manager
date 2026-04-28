@@ -7,7 +7,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
-from app.core.utils import calculate_subscribe_end_issue, count_issue_diff, now_kst
+from app.core.utils import calculate_subscribe_end_issue, count_issue_diff
 from app.crud import order_item as order_item_crud
 from app.models.address import Address
 from app.models.customer import Customer
@@ -569,8 +569,6 @@ def cancel_order_item(
             detail="이미 취소된 주문의 품목은 취소할 수 없습니다.",
         )
 
-    send_items = _get_active_send_items(db, order_item.order_item_id)
-
     # 배송 후 취소 불가 (MONTHLY/YEARLY 모두)
     delivered_count = _count_delivered_issues(db, order_item.order_item_id)
     if delivered_count > 0:
@@ -595,13 +593,12 @@ def cancel_order_item(
         full_refund = order_item.sale_price * order_item.order_num
         refund_amount = full_refund - already_refunded
 
-    # PREPARING Send 취소
-    now = now_kst()
-    for si in send_items:
-        if si.send.send_status == "PREPARING":
-            si.send.send_status = "CANCELLED"
-            si.send.cancelled_at = now
-            si.cancelled_at = now
+    # PREPARING Send 수술적 제거 (다른 OrderItem 묶음은 안 건드림)
+    # 함수 내 지연 import: send_service ↔ order_item_service 순환 회피
+    from app.services import send_service
+    send_service.delete_preparing_send_items_for_order_items(
+        db, [order_item.order_item_id]
+    )
 
     # admin_memo append
     memo_lines = []

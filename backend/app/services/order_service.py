@@ -1,5 +1,4 @@
 # 표준 라이브러리
-from datetime import datetime
 from typing import List, Optional, Tuple
 
 # 서드파티 라이브러리
@@ -18,6 +17,7 @@ from app.schemas.order import (
     OrderCancelCalculateResponse, OrderCancelItemDetail, OrderCancelRequest,
     OrderCreate, OrderListQuery, OrderListResponse, OrderPaymentUpdate, OrderUpdate,
 )
+from app.services import send_service
 
 
 def get_orders(db: Session, query: OrderListQuery) -> Tuple[List[OrderListResponse], int]:
@@ -384,9 +384,9 @@ def cancel_order(db: Session, order: Order, cancel_request: OrderCancelRequest) 
     cancel_note = "\n".join(memo_lines)
     order.admin_memo = f"{order.admin_memo}\n---\n{cancel_note}" if order.admin_memo else cancel_note
 
-    # ── 3. PREPARING 상태 Send 취소 ──────────────────────────────────────────
+    # ── 3. PREPARING Send 수술적 제거 ────────────────────────────────────────
     active_item_ids = [i.order_item_id for i in calc.items]
-    _cancel_pending_sends(db, active_item_ids, now)
+    send_service.delete_preparing_send_items_for_order_items(db, active_item_ids)
 
     # ── 4. 품목별 환불금 기록 + 일괄 취소 ───────────────────────────────────────
     for detail in calc.items:
@@ -471,36 +471,3 @@ def _count_delivered_issues(db: Session, order_item_id: int) -> int:
     )
 
 
-def _cancel_pending_sends(db: Session, order_item_ids: List[int], now: datetime) -> None:
-    """PREPARING 상태 Send 취소 처리"""
-    if not order_item_ids:
-        return
-    send_items = (
-        db.query(SendItem)
-        .filter(
-            SendItem.order_item_id.in_(order_item_ids),
-            SendItem.cancelled_at.is_(None),
-        )
-        .all()
-    )
-    send_ids = list({si.send_id for si in send_items})
-    if not send_ids:
-        return
-    sends_to_cancel = (
-        db.query(Send)
-        .filter(
-            Send.send_id.in_(send_ids),
-            Send.send_status.in_(["PREPARING"]),
-        )
-        .all()
-    )
-    cancelled_send_ids = set()
-    for send in sends_to_cancel:
-        send.send_status = "CANCELLED"
-        send.cancelled_at = now
-        cancelled_send_ids.add(send.send_id)
-
-    # 취소된 Send에 연결된 SendItem도 함께 취소
-    for si in send_items:
-        if si.send_id in cancelled_send_ids:
-            si.cancelled_at = now

@@ -403,3 +403,51 @@ def cancel_send(db: Session, send: Send) -> Send:
             detail=f"발송 전(PREPARING) 상태에서만 취소할 수 있습니다. 현재 상태: {send.send_status}",
         )
     return send_crud.cancel_send(db=db, send=send)
+
+
+def delete_preparing_send_items_for_order_items(
+    db: Session, order_item_ids: List[int]
+) -> Tuple[int, int]:
+    """주문/품목 취소 시 PREPARING Send에 묶인 SendItem 수술적 제거.
+
+    - PREPARING Send에 속한 SendItem만 DELETE (cancelled_at 무관 — 미아 SendItem 방지)
+    - 잔여 SendItem 0개 PREPARING Send도 함께 DELETE
+    - 다른 PREPARING Send는 안 건드림 (send_id 유지)
+    - SHIPPING/DELIVERED/CANCELLED Send는 호출 전 _validate_cancellable 등에서 차단됨
+    - commit/refresh는 호출자가 담당 (db.flush만 수행)
+
+    Returns: (deleted_send_items_count, deleted_sends_count)
+    """
+    if not order_item_ids:
+        return (0, 0)
+
+    send_items = (
+        db.query(SendItem)
+        .join(Send, SendItem.send_id == Send.send_id)
+        .filter(
+            SendItem.order_item_id.in_(order_item_ids),
+            Send.send_status == "PREPARING",
+        )
+        .all()
+    )
+    if not send_items:
+        return (0, 0)
+
+    affected_send_ids = {si.send_id for si in send_items}
+    deleted_send_items_count = len(send_items)
+
+    for si in send_items:
+        db.delete(si)
+    db.flush()
+
+    deleted_sends_count = 0
+    for sid in affected_send_ids:
+        remaining = db.query(SendItem).filter(SendItem.send_id == sid).count()
+        if remaining == 0:
+            send = db.query(Send).get(sid)
+            if send is not None:
+                db.delete(send)
+                deleted_sends_count += 1
+    db.flush()
+
+    return (deleted_send_items_count, deleted_sends_count)
