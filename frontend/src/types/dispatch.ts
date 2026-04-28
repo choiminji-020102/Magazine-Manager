@@ -30,27 +30,6 @@ export interface DispatchTargetsResponse {
   product_summary: Record<string, number>; // {product_code: count}
 }
 
-export interface DispatchGenerateRequest {
-  issue: string;
-  official_send_date?: string | null;
-  order_item_ids: number[];
-}
-
-export interface DispatchGenerateResult {
-  order_item_id: number;
-  success: boolean;
-  send_id?: number | null;
-  message?: string | null;
-}
-
-export interface DispatchGenerateResponse {
-  issue: string;
-  total_requested: number;
-  success_count: number;
-  fail_count: number;
-  results: DispatchGenerateResult[];
-}
-
 export interface DispatchProductStat {
   product_code: string;
   product_name: string;

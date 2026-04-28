@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   ShoppingCart,
-  Truck,
   Users,
   Box,
   BookOpen,
@@ -48,7 +47,6 @@ const navigation: NavGroup[] = [
       { label: "전체 주문 조회", path: "/orders", icon: ShoppingCart, activeOn: ["/orders", "/orders/new"] },
       { label: "입금전 관리", path: "/orders/unpaid", icon: ShoppingCart },
       { label: "구독 목록", path: "/subscriptions", icon: BookOpen },
-      { label: "발송 관리", path: "/shipping", icon: Truck },
     ],
   },
   {

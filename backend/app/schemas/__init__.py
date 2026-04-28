@@ -42,8 +42,7 @@ from app.schemas.send_item import (
 	SendItemCreate, SendItemUpdate, SendItemResponse
 )
 from app.schemas.dispatch import (
-    DispatchTarget, DispatchTargetsResponse, DispatchGenerateRequest,
-    DispatchGenerateResponse, DispatchSummaryResponse
+    DispatchTarget, DispatchTargetsResponse, DispatchSummaryResponse
 )
 from app.schemas.stats import (
     OrdersSummaryResponse, OrdersByChannelResponse, OrdersByPeriodResponse,

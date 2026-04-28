@@ -8,7 +8,6 @@ import DashboardPage from "@/pages/DashboardPage";
 import OrderListPage from "@/pages/OrderListPage";
 import UnpaidOrderListPage from "@/pages/UnpaidOrderListPage";
 import OrderCreatePage from "@/pages/OrderCreatePage";
-import SendManagementPage from "@/pages/SendManagementPage";
 import CustomerListPage from "@/pages/CustomerListPage";
 import ProductListPage from "@/pages/ProductListPage";
 import InquiryListPage from "@/pages/InquiryListPage";
@@ -56,7 +55,6 @@ export default function App() {
           <Route path="/orders" element={<OrderListPage />} />
           <Route path="/orders/unpaid" element={<UnpaidOrderListPage />} />
           <Route path="/orders/new" element={<OrderCreatePage />} />
-          <Route path="/shipping" element={<SendManagementPage />} />
           <Route path="/customers" element={<CustomerListPage />} />
           <Route path="/products" element={<ProductListPage />} />
           <Route path="/subscriptions" element={<SubscriptionListPage />} />

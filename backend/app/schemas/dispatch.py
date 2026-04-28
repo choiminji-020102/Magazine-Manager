@@ -4,7 +4,6 @@ from typing import Dict, List, Literal, Optional
 # 서드파티 라이브러리
 from fastapi import Query
 from pydantic import BaseModel, Field
-from datetime import date
 
 
 class DispatchTarget(BaseModel):
@@ -72,30 +71,6 @@ class DispatchTargetsResponse(BaseModel):
     limit: int
     total_pages: int
     product_summary: Dict[str, int]                    # {product_code: count}
-
-
-class DispatchGenerateRequest(BaseModel):
-    """일괄 발송 처리 요청"""
-    issue: str                                         # 발송할 호 (YYYYMM)
-    official_send_date: Optional[date] = None          # 공식 발송 예정일
-    order_item_ids: List[int]                          # 발송 처리할 OrderItem ID 목록
-
-
-class DispatchGenerateResult(BaseModel):
-    """단건 발송 처리 결과"""
-    order_item_id: int
-    success: bool
-    send_id: Optional[int] = None                      # 생성된 Send ID (성공 시)
-    message: Optional[str] = None                      # 실패/스킵 사유
-
-
-class DispatchGenerateResponse(BaseModel):
-    """일괄 발송 처리 응답"""
-    issue: str
-    total_requested: int
-    success_count: int
-    fail_count: int
-    results: List[DispatchGenerateResult]
 
 
 class DispatchSummaryResponse(BaseModel):

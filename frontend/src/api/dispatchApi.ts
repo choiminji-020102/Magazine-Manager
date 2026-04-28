@@ -2,8 +2,6 @@ import api from "./axios";
 import type { ResponseModel } from "../types/api";
 import type {
   DispatchTargetsResponse,
-  DispatchGenerateRequest,
-  DispatchGenerateResponse,
   DispatchSummaryResponse,
 } from "../types/dispatch";
 
@@ -55,22 +53,6 @@ export const dispatchApi = {
     return api.get<ResponseModel<DispatchSummaryResponse>>(
       "/dispatches/summary",
       { params: { issue } }
-    );
-  },
-
-  // POST /dispatches/yearly/generate - YEARLY 발송 일괄 처리
-  generateYearlyDispatch: (data: DispatchGenerateRequest) => {
-    return api.post<ResponseModel<DispatchGenerateResponse>>(
-      "/dispatches/yearly/generate",
-      data
-    );
-  },
-
-  // POST /dispatches/monthly/generate - MONTHLY 발송 일괄 처리
-  generateMonthlyDispatch: (data: DispatchGenerateRequest) => {
-    return api.post<ResponseModel<DispatchGenerateResponse>>(
-      "/dispatches/monthly/generate",
-      data
     );
   },
 
