@@ -1,11 +1,11 @@
 """기출유/우체국 발송 엑셀 생성 서비스
 
-엑셀 3종:
-- 단품 엑셀 (`기출유_단품_YYYYMMDD.xlsx`) — 배송지 피벗, CJ대한통운
-- 정기구독 엑셀 A (`기출유_정기구독_YYYYMM.xlsx`) — W0/WB 2시트, 기출유우편
-- 정기구독 엑셀 B (`우체국_정기구독_YYYYMM.xlsx`) — HN/CL/CH/JN 1시트, 일반우편
+엑셀 3종 (모두 1 SendItem = 1행. DB 변경 없음):
+- 단품 엑셀 (`기출유_단품_YYYYMMDD.xlsx`) — 같은 Send 4컬럼(날짜/박스수/안전봉투/송장번호) 셀 병합, CJ대한통운
+- 정기구독 엑셀 A (`기출유_정기구독_YYYYMM.xlsx`) — W0/WB 2시트, 같은 배송지(우편번호+주소) 연속 정렬, 기출유우편
+- 정기구독 엑셀 B (`우체국_정기구독_YYYYMM.xlsx`) — HN/CL/CH/JN 1시트, 같은 배송지(우편번호+주소) 연속 정렬, 일반우편
 
-상세 사양: `GICHULYU_EXCEL_SPEC.md`
+상세 사양: `SHIPPING_REFACTOR_PLAN.md` §5
 """
 
 # 표준 라이브러리
@@ -21,7 +21,6 @@ from openpyxl.worksheet.worksheet import Worksheet
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
-from app.core.utils import now_kst
 from app.models.order_item import OrderItem
 from app.models.send import Send
 from app.models.send_item import SendItem
@@ -35,18 +34,8 @@ from app.schemas.dispatch_excel import (
 
 # ── 상수 ──────────────────────────────────────────────────────────────────────
 
-# 단품 엑셀 상품 컬럼 매핑 (prefix → 컬럼명)
-MONTHLY_COLUMN_MAP: Dict[str, str] = {
-    "W0": "말씀함께",
-    "WB": "큰글자",
-    "HN": "꿀땅",
-    "CL": "저학년",
-    "CH": "고학년",
-    "JN": "청소년",
-}
-
-# 정기구독 엑셀 상품명 매핑 (prefix → 상품명 셀 값)
-YEARLY_DISPLAY_NAME_MAP: Dict[str, str] = {
+# 단품·정기구독 공통 상품명 매핑 (prefix → 상품명 셀 값) — SHIPPING_REFACTOR_PLAN.md §5.0
+PREFIX_TO_PRODUCT_NAME: Dict[str, str] = {
     "W0": "기본판",
     "WB": "큰글자",
     "HN": "꿀땅",
@@ -62,7 +51,7 @@ GICHULYU_YEARLY_PREFIXES: Tuple[str, ...] = ("W0", "WB")
 POSTOFFICE_YEARLY_PREFIXES: Tuple[str, ...] = ("HN", "CL", "CH", "JN")
 
 # 허용 전체
-ALLOWED_PREFIXES: Tuple[str, ...] = tuple(MONTHLY_COLUMN_MAP.keys())
+ALLOWED_PREFIXES: Tuple[str, ...] = tuple(PREFIX_TO_PRODUCT_NAME.keys())
 
 # 엑셀 종류별 courier_company 고정값
 COURIER_MONTHLY = "CJ대한통운"
@@ -103,22 +92,11 @@ def format_send_date_label(send_date_yyyymmdd: str) -> str:
     return f"{y}-{m}-{d}"
 
 
-def address_group_key(send: Send) -> Tuple[str, str, str, str]:
-    """같은 배송지 판정 키 (수령인 이름 + 연락처 + 우편번호 + 주소)"""
-    return (
-        (send.recipient_name or "").strip(),
-        (send.recipient_phone or "").strip(),
-        (send.postal_code or "").strip(),
-        (send.recipient_address or "").strip(),
-    )
-
-
 # ── 공통 쿼리 필터 ────────────────────────────────────────────────────────────
 
-def _base_filter(issue: str):
-    """엑셀 대상 공통 필터"""
+def _base_filter():
+    """엑셀 대상 공통 필터 (호 무관). 정기구독 호출처는 `SendItem.issue == issue` 별도 추가."""
     return (
-        SendItem.issue == issue,
         SendItem.cancelled_at.is_(None),
         Send.cancelled_at.is_(None),
         Send.send_status == "PREPARING",
@@ -131,19 +109,19 @@ def _base_filter(issue: str):
 
 def get_monthly_candidates(
     db: Session,
-    issue: str,
     postal_code: Optional[str] = None,
 ) -> List[MonthlyExcelCandidate]:
-    """단품 엑셀 후보 조회 (Send 단위, SendItem 집계 포함)
+    """단품 엑셀 후보 조회 (Send 단위, SendItem 집계 포함).
 
-    - product_code prefix가 6종(W0/WB/HN/CL/CH/JN) 중 하나
-    - 같은 Send의 SendItem들은 items 리스트로 묶어 반환
+    - 단품은 호 무관 (§5.1.1) — issue 인자 없음.
+    - product_code prefix가 6종(W0/WB/HN/CL/CH/JN) 중 하나.
+    - 같은 Send의 SendItem들은 items 리스트로 묶어 반환.
     """
     query = (
-        db.query(Send, SendItem, OrderItem)
+        db.query(Send, SendItem)
         .join(SendItem, SendItem.send_id == Send.send_id)
         .join(OrderItem, OrderItem.order_item_id == SendItem.order_item_id)
-        .filter(*_base_filter(issue))
+        .filter(*_base_filter())
         .filter(OrderItem.product_kind == "MONTHLY")
     )
     if postal_code:
@@ -153,15 +131,14 @@ def get_monthly_candidates(
 
     # Send 단위 그룹
     by_send: Dict[int, MonthlyExcelCandidate] = {}
-    for send, send_item, _order_item in rows:
+    for send, send_item in rows:
         prefix = extract_prefix(send_item.product_code)
-        if prefix not in MONTHLY_COLUMN_MAP:
+        if prefix not in PREFIX_TO_PRODUCT_NAME:
             continue  # 알 수 없는 prefix는 스킵
 
         if send.send_id not in by_send:
             by_send[send.send_id] = MonthlyExcelCandidate(
                 send_id=send.send_id,
-                order_id=send.order_id,
                 recipient_name=send.recipient_name or "",
                 recipient_phone=send.recipient_phone or "",
                 postal_code=send.postal_code or "",
@@ -174,7 +151,8 @@ def get_monthly_candidates(
             product_code=send_item.product_code,
             product_name=send_item.product_name,
             prefix=prefix,
-            column_label=MONTHLY_COLUMN_MAP[prefix],
+            display_product_name=PREFIX_TO_PRODUCT_NAME[prefix],
+            issue=send_item.issue or "",
             send_num=send_item.send_num,
         ))
 
@@ -210,7 +188,8 @@ def _yearly_candidates_core(
         db.query(Send, SendItem, OrderItem)
         .join(SendItem, SendItem.send_id == Send.send_id)
         .join(OrderItem, OrderItem.order_item_id == SendItem.order_item_id)
-        .filter(*_base_filter(issue))
+        .filter(*_base_filter())
+        .filter(SendItem.issue == issue)
         .filter(OrderItem.product_kind == "YEARLY")
         .filter(or_(*prefix_filters))
     )
@@ -231,7 +210,6 @@ def _yearly_candidates_core(
         results.append(YearlyExcelCandidate(
             send_id=send.send_id,
             send_item_id=send_item.send_item_id,
-            order_id=send.order_id,
             order_item_id=send_item.order_item_id,
             recipient_name=send.recipient_name or "",
             recipient_phone=send.recipient_phone or "",
@@ -239,7 +217,7 @@ def _yearly_candidates_core(
             recipient_address=send.recipient_address or "",
             product_code=send_item.product_code,
             prefix=prefix,
-            display_product_name=YEARLY_DISPLAY_NAME_MAP.get(prefix, send_item.product_name),
+            display_product_name=PREFIX_TO_PRODUCT_NAME.get(prefix, send_item.product_name),
             send_num=send_item.send_num,
             final_subscribe_start_issue=start,
             final_subscribe_end_issue=end,
@@ -295,10 +273,6 @@ _THIN_BORDER = Border(
 _CENTER_ALIGN = Alignment(horizontal="center", vertical="center")
 _LEFT_ALIGN = Alignment(horizontal="left", vertical="center")
 
-# 정기구독 zebra grouping 색
-_ZEBRA_WHITE = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
-_ZEBRA_GRAY = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
-
 
 def _write_header(ws: Worksheet, headers: List[str]) -> None:
     for col_idx, header in enumerate(headers, 1):
@@ -315,13 +289,20 @@ def _set_column_widths(ws: Worksheet, widths: List[int]) -> None:
 
 
 # ── 엑셀 빌더 (단품) ──────────────────────────────────────────────────────────
+# SHIPPING_REFACTOR_PLAN.md §5.2: 1 SendItem = 1행, 같은 Send 행들의
+# 날짜/박스수/안전봉투/송장번호 4컬럼 셀 병합
 
 _MONTHLY_HEADERS = [
     "날짜", "이름", "연락처", "우편번호", "주소",
-    "말씀함께", "큰글자", "꿀땅", "저학년", "고학년", "청소년",
-    "비고", "박스수", "안전봉투", "송장번호",
+    "발행호", "상품명", "수량", "비고",
+    "박스수", "안전봉투", "송장번호",
 ]
-_MONTHLY_WIDTHS = [12, 12, 16, 10, 40, 10, 10, 10, 10, 10, 10, 14, 8, 10, 16]
+_MONTHLY_WIDTHS = [12, 12, 16, 10, 40, 14, 10, 8, 14, 8, 10, 16]
+
+# 같은 Send 행들에서 셀 병합 대상 컬럼 인덱스 (1-based: 날짜=1, 박스수=10, 안전봉투=11, 송장번호=12)
+_MONTHLY_MERGE_COLUMNS: Tuple[int, ...] = (1, 10, 11, 12)
+# 가운데 정렬 컬럼: 날짜·우편번호·발행호·상품명·수량·박스수·안전봉투·송장번호
+_MONTHLY_CENTER_COLUMNS: Tuple[int, ...] = (1, 4, 6, 7, 8, 10, 11, 12)
 
 
 def build_monthly_excel(
@@ -329,101 +310,98 @@ def build_monthly_excel(
     send_ids: List[int],
     send_date_yyyymmdd: str,
 ) -> Tuple[io.BytesIO, List[int], List[ExcelDownloadSkip]]:
-    """단품 엑셀 생성
+    """단품 엑셀 생성 (1 SendItem = 1행, 같은 Send 4컬럼 셀 병합).
 
     Returns:
         (BytesIO, 실제 엑셀에 포함된 send_ids, 스킵된 send_ids)
     """
     date_label = format_send_date_label(send_date_yyyymmdd)
 
-    # 대상 Send + SendItem 조회
+    # 대상 Send + SendItem 조회 (호 무관, country_code='KR' + PREPARING + cancelled_at NULL 등 §5.1.1)
     rows = (
-        db.query(Send, SendItem, OrderItem)
+        db.query(Send, SendItem)
         .join(SendItem, SendItem.send_id == Send.send_id)
         .join(OrderItem, OrderItem.order_item_id == SendItem.order_item_id)
         .filter(Send.send_id.in_(send_ids))
-        .filter(
-            SendItem.cancelled_at.is_(None),
-            Send.cancelled_at.is_(None),
-            Send.send_status == "PREPARING",
-            Send.country_code == "KR",
-            OrderItem.cancelled_at.is_(None),
-            OrderItem.product_kind == "MONTHLY",
-        )
+        .filter(*_base_filter())
+        .filter(OrderItem.product_kind == "MONTHLY")
         .all()
     )
 
-    # 요청된 send_id 중 조건에 맞지 않는 것은 스킵 리스트에
-    included_send_ids = set(r[0].send_id for r in rows)
+    # Send 단위 그룹화 (1 Send = 박스 1개)
+    sends_by_id: Dict[int, Send] = {}
+    items_by_send: Dict[int, List[SendItem]] = {}
+    for send, send_item in rows:
+        prefix = extract_prefix(send_item.product_code)
+        if prefix not in PREFIX_TO_PRODUCT_NAME:
+            continue
+        sends_by_id.setdefault(send.send_id, send)
+        items_by_send.setdefault(send.send_id, []).append(send_item)
+
+    # 입력 send_id 중 한 건도 조건에 맞는 SendItem이 없으면 skipped 처리
+    included_send_ids = set(items_by_send.keys())
     skipped: List[ExcelDownloadSkip] = []
     for sid in send_ids:
         if sid not in included_send_ids:
             skipped.append(ExcelDownloadSkip(
                 send_id=sid,
-                reason="대상 조건 불일치(상태/취소/해외/상품종류)",
+                reason="대상 조건 불일치(상태/취소/해외/상품종류/prefix)",
             ))
 
-    # 배송지 그룹화
-    # key: (name, phone, postal_code, address) → {"sends": [Send...], "products": {prefix: sum}}
-    groups: Dict[Tuple[str, str, str, str], Dict] = {}
-    for send, send_item, _order_item in rows:
-        prefix = extract_prefix(send_item.product_code)
-        if prefix not in MONTHLY_COLUMN_MAP:
-            continue
-        key = address_group_key(send)
-        if key not in groups:
-            groups[key] = {
-                "recipient_name": send.recipient_name or "",
-                "recipient_phone": send.recipient_phone or "",
-                "postal_code": send.postal_code or "",
-                "recipient_address": send.recipient_address or "",
-                "send_ids": set(),
-                "quantities": {p: 0 for p in MONTHLY_COLUMN_MAP.keys()},
-            }
-        groups[key]["send_ids"].add(send.send_id)
-        groups[key]["quantities"][prefix] += send_item.send_num
-
-    # 정렬: 우편번호 → 주소 → 이름
-    sorted_keys = sorted(
-        groups.keys(),
-        key=lambda k: (k[2], k[3], k[0]),
+    # 정렬 (§5.2.4): Send 간 우편번호 → 주소 → 이름 → send_id
+    sorted_sends = sorted(
+        sends_by_id.values(),
+        key=lambda s: (
+            (s.postal_code or "").strip(),
+            (s.recipient_address or "").strip(),
+            (s.recipient_name or "").strip(),
+            s.send_id,
+        ),
     )
 
     # 엑셀 생성
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "단품발송"
-
     _write_header(ws, _MONTHLY_HEADERS)
 
-    for row_idx, key in enumerate(sorted_keys, start=2):
-        group = groups[key]
-        qty = group["quantities"]
-        row_values = [
-            date_label,
-            group["recipient_name"],
-            group["recipient_phone"],
-            group["postal_code"],
-            group["recipient_address"],
-            qty["W0"] or "",
-            qty["WB"] or "",
-            qty["HN"] or "",
-            qty["CL"] or "",
-            qty["CH"] or "",
-            qty["JN"] or "",
-            "",    # 비고
-            "",    # 박스수
-            "",    # 안전봉투
-            "",    # 송장번호
-        ]
-        for col_idx, value in enumerate(row_values, start=1):
-            cell = ws.cell(row=row_idx, column=col_idx, value=value)
-            cell.border = _THIN_BORDER
-            # 수량 컬럼(6~11)과 고정 컬럼 일부는 가운데 정렬
-            if col_idx in (1, 4) or 6 <= col_idx <= 15:
-                cell.alignment = _CENTER_ALIGN
-            else:
-                cell.alignment = _LEFT_ALIGN
+    row_idx = 2
+    for send in sorted_sends:
+        # Send 안 SendItem 정렬: prefix → issue → send_item_id
+        items = sorted(
+            items_by_send[send.send_id],
+            key=lambda si: (extract_prefix(si.product_code), si.issue or "", si.send_item_id),
+        )
+        start_row = row_idx
+        for si in items:
+            prefix = extract_prefix(si.product_code)
+            row_values = [
+                date_label,                                  # 1 날짜 (병합)
+                send.recipient_name or "",                   # 2 이름
+                send.recipient_phone or "",                  # 3 연락처
+                send.postal_code or "",                      # 4 우편번호
+                send.recipient_address or "",                # 5 주소
+                format_issue_ko_short(si.issue or ""),       # 6 발행호
+                PREFIX_TO_PRODUCT_NAME[prefix],              # 7 상품명
+                si.send_num,                                 # 8 수량
+                "",                                          # 9 비고
+                "",                                          # 10 박스수 (병합)
+                "",                                          # 11 안전봉투 (병합)
+                "",                                          # 12 송장번호 (병합)
+            ]
+            for col_idx, value in enumerate(row_values, start=1):
+                cell = ws.cell(row=row_idx, column=col_idx, value=value)
+                cell.border = _THIN_BORDER
+                cell.alignment = _CENTER_ALIGN if col_idx in _MONTHLY_CENTER_COLUMNS else _LEFT_ALIGN
+            row_idx += 1
+        end_row = row_idx - 1
+        # 같은 Send 안 SendItem이 2건 이상이면 4컬럼(날짜/박스수/안전봉투/송장번호) 셀 병합
+        if end_row > start_row:
+            for col_idx in _MONTHLY_MERGE_COLUMNS:
+                ws.merge_cells(
+                    start_row=start_row, end_row=end_row,
+                    start_column=col_idx, end_column=col_idx,
+                )
 
     _set_column_widths(ws, _MONTHLY_WIDTHS)
 
@@ -431,8 +409,7 @@ def build_monthly_excel(
     wb.save(output)
     output.seek(0)
 
-    included_ids_flat: List[int] = sorted(included_send_ids)
-    return output, included_ids_flat, skipped
+    return output, sorted(included_send_ids), skipped
 
 
 # ── 엑셀 빌더 (정기구독 공통) ──────────────────────────────────────────────────
@@ -447,36 +424,26 @@ def _write_yearly_sheet(
     ws: Worksheet,
     candidates: List[YearlyExcelCandidate],
 ) -> None:
-    """정기구독 시트에 헤더 + 데이터 쓰기 (zebra grouping 적용)"""
+    """정기구독 시트에 헤더 + 데이터 쓰기.
+
+    같은 배송지(우편번호+주소 2필드) 행이 연속으로 나오도록 정렬만 수행.
+    배경색(zebra) 없음 — §5.3.5/§5.4.4.
+    """
     _write_header(ws, _YEARLY_HEADERS)
 
-    # 정렬: 배송지 키 → 상품명 → 시작호
+    # 정렬: 배송지(2필드) → 상품명 → 시작호 → send_item_id
     sorted_cands = sorted(
         candidates,
         key=lambda c: (
             c.postal_code.strip(),
             c.recipient_address.strip(),
-            c.recipient_name.strip(),
-            c.recipient_phone.strip(),
             c.display_product_name,
             c.final_subscribe_start_issue,
+            c.send_item_id,
         ),
     )
 
-    prev_addr_key = None
-    use_gray = False
     for row_idx, cand in enumerate(sorted_cands, start=2):
-        addr_key = (
-            cand.recipient_name.strip(),
-            cand.recipient_phone.strip(),
-            cand.postal_code.strip(),
-            cand.recipient_address.strip(),
-        )
-        if addr_key != prev_addr_key:
-            use_gray = not use_gray
-            prev_addr_key = addr_key
-        fill = _ZEBRA_GRAY if use_gray else _ZEBRA_WHITE
-
         row_values = [
             cand.recipient_name,
             cand.recipient_phone,
@@ -491,7 +458,6 @@ def _write_yearly_sheet(
         for col_idx, value in enumerate(row_values, start=1):
             cell = ws.cell(row=row_idx, column=col_idx, value=value)
             cell.border = _THIN_BORDER
-            cell.fill = fill
             if col_idx in (3, 5, 6, 7, 8):  # 우편번호/시작/상품명/구독기간/수량 가운데
                 cell.alignment = _CENTER_ALIGN
             else:
@@ -515,14 +481,8 @@ def _fetch_yearly_candidates_by_send_ids(
         .join(SendItem, SendItem.send_id == Send.send_id)
         .join(OrderItem, OrderItem.order_item_id == SendItem.order_item_id)
         .filter(Send.send_id.in_(send_ids))
-        .filter(
-            SendItem.cancelled_at.is_(None),
-            Send.cancelled_at.is_(None),
-            Send.send_status == "PREPARING",
-            Send.country_code == "KR",
-            OrderItem.cancelled_at.is_(None),
-            OrderItem.product_kind == "YEARLY",
-        )
+        .filter(*_base_filter())
+        .filter(OrderItem.product_kind == "YEARLY")
         .all()
     )
 
@@ -537,7 +497,6 @@ def _fetch_yearly_candidates_by_send_ids(
         candidates.append(YearlyExcelCandidate(
             send_id=send.send_id,
             send_item_id=send_item.send_item_id,
-            order_id=send.order_id,
             order_item_id=send_item.order_item_id,
             recipient_name=send.recipient_name or "",
             recipient_phone=send.recipient_phone or "",
@@ -545,7 +504,7 @@ def _fetch_yearly_candidates_by_send_ids(
             recipient_address=send.recipient_address or "",
             product_code=send_item.product_code,
             prefix=prefix,
-            display_product_name=YEARLY_DISPLAY_NAME_MAP.get(prefix, send_item.product_name),
+            display_product_name=PREFIX_TO_PRODUCT_NAME.get(prefix, send_item.product_name),
             send_num=send_item.send_num,
             final_subscribe_start_issue=start,
             final_subscribe_end_issue=end,
@@ -622,46 +581,6 @@ def build_yearly_postoffice_excel(
 
     included_send_ids = sorted({c.send_id for c in candidates})
     return output, included_send_ids, skipped
-
-
-# ── SHIPPING 일괄 전환 ────────────────────────────────────────────────────────
-
-def mark_sends_as_shipping(
-    db: Session,
-    send_ids: List[int],
-    courier_company: str,
-) -> int:
-    """엑셀에 포함된 Send들을 PREPARING → SHIPPING 일괄 전환
-
-    - tracking_no는 건드리지 않음 (빈칸 유지; 기출유가 나중에 송장 업로드로 채움)
-    - courier_company는 요청받은 값으로 세팅
-    - shipped_at = 현재 시각
-
-    Returns:
-        실제 업데이트된 건수
-    """
-    if not send_ids:
-        return 0
-
-    now = now_kst()
-    updated = (
-        db.query(Send)
-        .filter(
-            Send.send_id.in_(send_ids),
-            Send.send_status == "PREPARING",
-            Send.cancelled_at.is_(None),
-        )
-        .update(
-            {
-                Send.send_status: "SHIPPING",
-                Send.courier_company: courier_company,
-                Send.shipped_at: now,
-            },
-            synchronize_session=False,
-        )
-    )
-    db.commit()
-    return updated
 
 
 # ── 파일명 생성 ────────────────────────────────────────────────────────────────

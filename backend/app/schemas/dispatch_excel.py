@@ -9,19 +9,19 @@ from pydantic import BaseModel, Field
 # ── 후보 조회 응답 (단품) ──────────────────────────────────────────────────────
 
 class MonthlyExcelCandidateItem(BaseModel):
-    """단품 후보 내 SendItem 1건"""
+    """단품 후보 내 SendItem 1건 (1 SendItem = 엑셀 1행, §5.2)"""
     send_item_id: int
     product_code: str
     product_name: str
     prefix: str                     # W0/WB/HN/CL/CH/JN
-    column_label: str               # 말씀함께/큰글자/꿀땅/저학년/고학년/청소년
+    display_product_name: str       # 기본판/큰글자/꿀땅/저학년/고학년/청소년 (§5.0 매핑)
+    issue: str                      # YYYYMM (엑셀 발행호 컬럼)
     send_num: int
 
 
 class MonthlyExcelCandidate(BaseModel):
     """단품 엑셀 후보 1건 (Send 단위)"""
     send_id: int
-    order_id: int
     recipient_name: str
     recipient_phone: str
     postal_code: str
@@ -31,7 +31,6 @@ class MonthlyExcelCandidate(BaseModel):
 
 
 class MonthlyExcelCandidatesResponse(BaseModel):
-    issue: str
     total: int
     candidates: List[MonthlyExcelCandidate]
 
@@ -42,7 +41,6 @@ class YearlyExcelCandidate(BaseModel):
     """정기구독 엑셀 후보 1건 (SendItem 단위)"""
     send_id: int
     send_item_id: int
-    order_id: int
     order_item_id: int
     recipient_name: str
     recipient_phone: str
@@ -67,16 +65,15 @@ class YearlyExcelCandidatesResponse(BaseModel):
 # ── 후보 조회 쿼리 ────────────────────────────────────────────────────────────
 
 class MonthlyCandidatesQuery(BaseModel):
-    issue: str
+    """단품 후보 조회 쿼리 — 호 무관 (§5.1.2)"""
     postal_code: Optional[str] = None
 
     @classmethod
     def as_query_params(
         cls,
-        issue: str = Query(..., description="발송 호 (YYYYMM)"),
         postal_code: Optional[str] = Query(None, description="우편번호 정확 일치"),
     ):
-        return cls(issue=issue, postal_code=postal_code)
+        return cls(postal_code=postal_code)
 
 
 class YearlyCandidatesQuery(BaseModel):

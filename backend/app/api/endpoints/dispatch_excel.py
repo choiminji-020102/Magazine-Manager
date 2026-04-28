@@ -4,11 +4,12 @@
 - GET  /dispatches/excel/monthly/candidates
 - GET  /dispatches/excel/yearly-gichulyu/candidates
 - GET  /dispatches/excel/yearly-postoffice/candidates
-- POST /dispatches/excel/monthly               (엑셀 다운로드 + SHIPPING 전환)
-- POST /dispatches/excel/yearly-gichulyu       (엑셀 다운로드 + SHIPPING 전환)
-- POST /dispatches/excel/yearly-postoffice     (엑셀 다운로드 + SHIPPING 전환)
+- POST /dispatches/excel/monthly               (엑셀 다운로드, DB 변경 없음)
+- POST /dispatches/excel/yearly-gichulyu       (엑셀 다운로드, DB 변경 없음)
+- POST /dispatches/excel/yearly-postoffice     (엑셀 다운로드, DB 변경 없음)
 
-상세 사양: `GICHULYU_EXCEL_SPEC.md`
+상세 사양: `SHIPPING_REFACTOR_PLAN.md` §5
+SHIPPING 전환은 별도 [배송중 전환] 엔드포인트(`POST /api/dispatches/transition-to-shipping`)에서만 발생.
 """
 
 # 표준 라이브러리
@@ -77,16 +78,14 @@ def get_monthly_excel_candidates(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_manager),
 ):
-    """단품 엑셀 후보 조회 (PREPARING + 국내 + 해당 호)"""
+    """단품 엑셀 후보 조회 (PREPARING + 국내, 호 무관 §5.1.2)"""
     candidates = dispatch_excel_service.get_monthly_candidates(
         db=db,
-        issue=query.issue,
         postal_code=query.postal_code,
     )
     return ResponseModel(
         message="단품 엑셀 후보를 조회했습니다.",
         data=MonthlyExcelCandidatesResponse(
-            issue=query.issue,
             total=len(candidates),
             candidates=candidates,
         ),
@@ -157,7 +156,7 @@ def download_monthly_excel(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin),
 ):
-    """단품 엑셀 다운로드 + 포함된 Send → SHIPPING (CJ대한통운)"""
+    """단품 엑셀 다운로드 (DB 변경 없음, §5.1.4)"""
     if not req.send_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -179,7 +178,6 @@ def download_monthly_excel(
     filename = dispatch_excel_service.monthly_filename(req.send_date)
     courier = dispatch_excel_service.COURIER_MONTHLY
 
-    # Response 먼저 생성해서 헤더 인코딩 오류를 선검증 → 상태 전환 전에 예외 발생
     response = StreamingResponse(
         output,
         media_type=XLSX_MEDIA_TYPE,
@@ -191,14 +189,7 @@ def download_monthly_excel(
         ),
     )
 
-    # 상태 전환
-    updated_count = dispatch_excel_service.mark_sends_as_shipping(
-        db=db,
-        send_ids=included_ids,
-        courier_company=courier,
-    )
-
-    # 활동 로그
+    # 활동 로그 (§5.1.5)
     activity_log_service.create_log(
         db=db,
         action=ActivityAction.DISPATCH,
@@ -206,17 +197,17 @@ def download_monthly_excel(
         admin_id=current_admin.admin_id,
         admin_name=current_admin.admin_name,
         target_id=None,
-        target_name=f"기출유 단품 엑셀 다운로드 / {req.send_date} / {updated_count}건",
+        target_name=f"기출유 단품 엑셀 다운로드 / {req.send_date} / {len(included_ids)}건",
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
         details={
             "excel_type": "GICHULYU_MONTHLY",
             "send_date": req.send_date,
             "courier_company": courier,
+            "send_ids": included_ids,
             "requested_count": len(req.send_ids),
             "included_count": len(included_ids),
             "skipped_count": len(skipped),
-            "shipping_updated": updated_count,
             "skipped": [s.model_dump() for s in skipped],
         },
     )
@@ -234,7 +225,7 @@ def download_yearly_gichulyu_excel(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin),
 ):
-    """정기구독 엑셀 A 다운로드 + 포함된 Send → SHIPPING (기출유우편)"""
+    """정기구독 엑셀 A 다운로드 (DB 변경 없음, §5.1.4)"""
     if not req.send_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -255,7 +246,6 @@ def download_yearly_gichulyu_excel(
     filename = dispatch_excel_service.yearly_gichulyu_filename(req.issue)
     courier = dispatch_excel_service.COURIER_YEARLY_GICHULYU
 
-    # Response 선생성 (헤더 인코딩 오류 선검증)
     response = StreamingResponse(
         output,
         media_type=XLSX_MEDIA_TYPE,
@@ -267,12 +257,6 @@ def download_yearly_gichulyu_excel(
         ),
     )
 
-    updated_count = dispatch_excel_service.mark_sends_as_shipping(
-        db=db,
-        send_ids=included_ids,
-        courier_company=courier,
-    )
-
     activity_log_service.create_log(
         db=db,
         action=ActivityAction.DISPATCH,
@@ -280,17 +264,17 @@ def download_yearly_gichulyu_excel(
         admin_id=current_admin.admin_id,
         admin_name=current_admin.admin_name,
         target_id=None,
-        target_name=f"기출유 정기구독 엑셀 다운로드 / {req.issue} / {updated_count}건",
+        target_name=f"기출유 정기구독 엑셀 다운로드 / {req.issue} / {len(included_ids)}건",
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
         details={
             "excel_type": "GICHULYU_YEARLY",
             "issue": req.issue,
             "courier_company": courier,
+            "send_ids": included_ids,
             "requested_count": len(req.send_ids),
             "included_count": len(included_ids),
             "skipped_count": len(skipped),
-            "shipping_updated": updated_count,
             "skipped": [s.model_dump() for s in skipped],
         },
     )
@@ -308,7 +292,7 @@ def download_yearly_postoffice_excel(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin),
 ):
-    """정기구독 엑셀 B 다운로드 + 포함된 Send → SHIPPING (일반우편)"""
+    """정기구독 엑셀 B 다운로드 (DB 변경 없음, §5.1.4)"""
     if not req.send_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -329,7 +313,6 @@ def download_yearly_postoffice_excel(
     filename = dispatch_excel_service.yearly_postoffice_filename(req.issue)
     courier = dispatch_excel_service.COURIER_YEARLY_POSTOFFICE
 
-    # Response 선생성 (헤더 인코딩 오류 선검증)
     response = StreamingResponse(
         output,
         media_type=XLSX_MEDIA_TYPE,
@@ -341,12 +324,6 @@ def download_yearly_postoffice_excel(
         ),
     )
 
-    updated_count = dispatch_excel_service.mark_sends_as_shipping(
-        db=db,
-        send_ids=included_ids,
-        courier_company=courier,
-    )
-
     activity_log_service.create_log(
         db=db,
         action=ActivityAction.DISPATCH,
@@ -354,17 +331,17 @@ def download_yearly_postoffice_excel(
         admin_id=current_admin.admin_id,
         admin_name=current_admin.admin_name,
         target_id=None,
-        target_name=f"우체국 정기구독 엑셀 다운로드 / {req.issue} / {updated_count}건",
+        target_name=f"우체국 정기구독 엑셀 다운로드 / {req.issue} / {len(included_ids)}건",
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
         details={
             "excel_type": "POSTOFFICE_YEARLY",
             "issue": req.issue,
             "courier_company": courier,
+            "send_ids": included_ids,
             "requested_count": len(req.send_ids),
             "included_count": len(included_ids),
             "skipped_count": len(skipped),
-            "shipping_updated": updated_count,
             "skipped": [s.model_dump() for s in skipped],
         },
     )
