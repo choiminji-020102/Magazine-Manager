@@ -4,7 +4,7 @@ from typing import List, Optional
 
 # 서드파티 라이브러리
 from fastapi import Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # 로컬 애플리케이션
 from app.schemas.send_item import SendItemResponse
@@ -79,8 +79,26 @@ class SendBatchStatusResponse(BaseModel):
 
 
 class SendTrackingUpdate(BaseModel):
-    tracking_no: str                            # 필수
-    courier_company: str                        # 필수 (CJ대한통운 | 기출유우편 | 일반우편 | 찾아가기)
+    """SHIPPING/DELIVERED Send의 운송장/배송업체/배송방법 수정 (PATCH).
+
+    셋 다 Optional — 들어온 필드만 갱신. 셋 다 None이면 400 거부.
+    send_method와 courier_company는 완전 독립 (자동 도출 안 함).
+    """
+    tracking_no: Optional[str] = None
+    send_method: Optional[str] = Field(
+        default=None,
+        description="기출유우편 | 기출유택배 | 일반우편 | 찾아가기",
+    )
+    courier_company: Optional[str] = Field(
+        default=None,
+        description="CJ대한통운 | 자체배송",
+    )
+
+    @model_validator(mode="after")
+    def _at_least_one(self) -> "SendTrackingUpdate":
+        if self.tracking_no is None and self.send_method is None and self.courier_company is None:
+            raise ValueError("tracking_no, send_method, courier_company 중 최소 1개를 입력해야 합니다.")
+        return self
 
 
 # ── 응답 스키마 ───────────────────────────────────────────────────────────────

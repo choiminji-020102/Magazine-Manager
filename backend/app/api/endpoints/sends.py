@@ -383,11 +383,23 @@ def update_tracking(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin),
 ):
-    """운송장 번호 등록 → SHIPPING 전환"""
+    """SHIPPING/DELIVERED Send의 운송장/배송업체/배송방법 수정 (필드만 수정, 상태 전환 X).
+
+    Cafe24 동기화는 본 시스템이 자동으로 하지 않음 — 운영자가 Cafe24 관리자에서 별도로 변경.
+    """
     send = send_service.get_send_by_id(db, send_id)
+    before = {
+        "tracking_no": send.tracking_no,
+        "send_method": send.send_method,
+        "courier_company": send.courier_company,
+    }
 
     updated = send_service.update_tracking(
-        db, send, tracking_in.tracking_no, tracking_in.courier_company
+        db,
+        send,
+        tracking_no=tracking_in.tracking_no,
+        send_method=tracking_in.send_method,
+        courier_company=tracking_in.courier_company,
     )
 
     activity_log_service.create_log(
@@ -401,13 +413,17 @@ def update_tracking(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
         details={
-            "courier_company": tracking_in.courier_company,
-            "tracking_no": tracking_in.tracking_no,
+            "before": before,
+            "after": {
+                "tracking_no": updated.tracking_no,
+                "send_method": updated.send_method,
+                "courier_company": updated.courier_company,
+            },
         },
     )
 
     return ResponseModel(
-        message="운송장 정보가 등록되었습니다.",
+        message="운송장 정보가 수정되었습니다. Cafe24 관리자에서도 동일하게 변경해 주세요.",
         data=SendResponse.model_validate(updated),
     )
 

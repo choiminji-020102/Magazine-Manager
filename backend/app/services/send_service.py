@@ -480,12 +480,28 @@ def update_send_status(db: Session, send: Send, status_in: SendStatusUpdate) -> 
     )
 
 
-def update_tracking(db: Session, send: Send, tracking_no: str, courier_company: str) -> Send:
-    """운송장 정보 등록 → SHIPPING 전환"""
+def update_tracking(
+    db: Session,
+    send: Send,
+    tracking_no: Optional[str] = None,
+    send_method: Optional[str] = None,
+    courier_company: Optional[str] = None,
+) -> Send:
+    """SHIPPING/DELIVERED Send의 운송장/배송업체/배송방법 수정.
+
+    상태 검증: SHIPPING/DELIVERED만 허용 (PREPARING/CANCELLED 거부).
+    상태 전환은 동반하지 않음 (필드 수정만).
+    """
+    if send.send_status not in ("SHIPPING", "DELIVERED"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"운송장 수정은 SHIPPING/DELIVERED 상태에서만 가능합니다. 현재 상태: {send.send_status}",
+        )
     return send_crud.update_tracking(
         db=db,
         send=send,
         tracking_no=tracking_no,
+        send_method=send_method,
         courier_company=courier_company,
     )
 

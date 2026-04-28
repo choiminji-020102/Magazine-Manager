@@ -174,25 +174,21 @@ def update_send_status(
 def update_tracking(
     db: Session,
     send: Send,
-    tracking_no: str,
-    courier_company: str,
+    tracking_no: Optional[str] = None,
+    send_method: Optional[str] = None,
+    courier_company: Optional[str] = None,
 ) -> Send:
-    """운송장 정보 등록 → SHIPPING 전환 + last_send_issue 업데이트"""
-    from app.models.order_item import OrderItem
-    send.tracking_no = tracking_no
-    send.courier_company = courier_company
-    send.send_status = "SHIPPING"
-    send.shipped_at = now_kst()
-    # SHIPPING 전환 시 연관 OrderItem.last_send_issue 업데이트
-    send_items = db.query(SendItem).filter(
-        SendItem.send_id == send.send_id,
-        SendItem.cancelled_at.is_(None),
-    ).all()
-    for si in send_items:
-        order_item = db.query(OrderItem).filter(OrderItem.order_item_id == si.order_item_id).first()
-        if order_item and si.issue:
-            if not order_item.last_send_issue or si.issue > order_item.last_send_issue:
-                order_item.last_send_issue = si.issue
+    """SHIPPING/DELIVERED Send의 운송장/배송업체/배송방법 필드만 수정.
+
+    상태 전환 동반 안 함 (PREPARING→SHIPPING 전환은 transition_send_to_shipping만).
+    호출자가 상태 검증 책임 (services 레이어).
+    """
+    if tracking_no is not None:
+        send.tracking_no = tracking_no
+    if send_method is not None:
+        send.send_method = send_method
+    if courier_company is not None:
+        send.courier_company = courier_company
     db.commit()
     db.refresh(send)
     return send
