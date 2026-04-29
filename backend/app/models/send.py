@@ -10,7 +10,7 @@ class Send(Base):
     send_id = Column(BigInteger, primary_key=True, autoincrement=True, comment="발송 ID")
     address_id = Column(BigInteger, ForeignKey("addresses.address_id"), nullable=True, comment="배송지 ID (스냅샷 연결용)")
 
-    send_status = Column(Enum("PREPARING", "SHIPPING", "DELIVERED", "CANCELLED", name="send_status_enum"), nullable=False, comment="발송 상태")
+    send_status = Column(Enum("PREPARING", "DELIVERED", "CANCELLED", name="send_status_enum"), nullable=False, comment="발송 상태")
     send_method = Column(Enum("기출유우편", "기출유택배", "일반우편", "찾아가기", name="send_method_enum"), nullable=True, comment="발송 방법")
     courier_company = Column(Enum("CJ대한통운", "자체배송", name="courier_company_enum"), nullable=True, comment="택배사")
 
@@ -25,7 +25,6 @@ class Send(Base):
 
     admin_memo = Column(Text, nullable=True, comment="관리자 메모")
 
-    shipped_at = Column(DateTime, nullable=True)
     delivered_at = Column(DateTime, nullable=True)
     cancelled_at = Column(DateTime, nullable=True, comment="취소 일시")
 
