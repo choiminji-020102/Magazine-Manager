@@ -131,8 +131,6 @@ def update_send_status(
                     order_item.last_send_issue = si.issue
     elif send_status == "DELIVERED":
         send.delivered_at = now
-    elif send_status == "CANCELLED":
-        send.cancelled_at = now
 
     db.commit()
     db.refresh(send)
@@ -157,48 +155,6 @@ def update_tracking(
         send.send_method = send_method
     if courier_company is not None:
         send.courier_company = courier_company
-    db.commit()
-    db.refresh(send)
-    return send
-
-
-def cancel_send(db: Session, send: Send) -> Send:
-    """발송 취소 (연관 SendItem도 취소 + OrderItem.last_send_issue 롤백)"""
-    from app.models.order_item import OrderItem
-
-    now = now_kst()
-    send.send_status = "CANCELLED"
-    send.cancelled_at = now
-
-    items = (
-        db.query(SendItem)
-        .filter(SendItem.send_id == send.send_id, SendItem.cancelled_at.is_(None))
-        .all()
-    )
-
-    # 취소되는 SendItem의 order_item_id 수집
-    affected_order_item_ids = set()
-    for item in items:
-        item.cancelled_at = now
-        affected_order_item_ids.add(item.order_item_id)
-
-    # 각 OrderItem의 last_send_issue를 남은 SHIPPING/DELIVERED 발송 중 가장 큰 호로 롤백
-    for oi_id in affected_order_item_ids:
-        latest = (
-            db.query(SendItem.issue)
-            .join(Send, SendItem.send_id == Send.send_id)
-            .filter(
-                SendItem.order_item_id == oi_id,
-                SendItem.cancelled_at.is_(None),
-                Send.send_status.in_(["SHIPPING", "DELIVERED"]),
-            )
-            .order_by(SendItem.issue.desc())
-            .first()
-        )
-        order_item = db.query(OrderItem).filter(OrderItem.order_item_id == oi_id).first()
-        if order_item:
-            order_item.last_send_issue = latest[0] if latest else None
-
     db.commit()
     db.refresh(send)
     return send

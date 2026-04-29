@@ -140,37 +140,3 @@ def update_send_item(
     )
 
 
-# ── 취소 ──────────────────────────────────────────────────────────────────────
-
-@router.post(
-    "/send-items/{send_item_id}/cancel",
-    response_model=ResponseModel[SendItemResponse],
-)
-def cancel_send_item(
-    send_item_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin),
-):
-    """발송 품목 취소"""
-    item = send_item_service.get_send_item_by_id(db, send_item_id)
-
-    cancelled = send_item_service.cancel_send_item(db, item)
-
-    activity_log_service.create_log(
-        db=db,
-        action=ActivityAction.CANCEL,
-        target_type=ActivityTargetType.SEND_ITEM,
-        admin_id=current_admin.admin_id,
-        admin_name=current_admin.admin_name,
-        target_id=send_item_id,
-        target_name=item.product_name,
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-        details={"send_id": item.send_id},
-    )
-
-    return ResponseModel(
-        message="발송 품목이 취소되었습니다.",
-        data=SendItemResponse.model_validate(cancelled),
-    )

@@ -344,16 +344,11 @@ def update_send(db: Session, send: Send, send_in: SendUpdate) -> Send:
 
 
 def update_send_status(db: Session, send: Send, status_in: SendStatusUpdate) -> Send:
-    """발송 상태 변경 (취소는 cancel_send 사용)"""
-    if send.send_status == "CANCELLED":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 취소된 발송입니다.",
-        )
+    """발송 상태 변경 (PREPARING/SHIPPING/DELIVERED 사이 전이만)"""
     if status_in.send_status == "CANCELLED":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="발송 취소는 /sends/{id}/cancel 엔드포인트를 사용해주세요.",
+            detail="발송 단위 취소는 지원하지 않습니다. 주문 취소로 처리하세요.",
         )
     return send_crud.update_send_status(
         db=db,
@@ -388,21 +383,6 @@ def update_tracking(
         send_method=send_method,
         courier_company=courier_company,
     )
-
-
-def cancel_send(db: Session, send: Send) -> Send:
-    """발송 취소 (PREPARING 상태에서만 가능, 연관 SendItem도 취소)"""
-    if send.send_status == "CANCELLED":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 취소된 발송입니다.",
-        )
-    if send.send_status != "PREPARING":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"발송 전(PREPARING) 상태에서만 취소할 수 있습니다. 현재 상태: {send.send_status}",
-        )
-    return send_crud.cancel_send(db=db, send=send)
 
 
 def resend_send(db: Session, send: Send) -> Send:

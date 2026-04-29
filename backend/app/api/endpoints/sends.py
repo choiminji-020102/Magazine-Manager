@@ -377,43 +377,6 @@ def update_tracking(
     )
 
 
-# ── 취소 ──────────────────────────────────────────────────────────────────────
-
-@router.post(
-    "/sends/{send_id}/cancel",
-    response_model=ResponseModel[SendResponse],
-)
-def cancel_send(
-    send_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin),
-):
-    """발송 취소 (연관 SendItem도 취소)"""
-    send = send_service.get_send_by_id(db, send_id)
-    old_status = send.send_status
-
-    cancelled = send_service.cancel_send(db, send)
-
-    activity_log_service.create_log(
-        db=db,
-        action=ActivityAction.CANCEL,
-        target_type=ActivityTargetType.SEND,
-        admin_id=current_admin.admin_id,
-        admin_name=current_admin.admin_name,
-        target_id=send_id,
-        target_name=send.recipient_name,
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-        details={"before": {"send_status": old_status}, "after": {"send_status": "CANCELLED"}},
-    )
-
-    return ResponseModel(
-        message="발송이 취소되었습니다.",
-        data=SendResponse.model_validate(cancelled),
-    )
-
-
 # ── 재배송 ──────────────────────────────────────────────────────────────────
 
 @router.post(

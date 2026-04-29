@@ -59,15 +59,6 @@ def update_send_item(db: Session, send_item: SendItem, item_in: SendItemUpdate) 
     return send_item_crud.update_send_item(db=db, send_item=send_item, item_in=item_in)
 
 
-def cancel_send_item(db: Session, send_item: SendItem) -> SendItem:
-    if send_item.cancelled_at is not None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 취소된 발송 품목입니다.",
-        )
-    return send_item_crud.cancel_send_item(db=db, send_item=send_item)
-
-
 def create_send_item_from_product(
     db: Session,
     send_id: int,

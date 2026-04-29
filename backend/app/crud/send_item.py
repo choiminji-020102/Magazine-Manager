@@ -6,7 +6,6 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
-from app.core.utils import now_kst
 from app.models.send_item import SendItem
 from app.schemas.send_item import SendItemUpdate
 
@@ -76,9 +75,3 @@ def update_send_item(db: Session, send_item: SendItem, item_in: SendItemUpdate) 
     return send_item
 
 
-def cancel_send_item(db: Session, send_item: SendItem) -> SendItem:
-    """발송 품목 취소 (소프트 삭제)"""
-    send_item.cancelled_at = now_kst()
-    db.commit()
-    db.refresh(send_item)
-    return send_item
