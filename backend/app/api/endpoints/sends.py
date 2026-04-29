@@ -17,19 +17,14 @@ from app.models.send_item import SendItem
 from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.schemas.common import PaginatedResponse, ResponseModel
 from app.schemas.send import (
-    SendBatchStatusRequest,
-    SendBatchStatusResponse,
-    SendBatchStatusResult,
     SendDetailResponse,
     SendListQuery,
     SendResendRequest,
     SendResponse,
-    SendStatusUpdate,
     SendTrackingUpdate,
     SendUpdate,
 )
 from app.schemas.send_item import SendItemResponse
-from app.crud import send as send_crud
 from app.services import activity_log_service, order_service, send_service
 
 router = APIRouter(tags=["발송"])
@@ -286,42 +281,6 @@ def update_send(
 
 
 @router.patch(
-    "/sends/{send_id}/status",
-    response_model=ResponseModel[SendResponse],
-)
-def update_send_status(
-    send_id: int,
-    status_in: SendStatusUpdate,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin),
-):
-    """발송 상태 변경"""
-    send = send_service.get_send_by_id(db, send_id)
-    old_status = send.send_status
-
-    updated = send_service.update_send_status(db, send, status_in)
-
-    activity_log_service.create_log(
-        db=db,
-        action=ActivityAction.UPDATE,
-        target_type=ActivityTargetType.SEND,
-        admin_id=current_admin.admin_id,
-        admin_name=current_admin.admin_name,
-        target_id=send_id,
-        target_name=send.recipient_name,
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-        details={"before": {"send_status": old_status}, "after": {"send_status": status_in.send_status}},
-    )
-
-    return ResponseModel(
-        message="발송 상태가 변경되었습니다.",
-        data=SendResponse.model_validate(updated),
-    )
-
-
-@router.patch(
     "/sends/{send_id}/tracking",
     response_model=ResponseModel[SendResponse],
 )
@@ -332,7 +291,7 @@ def update_tracking(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin),
 ):
-    """SHIPPING/DELIVERED Send의 운송장/배송업체/배송방법 수정 (필드만 수정, 상태 전환 X).
+    """DELIVERED Send의 운송장/배송업체/배송방법 수정 (필드만 수정, 상태 전환 X).
 
     Cafe24 동기화는 본 시스템이 자동으로 하지 않음 — 운영자가 Cafe24 관리자에서 별도로 변경.
     """
@@ -390,7 +349,7 @@ def resend_send(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin),
 ):
-    """SHIPPING/DELIVERED Send 재배송 이력 기록 (Send 본체 변경 없음, 활동 로그만 추가)."""
+    """DELIVERED Send 재배송 이력 기록 (Send 본체 변경 없음, 활동 로그만 추가)."""
     send = send_service.get_send_by_id(db, send_id)
     send = send_service.resend_send(db, send)
 
@@ -418,162 +377,4 @@ def resend_send(
         data=SendResponse.model_validate(send),
     )
 
-
-# ── 되돌리기 ───────────────────────────────────────────────────────────────
-
-@router.post(
-    "/sends/{send_id}/revert-to-shipping",
-    response_model=ResponseModel[SendResponse],
-)
-def revert_to_shipping(
-    send_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin),
-):
-    """DELIVERED Send를 SHIPPING으로 되돌림 (운영 실수 보정용). delivered_at 클리어."""
-    send = send_service.get_send_by_id(db, send_id)
-    reverted = send_service.revert_send_to_shipping(db, send)
-
-    activity_log_service.create_log(
-        db=db,
-        action=ActivityAction.UPDATE,
-        target_type=ActivityTargetType.SEND,
-        admin_id=current_admin.admin_id,
-        admin_name=current_admin.admin_name,
-        target_id=send_id,
-        target_name=reverted.recipient_name,
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-        details={
-            "before": "DELIVERED",
-            "after": "SHIPPING",
-            "reason": "운영자 되돌리기",
-        },
-    )
-
-    return ResponseModel(
-        message="배송중 상태로 되돌렸습니다.",
-        data=SendResponse.model_validate(reverted),
-    )
-
-
-# ── 일괄 상태 전환 ──────────────────────────────────────────────────────────
-
-@router.post(
-    "/sends/batch/shipping",
-    response_model=ResponseModel[SendBatchStatusResponse],
-)
-def batch_shipping(
-    req: SendBatchStatusRequest,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin),
-):
-    """PREPARING 상태 발송을 일괄 SHIPPING 전환"""
-    results = []
-    success_count = 0
-    for send_id in req.send_ids:
-        try:
-            send = send_crud.read_send_by_id(db, send_id)
-            if send.send_status != "PREPARING":
-                results.append(SendBatchStatusResult(
-                    send_id=send_id, success=False,
-                    message=f"PREPARING 상태가 아닙니다. 현재: {send.send_status}",
-                ))
-                continue
-            send_crud.update_send_status(db, send, "SHIPPING",
-                                         courier_company=send.courier_company,
-                                         tracking_no=send.tracking_no)
-            results.append(SendBatchStatusResult(send_id=send_id, success=True))
-            success_count += 1
-        except Exception as e:
-            results.append(SendBatchStatusResult(
-                send_id=send_id, success=False, message=str(e),
-            ))
-
-    activity_log_service.create_log(
-        db=db,
-        action=ActivityAction.UPDATE,
-        target_type=ActivityTargetType.SEND,
-        admin_id=current_admin.admin_id,
-        admin_name=current_admin.admin_name,
-        target_id=None,
-        target_name=f"일괄 배송중 전환 ({success_count}건)",
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-        details={
-            "total": len(req.send_ids),
-            "success_count": success_count,
-            "fail_count": len(req.send_ids) - success_count,
-        },
-    )
-
-    return ResponseModel(
-        message=f"{success_count}건 배송중으로 전환되었습니다.",
-        data=SendBatchStatusResponse(
-            total=len(req.send_ids),
-            success_count=success_count,
-            fail_count=len(req.send_ids) - success_count,
-            results=results,
-        ),
-    )
-
-
-@router.post(
-    "/sends/batch/delivered",
-    response_model=ResponseModel[SendBatchStatusResponse],
-)
-def batch_delivered(
-    req: SendBatchStatusRequest,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin),
-):
-    """SHIPPING 상태 발송을 일괄 DELIVERED 전환"""
-    results = []
-    success_count = 0
-    for send_id in req.send_ids:
-        try:
-            send = send_crud.read_send_by_id(db, send_id)
-            if send.send_status != "SHIPPING":
-                results.append(SendBatchStatusResult(
-                    send_id=send_id, success=False,
-                    message=f"SHIPPING 상태가 아닙니다. 현재: {send.send_status}",
-                ))
-                continue
-            send_crud.update_send_status(db, send, "DELIVERED")
-            results.append(SendBatchStatusResult(send_id=send_id, success=True))
-            success_count += 1
-        except Exception as e:
-            results.append(SendBatchStatusResult(
-                send_id=send_id, success=False, message=str(e),
-            ))
-
-    activity_log_service.create_log(
-        db=db,
-        action=ActivityAction.UPDATE,
-        target_type=ActivityTargetType.SEND,
-        admin_id=current_admin.admin_id,
-        admin_name=current_admin.admin_name,
-        target_id=None,
-        target_name=f"일괄 배송완료 전환 ({success_count}건)",
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-        details={
-            "total": len(req.send_ids),
-            "success_count": success_count,
-            "fail_count": len(req.send_ids) - success_count,
-        },
-    )
-
-    return ResponseModel(
-        message=f"{success_count}건 배송완료로 전환되었습니다.",
-        data=SendBatchStatusResponse(
-            total=len(req.send_ids),
-            success_count=success_count,
-            fail_count=len(req.send_ids) - success_count,
-            results=results,
-        ),
-    )
 

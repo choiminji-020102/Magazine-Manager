@@ -22,38 +22,12 @@ class SendUpdate(BaseModel):
     admin_memo: Optional[str] = None
 
 
-class SendStatusUpdate(BaseModel):
-    send_status: str                            # SHIPPING | DELIVERED | CANCELLED
-    tracking_no: Optional[str] = None          # SHIPPING 변경 시 필수 (MONTHLY)
-    courier_company: Optional[str] = None
-
-
-class SendBatchStatusRequest(BaseModel):
-    """일괄 상태 전환 요청"""
-    send_ids: List[int]
-
-
-class SendBatchStatusResult(BaseModel):
-    """일괄 상태 전환 단건 결과"""
-    send_id: int
-    success: bool
-    message: Optional[str] = None
-
-
-class SendBatchStatusResponse(BaseModel):
-    """일괄 상태 전환 응답"""
-    total: int
-    success_count: int
-    fail_count: int
-    results: List[SendBatchStatusResult]
-
-
 SendMethodLiteral = Literal["기출유우편", "기출유택배", "일반우편", "찾아가기"]
 CourierCompanyLiteral = Literal["CJ대한통운", "자체배송"]
 
 
 class SendTrackingUpdate(BaseModel):
-    """SHIPPING/DELIVERED Send의 운송장/배송업체/배송방법 수정 (PATCH).
+    """DELIVERED Send의 운송장/배송업체/배송방법 수정 (PATCH).
 
     셋 다 Optional — 들어온 필드만 갱신.
     빈 문자열/공백 문자열은 None으로 취급(안전망 — 실수로 빈 칸 전송 시 데이터 손상 방지).
@@ -92,7 +66,7 @@ class SendTrackingUpdate(BaseModel):
 
 
 class SendResendRequest(BaseModel):
-    """SHIPPING/DELIVERED Send에 대한 재배송 이력 입력 (POST /sends/{send_id}/resend).
+    """DELIVERED Send에 대한 재배송 이력 입력 (POST /sends/{send_id}/resend).
 
     Send 본체 변경 없음 — 활동 로그(action=RESEND) details에만 기록.
     reason/send_method/courier_company는 필수, tracking_no/memo는 선택.
@@ -160,7 +134,6 @@ class SendResponse(BaseModel):
     recipient_address: str
     customer_memo: Optional[str] = None
     admin_memo: Optional[str] = None
-    shipped_at: Optional[datetime] = None
     delivered_at: Optional[datetime] = None
     cancelled_at: Optional[datetime] = None
     created_at: datetime

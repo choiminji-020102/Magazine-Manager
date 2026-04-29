@@ -208,7 +208,7 @@ def cancel_order(
 
     - admin_memo: 취소 사유 (필수)
     - refund_amount: 환불 금액 (미입력 시 자동 계산)
-    - MONTHLY 상품이 SHIPPING/DELIVERED 상태면 취소 불가
+    - MONTHLY 상품이 DELIVERED 상태면 취소 불가
     - PREPARING 상태인 Send만 취소 처리
     - YEARLY 배송 후: 잔여 회차 기준 환불액 계산
     """

@@ -101,15 +101,15 @@ class RegeneratePreparingSendsResponse(BaseModel):
 
 
 class TransitionSendItem(BaseModel):
-    """[배송중 전환] 시 Send 1개에 대한 운송장 입력."""
+    """[배송완료 처리] 시 Send 1개에 대한 운송장 입력."""
     send_id: int
     tracking_no: str = Field(..., min_length=1, max_length=50, description="운송장 번호 (필수)")
 
 
-class TransitionToShippingRequest(BaseModel):
-    """[배송중 전환] 요청.
+class TransitionToDeliveredRequest(BaseModel):
+    """[배송완료 처리] 요청.
 
-    여러 PREPARING Send를 한 번에 SHIPPING으로 전환.
+    여러 PREPARING Send를 한 번에 DELIVERED로 전환 ("보냈다 = 끝", SHIPPING 단계 없음).
     send_method/courier_company는 모든 Send에 공통 적용.
     tracking_no는 박스(Send)마다 개별 입력 (모두 필수).
     """
@@ -118,7 +118,7 @@ class TransitionToShippingRequest(BaseModel):
     courier_company: Literal["CJ대한통운", "자체배송"] = Field(..., description="운송사 (send_method로부터 자동 도출되지만 수정 가능)")
 
 
-class TransitionToShippingResponse(BaseModel):
+class TransitionToDeliveredResponse(BaseModel):
     transitioned_count: int
 
 

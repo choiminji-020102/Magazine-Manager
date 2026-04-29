@@ -431,7 +431,7 @@ def recalculate_totals(db: Session, order: Order, update_payment: bool = False) 
 # ── 내부 헬퍼 ────────────────────────────────────────────────────────────────
 
 def _has_blocking_send(db: Session, order_item_id: int) -> bool:
-    """해당 품목에 SHIPPING/DELIVERED Send가 존재하는지 확인"""
+    """해당 품목에 DELIVERED Send가 존재하는지 확인"""
     send_item = (
         db.query(SendItem)
         .filter(
@@ -444,12 +444,12 @@ def _has_blocking_send(db: Session, order_item_id: int) -> bool:
         return False
     return db.query(Send).filter(
         Send.send_id == send_item.send_id,
-        Send.send_status.in_(["SHIPPING", "DELIVERED"]),
+        Send.send_status == "DELIVERED",
     ).first() is not None
 
 
 def _count_delivered_issues(db: Session, order_item_id: int) -> int:
-    """해당 품목의 SHIPPING/DELIVERED 상태 발송 건수 반환"""
+    """해당 품목의 DELIVERED 상태 발송 건수 반환"""
     send_items = (
         db.query(SendItem)
         .filter(
@@ -465,7 +465,7 @@ def _count_delivered_issues(db: Session, order_item_id: int) -> int:
         db.query(Send)
         .filter(
             Send.send_id.in_(send_ids),
-            Send.send_status.in_(["SHIPPING", "DELIVERED"]),
+            Send.send_status == "DELIVERED",
         )
         .count()
     )

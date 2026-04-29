@@ -6,7 +6,6 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
-from app.core.utils import now_kst
 from app.models.order_item import OrderItem
 from app.models.send import Send
 from app.models.send_item import SendItem
@@ -82,7 +81,7 @@ def list_sends(db: Session, query: SendListQuery) -> Tuple[List[Send], int]:
 
     allowed_sort = {
         "created_at", "updated_at",
-        "shipped_at", "delivered_at",
+        "delivered_at",
     }
     sort_col = getattr(Send, query.sort_by if query.sort_by in allowed_sort else "created_at")
     q = q.order_by(sort_col.asc() if query.sort_order == "asc" else sort_col.desc())
@@ -101,42 +100,6 @@ def update_send(db: Session, send: Send, send_in: SendUpdate) -> Send:
     return send
 
 
-def update_send_status(
-    db: Session,
-    send: Send,
-    send_status: str,
-    tracking_no: Optional[str] = None,
-    courier_company: Optional[str] = None,
-) -> Send:
-    """발송 상태 변경 + 상태별 타임스탬프 자동 설정"""
-    now = now_kst()
-    send.send_status = send_status
-
-    if send_status == "SHIPPING":
-        send.shipped_at = now
-        if tracking_no:
-            send.tracking_no = tracking_no
-        if courier_company:
-            send.courier_company = courier_company
-        # SHIPPING 전환 시 연관 OrderItem.last_send_issue 업데이트
-        from app.models.order_item import OrderItem
-        send_items = db.query(SendItem).filter(
-            SendItem.send_id == send.send_id,
-            SendItem.cancelled_at.is_(None),
-        ).all()
-        for si in send_items:
-            order_item = db.query(OrderItem).filter(OrderItem.order_item_id == si.order_item_id).first()
-            if order_item and si.issue:
-                if not order_item.last_send_issue or si.issue > order_item.last_send_issue:
-                    order_item.last_send_issue = si.issue
-    elif send_status == "DELIVERED":
-        send.delivered_at = now
-
-    db.commit()
-    db.refresh(send)
-    return send
-
-
 def update_tracking(
     db: Session,
     send: Send,
@@ -144,9 +107,9 @@ def update_tracking(
     send_method: Optional[str] = None,
     courier_company: Optional[str] = None,
 ) -> Send:
-    """SHIPPING/DELIVERED Send의 운송장/배송업체/배송방법 필드만 수정.
+    """DELIVERED Send의 운송장/배송업체/배송방법 필드만 수정.
 
-    상태 전환 동반 안 함 (PREPARING→SHIPPING 전환은 transition_send_to_shipping만).
+    상태 전환 동반 안 함 (PREPARING→DELIVERED 전환은 transition_send_to_delivered만).
     호출자가 상태 검증 책임 (services 레이어).
     """
     if tracking_no is not None:
@@ -160,29 +123,6 @@ def update_tracking(
     return send
 
 
-def auto_deliver_shipped_sends(db: Session, days: int = 3) -> int:
-    """SHIPPING 상태에서 N일 경과한 발송을 자동 DELIVERED 전환. 전환 건수 반환."""
-    from datetime import timedelta
-
-    cutoff = now_kst() - timedelta(days=days)
-    sends = (
-        db.query(Send)
-        .filter(
-            Send.send_status == "SHIPPING",
-            Send.shipped_at <= cutoff,
-        )
-        .all()
-    )
-    now = now_kst()
-    for send in sends:
-        send.send_status = "DELIVERED"
-        send.delivered_at = now
-
-    if sends:
-        db.commit()
-    return len(sends)
-
-
 def delete_preparing_sends(db: Session, scope: str) -> int:
     """PREPARING Send + SendItem 일괄 삭제. 삭제된 Send 수 반환.
 
@@ -190,7 +130,7 @@ def delete_preparing_sends(db: Session, scope: str) -> int:
       - "monthly" : SendItem이 MONTHLY OrderItem과 연결된 PREPARING Send만
       - "yearly"  : SendItem이 YEARLY OrderItem과 연결된 PREPARING Send만
 
-    SHIPPING/DELIVERED/CANCELLED Send는 절대 건드리지 않음.
+    DELIVERED/CANCELLED Send는 절대 건드리지 않음.
     Bulk DELETE 사용 (SendItem 먼저 → Send 나중, FK 순서 준수).
     호출자가 db.commit() 책임.
     """

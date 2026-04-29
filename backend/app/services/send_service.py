@@ -11,7 +11,7 @@ from app.models.order_item import OrderItem
 from app.models.product import Product
 from app.models.send import Send
 from app.models.send_item import SendItem
-from app.schemas.send import SendListQuery, SendStatusUpdate, SendUpdate
+from app.schemas.send import SendListQuery, SendUpdate
 from app.crud import send as send_crud
 from app.services import send_item_service
 from app.services.dispatch_grouping_service import (
@@ -158,19 +158,19 @@ def create_preparing_sends_from_groups(
     return created_sends
 
 
-# ── SHIPPING 전환 ─────────────────────────────────────────────────────────────
+# ── 배송완료 처리 ─────────────────────────────────────────────────────────────
 
-def transition_send_to_shipping(
+def transition_send_to_delivered(
     db: Session,
     send: Send,
     send_method: str,
     courier_company: str,
     tracking_no: str,
 ) -> Send:
-    """단일 PREPARING Send를 SHIPPING으로 전환.
+    """단일 PREPARING Send를 DELIVERED로 전환 ("보냈다 = 끝", SHIPPING 단계 없음).
 
     - send_method, courier_company, tracking_no 모두 필수
-    - shipped_at = now_kst()
+    - delivered_at = now_kst()
     - YEARLY Send: 연관 OrderItem.last_send_issue를 SendItem.issue 기준 max로 갱신
     - MONTHLY Send: last_send_issue 갱신 안 함
 
@@ -179,7 +179,7 @@ def transition_send_to_shipping(
     if send.send_status != "PREPARING":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"PREPARING 상태에서만 SHIPPING으로 전환 가능합니다. 현재: {send.send_status}",
+            detail=f"PREPARING 상태에서만 배송완료로 전환 가능합니다. 현재: {send.send_status}",
         )
     if not send_method or not courier_company or not tracking_no:
         raise HTTPException(
@@ -187,11 +187,11 @@ def transition_send_to_shipping(
             detail="send_method, courier_company, tracking_no 모두 필수입니다.",
         )
 
-    send.send_status = "SHIPPING"
+    send.send_status = "DELIVERED"
     send.send_method = send_method
     send.courier_company = courier_company
     send.tracking_no = tracking_no
-    send.shipped_at = now_kst()
+    send.delivered_at = now_kst()
 
     # YEARLY 여부 판정 후 last_send_issue 갱신
     send_items = (
@@ -223,13 +223,13 @@ def transition_send_to_shipping(
     return send
 
 
-def transition_sends_to_shipping_batch(
+def transition_sends_to_delivered_batch(
     db: Session,
     sends_input: List[Tuple[int, str]],
     send_method: str,
     courier_company: str,
 ) -> int:
-    """선택된 PREPARING Send들을 일괄 SHIPPING 전환. 전환된 Send 수 반환.
+    """선택된 PREPARING Send들을 일괄 DELIVERED 전환. 전환된 Send 수 반환.
 
     sends_input: (send_id, tracking_no) 페어 리스트. 박스마다 운송장 다를 수 있음. tracking_no 모두 필수.
     send_method, courier_company는 모든 Send에 공통 적용.
@@ -259,7 +259,7 @@ def transition_sends_to_shipping_batch(
         )
 
     for send in sends:
-        transition_send_to_shipping(
+        transition_send_to_delivered(
             db=db,
             send=send,
             send_method=send_method,
@@ -343,22 +343,6 @@ def update_send(db: Session, send: Send, send_in: SendUpdate) -> Send:
     return send_crud.update_send(db=db, send=send, send_in=send_in)
 
 
-def update_send_status(db: Session, send: Send, status_in: SendStatusUpdate) -> Send:
-    """발송 상태 변경 (PREPARING/SHIPPING/DELIVERED 사이 전이만)"""
-    if status_in.send_status == "CANCELLED":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="발송 단위 취소는 지원하지 않습니다. 주문 취소로 처리하세요.",
-        )
-    return send_crud.update_send_status(
-        db=db,
-        send=send,
-        send_status=status_in.send_status,
-        tracking_no=status_in.tracking_no,
-        courier_company=status_in.courier_company,
-    )
-
-
 def update_tracking(
     db: Session,
     send: Send,
@@ -366,15 +350,15 @@ def update_tracking(
     send_method: Optional[str] = None,
     courier_company: Optional[str] = None,
 ) -> Send:
-    """SHIPPING/DELIVERED Send의 운송장/배송업체/배송방법 수정.
+    """DELIVERED Send의 운송장/배송업체/배송방법 수정.
 
-    상태 검증: SHIPPING/DELIVERED만 허용 (PREPARING/CANCELLED 거부).
+    상태 검증: DELIVERED만 허용 (PREPARING/CANCELLED 거부).
     상태 전환은 동반하지 않음 (필드 수정만).
     """
-    if send.send_status not in ("SHIPPING", "DELIVERED"):
+    if send.send_status != "DELIVERED":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"운송장 수정은 SHIPPING/DELIVERED 상태에서만 가능합니다. 현재 상태: {send.send_status}",
+            detail=f"운송장 수정은 DELIVERED 상태에서만 가능합니다. 현재 상태: {send.send_status}",
         )
     return send_crud.update_tracking(
         db=db,
@@ -388,31 +372,13 @@ def update_tracking(
 def resend_send(db: Session, send: Send) -> Send:
     """재배송 처리 — Send 본체 변경 없이 활동 로그만 기록 (활동 로그 기록은 호출자 책임).
 
-    SHIPPING/DELIVERED Send에서만 호출 가능. PREPARING/CANCELLED 거부.
-    """
-    if send.send_status not in ("SHIPPING", "DELIVERED"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"재배송은 SHIPPING/DELIVERED 상태에서만 가능합니다. 현재 상태: {send.send_status}",
-        )
-    return send
-
-
-def revert_send_to_shipping(db: Session, send: Send) -> Send:
-    """DELIVERED → SHIPPING 되돌리기 (운영 실수 보정용). delivered_at 클리어.
-
-    DELIVERED Send에서만 호출 가능. PREPARING/SHIPPING/CANCELLED 거부.
-    tracking_no/shipped_at 등 다른 필드는 그대로 유지.
+    DELIVERED Send에서만 호출 가능. PREPARING/CANCELLED 거부.
     """
     if send.send_status != "DELIVERED":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"되돌리기는 DELIVERED 상태에서만 가능합니다. 현재 상태: {send.send_status}",
+            detail=f"재배송은 DELIVERED 상태에서만 가능합니다. 현재 상태: {send.send_status}",
         )
-    send.send_status = "SHIPPING"
-    send.delivered_at = None
-    db.commit()
-    db.refresh(send)
     return send
 
 
@@ -424,7 +390,7 @@ def delete_preparing_send_items_for_order_items(
     - PREPARING Send에 속한 SendItem만 DELETE (cancelled_at 무관 — 미아 SendItem 방지)
     - 잔여 SendItem 0개 PREPARING Send도 함께 DELETE
     - 다른 PREPARING Send는 안 건드림 (send_id 유지)
-    - SHIPPING/DELIVERED/CANCELLED Send는 호출 전 _validate_cancellable 등에서 차단됨
+    - DELIVERED/CANCELLED Send는 호출 전 _validate_cancellable 등에서 차단됨
     - commit/refresh는 호출자가 담당 (db.flush만 수행)
 
     Returns: (deleted_send_items_count, deleted_sends_count)

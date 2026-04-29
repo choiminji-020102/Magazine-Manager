@@ -9,7 +9,7 @@
 - POST /dispatches/excel/yearly-postoffice     (엑셀 다운로드, DB 변경 없음)
 
 상세 사양: `SHIPPING_REFACTOR_PLAN.md` §5
-SHIPPING 전환은 별도 [배송중 전환] 엔드포인트(`POST /api/dispatches/transition-to-shipping`)에서만 발생.
+DELIVERED 전환은 별도 [배송완료 처리] 엔드포인트(`POST /api/dispatches/transition-to-delivered`)에서만 발생.
 """
 
 # 표준 라이브러리
@@ -144,7 +144,7 @@ def get_yearly_postoffice_excel_candidates(
     )
 
 
-# ── 엑셀 다운로드 (+ SHIPPING 전환) ──────────────────────────────────────────
+# ── 엑셀 다운로드 (PREPARING Send 출력만, DB 변경 없음) ────────────────────────
 
 @router.post(
     "/dispatches/excel/monthly",

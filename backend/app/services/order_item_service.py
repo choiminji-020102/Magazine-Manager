@@ -84,7 +84,7 @@ def _get_active_send_items(db: Session, order_item_id: int) -> List[SendItem]:
 
 
 def _count_delivered_issues(db: Session, order_item_id: int) -> int:
-    """해당 품목의 SHIPPING/DELIVERED 상태 발송 건수 반환"""
+    """해당 품목의 DELIVERED 상태 발송 건수 반환"""
     send_items = (
         db.query(SendItem)
         .filter(
@@ -100,7 +100,7 @@ def _count_delivered_issues(db: Session, order_item_id: int) -> int:
         db.query(Send)
         .filter(
             Send.send_id.in_(send_ids),
-            Send.send_status.in_(["SHIPPING", "DELIVERED"]),
+            Send.send_status == "DELIVERED",
         )
         .count()
     )
@@ -268,7 +268,7 @@ def update_address(
     pending_send_ids: set = set()
 
     for si in send_items:
-        if si.send.send_status in ("SHIPPING", "DELIVERED"):
+        if si.send.send_status == "DELIVERED":
             already_shipped_issues.append(si.issue)
         else:
             pending_issues.append(si.issue)

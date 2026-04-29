@@ -17,8 +17,8 @@ from app.schemas.dispatch import (
     PaidNotPreparedCountResponse,
     RegeneratePreparingSendsRequest,
     RegeneratePreparingSendsResponse,
-    TransitionToShippingRequest,
-    TransitionToShippingResponse,
+    TransitionToDeliveredRequest,
+    TransitionToDeliveredResponse,
 )
 from app.services import activity_log_service, dispatch_grouping_service, order_item_service, send_service
 
@@ -303,25 +303,25 @@ def regenerate_preparing_sends_endpoint(
 
 
 @router.post(
-    "/dispatches/transition-to-shipping",
-    response_model=ResponseModel[TransitionToShippingResponse],
+    "/dispatches/transition-to-delivered",
+    response_model=ResponseModel[TransitionToDeliveredResponse],
     status_code=status.HTTP_200_OK,
 )
-def transition_to_shipping_endpoint(
-    req: TransitionToShippingRequest,
+def transition_to_delivered_endpoint(
+    req: TransitionToDeliveredRequest,
     request: Request,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin),
 ):
-    """선택된 PREPARING Send들을 SHIPPING으로 일괄 전환.
+    """선택된 PREPARING Send들을 DELIVERED로 일괄 전환 ("보냈다 = 끝", SHIPPING 단계 없음).
 
     send_method, courier_company는 항상 필수.
-    tracking_no는 박스(Send)마다 개별 입력. send_method=기출유택배일 때 모든 박스 필수.
+    tracking_no는 박스(Send)마다 개별 입력 (모두 필수).
     한 건이라도 PREPARING이 아니면 전체 거부 (all-or-nothing).
     """
     sends_input = [(s.send_id, s.tracking_no) for s in req.sends]
 
-    transitioned_count = send_service.transition_sends_to_shipping_batch(
+    transitioned_count = send_service.transition_sends_to_delivered_batch(
         db=db,
         sends_input=sends_input,
         send_method=req.send_method,
@@ -337,7 +337,7 @@ def transition_to_shipping_endpoint(
         admin_id=current_admin.admin_id,
         admin_name=current_admin.admin_name,
         target_id=None,
-        target_name=f"[배송중 전환] {transitioned_count}건",
+        target_name=f"[배송완료 처리] {transitioned_count}건",
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
         details={
@@ -349,8 +349,8 @@ def transition_to_shipping_endpoint(
     )
 
     return ResponseModel(
-        message=f"배송중 전환 완료: {transitioned_count}건",
-        data=TransitionToShippingResponse(transitioned_count=transitioned_count),
+        message=f"배송완료 처리 완료: {transitioned_count}건",
+        data=TransitionToDeliveredResponse(transitioned_count=transitioned_count),
     )
 
 
