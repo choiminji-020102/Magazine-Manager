@@ -22,7 +22,6 @@ from app.schemas.send import (
     SendResendRequest,
     SendResponse,
     SendTrackingUpdate,
-    SendUpdate,
 )
 from app.schemas.send_item import SendItemResponse
 from app.services import activity_log_service, order_service, send_service
@@ -233,52 +232,6 @@ def get_send(
 
 
 # ── 수정 ──────────────────────────────────────────────────────────────────────
-
-@router.put(
-    "/sends/{send_id}",
-    response_model=ResponseModel[SendDetailResponse],
-)
-def update_send(
-    send_id: int,
-    send_in: SendUpdate,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin),
-):
-    """발송 수정"""
-    send = send_service.get_send_by_id(db, send_id)
-    before = {
-        "recipient_name": send.recipient_name,
-        "recipient_phone": send.recipient_phone,
-        "postal_code": send.postal_code,
-        "recipient_address": send.recipient_address,
-        "admin_memo": send.admin_memo,
-    }
-
-    updated = send_service.update_send(db, send, send_in)
-    items = send_service.get_send_items(db, updated.send_id)
-
-    activity_log_service.create_log(
-        db=db,
-        action=ActivityAction.UPDATE,
-        target_type=ActivityTargetType.SEND,
-        admin_id=current_admin.admin_id,
-        admin_name=current_admin.admin_name,
-        target_id=send_id,
-        target_name=send.recipient_name,
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-        details={"before": before, "after": send_in.model_dump(exclude_unset=True)},
-    )
-
-    response = SendDetailResponse.model_validate(updated)
-    response.items = [SendItemResponse.model_validate(i) for i in items]
-
-    return ResponseModel(
-        message="발송 정보가 수정되었습니다.",
-        data=response,
-    )
-
 
 @router.patch(
     "/sends/{send_id}/tracking",

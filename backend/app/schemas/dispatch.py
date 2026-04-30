@@ -1,9 +1,10 @@
 # 표준 라이브러리
+import re
 from typing import Dict, List, Literal, Optional
 
 # 서드파티 라이브러리
 from fastapi import Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class DispatchTarget(BaseModel):
@@ -101,9 +102,24 @@ class RegeneratePreparingSendsResponse(BaseModel):
 
 
 class TransitionSendItem(BaseModel):
-    """[배송완료 처리] 시 Send 1개에 대한 운송장 입력."""
+    """[배송완료 처리] 시 Send 1개에 대한 운송장 입력.
+
+    tracking_no는 입력에서 숫자만 추출해 저장 (공백·하이픈·문자 자동 제거).
+    추출 결과가 비면 422 (운영자 실수로 인한 빈 운송장 저장 방지).
+    SendTrackingUpdate / SendResendRequest와 동일 정책.
+    """
     send_id: int
-    tracking_no: str = Field(..., min_length=1, max_length=50, description="운송장 번호 (필수)")
+    tracking_no: str = Field(..., max_length=50, description="운송장 번호 (필수, 숫자만 추출되어 저장)")
+
+    @field_validator("tracking_no", mode="before")
+    @classmethod
+    def _extract_digits(cls, v):
+        if isinstance(v, str):
+            digits = re.sub(r"\D", "", v)
+            if digits == "":
+                raise ValueError("tracking_no에서 숫자를 찾을 수 없습니다. 운송장 번호를 확인해주세요.")
+            return digits
+        return v
 
 
 class TransitionToDeliveredRequest(BaseModel):

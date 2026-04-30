@@ -11,7 +11,7 @@ from app.models.order_item import OrderItem
 from app.models.product import Product
 from app.models.send import Send
 from app.models.send_item import SendItem
-from app.schemas.send import SendListQuery, SendUpdate
+from app.schemas.send import SendListQuery
 from app.crud import send as send_crud
 from app.services import send_item_service
 from app.services.dispatch_grouping_service import (
@@ -338,10 +338,6 @@ def get_send_items(db: Session, send_id: int) -> List[SendItem]:
 
 
 # ── 수정 ──────────────────────────────────────────────────────────────────────
-
-def update_send(db: Session, send: Send, send_in: SendUpdate) -> Send:
-    return send_crud.update_send(db=db, send=send, send_in=send_in)
-
 
 def update_tracking(
     db: Session,

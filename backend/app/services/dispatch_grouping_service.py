@@ -74,7 +74,10 @@ def group_monthly_for_send(
     rows = (
         db.query(OrderItem, Address)
         .join(Address, OrderItem.address_id == Address.address_id)
-        .filter(OrderItem.order_item_id.in_(target_ids))
+        .filter(
+            OrderItem.order_item_id.in_(target_ids),
+            Address.country_code == "KR",   # 해외 발송은 새 흐름 대상 외
+        )
         .all()
     )
 
@@ -154,6 +157,7 @@ def group_yearly_for_send(
         .join(Address, OrderItem.address_id == Address.address_id)
         .filter(
             OrderItem.order_item_id.in_(order_item_ids),
+            Address.country_code == "KR",   # 해외 발송은 새 흐름 대상 외
             or_(
                 OrderItem.last_send_issue.is_(None),
                 OrderItem.last_send_issue < issue,
@@ -186,7 +190,7 @@ def group_yearly_for_send(
 def get_paid_order_items_for_dispatch(
     db: Session,
 ) -> Tuple[List[OrderItem], List[OrderItem]]:
-    """[발송 생성] 흐름의 입력 — PAID + 취소되지 않은 OrderItem을 종류별로 분리해 반환.
+    """[발송 생성] 흐름의 입력 — PAID + 취소되지 않은 + 국내(KR) OrderItem을 종류별로 분리해 반환.
 
     그 호로 이미 SendItem 있는지·구독 범위·휴지 여부 등 추가 필터는
     group_yearly_for_send / group_monthly_for_send 함수가 처리.
@@ -197,9 +201,11 @@ def get_paid_order_items_for_dispatch(
     rows = (
         db.query(OrderItem)
         .join(Order, OrderItem.order_id == Order.order_id)
+        .join(Address, OrderItem.address_id == Address.address_id)
         .filter(
             Order.order_status == "PAID",
             OrderItem.cancelled_at.is_(None),
+            Address.country_code == "KR",   # 해외 발송은 새 흐름 대상 외
         )
         .all()
     )
@@ -227,9 +233,11 @@ def count_paid_not_prepared(db: Session) -> Tuple[int, int]:
     rows = (
         db.query(OrderItem.product_kind, func.count(OrderItem.order_item_id))
         .join(Order, OrderItem.order_id == Order.order_id)
+        .join(Address, OrderItem.address_id == Address.address_id)
         .filter(
             Order.order_status == "PAID",
             OrderItem.cancelled_at.is_(None),
+            Address.country_code == "KR",   # 해외 발송은 새 흐름 대상 외
             ~OrderItem.order_item_id.in_(db.query(has_send_item_subq)),
         )
         .group_by(OrderItem.product_kind)

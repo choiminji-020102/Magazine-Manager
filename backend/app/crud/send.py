@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.models.order_item import OrderItem
 from app.models.send import Send
 from app.models.send_item import SendItem
-from app.schemas.send import SendListQuery, SendUpdate
+from app.schemas.send import SendListQuery
 
 
 def read_send_by_id(db: Session, send_id: int) -> Send:
@@ -42,6 +42,11 @@ def list_sends(db: Session, query: SendListQuery) -> Tuple[List[Send], int]:
 
     if query.send_status:
         q = q.filter(Send.send_status == query.send_status)
+        if query.send_status == "PREPARING":
+            # 새 흐름: PREPARING 목록(배송 준비중 관리 페이지)은 KR만 노출
+            # — 해외 발송은 그룹핑 단계에서 제외되므로 자연스럽게 0건이지만,
+            # 옛 PREPARING 잔존 데이터 방어용 안전망.
+            q = q.filter(Send.country_code == "KR")
     if query.courier_company:
         q = q.filter(Send.courier_company == query.courier_company)
     if query.tracking_no:
@@ -89,15 +94,6 @@ def list_sends(db: Session, query: SendListQuery) -> Tuple[List[Send], int]:
     total = q.count()
     items = q.offset((query.page - 1) * query.limit).limit(query.limit).all()
     return items, total
-
-
-def update_send(db: Session, send: Send, send_in: SendUpdate) -> Send:
-    """발송 수정 (스냅샷 필드 개별 업데이트)"""
-    for field, value in send_in.model_dump(exclude_unset=True).items():
-        setattr(send, field, value)
-    db.commit()
-    db.refresh(send)
-    return send
 
 
 def update_tracking(

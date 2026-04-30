@@ -1,4 +1,5 @@
 # 표준 라이브러리
+import re
 from datetime import datetime
 from typing import List, Literal, Optional
 
@@ -12,16 +13,6 @@ from app.schemas.send_item import SendItemResponse
 
 # ── 수정 스키마 ──────────────────────────────────────────────────────────
 
-class SendUpdate(BaseModel):
-    recipient_name: Optional[str] = None
-    recipient_phone: Optional[str] = None
-    country_code: Optional[str] = None
-    postal_code: Optional[str] = None
-    recipient_address: Optional[str] = None
-    customer_memo: Optional[str] = None
-    admin_memo: Optional[str] = None
-
-
 SendMethodLiteral = Literal["기출유우편", "기출유택배", "일반우편", "찾아가기"]
 CourierCompanyLiteral = Literal["CJ대한통운", "자체배송"]
 
@@ -30,9 +21,9 @@ class SendTrackingUpdate(BaseModel):
     """DELIVERED Send의 운송장/배송업체/배송방법 수정 (PATCH).
 
     셋 다 Optional — 들어온 필드만 갱신.
-    빈 문자열/공백 문자열은 None으로 취급(안전망 — 실수로 빈 칸 전송 시 데이터 손상 방지).
-    send_method/courier_company는 Literal로 enum 강제 (잘못된 값 → 422).
-    tracking_no는 strip 후 숫자만 허용 (공백·하이픈·문자 → 422).
+    send_method/courier_company는 빈/공백 문자열은 None으로 취급, Literal로 enum 강제 (잘못된 값 → 422).
+    tracking_no는 입력에서 숫자만 추출해 저장 (공백·하이픈·문자 자동 제거).
+      - 추출 결과가 비면 422 (운영자 실수로 인한 빈 운송장 저장 방지)
     정규화 후 셋 다 None이면 422.
     send_method와 courier_company는 완전 독립 (자동 도출 안 함).
     """
@@ -48,18 +39,18 @@ class SendTrackingUpdate(BaseModel):
             return v.strip() or None
         return v
 
+    @field_validator("tracking_no", mode="before")
+    @classmethod
+    def _extract_digits(cls, v):
+        if isinstance(v, str):
+            digits = re.sub(r"\D", "", v)
+            if digits == "":
+                raise ValueError("tracking_no에서 숫자를 찾을 수 없습니다. 운송장 번호를 확인해주세요.")
+            return digits
+        return v
+
     @model_validator(mode="after")
-    def _validate_tracking_and_at_least_one(self) -> "SendTrackingUpdate":
-        # tracking_no: strip 후 ① 빈 문자열이면 None ② 그 외엔 숫자만 허용
-        if isinstance(self.tracking_no, str):
-            stripped = self.tracking_no.strip()
-            if stripped == "":
-                self.tracking_no = None
-            elif not stripped.isdigit():
-                raise ValueError("tracking_no는 숫자만 입력 가능합니다 (공백·하이픈·문자 불가).")
-            else:
-                self.tracking_no = stripped
-        # 정규화 후 셋 다 비어있으면 거부
+    def _validate_at_least_one(self) -> "SendTrackingUpdate":
         if self.tracking_no is None and self.send_method is None and self.courier_company is None:
             raise ValueError("tracking_no, send_method, courier_company 중 최소 1개를 입력해야 합니다.")
         return self
@@ -71,7 +62,8 @@ class SendResendRequest(BaseModel):
     Send 본체 변경 없음 — 활동 로그(action=RESEND) details에만 기록.
     reason/send_method/courier_company는 필수, tracking_no/memo는 선택.
     send_method ↔ courier_company 자동 도출 안 함 (프론트에서 도출 + 운영자 수정).
-    tracking_no는 SendTrackingUpdate와 동일 정규화 (strip 후 숫자만, 빈/공백 → None).
+    tracking_no는 SendTrackingUpdate와 동일 정규화 — 입력에서 숫자만 추출해 저장.
+      - 추출 결과가 비면 422
     """
     reason: str
     send_method: SendMethodLiteral
@@ -104,17 +96,15 @@ class SendResendRequest(BaseModel):
             return v.strip() or None
         return v
 
-    @model_validator(mode="after")
-    def _normalize_tracking_no(self) -> "SendResendRequest":
-        if isinstance(self.tracking_no, str):
-            stripped = self.tracking_no.strip()
-            if stripped == "":
-                self.tracking_no = None
-            elif not stripped.isdigit():
-                raise ValueError("tracking_no는 숫자만 입력 가능합니다 (공백·하이픈·문자 불가).")
-            else:
-                self.tracking_no = stripped
-        return self
+    @field_validator("tracking_no", mode="before")
+    @classmethod
+    def _extract_digits(cls, v):
+        if isinstance(v, str):
+            digits = re.sub(r"\D", "", v)
+            if digits == "":
+                raise ValueError("tracking_no에서 숫자를 찾을 수 없습니다. 운송장 번호를 확인해주세요.")
+            return digits
+        return v
 
 
 # ── 응답 스키마 ───────────────────────────────────────────────────────────────
