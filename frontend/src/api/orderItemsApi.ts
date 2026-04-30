@@ -27,18 +27,6 @@ export const orderItemsApi = {
     return api.get<PaginatedResponse<SubscriptionListItem>>("/order-items", { params });
   },
 
-  // GET /order-items/postal-code/13113 - 우편번호 13113 품목 목록
-  getPostalCode13113: (params?: {
-    page?: number;
-    limit?: number;
-    product_kind?: string | null;
-    is_cancelled?: boolean;
-    sort_by?: string;
-    sort_order?: string;
-  }) => {
-    return api.get<PaginatedResponse<OrderItemResponse>>("/order-items/postal-code/13113", { params });
-  },
-
   // GET /orders/{order_id}/items - 주문별 품목 목록
   getItemsByOrder: (orderId: number) => {
     return api.get<ResponseModel<OrderItemDetailResponse[]>>(`/orders/${orderId}/items`);

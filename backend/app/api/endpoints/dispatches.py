@@ -129,55 +129,6 @@ def get_monthly_targets(
 
 
 @router.get(
-    "/dispatches/postal-code/13113/targets",
-    response_model=ResponseModel[DispatchTargetsResponse],
-)
-def get_postal_code_13113_targets(
-    query: DispatchTargetListQuery = Depends(DispatchTargetListQuery.as_query_params),
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_manager),
-):
-    """우편번호 13113 발송 대상 조회 (YEARLY+MONTHLY)"""
-    targets = order_item_service.find_subscription_targets(
-        db=db,
-        issue=query.issue,
-        product_code=query.product_code,
-        postal_code="13113",
-    )
-
-    # 수령인 검색 필터
-    if query.recipient_search:
-        term = query.recipient_search.lower()
-        targets = [
-            t for t in targets
-            if (t.recipient_name and term in t.recipient_name.lower())
-            or (t.recipient_phone and term in t.recipient_phone)
-        ]
-
-    total_count = len(targets)
-    total_pages = (total_count + query.limit - 1) // query.limit if total_count > 0 else 1
-    start = (query.page - 1) * query.limit
-    paged = targets[start: start + query.limit]
-
-    product_summary: dict = {}
-    for t in targets:
-        product_summary[t.product_code] = product_summary.get(t.product_code, 0) + 1
-
-    return ResponseModel(
-        message="우편번호 13113 발송 대상 목록을 조회했습니다.",
-        data=DispatchTargetsResponse(
-            issue=query.issue,
-            targets=paged,
-            total_count=total_count,
-            page=query.page,
-            limit=query.limit,
-            total_pages=total_pages,
-            product_summary=product_summary,
-        ),
-    )
-
-
-@router.get(
     "/dispatches/summary",
     response_model=ResponseModel[DispatchSummaryResponse],
 )

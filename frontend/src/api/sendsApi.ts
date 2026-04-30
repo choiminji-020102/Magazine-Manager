@@ -70,17 +70,6 @@ export const sendsApi = {
     return api.post<ResponseModel<SendResponse>>(`/sends/${sendId}/cancel`);
   },
 
-  // GET /sends/postal-code/13113 - 우편번호 13113 발송 목록
-  getSendsPostalCode13113: (params?: {
-    page?: number;
-    limit?: number;
-    send_status?: string | null;
-    sort_by?: string;
-    sort_order?: string;
-  }) => {
-    return api.get<PaginatedResponse<SendResponse>>("/sends/postal-code/13113", { params });
-  },
-
   // GET /sends/export/excel - 발송 데이터 엑셀 다운로드
   exportSendsToExcel: (params?: { send_status?: string | null }) => {
     return api.get("/sends/export/excel", {

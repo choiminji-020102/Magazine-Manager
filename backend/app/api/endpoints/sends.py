@@ -57,29 +57,6 @@ def list_sends(
 
 
 @router.get(
-    "/sends/postal-code/13113",
-    response_model=PaginatedResponse[SendResponse],
-)
-def list_sends_postal_13113(
-    query: SendListQuery = Depends(SendListQuery.as_query_params),
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_manager),
-):
-    """우편번호 13113 발송 목록 (관리자 직접 발송용)"""
-    query.postal_code = "13113"
-    items, total = send_service.list_sends(db, query)
-    total_pages = (total + query.limit - 1) // query.limit
-
-    return PaginatedResponse(
-        total=total,
-        page=query.page,
-        limit=query.limit,
-        total_pages=total_pages,
-        items=[SendResponse.model_validate(s) for s in items],
-    )
-
-
-@router.get(
     "/orders/{order_id}/sends",
     response_model=ResponseModel[List[SendResponse]],
 )

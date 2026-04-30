@@ -20,7 +20,6 @@ from app.schemas.order_item import (
     OrderItemDetailResponse,
     OrderItemLastSendIssueUpdate,
     OrderItemListQuery,
-    OrderItemPostalCode13113Query,
     OrderItemResponse,
     OrderItemUpdate,
     PauseInfo,
@@ -70,28 +69,6 @@ def list_order_items(
         limit=query.limit,
         total_pages=total_pages,
         items=items,
-    )
-
-
-@router.get(
-    "/order-items/postal-code/13113",
-    response_model=PaginatedResponse[OrderItemResponse],
-)
-def list_by_postal_code_13113(
-    query: OrderItemPostalCode13113Query = Depends(OrderItemPostalCode13113Query.as_query_params),
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_manager),
-):
-    """우편번호 13113 품목 목록"""
-    items, total = order_item_service.list_postal_code_13113(db, query)
-    total_pages = (total + query.limit - 1) // query.limit
-
-    return PaginatedResponse(
-        total=total,
-        page=query.page,
-        limit=query.limit,
-        total_pages=total_pages,
-        items=[OrderItemResponse.model_validate(i) for i in items],
     )
 
 

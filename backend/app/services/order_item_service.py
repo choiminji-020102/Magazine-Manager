@@ -25,7 +25,6 @@ from app.schemas.order_item import (
     OrderItemCreate,
     OrderItemListQuery,
     OrderItemUpdate,
-    OrderItemPostalCode13113Query,
     SubscriptionBatchExtendRequest,
     SubscriptionBatchExtendResponse,
     SubscriptionBatchExtendResultItem,
@@ -161,21 +160,6 @@ def list_order_items(
         item.order_channel = order_channel
         items.append(item)
     return items, total
-
-
-def list_postal_code_13113(
-    db: Session, query: OrderItemPostalCode13113Query
-) -> Tuple[List[OrderItem], int]:
-    """우편번호 13113 품목 목록"""
-    return order_item_crud.list_by_postal_code_13113(
-        db=db,
-        page=query.page,
-        limit=query.limit,
-        product_kind=query.product_kind,
-        is_cancelled=query.is_cancelled,
-        sort_by=query.sort_by,
-        sort_order=query.sort_order,
-    )
 
 
 # ── 생성 / 수정 ───────────────────────────────────────────────────────────────
@@ -645,7 +629,6 @@ def find_subscription_targets(
     product_kind: Optional[str] = None,
     product_code: Optional[str] = None,
     base_code: Optional[str] = None,
-    postal_code: Optional[str] = None,
 ) -> List[DispatchTarget]:
     """발송 대상 품목 조회 (YEARLY/MONTHLY, 취소·휴지·발송완료 제외)"""
     pause_subquery = (
@@ -708,8 +691,6 @@ def find_subscription_targets(
         query = query.filter(OrderItem.product_code == product_code)
     if base_code:
         query = query.filter(OrderItem.product_code.like(f"{base_code}%"))
-    if postal_code:
-        query = query.filter(Address.postal_code == postal_code)
 
     results = query.order_by(Customer.customer_name.asc()).all()
 

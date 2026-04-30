@@ -243,29 +243,3 @@ class OrderItemListQuery(BaseModel):
         )
 
 
-class OrderItemPostalCode13113Query(BaseModel):
-    page: int = Field(1, ge=1)
-    limit: int = Field(20, ge=1, le=100)
-    product_kind: Optional[str] = None
-    is_cancelled: bool = False
-    sort_by: str = "created_at"
-    sort_order: str = "desc"
-
-    @classmethod
-    def as_query_params(
-        cls,
-        page: int = Query(1, ge=1),
-        limit: int = Query(20, ge=1, le=100),
-        product_kind: Optional[str] = Query(None),
-        is_cancelled: bool = Query(False),
-        sort_by: str = Query("created_at"),
-        sort_order: str = Query("desc"),
-    ):
-        return cls(
-            page=page,
-            limit=limit,
-            product_kind=product_kind,
-            is_cancelled=is_cancelled,
-            sort_by=sort_by,
-            sort_order=sort_order,
-        )

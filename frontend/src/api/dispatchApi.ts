@@ -34,20 +34,6 @@ export const dispatchApi = {
     );
   },
 
-  // GET /dispatches/postal-code/13113/targets - 우편번호 13113 발송 대상 조회
-  getPostalCode13113Targets: (params: {
-    issue: string;
-    product_code?: string | null;
-    recipient_search?: string | null;
-    page?: number;
-    limit?: number;
-  }) => {
-    return api.get<ResponseModel<DispatchTargetsResponse>>(
-      "/dispatches/postal-code/13113/targets",
-      { params }
-    );
-  },
-
   // GET /dispatches/summary - 발송 현황 요약
   getDispatchSummary: (issue: string) => {
     return api.get<ResponseModel<DispatchSummaryResponse>>(

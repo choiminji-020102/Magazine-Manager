@@ -11,7 +11,6 @@ from app.core.utils import now_kst
 from app.models.order import Order
 from app.models.customer import Customer
 from app.models.order_item import OrderItem
-from app.models.address import Address
 from app.schemas.order_item import OrderItemUpdate
 
 
@@ -173,32 +172,3 @@ def list_order_items(
     return rows, total
 
 
-def list_by_postal_code_13113(
-    db: Session,
-    page: int = 1,
-    limit: int = 20,
-    product_kind: Optional[str] = None,
-    is_cancelled: bool = False,
-    sort_by: str = "created_at",
-    sort_order: str = "desc",
-) -> Tuple[List[OrderItem], int]:
-    query = (
-        db.query(OrderItem)
-        .join(Address, OrderItem.address_id == Address.address_id)
-        .filter(Address.postal_code == "13113")
-    )
-    if product_kind:
-        query = query.filter(OrderItem.product_kind == product_kind)
-    if is_cancelled:
-        query = query.filter(OrderItem.cancelled_at.isnot(None))
-    else:
-        query = query.filter(OrderItem.cancelled_at.is_(None))
-
-    allowed_sort = {"created_at", "subscribe_start_issue", "updated_at"}
-    sort_col = getattr(OrderItem, sort_by if sort_by in allowed_sort else "created_at")
-    query = query.order_by(sort_col.asc() if sort_order == "asc" else sort_col.desc())
-
-    total = query.count()
-    offset = (page - 1) * limit
-    items = query.offset(offset).limit(limit).all()
-    return items, total
