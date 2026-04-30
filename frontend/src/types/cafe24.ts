@@ -86,7 +86,6 @@ export interface Cafe24Order {
   payment_method: string | null;            // cash/card/icash/tcash (또는 미매핑 원본)
   order_at: string | null;                  // ISO 8601
   payment_at: string | null;
-  cancelled_at: string | null;
 
   customer_name: string | null;
   customer_phone: string | null;

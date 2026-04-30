@@ -191,7 +191,6 @@ function OrderCard({
           <InfoRow label="주문번호" value={<span className="font-mono">{order.external_order_id}</span>} />
           <InfoRow label="주문일" value={formatDateTime(order.order_at)} />
           <InfoRow label="결제일" value={formatDateTime(order.payment_at)} />
-          <InfoRow label="취소일" value={formatDateTime(order.cancelled_at)} />
           <div className="h-2" />
           <InfoRow label="상품금액" value={formatPrice(order.total_amount)} />
           <InfoRow label="배송비" value={formatPrice(order.send_fee)} />
