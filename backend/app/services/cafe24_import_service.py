@@ -8,7 +8,6 @@
 - 기존 order_service.create_order는 사용하지 않고 직접 db.add (commit 통제 위해)
 - import 종료 후 활동 로그 1건 기록
 """
-import asyncio
 import re
 from datetime import datetime
 from typing import List, Optional, Tuple
@@ -19,7 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.utils import calculate_subscribe_end_issue, format_phone_number, now_kst
+from app.core.utils import calculate_subscribe_end_issue, format_phone_number
 from app.models.activity_log import ActivityAction, ActivityTargetType
 from app.models.address import Address
 from app.models.admin import Admin
@@ -117,13 +116,25 @@ class ImportSkip(Exception):
 async def _fetch_base_orders(
     start_date: str, end_date: str, db: Session, client: httpx.AsyncClient,
 ) -> dict:
-    """기간 내 Cafe24 주문 목록 → {order_id: order_data}."""
+    """기간 내 Cafe24 주문 목록 → {order_id: order_data}.
+
+    embed 파라미터로 단일 호출에 buyer/receivers/items까지 동봉되어 옴
+    (개별 detail API 호출 불필요).
+    order_status=N20 필터로 '배송준비중' 주문만 받음
+    (결제완료 + 우리 시스템에서 아직 발송 처리 안 한 주문 = 새 import 후보).
+    """
     r = await cafe24_admin_service.call_cafe24(
         method="GET",
         url=f"{BASE_URL}/orders",
         db=db,
         client=client,
-        params={"start_date": start_date, "end_date": end_date, "limit": 1000},
+        params={
+            "start_date": start_date,
+            "end_date": end_date,
+            "limit": 1000,
+            "embed": "items,receivers,buyer",
+            "order_status": "N20",
+        },
     )
     if r.is_error:
         raise HTTPException(
@@ -133,45 +144,22 @@ async def _fetch_base_orders(
     return {o["order_id"]: o for o in r.json().get("orders", [])}
 
 
-async def _fetch_order_detail(
-    order_id: str, db: Session, client: httpx.AsyncClient,
-) -> Tuple[Optional[dict], List[dict], List[dict]]:
-    """단일 주문의 buyer + receivers + items 병렬 조회.
-
-    HTTP 에러 발생 시 즉시 ImportSkip (상태 코드 명시). 본문이 비어있는 경우는 호출자에서 구분 처리.
-    """
-    base = f"{BASE_URL}/orders/{order_id}"
-
-    buyer_r, receivers_r, items_r = await asyncio.gather(
-        cafe24_admin_service.call_cafe24(method="GET", url=f"{base}/buyer", db=db, client=client),
-        cafe24_admin_service.call_cafe24(method="GET", url=f"{base}/receivers", db=db, client=client),
-        cafe24_admin_service.call_cafe24(method="GET", url=f"{base}/items", db=db, client=client),
-    )
-
-    if buyer_r.is_error:
-        raise ImportSkip(f"buyer 조회 HTTP 에러 (status={buyer_r.status_code})")
-    if receivers_r.is_error:
-        raise ImportSkip(f"receivers 조회 HTTP 에러 (status={receivers_r.status_code})")
-    if items_r.is_error:
-        raise ImportSkip(f"items 조회 HTTP 에러 (status={items_r.status_code})")
-
-    buyer = buyer_r.json().get("buyer")
-    receivers = receivers_r.json().get("receivers", [])
-    items = items_r.json().get("items", [])
-    return buyer, receivers, items
-
-
 # ── Customer / Address 매칭 (commit 없음 — 호출자 책임) ──────────────────────
 
 def _find_or_create_customer(db: Session, buyer: dict) -> Customer:
-    """customer_phone(정규화)으로 매칭 후 없으면 신규. db.flush()로 customer_id 확보."""
+    """customer_phone(정규화) + customer_name으로 매칭 후 없으면 신규. db.flush()로 customer_id 확보."""
     raw_phone = buyer.get("cellphone") or ""
     if not raw_phone:
         raise ImportSkip("buyer.cellphone이 비어있음")
     formatted_phone, phone_num4 = format_phone_number(raw_phone)
 
+    customer_name = (buyer.get("name") or "").strip()
+    if not customer_name:
+        raise ImportSkip("buyer.name이 비어있음")
+
     existing = db.query(Customer).filter(
         Customer.customer_phone == formatted_phone,
+        Customer.customer_name == customer_name,
         Customer.is_deleted == False,
     ).first()
     if existing:
@@ -180,7 +168,7 @@ def _find_or_create_customer(db: Session, buyer: dict) -> Customer:
     customer = Customer(
         customer_phone=formatted_phone,
         customer_phone_num4=phone_num4,
-        customer_name=buyer.get("name") or "",
+        customer_name=customer_name,
         customer_email=buyer.get("email") or None,
         create_channel="CAFE24",
         is_active=True,
@@ -191,20 +179,35 @@ def _find_or_create_customer(db: Session, buyer: dict) -> Customer:
 
 
 def _find_or_create_address(db: Session, customer_id: int, receiver: dict) -> Address:
-    """4개 필드(name+phone+postal_code+address) 일치 시 재사용, 없으면 신규."""
-    recipient_name = receiver.get("name") or ""
+    """4개 필드(name+phone+postal_code+address) 일치 시 재사용, 없으면 신규.
+
+    4개 필드는 Address 모델에서 nullable=False —
+    의미 있는 값이 하나라도 없으면 ImportSkip.
+    """
+    recipient_name = (receiver.get("name") or "").strip()
+    if not recipient_name:
+        raise ImportSkip("receiver.name이 비어있음")
+
+    raw_recipient_phone = (receiver.get("cellphone") or "").strip()
+    if not raw_recipient_phone:
+        raise ImportSkip("receiver.cellphone이 비어있음")
     # recipient_phone: Customer.customer_phone과 동일한 정규화 포맷으로 저장 → 매칭 누락 방지
-    recipient_phone, _ = format_phone_number(receiver.get("cellphone") or "")
-    postal_code = receiver.get("zipcode") or ""
+    recipient_phone, _ = format_phone_number(raw_recipient_phone)
+
+    postal_code = (receiver.get("zipcode") or "").strip()
+    if not postal_code:
+        raise ImportSkip("receiver.zipcode가 비어있음")
+
     # address_full이 있으면 우선, 없으면 address1+address2 결합 (방어)
     recipient_address = (
         receiver.get("address_full")
         or " ".join(filter(None, [receiver.get("address1"), receiver.get("address2")])).strip()
         or ""
-    )
+    ).strip()
+    if not recipient_address:
+        raise ImportSkip("receiver.address가 비어있음 (address_full / address1+address2 모두 빈)")
+
     customer_memo = receiver.get("shipping_message") or None
-    if customer_memo == "":
-        customer_memo = None
 
     existing = db.query(Address).filter(
         Address.customer_id == customer_id,
@@ -234,20 +237,23 @@ def _find_or_create_address(db: Session, customer_id: int, receiver: dict) -> Ad
 
 async def _import_single_order(
     db: Session,
-    client: httpx.AsyncClient,
     external_order_id: str,
     base_order: dict,
 ) -> List[dict]:
     """주문 1건 처리. 성공 시 warnings 리스트 반환. 실패 시 ImportSkip 예외.
     트랜잭션 commit/rollback은 호출자 책임.
+
+    base_order에는 _fetch_base_orders가 embed로 동봉한 buyer/receivers/items가 포함됨.
     """
     warnings: List[dict] = []
 
     def warn(msg: str):
         warnings.append({"external_order_id": external_order_id, "message": msg})
 
-    # 1) Cafe24 상세 조회 (buyer / receivers / items 병렬) — HTTP 에러 시 내부에서 ImportSkip
-    buyer, receivers, items = await _fetch_order_detail(external_order_id, db, client)
+    # 1) base_order에서 buyer / receivers / items 추출 (embed로 이미 동봉됨)
+    buyer = base_order.get("buyer")
+    receivers = base_order.get("receivers") or []
+    items = base_order.get("items") or []
     if not buyer:
         raise ImportSkip("buyer 데이터 비어있음")
     if not receivers:
@@ -262,31 +268,24 @@ async def _import_single_order(
     if not payment_method:
         raise ImportSkip(f"미매핑 payment_method 코드: {pm_code!r}")
 
-    # 3) order_status 결정 (paid / canceled 4가지 조합)
+    # 3) order_status 검증 — N20 필터로 paid="T" + canceled="F" 보장
+    # 그 외 조합은 N20 정의 변경/Cafe24 데이터 drift 의미이므로 즉시 skip
     paid = base_order.get("paid")
     canceled = base_order.get("canceled")
-    # 부분 결제/부분 취소("M")는 매핑 정책상 지원 안 함 — 발생 시 명시적으로 skip
-    if paid == "M" or canceled == "M":
+    if paid != "T" or canceled != "F":
         raise ImportSkip(
-            f"부분 결제/취소 케이스 지원 안 함 (paid={paid!r}, canceled={canceled!r})"
+            f"N20 필터 통과했는데 paid/canceled가 예상과 다름: paid={paid!r}, canceled={canceled!r}"
         )
-    if canceled == "T":
-        order_status = "CANCELLED" if paid == "T" else "UNPAID_CANCELLED"
-    elif paid == "T":
-        order_status = "PAID"
-    else:
-        order_status = "ORDERED"
+    order_status = "PAID"
 
     # 4) 시각 필드 (KST naive)
+    # canceled="F" 보장 → cancel_date는 항상 None이므로 변수 생략
     order_at = parse_cafe24_datetime(base_order.get("order_date"))
     payment_at = parse_cafe24_datetime(base_order.get("payment_date"))
-    cancelled_at = parse_cafe24_datetime(base_order.get("cancel_date"))
 
-    # 보조 일관성 검증 (경고)
-    if paid == "T" and not payment_at:
-        warn("paid=T인데 payment_date 없음")
-    if canceled == "T" and not cancelled_at:
-        warn("canceled=T인데 cancel_date 없음")
+    # paid="T" 보장 → payment_date 반드시 있어야 함. 없으면 데이터 이상으로 간주하고 skip
+    if not payment_at:
+        raise ImportSkip("paid=T인데 payment_date 없음")
 
     # 5) 상품 매칭 + sale_price(1년 단가) 검증 + YEARLY 옵션 년수 계산
     # Cafe24 product_price는 옵션(1/2/3년 연장)과 무관하게 항상 1년 단가로 내려오므로
@@ -335,16 +334,13 @@ async def _import_single_order(
     expected_payment = items_sum + send_fee
 
     # 8) payment_amount / total_amount_due 검증 (경고)
+    # paid="T" 보장 → 결제금액 일치 + 잔액 0 두 가지만 검증
     cafe24_payment = to_int(base_order.get("payment_amount"))
     cafe24_due = to_int(initial.get("total_amount_due"))
-    if paid == "T":
-        if cafe24_payment != expected_payment:
-            warn(f"payment_amount 불일치: Cafe24={cafe24_payment}, 계산={expected_payment}")
-        if cafe24_due != 0:
-            warn(f"paid=T인데 total_amount_due={cafe24_due}")
-    elif paid == "F":
-        if cafe24_due != expected_payment:
-            warn(f"paid=F인데 total_amount_due({cafe24_due}) ≠ 계산({expected_payment})")
+    if cafe24_payment != expected_payment:
+        warn(f"payment_amount 불일치: Cafe24={cafe24_payment}, 계산={expected_payment}")
+    if cafe24_due != 0:
+        warn(f"paid=T인데 total_amount_due={cafe24_due}")
 
     # 9) 주문 레벨 할인 0 검증 (경고)
     for f in ORDER_DISCOUNT_FIELDS:
@@ -375,7 +371,6 @@ async def _import_single_order(
         payment_amount=expected_payment,
         payment_method=payment_method,
         payment_at=payment_at,
-        cancelled_at=cancelled_at,
     )
     if order_at:
         order.order_at = order_at
@@ -432,13 +427,14 @@ async def _import_single_order(
         db.add(order_item)
 
     # 14) 고객 last_order_at 업데이트
-    customer.last_order_at = now_kst()
+    # Cafe24는 과거 주문을 나중에 import하는 패턴이므로 실제 주문 시각(order_at) 사용.
+    # 더 최근 주문이 이미 있다면 덮어쓰지 않음 (backwards 이동 방지).
+    if order_at and (customer.last_order_at is None or order_at > customer.last_order_at):
+        customer.last_order_at = order_at
 
     db.flush()
     return warnings
 
-
-# ── 메인 오케스트레이션 ───────────────────────────────────────────────────────
 
 # ── 목록 조회용 매핑 (UI 표시 전용, 검증 없음) ────────────────────────────────
 
@@ -450,12 +446,12 @@ async def list_mapped_orders(
 ) -> dict:
     """기간 내 Cafe24 주문 목록을 매핑 문서대로 변환해 반환.
 
-    - 각 주문마다 buyer/receivers/items 병렬 조회 후 매핑 적용
+    - _fetch_base_orders 단일 호출로 buyer/receivers/items까지 동봉되어 옴 (embed)
     - UI 표시 목적이므로 검증(total_amount, sale_price, 할인 0 등)은 생략
     - 상품 매칭 실패(미등록) 시 내부 필드는 null + Cafe24 원본 코드 표시
     - 응답에 already_imported 플래그 포함
     """
-    # 1) Cafe24 주문 목록 조회
+    # 1) Cafe24 주문 목록 조회 (embed로 buyer/receivers/items 동봉)
     base_by_id = await _fetch_base_orders(start_date, end_date, db, client)
     order_ids = list(base_by_id.keys())
 
@@ -468,19 +464,10 @@ async def list_mapped_orders(
             ).all()
         }
 
-    # 3) 모든 주문의 buyer/receivers/items 병렬 조회
-    details = await asyncio.gather(
-        *[_fetch_order_detail(oid, db, client) for oid in order_ids],
-        return_exceptions=True,
-    )
-
-    # 4) 모든 Cafe24 상품 코드 모아 내부 Product 일괄 조회
+    # 3) 모든 Cafe24 상품 코드 모아 내부 Product 일괄 조회
     all_cafe24_codes = set()
-    for detail in details:
-        if isinstance(detail, Exception):
-            continue
-        _, _, items_list = detail
-        for it in items_list:
+    for base in base_by_id.values():
+        for it in (base.get("items") or []):
             code = it.get("product_code")
             if code:
                 all_cafe24_codes.add(code)
@@ -489,14 +476,12 @@ async def list_mapped_orders(
     ).all() if all_cafe24_codes else []
     product_map = {p.external_product_code_cafe24: p for p in products}
 
-    # 5) 각 주문 매핑
+    # 4) 각 주문 매핑 (base에서 buyer/receivers/items 직접 추출)
     mapped_orders: List[dict] = []
-    for oid, detail in zip(order_ids, details):
-        base = base_by_id[oid]
-        if isinstance(detail, Exception):
-            mapped_orders.append(_build_mapped_error(oid, base, oid in existing_ids, str(detail)))
-            continue
-        buyer, receivers, items_list = detail
+    for oid, base in base_by_id.items():
+        buyer = base.get("buyer")
+        receivers = base.get("receivers") or []
+        items_list = base.get("items") or []
         mapped = _build_mapped_order(
             base=base,
             buyer=buyer,
@@ -560,8 +545,6 @@ def _build_mapped_order(
         or ""
     )
     customer_memo = receiver.get("shipping_message") or None
-    if customer_memo == "":
-        customer_memo = None
 
     # Items
     # unit_price = Cafe24 1년 단가 (product_price 원본) — 옵션과 무관하게 동일 값
@@ -621,7 +604,6 @@ def _build_mapped_order(
         "payment_method": payment_method,
         "order_at": base.get("order_date"),
         "payment_at": base.get("payment_date"),
-        "cancelled_at": base.get("cancel_date"),
         "customer_name": customer_name,
         "customer_phone": customer_phone,
         "customer_email": customer_email,
@@ -638,33 +620,7 @@ def _build_mapped_order(
     }
 
 
-def _build_mapped_error(order_id: str, base: dict, already_imported: bool, error: str) -> dict:
-    """detail 조회 실패 시 최소 정보만 담은 매핑 실패 응답."""
-    return {
-        "external_order_id": order_id,
-        "order_channel": "CAFE24",
-        "order_status": None,
-        "send_fee": None,
-        "payment_method": None,
-        "order_at": base.get("order_date"),
-        "payment_at": base.get("payment_date"),
-        "cancelled_at": base.get("cancel_date"),
-        "customer_name": None,
-        "customer_phone": None,
-        "customer_email": None,
-        "recipient_name": None,
-        "recipient_phone": None,
-        "country_code": None,
-        "postal_code": None,
-        "recipient_address": None,
-        "customer_memo": None,
-        "items": [],
-        "total_amount": None,
-        "payment_amount": None,
-        "already_imported": already_imported,
-        "detail_fetch_error": error,
-    }
-
+# ── 메인 오케스트레이션 (실제 DB import) ─────────────────────────────────────
 
 async def import_orders(
     db: Session,
@@ -690,14 +646,20 @@ async def import_orders(
     period_start, period_end = extract_period_from_ids(external_order_ids)
     base_by_id = await _fetch_base_orders(period_start, period_end, db, client)
 
+    # 0-2) 이미 import된 외부 주문번호 일괄 확인 (N+1 방지)
+    # 루프 진입 후 외부에서 동시 import된 케이스는 IntegrityError 핸들러가 잡아줌.
+    existing_external_ids = set(
+        row[0] for row in db.query(Order.external_order_id)
+        .filter(Order.external_order_id.in_(external_order_ids))
+        .all()
+    )
+
     imported_order_ids: List[str] = []
     skipped_orders: List[dict] = []
     warnings: List[dict] = []
 
     for external_order_id in external_order_ids:
-        # DB 중복 검사
-        already = db.query(Order).filter(Order.external_order_id == external_order_id).first()
-        if already:
+        if external_order_id in existing_external_ids:
             skipped_orders.append({"external_order_id": external_order_id, "reason": "이미 import됨"})
             continue
 
@@ -707,7 +669,7 @@ async def import_orders(
             continue
 
         try:
-            order_warnings = await _import_single_order(db, client, external_order_id, base)
+            order_warnings = await _import_single_order(db, external_order_id, base)
             if dry_run:
                 db.rollback()   # 미리보기: 저장 취소
             else:

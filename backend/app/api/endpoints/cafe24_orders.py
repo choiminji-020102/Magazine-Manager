@@ -32,7 +32,8 @@ async def list_cafe24_orders(
 ):
     """Cafe24 주문 목록 조회 — 매핑 문서 규칙대로 변환된 응답 반환.
 
-    각 주문마다 buyer/receivers/items 상세를 병렬 조회해 하나의 매핑된 주문 객체로 구성.
+    Cafe24 GET /orders를 embed=items,receivers,buyer + order_status=N20으로 단일 호출
+    (배송준비중 주문만, buyer/receivers/items 동봉).
     상품 매칭(external_product_code_cafe24)도 수행하여 내부 product_code/product_name까지 포함.
     응답에 already_imported 플래그 포함.
     """
