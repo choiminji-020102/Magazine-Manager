@@ -4,3 +4,6 @@ __pycache__/
 
 # 배포 가이드 (민감 정보 포함 — DB 비밀번호 등)
 DEPLOY_GUIDE.md
+
+# Cafe24 API 응답 디버깅용 로컬 테스트 파일
+sunmok129-test/
