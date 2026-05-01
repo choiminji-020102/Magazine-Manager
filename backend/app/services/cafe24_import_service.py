@@ -325,13 +325,13 @@ def _build_mapped_order(
         "customer_name": customer_name,
         "customer_phone": customer_phone,
         "customer_email": customer_email,
-        "admin_memo": admin_memo,
+        "admin_memo": admin_memo,                # 관리자 메모 (Customer.admin_memo, Cafe24 buyer.customer_notification)
         "recipient_name": receiver.get("name") or "",
         "recipient_phone": recipient_phone,
         "country_code": "KR",
         "postal_code": receiver.get("zipcode") or "",
         "recipient_address": recipient_address,
-        "customer_memo": customer_memo,
+        "customer_memo": customer_memo,          # 배송 메모 (Address.customer_memo, Cafe24 receivers[0].shipping_message)
         "items": mapped_items,
         "total_amount": total_amount,
         "payment_amount": payment_amount,
