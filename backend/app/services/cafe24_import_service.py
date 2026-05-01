@@ -246,10 +246,12 @@ def _build_mapped_order(
         customer_phone, _ = format_phone_number(raw_customer_phone)
         customer_name = buyer.get("name") or ""
         customer_email = buyer.get("email") or None
+        admin_memo = (buyer.get("customer_notification") or "").strip() or None
     else:
         customer_phone = ""
         customer_name = ""
         customer_email = None
+        admin_memo = None
 
     # Address (receivers[0])
     receiver = receivers[0] if receivers else {}
@@ -323,6 +325,7 @@ def _build_mapped_order(
         "customer_name": customer_name,
         "customer_phone": customer_phone,
         "customer_email": customer_email,
+        "admin_memo": admin_memo,
         "recipient_name": receiver.get("name") or "",
         "recipient_phone": recipient_phone,
         "country_code": "KR",
@@ -339,7 +342,12 @@ def _build_mapped_order(
 # ── Customer / Address 매칭 (commit 없음 — 호출자 책임) ──────────────────────
 
 def _find_or_create_customer(db: Session, buyer: dict) -> Customer:
-    """customer_phone(정규화) + customer_name으로 매칭 후 없으면 신규. db.flush()로 customer_id 확보."""
+    """customer_phone(정규화) + customer_name으로 매칭 후 없으면 신규. db.flush()로 customer_id 확보.
+
+    buyer.customer_notification(Cafe24 관리자 메모)는 Customer.admin_memo에 매핑:
+    - 신규 생성: cafe24 메모를 그대로 채움
+    - 기존 매칭: cafe24 메모가 있으면 기존 admin_memo에 줄바꿈으로 append (정보 손실 방지)
+    """
     raw_customer_phone = buyer.get("cellphone") or ""
     if not raw_customer_phone:
         raise ImportSkip("buyer.cellphone이 비어있음")
@@ -349,12 +357,19 @@ def _find_or_create_customer(db: Session, buyer: dict) -> Customer:
     if not customer_name:
         raise ImportSkip("buyer.name이 비어있음")
 
+    cafe24_memo = (buyer.get("customer_notification") or "").strip() or None
+
     existing = db.query(Customer).filter(
         Customer.customer_phone == formatted_phone,
         Customer.customer_name == customer_name,
         Customer.is_deleted == False,
     ).first()
     if existing:
+        if cafe24_memo:
+            if existing.admin_memo:
+                existing.admin_memo = f"{existing.admin_memo}\n{cafe24_memo}"
+            else:
+                existing.admin_memo = cafe24_memo
         return existing
 
     customer = Customer(
@@ -362,6 +377,7 @@ def _find_or_create_customer(db: Session, buyer: dict) -> Customer:
         customer_phone_num4=phone_num4,
         customer_name=customer_name,
         customer_email=buyer.get("email") or None,
+        admin_memo=cafe24_memo,
         create_channel="CAFE24",
         is_active=True,
     )
