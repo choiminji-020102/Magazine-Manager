@@ -45,7 +45,7 @@ ORDER_DISCOUNT_FIELDS = [
 ]
 
 # 할인 0 검증 대상 필드 (items[].*)
-# option_price는 제외: Cafe24가 옵션 없는 단품에도 product_price와 동일한 값을 내려줌 → "옵션 추가금" 의미 아님
+# option_price는 옵션 추가금 (1년=0, 2년=+1년치 product_price, 3년=+2년치)이며 할인 필드가 아니므로 제외
 ITEM_DISCOUNT_FIELDS = [
     "coupon_discount_price", "additional_discount_price",
     "app_item_discount_amount",
@@ -265,8 +265,8 @@ def _build_mapped_order(
     customer_memo = receiver.get("shipping_message") or None
 
     # Items
-    # unit_price = Cafe24 1년 단가 (product_price 원본) — 옵션과 무관하게 동일 값
-    # sale_price = 1세트 실제 지불액 = unit_price × years (MONTHLY는 unit_price 그대로)
+    # unit_price = Cafe24 1년 단가 (product_price 원본)
+    # sale_price = 1세트 실제 지불액 = product_price + option_price (옵션 추가금 포함, MONTHLY는 option_price=0)
     # line_total = 라인 총액 = sale_price × order_num
     mapped_items: List[dict] = []
     for it in items:
@@ -277,15 +277,12 @@ def _build_mapped_order(
         option_value = it.get("option_value") or ""
 
         if product:
+            sale_price = unit_price + to_int(it.get("option_price"))
             if product.product_kind == "YEARLY":
-                period = parse_subscribe_period(option_value)
-                subscribe_period = period if period is not None else None
-                years = period // 12 if period is not None else None
-                sale_price = unit_price * years if years is not None else None
+                subscribe_period = parse_subscribe_period(option_value)
             else:
                 subscribe_period = 1
-                sale_price = unit_price
-            line_total = sale_price * quantity if sale_price is not None else None
+            line_total = sale_price * quantity
             mapped_items.append({
                 "cafe24_product_code": cafe24_code,
                 "external_order_item_id": it.get("order_item_code"),
@@ -495,16 +492,17 @@ async def _import_single_order(
     if not payment_at:
         raise ImportSkip("paid=T인데 payment_date 없음")
 
-    # 5) 상품 매칭 + sale_price(1년 단가) 검증 + YEARLY 옵션 년수 계산
+    # 5) 상품 매칭 + product_price(1년 단가) 검증 + YEARLY 옵션 구독 개월 수 계산
     # Cafe24 product_price는 옵션(1/2/3년 연장)과 무관하게 항상 1년 단가로 내려오므로
-    # 내부 Product.sale_price(1년 단가)와 직접 비교 가능. 실제 결제 총액은 option_value에서 년수를 파싱해 곱함.
+    # 내부 Product.sale_price(1년 단가)와 직접 비교 가능.
+    # 옵션 추가금은 items[].option_price에 들어있어 OrderItem.sale_price 계산 시 합산.
     cafe24_codes = list({it.get("product_code") for it in items if it.get("product_code")})
     products = db.query(Product).filter(
         Product.external_product_code_cafe24.in_(cafe24_codes)
     ).all()
     product_map = {p.external_product_code_cafe24: p for p in products}
 
-    item_years: dict[str, int] = {}  # external_order_item_id → 년수 (MONTHLY=1)
+    item_subscribe_periods: dict[str, int] = {}  # external_order_item_id → 구독 개월 수 (MONTHLY=1)
     for it in items:
         cafe24_code = it.get("product_code")
         product = product_map.get(cafe24_code)
@@ -513,7 +511,7 @@ async def _import_single_order(
         cafe24_price = to_int(it.get("product_price"))
         if cafe24_price != product.sale_price:
             raise ImportSkip(
-                f"sale_price 불일치 (상품 {cafe24_code}): Cafe24={cafe24_price}, Product.sale_price={product.sale_price}"
+                f"product_price 불일치 (상품 {cafe24_code}): Cafe24={cafe24_price}, Product.sale_price={product.sale_price}"
             )
         if product.product_kind == "YEARLY":
             period_months = parse_subscribe_period(it.get("option_value") or "")
@@ -521,20 +519,21 @@ async def _import_single_order(
                 raise ImportSkip(
                     f"YEARLY 상품 {cafe24_code}의 option_value에서 구독 기간 파싱 실패: {(it.get('option_value') or '')!r}"
                 )
-            item_years[it.get("order_item_code")] = period_months // 12
+            item_subscribe_periods[it.get("order_item_code")] = period_months
         else:
-            item_years[it.get("order_item_code")] = 1
+            item_subscribe_periods[it.get("order_item_code")] = 1
 
-    # 6) 금액 계산 + total_amount 검증 (YEARLY는 product_price × quantity × 년수)
+    # 6) 금액 계산 + total_amount 검증
+    # sale_price = product_price + option_price (옵션 추가금 포함, MONTHLY는 option_price=0)
     initial = base_order.get("initial_order_amount") or {}
     items_sum = sum(
-        to_int(it.get("product_price")) * (it.get("quantity") or 0) * item_years[it.get("order_item_code")]
+        (to_int(it.get("product_price")) + to_int(it.get("option_price"))) * (it.get("quantity") or 0)
         for it in items
     )
     cafe24_total = to_int(initial.get("order_price_amount"))
     if cafe24_total != items_sum:
         raise ImportSkip(
-            f"total_amount 불일치: order_price_amount={cafe24_total}, Σ(product_price×quantity×years)={items_sum}"
+            f"total_amount 불일치: order_price_amount={cafe24_total}, Σ((product_price+option_price)×quantity)={items_sum}"
         )
 
     # 7) send_fee (Cafe24 값 그대로)
@@ -585,7 +584,7 @@ async def _import_single_order(
     db.add(order)
     db.flush()  # order.order_id 확보
 
-    # 13) OrderItem 생성 (sale_price는 1세트 실제 지불액 = 1년 단가 × 년수)
+    # 13) OrderItem 생성 (sale_price = product_price + option_price, 옵션 추가금 포함)
     for it in items:
         cafe24_code = it.get("product_code")
         product = product_map[cafe24_code]
@@ -596,17 +595,15 @@ async def _import_single_order(
         quantity = it.get("quantity") or 0
         external_item_id = it.get("order_item_code")
         option_value = it.get("option_value") or ""
-        years = item_years[external_item_id]
-        sale_price = to_int(it.get("product_price")) * years
+        sale_price = to_int(it.get("product_price")) + to_int(it.get("option_price"))
+        subscribe_period = item_subscribe_periods[external_item_id]
 
-        # 구독 기간
+        # 구독 종료 호 (MONTHLY는 시작 호 = 종료 호)
         if product.product_kind == "YEARLY":
-            subscribe_period = years * 12
             subscribe_end_issue = calculate_subscribe_end_issue(
                 product.subscribe_start_issue, subscribe_period
             )
         else:  # MONTHLY
-            subscribe_period = 1
             subscribe_end_issue = product.subscribe_start_issue
 
         # option_value 시작 호 ↔ Product.subscribe_start_issue 교차 검증 (경고)
