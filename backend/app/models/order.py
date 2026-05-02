@@ -18,7 +18,7 @@ class Order(Base):
     order_channel = Column(Enum("CAFE24", "GPMALL", "OFFLINE", name="order_channel_enum"), nullable=False, comment="주문 채널")
     order_status = Column(Enum("ORDERED", "PAID", "CANCELLED", "UNPAID_CANCELLED", name="order_status_enum"), nullable=False, server_default="ORDERED", comment="주문 상태")
     
-    total_amount = Column(Integer, nullable=False, server_default="0", comment="총 주문 금액")
+    total_amount = Column(Integer, nullable=False, server_default="0", comment="총 주문 금액 (= Σ(OrderItem.sale_price × OrderItem.order_num))")
     discount_amount = Column(Integer, nullable=False, server_default="0", comment="할인 금액")
     refund_amount = Column(Integer, nullable=False, server_default="0", comment="환불 금액")
     send_fee = Column(Integer, nullable=False, server_default="0", comment="배송비")

@@ -84,7 +84,10 @@ def extract_period_from_ids(external_order_ids: List[str]) -> Tuple[str, str]:
 
 
 def parse_subscribe_period(option_value: str) -> Optional[int]:
-    """option_value에서 '구독 기간=N년 연장' 파싱 → N×12. 실패 시 None."""
+    """option_value에서 '구독 기간=N년 연장' 또는 '구독 연장=N년 연장' 파싱 → N×12. 실패 시 None.
+
+    MONTHLY 상품은 option_value가 빈 문자열로 와서 None을 반환 — 호출자가 product_kind 분기로 처리.
+    """
     if not option_value:
         return None
     m = _PERIOD_YEAR_RE.search(option_value)
@@ -445,10 +448,10 @@ async def _import_single_order(
     external_order_id: str,
     base_order: dict,
 ) -> List[dict]:
-    """주문 1건 처리. 성공 시 warnings 리스트 반환. 실패 시 ImportSkip 예외.
-    트랜잭션 commit/rollback은 호출자 책임.
+    """Cafe24 주문 1건 → 내부 DB(Customer/Address/Order/OrderItem) 변환·저장.
 
-    base_order에는 _fetch_base_orders가 embed로 동봉한 buyer/receivers/items가 포함됨.
+    검증 실패 시 ImportSkip 예외, 비치명적 이상은 warnings 리스트로 반환.
+    트랜잭션 commit/rollback은 호출자 책임 (db.add/flush만 수행).
     """
     warnings: List[dict] = []
 
@@ -651,9 +654,9 @@ async def import_orders(
     request: Request,
     dry_run: bool = False,
 ) -> dict:
-    """선택된 Cafe24 주문번호 배열을 일괄 import.
+    """Cafe24 주문번호 배열을 일괄 import — 각 주문마다 _import_single_order 호출.
 
-    각 주문은 독립 트랜잭션 (실패 시 그 주문만 rollback). 마지막에 활동 로그 1건 기록.
+    각 주문은 독립 트랜잭션 (실패 시 그 주문만 rollback). 종료 후 활동 로그 1건 기록.
     dry_run=True면 저장하지 않고 매핑·검증 결과만 반환 (미리보기 용도).
     응답: {imported_count, skipped_count, imported_order_ids, skipped_orders, warnings, dry_run}
     """
