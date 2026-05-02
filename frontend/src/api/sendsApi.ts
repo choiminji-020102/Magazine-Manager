@@ -69,12 +69,4 @@ export const sendsApi = {
   cancelSend: (sendId: number) => {
     return api.post<ResponseModel<SendResponse>>(`/sends/${sendId}/cancel`);
   },
-
-  // GET /sends/export/excel - 발송 데이터 엑셀 다운로드
-  exportSendsToExcel: (params?: { send_status?: string | null }) => {
-    return api.get("/sends/export/excel", {
-      params,
-      responseType: "blob",
-    });
-  },
 };
