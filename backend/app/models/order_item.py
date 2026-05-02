@@ -20,6 +20,7 @@ class OrderItem(Base):
     product_name = Column(String(255), nullable=False, comment="상품명")
 
     list_price = Column(Integer, nullable=False, server_default="0", comment="정가")
+    # 1세트 실제 지불액 (옵션 추가금 포함, 주문 시점 스냅샷). Cafe24 import 시 product_price + option_price.
     sale_price = Column(Integer, nullable=False, server_default="0", comment="판매가")
     refund_amount = Column(Integer, nullable=False, server_default="0", comment="환불액")
     order_num = Column(Integer, nullable=False, server_default="1", comment="수량")

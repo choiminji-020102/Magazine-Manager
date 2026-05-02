@@ -295,7 +295,7 @@ def _build_mapped_order(
                 "unit_price": unit_price,
                 "sale_price": sale_price,
                 "order_num": quantity,
-                "line_total": line_total,
+                "line_total": line_total,        # UI 전용 (= OrderItem.sale_price × OrderItem.order_num, DB 저장 안 됨. 합산은 Order.total_amount)
                 "subscribe_period": subscribe_period,
                 "option_value": option_value,
             })
@@ -309,7 +309,7 @@ def _build_mapped_order(
                 "unit_price": unit_price,
                 "sale_price": None,
                 "order_num": quantity,
-                "line_total": None,
+                "line_total": None,              # UI 전용 (DB 저장 안 됨)
                 "subscribe_period": None,
                 "option_value": option_value,
             })

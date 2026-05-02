@@ -17,6 +17,7 @@ class Product(Base):
     external_product_code_gpmall = Column(String(50), nullable=True, comment="갓피플몰 상품코드")
 
     list_price = Column(Integer, nullable=False, server_default="0", comment="상품 소비자가")
+    # 1년 단가 (옵션 추가금 제외). 옵션 포함 실 지불액은 OrderItem.sale_price 참조.
     sale_price = Column(Integer, nullable=False, server_default="0", comment="상품 판매가")
     cost_price = Column(Integer, nullable=False, server_default="0", comment="제작 단가")
     
