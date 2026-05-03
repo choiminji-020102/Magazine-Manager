@@ -24,6 +24,7 @@ from app.models.address import Address
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.pause import Pause
+from app.models.send import Send
 from app.models.send_item import SendItem
 
 
@@ -52,7 +53,9 @@ def group_monthly_for_send(
     """단품(MONTHLY) OrderItem 리스트를 (우편번호, 주소) 단위로 묶어 반환.
 
     - 그룹 내 (이름, 연락처)가 다르면 가나다 정렬 첫 번째를 자동 채택.
-    - 중복 발송 방지: 활성 SendItem이 이미 있는 OrderItem은 자동 제외 (호 비교 없음).
+    - 중복 발송 방지: "활성 SendItem이 있는" 또는 "DELIVERED/CANCELLED Send에 들어있는"
+      OrderItem은 자동 제외 (호 비교 없음). 즉, "한 번이라도 발송 처리되거나 박스가
+      종료된" OrderItem은 재발송하지 않는다.
     - last_send_issue 필드는 사용·갱신 모두 안 함.
     """
     if not order_item_ids:
@@ -61,9 +64,13 @@ def group_monthly_for_send(
     already_sent_ids = {
         row[0]
         for row in db.query(SendItem.order_item_id)
+        .join(Send, SendItem.send_id == Send.send_id)
         .filter(
             SendItem.order_item_id.in_(order_item_ids),
-            SendItem.cancelled_at.is_(None),
+            or_(
+                SendItem.cancelled_at.is_(None),
+                Send.send_status.in_(["DELIVERED", "CANCELLED"]),
+            ),
         )
         .all()
     }
@@ -128,7 +135,8 @@ def group_yearly_for_send(
 
     중복 발송 방지 (다음 조건을 모두 만족하는 OrderItem만 포함):
     - OrderItem.last_send_issue IS NULL 또는 last_send_issue < issue
-    - 그 호로 활성 SendItem이 없음
+    - 그 호로 "활성 SendItem이 있는" 또는 "DELIVERED/CANCELLED Send에 들어있는" 이력 없음
+      (즉, 그 호로 한 번이라도 발송 처리되거나 박스가 종료된 OrderItem은 재발송 X)
     - 그 호로 휴지(Pause)되지 않음
     - final_subscribe_start_issue ≤ issue ≤ final_subscribe_end_issue (구독 범위 안)
     """
@@ -138,10 +146,14 @@ def group_yearly_for_send(
     already_sent_ids = {
         row[0]
         for row in db.query(SendItem.order_item_id)
+        .join(Send, SendItem.send_id == Send.send_id)
         .filter(
             SendItem.order_item_id.in_(order_item_ids),
             SendItem.issue == issue,
-            SendItem.cancelled_at.is_(None),
+            or_(
+                SendItem.cancelled_at.is_(None),
+                Send.send_status.in_(["DELIVERED", "CANCELLED"]),
+            ),
         )
         .all()
     }
@@ -222,11 +234,18 @@ def count_paid_not_prepared(db: Session) -> Tuple[int, int]:
     조건:
     - Order.order_status = 'PAID'
     - OrderItem.cancelled_at IS NULL
-    - 활성 SendItem(cancelled_at IS NULL)이 없는 OrderItem
+    - "활성 SendItem(cancelled_at IS NULL)" 또는 "DELIVERED/CANCELLED Send에 들어있는 SendItem"
+      이 모두 없는 OrderItem (group_*_for_send와 동일한 발송 이력 판정)
     """
     has_send_item_subq = (
         db.query(SendItem.order_item_id)
-        .filter(SendItem.cancelled_at.is_(None))
+        .join(Send, SendItem.send_id == Send.send_id)
+        .filter(
+            or_(
+                SendItem.cancelled_at.is_(None),
+                Send.send_status.in_(["DELIVERED", "CANCELLED"]),
+            ),
+        )
         .subquery()
     )
 

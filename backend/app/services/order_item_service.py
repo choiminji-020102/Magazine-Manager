@@ -637,14 +637,17 @@ def find_subscription_targets(
         .subquery()
     )
 
-    # 이미 해당 issue로 활성 SendItem이 존재하는 order_item_id 제외
+    # 이미 해당 issue로 발송 이력이 있는 order_item_id 제외
+    # ("활성 SendItem이 있는" 또는 "DELIVERED/CANCELLED Send에 들어있는" — group_*_for_send와 동일 판정)
     already_sent_subquery = (
         db.query(SendItem.order_item_id)
         .join(Send, SendItem.send_id == Send.send_id)
         .filter(
             SendItem.issue == issue,
-            SendItem.cancelled_at.is_(None),
-            Send.cancelled_at.is_(None),
+            or_(
+                SendItem.cancelled_at.is_(None),
+                Send.send_status.in_(["DELIVERED", "CANCELLED"]),
+            ),
         )
         .subquery()
     )
