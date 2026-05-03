@@ -47,14 +47,11 @@ def get_yearly_targets(
         product_code=query.product_code,
     )
 
-    # 수령인 검색 필터
-    if query.recipient_search:
-        term = query.recipient_search.lower()
-        targets = [
-            t for t in targets
-            if (t.recipient_name and term in t.recipient_name.lower())
-            or (t.recipient_phone and term in t.recipient_phone)
-        ]
+    # 수령인 이름 / 우편번호 정확 매칭 필터
+    if query.recipient_name:
+        targets = [t for t in targets if t.recipient_name == query.recipient_name]
+    if query.postal_code:
+        targets = [t for t in targets if t.postal_code == query.postal_code]
 
     total_count = len(targets)
     total_pages = (total_count + query.limit - 1) // query.limit if total_count > 0 else 1
@@ -96,14 +93,11 @@ def get_monthly_targets(
         product_code=query.product_code,
     )
 
-    # 수령인 검색 필터
-    if query.recipient_search:
-        term = query.recipient_search.lower()
-        targets = [
-            t for t in targets
-            if (t.recipient_name and term in t.recipient_name.lower())
-            or (t.recipient_phone and term in t.recipient_phone)
-        ]
+    # 수령인 이름 / 우편번호 정확 매칭 필터
+    if query.recipient_name:
+        targets = [t for t in targets if t.recipient_name == query.recipient_name]
+    if query.postal_code:
+        targets = [t for t in targets if t.postal_code == query.postal_code]
 
     total_count = len(targets)
     total_pages = (total_count + query.limit - 1) // query.limit if total_count > 0 else 1

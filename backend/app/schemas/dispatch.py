@@ -35,7 +35,8 @@ class DispatchTargetListQuery(BaseModel):
     """발송 대상 목록 조회 쿼리"""
     issue: str                                          # 발송할 호 (YYYYMM, 필수)
     product_code: Optional[str] = None
-    recipient_search: Optional[str] = None             # 수령인 이름/연락처 검색
+    recipient_name: Optional[str] = None               # 수령인 이름 정확 매칭
+    postal_code: Optional[str] = None                  # 우편번호 정확 매칭
     page: int = Field(1, ge=1)
     limit: int = Field(100, ge=1, le=1000)             # 발송 대상은 일괄 처리용이라 limit 크게
     sort_by: str = "created_at"
@@ -46,7 +47,8 @@ class DispatchTargetListQuery(BaseModel):
         cls,
         issue: str = Query(..., description="발송할 호 (YYYYMM 형식)"),
         product_code: Optional[str] = Query(None),
-        recipient_search: Optional[str] = Query(None),
+        recipient_name: Optional[str] = Query(None, description="수령인 이름 정확 매칭"),
+        postal_code: Optional[str] = Query(None, description="우편번호 정확 매칭"),
         page: int = Query(1, ge=1),
         limit: int = Query(100, ge=1, le=1000),
         sort_by: str = Query("created_at"),
@@ -55,7 +57,8 @@ class DispatchTargetListQuery(BaseModel):
         return cls(
             issue=issue,
             product_code=product_code,
-            recipient_search=recipient_search,
+            recipient_name=recipient_name,
+            postal_code=postal_code,
             page=page,
             limit=limit,
             sort_by=sort_by,

@@ -10,7 +10,8 @@ export const dispatchApi = {
   getYearlyTargets: (params: {
     issue: string;
     product_code?: string | null;
-    recipient_search?: string | null;
+    recipient_name?: string | null;
+    postal_code?: string | null;
     page?: number;
     limit?: number;
   }) => {
@@ -24,7 +25,8 @@ export const dispatchApi = {
   getMonthlyTargets: (params: {
     issue: string;
     product_code?: string | null;
-    recipient_search?: string | null;
+    recipient_name?: string | null;
+    postal_code?: string | null;
     page?: number;
     limit?: number;
   }) => {
