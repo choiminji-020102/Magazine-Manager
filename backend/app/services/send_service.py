@@ -365,17 +365,16 @@ def update_tracking(
     )
 
 
-def resend_send(db: Session, send: Send) -> Send:
-    """재배송 처리 — Send 본체 변경 없이 활동 로그만 기록 (활동 로그 기록은 호출자 책임).
+def assert_resend_eligible(db: Session, send: Send) -> None:
+    """재배송 가능 여부 검증 — Send 본체는 변경하지 않음 (활동 로그 기록은 호출자 책임).
 
-    DELIVERED Send에서만 호출 가능. PREPARING/CANCELLED 거부.
+    DELIVERED Send에서만 가능. PREPARING/CANCELLED 거부.
     """
     if send.send_status != "DELIVERED":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"재배송은 DELIVERED 상태에서만 가능합니다. 현재 상태: {send.send_status}",
         )
-    return send
 
 
 def delete_preparing_send_items_for_order_items(

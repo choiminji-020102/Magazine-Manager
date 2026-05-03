@@ -123,6 +123,11 @@ def update_tracking(
         send_method=tracking_in.send_method,
         courier_company=tracking_in.courier_company,
     )
+    after = {
+        "tracking_no": updated.tracking_no,
+        "send_method": updated.send_method,
+        "courier_company": updated.courier_company,
+    }
 
     activity_log_service.create_log(
         db=db,
@@ -134,18 +139,19 @@ def update_tracking(
         target_name=send.recipient_name,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
-        details={
-            "before": before,
-            "after": {
-                "tracking_no": updated.tracking_no,
-                "send_method": updated.send_method,
-                "courier_company": updated.courier_company,
-            },
-        },
+        details={"before": before, "after": after},
     )
 
+    # 실제로 바뀐 필드만 메시지에 명시 (no-op 호출 시엔 안내 줄 수 줄임)
+    FIELD_LABEL = {"tracking_no": "운송장", "send_method": "배송방법", "courier_company": "배송업체"}
+    changed = [FIELD_LABEL[k] for k in ("tracking_no", "send_method", "courier_company") if before[k] != after[k]]
+    if changed:
+        message = f"{'/'.join(changed)} 정보가 수정되었습니다. Cafe24 관리자에서도 동일하게 변경해 주세요."
+    else:
+        message = "변경된 항목이 없습니다."
+
     return ResponseModel(
-        message="운송장 정보가 수정되었습니다. Cafe24 관리자에서도 동일하게 변경해 주세요.",
+        message=message,
         data=SendResponse.model_validate(updated),
     )
 
@@ -165,7 +171,7 @@ def resend_send(
 ):
     """DELIVERED Send 재배송 이력 기록 (Send 본체 변경 없음, 활동 로그만 추가)."""
     send = send_service.get_send_by_id(db, send_id)
-    send = send_service.resend_send(db, send)
+    send_service.assert_resend_eligible(db, send)
 
     activity_log_service.create_log(
         db=db,
