@@ -1,35 +1,5 @@
 // Dispatch 관련 타입 (새 백엔드 스키마 기준)
 
-export interface DispatchTarget {
-  order_item_id: number;
-  order_id: number;
-  product_code: string;
-  product_name: string;
-  product_kind: string;
-  order_num: number;
-  subscribe_start_issue: string;
-  final_subscribe_end_issue?: string | null;
-  last_send_issue?: string | null;
-  // 배송지 정보
-  address_id?: number | null;
-  recipient_name?: string | null;
-  recipient_phone?: string | null;
-  country_code?: string | null;
-  postal_code?: string | null;
-  recipient_address?: string | null;
-  customer_memo?: string | null;
-}
-
-export interface DispatchTargetsResponse {
-  issue: string;
-  targets: DispatchTarget[];
-  total_count: number;
-  page: number;
-  limit: number;
-  total_pages: number;
-  product_summary: Record<string, number>; // {product_code: count}
-}
-
 export interface DispatchProductStat {
   product_code: string;
   product_name: string;

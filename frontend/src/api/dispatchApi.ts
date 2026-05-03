@@ -1,41 +1,8 @@
 import api from "./axios";
 import type { ResponseModel } from "../types/api";
-import type {
-  DispatchTargetsResponse,
-  DispatchSummaryResponse,
-} from "../types/dispatch";
+import type { DispatchSummaryResponse } from "../types/dispatch";
 
 export const dispatchApi = {
-  // GET /dispatches/yearly/targets - YEARLY 발송 대상 조회
-  getYearlyTargets: (params: {
-    issue: string;
-    product_code?: string | null;
-    recipient_name?: string | null;
-    postal_code?: string | null;
-    page?: number;
-    limit?: number;
-  }) => {
-    return api.get<ResponseModel<DispatchTargetsResponse>>(
-      "/dispatches/yearly/targets",
-      { params }
-    );
-  },
-
-  // GET /dispatches/monthly/targets - MONTHLY 발송 대상 조회
-  getMonthlyTargets: (params: {
-    issue: string;
-    product_code?: string | null;
-    recipient_name?: string | null;
-    postal_code?: string | null;
-    page?: number;
-    limit?: number;
-  }) => {
-    return api.get<ResponseModel<DispatchTargetsResponse>>(
-      "/dispatches/monthly/targets",
-      { params }
-    );
-  },
-
   // GET /dispatches/summary - 발송 현황 요약
   getDispatchSummary: (issue: string) => {
     return api.get<ResponseModel<DispatchSummaryResponse>>(

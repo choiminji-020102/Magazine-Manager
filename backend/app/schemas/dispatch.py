@@ -3,7 +3,6 @@ import re
 from typing import Dict, List, Literal, Optional
 
 # 서드파티 라이브러리
-from fastapi import Query
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -29,52 +28,6 @@ class DispatchTarget(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-class DispatchTargetListQuery(BaseModel):
-    """발송 대상 목록 조회 쿼리"""
-    issue: str                                          # 발송할 호 (YYYYMM, 필수)
-    product_code: Optional[str] = None
-    recipient_name: Optional[str] = None               # 수령인 이름 정확 매칭
-    postal_code: Optional[str] = None                  # 우편번호 정확 매칭
-    page: int = Field(1, ge=1)
-    limit: int = Field(100, ge=1, le=1000)             # 발송 대상은 일괄 처리용이라 limit 크게
-    sort_by: str = "created_at"
-    sort_order: str = "asc"
-
-    @classmethod
-    def as_query_params(
-        cls,
-        issue: str = Query(..., description="발송할 호 (YYYYMM 형식)"),
-        product_code: Optional[str] = Query(None),
-        recipient_name: Optional[str] = Query(None, description="수령인 이름 정확 매칭"),
-        postal_code: Optional[str] = Query(None, description="우편번호 정확 매칭"),
-        page: int = Query(1, ge=1),
-        limit: int = Query(100, ge=1, le=1000),
-        sort_by: str = Query("created_at"),
-        sort_order: str = Query("asc"),
-    ):
-        return cls(
-            issue=issue,
-            product_code=product_code,
-            recipient_name=recipient_name,
-            postal_code=postal_code,
-            page=page,
-            limit=limit,
-            sort_by=sort_by,
-            sort_order=sort_order,
-        )
-
-
-class DispatchTargetsResponse(BaseModel):
-    """발송 대상 목록 + 요약"""
-    issue: str
-    targets: List[DispatchTarget]
-    total_count: int
-    page: int
-    limit: int
-    total_pages: int
-    product_summary: Dict[str, int]                    # {product_code: count}
 
 
 class DispatchSummaryResponse(BaseModel):

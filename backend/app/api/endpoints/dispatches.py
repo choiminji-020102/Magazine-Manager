@@ -12,8 +12,6 @@ from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.schemas.common import ResponseModel
 from app.schemas.dispatch import (
     DispatchSummaryResponse,
-    DispatchTargetListQuery,
-    DispatchTargetsResponse,
     PaidNotPreparedCountResponse,
     RegeneratePreparingSendsRequest,
     RegeneratePreparingSendsResponse,
@@ -29,98 +27,6 @@ require_manager = require_roles(["SUPER_ADMIN", "ADMIN", "MANAGER"])
 
 
 # ── 조회 ──────────────────────────────────────────────────────────────────────
-
-@router.get(
-    "/dispatches/yearly/targets",
-    response_model=ResponseModel[DispatchTargetsResponse],
-)
-def get_yearly_targets(
-    query: DispatchTargetListQuery = Depends(DispatchTargetListQuery.as_query_params),
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_manager),
-):
-    """YEARLY 정기구독 발송 대상 조회"""
-    targets = order_item_service.find_subscription_targets(
-        db=db,
-        issue=query.issue,
-        product_kind="YEARLY",
-        product_code=query.product_code,
-    )
-
-    # 수령인 이름 / 우편번호 정확 매칭 필터
-    if query.recipient_name:
-        targets = [t for t in targets if t.recipient_name == query.recipient_name]
-    if query.postal_code:
-        targets = [t for t in targets if t.postal_code == query.postal_code]
-
-    total_count = len(targets)
-    total_pages = (total_count + query.limit - 1) // query.limit if total_count > 0 else 1
-    start = (query.page - 1) * query.limit
-    paged = targets[start: start + query.limit]
-
-    product_summary: dict = {}
-    for t in targets:
-        product_summary[t.product_code] = product_summary.get(t.product_code, 0) + 1
-
-    return ResponseModel(
-        message="YEARLY 발송 대상 목록을 조회했습니다.",
-        data=DispatchTargetsResponse(
-            issue=query.issue,
-            targets=paged,
-            total_count=total_count,
-            page=query.page,
-            limit=query.limit,
-            total_pages=total_pages,
-            product_summary=product_summary,
-        ),
-    )
-
-
-@router.get(
-    "/dispatches/monthly/targets",
-    response_model=ResponseModel[DispatchTargetsResponse],
-)
-def get_monthly_targets(
-    query: DispatchTargetListQuery = Depends(DispatchTargetListQuery.as_query_params),
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_manager),
-):
-    """MONTHLY 단편 월간지 발송 대상 조회"""
-    targets = order_item_service.find_subscription_targets(
-        db=db,
-        issue=query.issue,
-        product_kind="MONTHLY",
-        product_code=query.product_code,
-    )
-
-    # 수령인 이름 / 우편번호 정확 매칭 필터
-    if query.recipient_name:
-        targets = [t for t in targets if t.recipient_name == query.recipient_name]
-    if query.postal_code:
-        targets = [t for t in targets if t.postal_code == query.postal_code]
-
-    total_count = len(targets)
-    total_pages = (total_count + query.limit - 1) // query.limit if total_count > 0 else 1
-    start = (query.page - 1) * query.limit
-    paged = targets[start: start + query.limit]
-
-    product_summary: dict = {}
-    for t in targets:
-        product_summary[t.product_code] = product_summary.get(t.product_code, 0) + 1
-
-    return ResponseModel(
-        message="MONTHLY 발송 대상 목록을 조회했습니다.",
-        data=DispatchTargetsResponse(
-            issue=query.issue,
-            targets=paged,
-            total_count=total_count,
-            page=query.page,
-            limit=query.limit,
-            total_pages=total_pages,
-            product_summary=product_summary,
-        ),
-    )
-
 
 @router.get(
     "/dispatches/summary",
@@ -208,7 +114,6 @@ def regenerate_preparing_sends_endpoint(
 
     - scope=monthly: 단품 PREPARING만 (issue 무관)
     - scope=yearly: 정기구독 PREPARING만 (issue 필수)
-    - scope=all: 모두 (정기구독 발송 시 issue 필수)
     """
     deleted_count, created_count = send_service.regenerate_preparing_sends(
         db=db,
