@@ -60,14 +60,17 @@ class SendResendRequest(BaseModel):
     """DELIVERED Send에 대한 재배송 이력 입력 (POST /sends/{send_id}/resend).
 
     Send 본체 변경 없음 — 활동 로그(action=RESEND) details에만 기록.
-    reason/send_method/courier_company는 필수, tracking_no/memo는 선택.
+    reason/send_method/courier_company/send_item_ids는 필수, tracking_no/memo는 선택.
     send_method ↔ courier_company 자동 도출 안 함 (프론트에서 도출 + 운영자 수정).
     tracking_no는 SendTrackingUpdate와 동일 정규화 — 입력에서 숫자만 추출해 저장.
       - 추출 결과가 비면 422
+    send_item_ids는 재발송 대상 SendItem ID 배열 (최소 1개). 박스 통째 재발송 시
+    UI가 모든 SendItem ID를 채워서 보냄 (해당 send_id에 속하지 않은 ID 포함 시 422).
     """
     reason: str
     send_method: SendMethodLiteral
     courier_company: CourierCompanyLiteral
+    send_item_ids: List[int] = Field(..., min_length=1, description="재발송 대상 SendItem ID 배열")
     tracking_no: Optional[str] = None
     memo: Optional[str] = None
 

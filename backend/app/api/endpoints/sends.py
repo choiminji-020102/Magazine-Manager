@@ -2,7 +2,7 @@
 from typing import List
 
 # 서드파티 라이브러리
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
@@ -169,9 +169,22 @@ def resend_send(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin),
 ):
-    """DELIVERED Send 재배송 이력 기록 (Send 본체 변경 없음, 활동 로그만 추가)."""
+    """DELIVERED Send 재배송 이력 기록 (Send 본체 변경 없음, 활동 로그만 추가).
+
+    send_item_ids로 재발송 대상 품목을 명시 (박스 통째 시 UI가 모든 SendItem ID 채워서 보냄).
+    해당 send_id에 속하지 않은 SendItem ID가 섞여있으면 422 거부.
+    """
     send = send_service.get_send_by_id(db, send_id)
     send_service.assert_resend_eligible(db, send)
+
+    items = send_service.get_send_items(db, send_id)
+    valid_ids = {si.send_item_id for si in items}
+    invalid = [sid for sid in resend_in.send_item_ids if sid not in valid_ids]
+    if invalid:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"이 박스(send_id={send_id})에 속하지 않은 SendItem ID: {invalid}",
+        )
 
     activity_log_service.create_log(
         db=db,
@@ -189,6 +202,7 @@ def resend_send(
             "courier_company": resend_in.courier_company,
             "tracking_no": resend_in.tracking_no,
             "memo": resend_in.memo,
+            "send_item_ids": resend_in.send_item_ids,
         },
     )
 
