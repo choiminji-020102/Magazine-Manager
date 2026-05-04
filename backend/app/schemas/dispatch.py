@@ -43,11 +43,13 @@ class DispatchSummaryResponse(BaseModel):
 class RegeneratePreparingSendsRequest(BaseModel):
     """[발송 생성] 요청.
 
-    - scope=monthly: 단품 PREPARING만 재계산. issue 무관 (없어도 OK)
-    - scope=yearly: 정기구독 PREPARING만 재계산. issue 필수
+    - scope=monthly: 단품 PREPARING만 재계산. 활성 vipN 슬롯이 모두 false인 OrderItem 대상. issue 무관
+    - scope=yearly: 정기구독 PREPARING만 재계산. 활성 vipN 슬롯이 모두 false인 OrderItem 대상. issue 필수
+    - scope=vip1~vip6: 해당 슬롯의 PREPARING 재계산. Address.vipN=true 대상. 정기+단품 통합 그룹핑.
+      issue 필수 (정기 SendItem 처리용). 슬롯 비활성이면 400.
     """
-    scope: Literal["monthly", "yearly"]
-    issue: Optional[str] = Field(default=None, pattern=r"^\d{6}$", description="YYYYMM (scope=yearly일 때 필수)")
+    scope: Literal["monthly", "yearly", "vip1", "vip2", "vip3", "vip4", "vip5", "vip6"]
+    issue: Optional[str] = Field(default=None, pattern=r"^\d{6}$", description="YYYYMM (scope=yearly/vipN일 때 필수)")
 
 
 class RegeneratePreparingSendsResponse(BaseModel):

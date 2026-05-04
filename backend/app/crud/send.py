@@ -3,9 +3,12 @@ from typing import List, Optional, Tuple
 
 # 서드파티 라이브러리
 from fastapi import HTTPException, status
+from sqlalchemy import not_, or_
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
+from app.core import vip_slots
+from app.models.address import Address
 from app.models.order_item import OrderItem
 from app.models.send import Send
 from app.models.send_item import SendItem
@@ -123,27 +126,51 @@ def delete_preparing_sends(db: Session, scope: str) -> int:
     """PREPARING Send + SendItem 일괄 삭제. 삭제된 Send 수 반환.
 
     scope:
-      - "monthly" : SendItem이 MONTHLY OrderItem과 연결된 PREPARING Send만
-      - "yearly"  : SendItem이 YEARLY OrderItem과 연결된 PREPARING Send만
+      - "monthly" : MONTHLY + 활성 vipN 모두 false 인 OrderItem 의 PREPARING Send만
+      - "yearly"  : YEARLY + 활성 vipN 모두 false 인 OrderItem 의 PREPARING Send만
+      - "vip1".."vip6" : 해당 슬롯(Address.vipN=true)의 PREPARING Send만 (kind 무관)
 
-    DELIVERED/CANCELLED Send는 절대 건드리지 않음.
+    각 scope 는 자기 영역만 삭제 — 다른 탭의 PREPARING 절대 건드리지 않음 (격리).
+    DELIVERED/CANCELLED Send 는 모든 scope 에서 절대 건드리지 않음.
     Bulk DELETE 사용 (SendItem 먼저 → Send 나중, FK 순서 준수).
     호출자가 db.commit() 책임.
     """
-    if scope not in ("monthly", "yearly"):
-        raise ValueError(f"잘못된 scope: {scope}")
-
-    kind = "MONTHLY" if scope == "monthly" else "YEARLY"
-    target_ids_query = (
-        db.query(Send.send_id)
-        .join(SendItem, SendItem.send_id == Send.send_id)
-        .join(OrderItem, OrderItem.order_item_id == SendItem.order_item_id)
-        .filter(
-            Send.send_status == "PREPARING",
-            OrderItem.product_kind == kind,
+    if scope in ("monthly", "yearly"):
+        kind = "MONTHLY" if scope == "monthly" else "YEARLY"
+        active_slots = [s.slot_number for s in vip_slots.list_slots() if s.is_enabled]
+        target_ids_query = (
+            db.query(Send.send_id)
+            .join(SendItem, SendItem.send_id == Send.send_id)
+            .join(OrderItem, OrderItem.order_item_id == SendItem.order_item_id)
+            .filter(
+                Send.send_status == "PREPARING",
+                OrderItem.product_kind == kind,
+            )
         )
-        .distinct()
-    )
+        if active_slots:
+            vip_columns = [getattr(Address, f"vip{n}") for n in active_slots]
+            target_ids_query = (
+                target_ids_query
+                .join(Address, Address.address_id == OrderItem.address_id)
+                .filter(not_(or_(*vip_columns)))
+            )
+        target_ids_query = target_ids_query.distinct()
+    elif scope.startswith("vip") and scope[3:].isdigit() and 1 <= int(scope[3:]) <= 6:
+        slot_number = int(scope[3:])
+        vip_col = getattr(Address, f"vip{slot_number}")
+        target_ids_query = (
+            db.query(Send.send_id)
+            .join(SendItem, SendItem.send_id == Send.send_id)
+            .join(OrderItem, OrderItem.order_item_id == SendItem.order_item_id)
+            .join(Address, Address.address_id == OrderItem.address_id)
+            .filter(
+                Send.send_status == "PREPARING",
+                vip_col.is_(True),
+            )
+            .distinct()
+        )
+    else:
+        raise ValueError(f"잘못된 scope: {scope}")
 
     target_send_ids = [row[0] for row in target_ids_query.all()]
     if not target_send_ids:

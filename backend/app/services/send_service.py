@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
+from app.core import vip_slots
 from app.core.utils import now_kst, parse_subscribe_start_issue
 from app.models.order_item import OrderItem
 from app.models.product import Product
@@ -18,6 +19,7 @@ from app.services.dispatch_grouping_service import (
     SendGroup,
     get_paid_order_items_for_dispatch,
     group_monthly_for_send,
+    group_vip_for_send,
     group_yearly_for_send,
 )
 from app.services.order_item_service import convert_to_send_product_code
@@ -171,8 +173,10 @@ def transition_send_to_delivered(
 
     - send_method, courier_company, tracking_no 모두 필수
     - delivered_at = now_kst()
-    - YEARLY Send: 연관 OrderItem.last_send_issue를 SendItem.issue 기준 max로 갱신
-    - MONTHLY Send: last_send_issue 갱신 안 함
+    - 각 SendItem 마다 OrderItem.product_kind 로 판정:
+      - YEARLY OrderItem: last_send_issue 를 SendItem.issue 기준 max 로 갱신
+      - MONTHLY OrderItem: last_send_issue 갱신 안 함
+    - VIP Send 는 정기+단품 혼합 가능 — SendItem 단위 분기 필수 ("한 Send = 한 종류" 가정 금지)
 
     호출자(엔드포인트)가 db.commit() 책임.
     """
@@ -193,7 +197,7 @@ def transition_send_to_delivered(
     send.tracking_no = tracking_no
     send.delivered_at = now_kst()
 
-    # YEARLY 여부 판정 후 last_send_issue 갱신
+    # 각 SendItem 마다 OrderItem.product_kind 로 분기 (VIP 정기+단품 혼합 Send 대응)
     send_items = (
         db.query(SendItem)
         .filter(SendItem.send_id == send.send_id, SendItem.cancelled_at.is_(None))
@@ -201,23 +205,18 @@ def transition_send_to_delivered(
     )
     if send_items:
         order_item_ids = [si.order_item_id for si in send_items]
-        order_items = (
-            db.query(OrderItem)
+        order_items_by_id = {
+            oi.order_item_id: oi
+            for oi in db.query(OrderItem)
             .filter(OrderItem.order_item_id.in_(order_item_ids))
             .all()
-        )
-        order_items_by_id = {oi.order_item_id: oi for oi in order_items}
-
-        # 그룹핑 함수가 같은 종류만 한 Send에 묶도록 보장하므로 첫 OrderItem 기준으로 판정
-        is_yearly = bool(order_items) and order_items[0].product_kind == "YEARLY"
-
-        if is_yearly:
-            for si in send_items:
-                oi = order_items_by_id.get(si.order_item_id)
-                if oi is None:
-                    continue
-                if not oi.last_send_issue or si.issue > oi.last_send_issue:
-                    oi.last_send_issue = si.issue
+        }
+        for si in send_items:
+            oi = order_items_by_id.get(si.order_item_id)
+            if oi is None or oi.product_kind != "YEARLY":
+                continue  # MONTHLY 는 last_send_issue 미사용 (정책 그대로)
+            if not oi.last_send_issue or si.issue > oi.last_send_issue:
+                oi.last_send_issue = si.issue
 
     db.flush()
     return send
@@ -279,17 +278,22 @@ def regenerate_preparing_sends(
 ) -> Tuple[int, int]:
     """[발송 생성] 오케스트레이션. (deleted_count, created_count) 반환.
 
-    1. scope에 따라 기존 PREPARING Send 일괄 삭제
-    2. PAID OrderItem 조회
-    3. scope에 따라 종류별 그룹핑 (issue 사용)
-    4. PREPARING Send + SendItem 생성
+    1. scope에 따라 기존 PREPARING Send 일괄 삭제 (각 탭은 자기 영역만)
+    2. scope에 따라 그룹핑
+    3. PREPARING Send + SendItem 생성
+
+    scope:
+      - monthly : 단품 (활성 vipN 모두 false). issue 무관
+      - yearly  : 정기구독 (활성 vipN 모두 false). issue 필수
+      - vip1..vip6 : 해당 슬롯의 정기+단품 통합. issue 필수. 슬롯 비활성이면 400
 
     호출자(엔드포인트)가 db.commit() + 활동 로그 기록 책임.
     """
-    if scope not in ("monthly", "yearly"):
+    is_vip = scope.startswith("vip") and scope[3:].isdigit() and 1 <= int(scope[3:]) <= 6
+    if scope not in ("monthly", "yearly") and not is_vip:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"잘못된 scope: {scope}. 'monthly' 또는 'yearly'여야 합니다.",
+            detail=f"잘못된 scope: {scope}. 'monthly' / 'yearly' / 'vip1'..'vip6' 중 하나여야 합니다.",
         )
 
     if scope == "yearly" and not issue:
@@ -298,7 +302,26 @@ def regenerate_preparing_sends(
             detail="정기구독(YEARLY) 발송 생성 시 issue를 입력해야 합니다.",
         )
 
-    # 1. 삭제
+    if is_vip:
+        slot_number = int(scope[3:])
+        slot = next((s for s in vip_slots.list_slots() if s.slot_number == slot_number), None)
+        if slot is None or not slot.is_enabled:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"비활성 슬롯입니다: {scope}",
+            )
+        if not issue:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="VIP 발송 생성 시 issue 를 입력해야 합니다 (정기 SendItem 처리용).",
+            )
+
+        deleted_count = send_crud.delete_preparing_sends(db=db, scope=scope)
+        groups: List[SendGroup] = group_vip_for_send(db, slot_number, issue)
+        created_sends = create_preparing_sends_from_groups(db, groups, issue=issue)
+        return deleted_count, len(created_sends)
+
+    # 1. 삭제 (monthly / yearly)
     deleted_count = send_crud.delete_preparing_sends(db=db, scope=scope)
 
     # 2. PAID OrderItem 조회

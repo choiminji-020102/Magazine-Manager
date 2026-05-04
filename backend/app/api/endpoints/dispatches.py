@@ -110,10 +110,16 @@ def regenerate_preparing_sends_endpoint(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin),
 ):
-    """[발송 생성] — PREPARING Send를 scope에 따라 일괄 재계산.
+    """[발송 생성] — PREPARING Send 를 scope 에 따라 일괄 재계산. 각 탭은 자기 영역만 처리 (격리).
 
-    - scope=monthly: 단품 PREPARING만 (issue 무관)
-    - scope=yearly: 정기구독 PREPARING만 (issue 필수)
+    - scope=monthly  : 단품 (활성 vipN 모두 false). issue 무관
+    - scope=yearly   : 정기구독 (활성 vipN 모두 false). issue 필수
+    - scope=vip1..6  : 해당 VIP 슬롯 (Address.vipN=true). 정기+단품 통합 그룹핑.
+                       issue 필수 (정기 SendItem 처리용). 슬롯 비활성이면 400.
+                       country_code 필터 없음 — 해외 포함 모두 처리
+
+    각 scope 의 delete 는 자기 영역의 PREPARING Send 만 삭제.
+    DELIVERED/CANCELLED Send 는 모든 scope 에서 절대 건드리지 않음.
     """
     deleted_count, created_count = send_service.regenerate_preparing_sends(
         db=db,
