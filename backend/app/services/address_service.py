@@ -70,6 +70,24 @@ def create_address(db: Session, address_in: AddressCreate) -> Address:
 
 
 def update_address(db: Session, address: Address, address_in: AddressUpdate) -> Address:
+    """배송지 수정.
+
+    VIP 단일성 제약: 한 Address에 vip1~vip6 중 최대 1개만 true.
+    payload(exclude_unset)와 기존 DB 값을 합친 결과로 검증 (모든 슬롯 대상).
+    """
+    payload_dict = address_in.model_dump(exclude_unset=True)
+    new_vip = {f"vip{n}": getattr(address, f"vip{n}") for n in range(1, 7)}
+    for n in range(1, 7):
+        field = f"vip{n}"
+        if field in payload_dict:
+            new_vip[field] = payload_dict[field]
+    active_slots = [k for k, v in new_vip.items() if v is True]
+    if len(active_slots) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"VIP 슬롯은 한 배송지당 최대 1개만 활성화 가능합니다. 시도된 활성 슬롯: {active_slots}",
+        )
+
     return address_crud.update_address(db=db, address=address, address_in=address_in)
 
 
