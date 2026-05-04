@@ -231,7 +231,16 @@ def group_yearly_for_send(
     rows_query = _exclude_active_vip(rows_query, active_slots)
     rows = rows_query.all()
 
-    result = [
+    # 정렬 후 SendGroup 생성 — rows 가 이미 OrderItem 을 들고 있어 추가 IN 쿼리 불필요
+    filtered = [(oi, addr) for oi, addr in rows if oi.order_item_id not in already_sent_ids]
+    filtered.sort(key=lambda pair: (
+        (pair[1].postal_code or ""),
+        (pair[1].recipient_address or ""),
+        (pair[0].product_name or ""),
+        (pair[0].subscribe_start_issue or ""),
+        pair[0].order_item_id,
+    ))
+    return [
         SendGroup(
             address_id=addr.address_id,
             recipient_name=addr.recipient_name,
@@ -242,28 +251,8 @@ def group_yearly_for_send(
             customer_memo=addr.customer_memo,
             order_item_ids=[oi.order_item_id],
         )
-        for oi, addr in rows
-        if oi.order_item_id not in already_sent_ids
+        for oi, addr in filtered
     ]
-
-    # 출력 정렬: (postal_code, recipient_address, product_name, subscribe_start_issue, order_item_id)
-    # OrderItem 정보가 필요해 한 번 더 조회 (id → OrderItem 매핑) — yearly 는 1 OrderItem = 1 그룹
-    if result:
-        oi_ids = [g.order_item_ids[0] for g in result]
-        oi_map = {
-            oi.order_item_id: oi
-            for oi in db.query(OrderItem)
-            .filter(OrderItem.order_item_id.in_(oi_ids))
-            .all()
-        }
-        result.sort(key=lambda g: (
-            g.postal_code or "",
-            g.recipient_address or "",
-            (oi_map[g.order_item_ids[0]].product_name or ""),
-            (oi_map[g.order_item_ids[0]].subscribe_start_issue or ""),
-            g.order_item_ids[0],
-        ))
-    return result
 
 
 # ── vip ────────────────────────────────────────────────────────────────────────
