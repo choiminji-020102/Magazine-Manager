@@ -97,7 +97,18 @@ class TransitionToDeliveredResponse(BaseModel):
 
 
 class PaidNotPreparedCountResponse(BaseModel):
-    """PAID지만 PREPARING에 안 들어간 OrderItem 카운트 (PreparingSendListPage 알림 배너용)."""
+    """PAID 지만 PREPARING 에 안 들어간 OrderItem 카운트 (PreparingSendListPage 알림 배너용).
+
+    8 키 분해 (PR5) — monthly/yearly 는 KR + 활성 vipN 모두 false, vipN 은 Address.vipN=true
+    (country_code 무관, kind 무관). 비활성 슬롯은 0. 단일성 제약(V-7) 덕에 8 키 합계 = total_count.
+    기존 monthly_count / yearly_count / total_count 키 유지 (frontend backwards-compat).
+    """
     monthly_count: int
     yearly_count: int
+    vip1_count: int = 0
+    vip2_count: int = 0
+    vip3_count: int = 0
+    vip4_count: int = 0
+    vip5_count: int = 0
+    vip6_count: int = 0
     total_count: int

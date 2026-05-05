@@ -218,15 +218,23 @@ def paid_not_prepared_count_endpoint(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_manager),
 ):
-    """PAID지만 PREPARING에 안 들어간 OrderItem 카운트 (PreparingSendListPage 알림 배너용).
+    """PAID 지만 PREPARING 에 안 들어간 OrderItem 카운트 (PreparingSendListPage 알림 배너용).
 
-    [발송 생성]을 다시 눌러야 PREPARING에 추가될 OrderItem이 몇 개인지 알려준다.
+    [발송 생성] 을 다시 눌러야 PREPARING 에 추가될 OrderItem 이 scope 별로 몇 개인지 알려준다.
+    응답: monthly/yearly/vip1..vip6 각 카운트 + total_count (8키 합계 = total, 단일성 제약 덕).
     """
-    yearly, monthly = dispatch_grouping_service.count_paid_not_prepared(db)
+    counts = dispatch_grouping_service.count_paid_not_prepared(db)
+    total = sum(counts.values())
     return ResponseModel(
         data=PaidNotPreparedCountResponse(
-            monthly_count=monthly,
-            yearly_count=yearly,
-            total_count=monthly + yearly,
+            monthly_count=counts["monthly"],
+            yearly_count=counts["yearly"],
+            vip1_count=counts["vip1"],
+            vip2_count=counts["vip2"],
+            vip3_count=counts["vip3"],
+            vip4_count=counts["vip4"],
+            vip5_count=counts["vip5"],
+            vip6_count=counts["vip6"],
+            total_count=total,
         ),
     )

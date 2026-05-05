@@ -23,7 +23,7 @@ VIP 슬롯 격리:
 
 # 표준 라이브러리
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 # 서드파티 라이브러리
 from fastapi import HTTPException, status
@@ -444,19 +444,27 @@ def get_paid_order_items_for_dispatch(
     return yearly_items, monthly_items
 
 
-def count_paid_not_prepared(db: Session) -> Tuple[int, int]:
-    """PAID + 활성 SendItem 없는 OrderItem 카운트를 (yearly, monthly) 튜플로 반환.
+def count_paid_not_prepared(db: Session) -> Dict[str, int]:
+    """PAID + 활성 SendItem 없는 OrderItem 카운트를 scope 별로 분해해 반환.
 
-    PreparingSendListPage 알림 배너용. "다음 [발송 생성] 시 PREPARING에 추가될 OrderItem 수".
+    PreparingSendListPage 알림 배너용 — 각 탭별 "다음 [발송 생성] 시 PREPARING 에 추가될 OrderItem 수".
 
-    조건:
+    반환 dict 키 (항상 고정 8개):
+    - "monthly": MONTHLY + KR + 활성 vipN 모두 false
+    - "yearly":  YEARLY  + KR + 활성 vipN 모두 false
+    - "vip1".."vip6": Address.vip{N}=true (country_code 무관, kind 무관). 비활성 슬롯은 0
+
+    공통 조건:
     - Order.order_status = 'PAID'
     - OrderItem.cancelled_at IS NULL
-    - "활성 SendItem(cancelled_at IS NULL)" 또는 "DELIVERED/CANCELLED Send에 들어있는 SendItem"
-      이 모두 없는 OrderItem (group_*_for_send와 동일한 발송 이력 판정)
+    - "활성 SendItem(cancelled_at IS NULL)" 또는 "DELIVERED/CANCELLED Send 에 들어있는 SendItem"
+      이 모두 없는 OrderItem (group_*_for_send 와 동일한 발송 이력 판정)
 
-    NOTE (PLAN §10.6): 본 함수는 VIP OrderItem 까지 카운트에 포함한다 (현재 동작 유지).
-    프론트 분해는 후속 PR 에서 처리.
+    VIP 격리 (PR2 정책 일관):
+    - monthly/yearly 는 활성 vipN 모두 false 인 OrderItem 만 (비활성 슬롯의 vipN=true 는 monthly/yearly 에 흡수)
+    - vipN 키는 활성 슬롯만 실제 카운트, 비활성 슬롯은 0 (응답 모양 안정 — 운영 중 슬롯 토글되어도 8키 유지)
+
+    단일성 제약(V-7) 덕에 한 OrderItem 은 정확히 한 키에만 카운트 (8 키 합계 = 전체 PAID 미발송).
     """
     has_send_item_subq = (
         db.query(SendItem.order_item_id)
@@ -470,18 +478,48 @@ def count_paid_not_prepared(db: Session) -> Tuple[int, int]:
         .subquery()
     )
 
-    rows = (
+    result: Dict[str, int] = {"monthly": 0, "yearly": 0}
+    for n in range(1, 7):
+        result[f"vip{n}"] = 0
+
+    active_slots = [s.slot_number for s in vip_slots.list_slots() if s.is_enabled]
+
+    # monthly + yearly (KR + 활성 vipN 제외) — 단일 group_by 쿼리
+    my_query = (
         db.query(OrderItem.product_kind, func.count(OrderItem.order_item_id))
         .join(Order, OrderItem.order_id == Order.order_id)
         .join(Address, OrderItem.address_id == Address.address_id)
         .filter(
             Order.order_status == "PAID",
             OrderItem.cancelled_at.is_(None),
-            Address.country_code == "KR",   # 해외 발송은 새 흐름 대상 외
+            Address.country_code == "KR",
             ~OrderItem.order_item_id.in_(db.query(has_send_item_subq)),
         )
-        .group_by(OrderItem.product_kind)
-        .all()
     )
-    counts = dict(rows)
-    return counts.get("YEARLY", 0), counts.get("MONTHLY", 0)
+    if active_slots:
+        vip_columns = [getattr(Address, f"vip{n}") for n in active_slots]
+        my_query = my_query.filter(not_(or_(*vip_columns)))
+    for kind, cnt in my_query.group_by(OrderItem.product_kind).all():
+        if kind == "MONTHLY":
+            result["monthly"] = cnt
+        elif kind == "YEARLY":
+            result["yearly"] = cnt
+
+    # 활성 vipN 각각 (country_code 무관, kind 무관)
+    for n in active_slots:
+        vip_col = getattr(Address, f"vip{n}")
+        cnt = (
+            db.query(func.count(OrderItem.order_item_id))
+            .join(Order, OrderItem.order_id == Order.order_id)
+            .join(Address, OrderItem.address_id == Address.address_id)
+            .filter(
+                Order.order_status == "PAID",
+                OrderItem.cancelled_at.is_(None),
+                vip_col.is_(True),
+                ~OrderItem.order_item_id.in_(db.query(has_send_item_subq)),
+            )
+            .scalar()
+        )
+        result[f"vip{n}"] = cnt or 0
+
+    return result
