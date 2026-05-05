@@ -14,18 +14,16 @@ export const ORDER_STATUS_COLOR: Record<string, string> = {
   UNPAID_CANCELLED: "bg-orange-50 text-orange-700",
 };
 
-// ── 발송 상태 ──────────────────────────────────────────────────────────────────
+// ── 발송 상태 (SHIPPING 폐기됨, 마이그레이션 011 — 3값) ──────────────────────
 
 export const SEND_STATUS_LABEL: Record<string, string> = {
   PREPARING: "배송준비중",
-  SHIPPING: "배송중",
   DELIVERED: "배송완료",
   CANCELLED: "취소",
 };
 
 export const SEND_STATUS_COLOR: Record<string, string> = {
   PREPARING: "bg-gray-100 text-gray-600",
-  SHIPPING: "bg-blue-50 text-blue-700",
   DELIVERED: "bg-green-50 text-green-700",
   CANCELLED: "bg-red-50 text-red-700",
 };
@@ -136,6 +134,7 @@ export const ACTIVITY_ACTION_LABEL: Record<string, string> = {
   LOGOUT: "로그아웃",
   SIGNUP: "가입",
   ANSWER: "답변",
+  RESEND: "재배송",
 };
 
 export const ACTIVITY_TARGET_LABEL: Record<string, string> = {
@@ -155,17 +154,51 @@ export const ACTIVITY_TARGET_LABEL: Record<string, string> = {
   DISPATCH: "발송처리",
 };
 
-// ── 택배사 / 배송수단 ─────────────────────────────────────────────────────────
+// ── 배송 방법 (send_method) — 4값 ─────────────────────────────────────────────
 
-export const COURIER_LABEL: Record<string, string> = {
-  CJ대한통운: "CJ대한통운",
+export const SEND_METHOD_LABEL: Record<string, string> = {
   기출유우편: "기출유우편",
+  기출유택배: "기출유택배",
   일반우편: "일반우편",
   찾아가기: "찾아가기",
 };
 
-// 관리자 수동 설정 가능한 옵션 (엑셀 다운로드 플로우에서는 자동으로 고정됨)
-export const COURIER_OPTIONS = ["CJ대한통운", "기출유우편", "일반우편", "찾아가기"];
+export const SEND_METHOD_OPTIONS = [
+  { value: "기출유우편", label: "기출유우편" },
+  { value: "기출유택배", label: "기출유택배" },
+  { value: "일반우편", label: "일반우편" },
+  { value: "찾아가기", label: "찾아가기" },
+];
+
+// ── 운송사 (courier_company) — 2값 ────────────────────────────────────────────
+
+export const COURIER_COMPANY_LABEL: Record<string, string> = {
+  CJ대한통운: "CJ대한통운",
+  자체배송: "자체배송",
+};
+
+export const COURIER_COMPANY_OPTIONS = [
+  { value: "CJ대한통운", label: "CJ대한통운" },
+  { value: "자체배송", label: "자체배송" },
+];
+
+// send_method → courier_company 자동 도출 매핑 (운영자가 수정 가능, 완전 독립이지만 기본값 제공)
+export const SEND_METHOD_TO_COURIER: Record<string, string> = {
+  기출유우편: "자체배송",
+  기출유택배: "CJ대한통운",
+  일반우편: "자체배송",
+  찾아가기: "자체배송",
+};
+
+// ── 재배송 사유 옵션 ──────────────────────────────────────────────────────────
+
+export const RESEND_REASON_OPTIONS = [
+  { value: "주소 오류", label: "주소 오류" },
+  { value: "분실/파손", label: "분실/파손" },
+  { value: "고객 요청", label: "고객 요청" },
+  { value: "반송", label: "반송" },
+  { value: "기타", label: "기타" },
+];
 
 // ── 결제 방법 ──────────────────────────────────────────────────────────────────
 
