@@ -129,16 +129,7 @@ export default function PreparingSendListPage() {
   ];
 
   return (
-    <div className="flex flex-col h-full">
-      {/* 헤더 */}
-      <div className="px-5 py-3 border-b border-gray-200 bg-white">
-        <h1 className="text-base font-semibold text-gray-900">배송 준비 중 관리</h1>
-        <p className="text-xs text-gray-500 mt-0.5">
-          PREPARING 상태의 발송 박스를 관리합니다. [발송 생성]으로 박스 일괄 재계산, [엑셀
-          다운로드] / [배송완료 처리] 로 후속 작업을 진행합니다.
-        </p>
-      </div>
-
+    <div className="flex-1 min-h-0 flex flex-col">
       {/* 탭 */}
       <Tabs value={scope} onValueChange={handleTabChange} className="bg-white border-b border-gray-200">
         <TabsList className="ml-5 mt-2">
