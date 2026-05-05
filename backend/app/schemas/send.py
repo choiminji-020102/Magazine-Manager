@@ -112,9 +112,24 @@ class SendResendRequest(BaseModel):
 
 # ── 응답 스키마 ───────────────────────────────────────────────────────────────
 
+class RelatedOrderInfo(BaseModel):
+    """Send 에 묶인 주문 정보 (자기 주문 외 묶인 주문 표시용).
+
+    SendItem → OrderItem → Order → Customer 경유 derived.
+    OrderDetailPanel 에서 자기 자신 orderId 는 프론트가 필터링.
+    """
+    order_id: int
+    customer_name: str
+    customer_phone: str
+
+    class Config:
+        from_attributes = True
+
+
 class SendResponse(BaseModel):
     send_id: int
     order_ids: List[int] = []                   # SendItem→OrderItem 경유 derived (Send 모델 @property)
+    related_orders: List[RelatedOrderInfo] = [] # 묶인 주문 정보 (이름/전화 포함)
     address_id: Optional[int] = None
     send_status: str
     send_method: Optional[str] = None

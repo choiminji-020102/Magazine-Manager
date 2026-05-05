@@ -61,6 +61,29 @@ class Send(Base):
             result.append(oi.order_id)
         return sorted(result)
 
+    @property
+    def related_orders(self) -> list[dict]:
+        # SendItem → OrderItem → Order → Customer 경유로 묶인 주문 정보 (distinct, order_id 정렬).
+        # OrderDetailPanel 에서 "함께 묶인 주문" 표시용 — 자기 주문 제외는 프론트가 처리.
+        seen: set[int] = set()
+        result: list[dict] = []
+        for si in self.items or []:
+            if si.cancelled_at is not None:
+                continue
+            oi = si.order_item
+            if oi is None or oi.order_id in seen:
+                continue
+            order = oi.order
+            if order is None or order.customer is None:
+                continue
+            seen.add(oi.order_id)
+            result.append({
+                "order_id": oi.order_id,
+                "customer_name": order.customer.customer_name,
+                "customer_phone": order.customer.customer_phone,
+            })
+        return sorted(result, key=lambda x: x["order_id"])
+
     __table_args__ = (
         Index("ix_sends_send_status", "send_status"),
         Index("ix_sends_postal_code", "postal_code"),
