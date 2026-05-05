@@ -115,7 +115,14 @@ export default function PreparingSendListPage() {
       header: "배송지",
       cell: (r) => (
         <div>
-          <div className="text-xs text-gray-500 font-mono">{r.postal_code}</div>
+          <div className="text-xs text-gray-500 font-mono flex items-center gap-1">
+            {r.country_code !== "KR" && (
+              <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-semibold">
+                🌐 {r.country_code}
+              </span>
+            )}
+            <span>{r.postal_code}</span>
+          </div>
           <div className="text-sm">{r.recipient_address}</div>
         </div>
       ),
