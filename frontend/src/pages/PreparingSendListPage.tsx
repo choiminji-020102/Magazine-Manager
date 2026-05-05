@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DataTable, type ColumnDef } from "@/components/common/DataTable";
 import { Pagination } from "@/components/common/Pagination";
+import RegeneratePreparingConfirmModal from "@/components/dispatch/RegeneratePreparingConfirmModal";
 import { sendsApi } from "@/api/sendsApi";
 import { dispatchApi } from "@/api/dispatchApi";
 import { formatDate, formatPhone } from "@/utils/format";
@@ -20,10 +21,12 @@ type ScopeTab = "monthly" | "yearly";
 const LIMIT = 50;
 
 export default function PreparingSendListPage() {
+  const queryClient = useQueryClient();
   const [scope, setScope] = useState<ScopeTab>("monthly");
   const [issueInput, setIssueInput] = useState("");
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
+  const [regenerateOpen, setRegenerateOpen] = useState(false);
 
   const issueValid = /^\d{6}$/.test(issueInput);
 
@@ -169,9 +172,9 @@ export default function PreparingSendListPage() {
           </span>
         </div>
 
-        {/* 액션 버튼 (placeholder — 후속 커밋에서 모달 와이어링) */}
+        {/* 액션 버튼 */}
         <div className="flex items-center gap-2 ml-auto">
-          <Button size="sm" variant="outline" disabled>
+          <Button size="sm" variant="outline" onClick={() => setRegenerateOpen(true)}>
             발송 생성
           </Button>
           <Button size="sm" variant="outline" disabled>
@@ -182,6 +185,19 @@ export default function PreparingSendListPage() {
           </Button>
         </div>
       </div>
+
+      {/* 발송 생성 모달 */}
+      <RegeneratePreparingConfirmModal
+        open={regenerateOpen}
+        onClose={() => setRegenerateOpen(false)}
+        scope={scope}
+        initialIssue={issueInput}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
+          queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
+          setSelectedIds(new Set());
+        }}
+      />
 
       {/* 박스 목록 */}
       <div className="flex-1 overflow-auto bg-white">
