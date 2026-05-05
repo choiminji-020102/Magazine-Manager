@@ -1,22 +1,25 @@
-"""기출유/우체국 발송 엑셀 관련 엔드포인트
+"""기출유/우체국/VIP 발송 엑셀 관련 엔드포인트
 
-엔드포인트 (6개):
+엔드포인트 (8개):
 - GET  /dispatches/excel/monthly/candidates
 - GET  /dispatches/excel/yearly-gichulyu/candidates
 - GET  /dispatches/excel/yearly-postoffice/candidates
+- GET  /dispatches/excel/vip/{slot_number}/candidates
 - POST /dispatches/excel/monthly               (엑셀 다운로드, DB 변경 없음)
 - POST /dispatches/excel/yearly-gichulyu       (엑셀 다운로드, DB 변경 없음)
 - POST /dispatches/excel/yearly-postoffice     (엑셀 다운로드, DB 변경 없음)
+- POST /dispatches/excel/vip/{slot_number}     (엑셀 다운로드, DB 변경 없음)
 
-상세 사양: `SHIPPING_REFACTOR_PLAN.md` §5
+상세 사양: `SHIPPING_REFACTOR_PLAN.md` §5 (단품/정기) / §10.9 (VIP)
 DELIVERED 전환은 별도 [배송완료 처리] 엔드포인트(`POST /api/dispatches/transition-to-delivered`)에서만 발생.
+다운로드 시 send_method/courier_company 입력 X / 응답 X — 운영자 결정은 배송완료 단계에서만.
 """
 
 # 표준 라이브러리
 from urllib.parse import quote
 
 # 서드파티 라이브러리
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -30,6 +33,9 @@ from app.schemas.dispatch_excel import (
     MonthlyCandidatesQuery,
     MonthlyExcelCandidatesResponse,
     MonthlyExcelDownloadRequest,
+    VipCandidatesQuery,
+    VipExcelCandidatesResponse,
+    VipExcelDownloadRequest,
     YearlyCandidatesQuery,
     YearlyExcelCandidatesResponse,
     YearlyExcelDownloadRequest,
@@ -54,16 +60,16 @@ def _build_excel_response_headers(
     filename: str,
     included_count: int,
     skipped_count: int,
-    courier_company: str,
 ) -> dict:
-    """HTTP 헤더는 latin-1만 허용 → 한글은 URL-encode해서 전송.
-    프론트에서 `decodeURIComponent`로 복원한다.
+    """엑셀 다운로드 응답 헤더.
+
+    Content-Disposition 한글 파일명은 RFC 5987 (filename*=UTF-8''...) 방식.
+    courier_company / send_method 정보는 응답에 안 보냄 — 운영자 결정은 배송완료 단계에서만.
     """
     return {
         "Content-Disposition": _build_content_disposition(filename),
         "X-Included-Count": str(included_count),
         "X-Skipped-Count": str(skipped_count),
-        "X-Courier-Company": quote(courier_company),
     }
 
 
@@ -176,7 +182,6 @@ def download_monthly_excel(
         )
 
     filename = dispatch_excel_service.monthly_filename(req.send_date)
-    courier = dispatch_excel_service.COURIER_MONTHLY
 
     response = StreamingResponse(
         output,
@@ -185,7 +190,6 @@ def download_monthly_excel(
             filename=filename,
             included_count=len(included_ids),
             skipped_count=len(skipped),
-            courier_company=courier,
         ),
     )
 
@@ -203,7 +207,6 @@ def download_monthly_excel(
         details={
             "excel_type": "GICHULYU_MONTHLY",
             "send_date": req.send_date,
-            "courier_company": courier,
             "send_ids": included_ids,
             "requested_count": len(req.send_ids),
             "included_count": len(included_ids),
@@ -244,7 +247,6 @@ def download_yearly_gichulyu_excel(
         )
 
     filename = dispatch_excel_service.yearly_gichulyu_filename(req.issue)
-    courier = dispatch_excel_service.COURIER_YEARLY_GICHULYU
 
     response = StreamingResponse(
         output,
@@ -253,7 +255,6 @@ def download_yearly_gichulyu_excel(
             filename=filename,
             included_count=len(included_ids),
             skipped_count=len(skipped),
-            courier_company=courier,
         ),
     )
 
@@ -270,7 +271,6 @@ def download_yearly_gichulyu_excel(
         details={
             "excel_type": "GICHULYU_YEARLY",
             "issue": req.issue,
-            "courier_company": courier,
             "send_ids": included_ids,
             "requested_count": len(req.send_ids),
             "included_count": len(included_ids),
@@ -311,7 +311,6 @@ def download_yearly_postoffice_excel(
         )
 
     filename = dispatch_excel_service.yearly_postoffice_filename(req.issue)
-    courier = dispatch_excel_service.COURIER_YEARLY_POSTOFFICE
 
     response = StreamingResponse(
         output,
@@ -320,7 +319,6 @@ def download_yearly_postoffice_excel(
             filename=filename,
             included_count=len(included_ids),
             skipped_count=len(skipped),
-            courier_company=courier,
         ),
     )
 
@@ -337,7 +335,112 @@ def download_yearly_postoffice_excel(
         details={
             "excel_type": "POSTOFFICE_YEARLY",
             "issue": req.issue,
-            "courier_company": courier,
+            "send_ids": included_ids,
+            "requested_count": len(req.send_ids),
+            "included_count": len(included_ids),
+            "skipped_count": len(skipped),
+            "skipped": [s.model_dump() for s in skipped],
+        },
+    )
+
+    return response
+
+
+# ── VIP 엑셀 (PLAN §10.9) ─────────────────────────────────────────────────────
+
+@router.get(
+    "/dispatches/excel/vip/{slot_number}/candidates",
+    response_model=ResponseModel[VipExcelCandidatesResponse],
+)
+def get_vip_excel_candidates(
+    slot_number: int = Path(..., ge=1, le=6),
+    query: VipCandidatesQuery = Depends(VipCandidatesQuery.as_query_params),
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_manager),
+):
+    """VIP 엑셀 후보 조회. 슬롯 N 비활성 → 400.
+
+    country_code 필터 없음 (해외 포함). 한 박스에 정기+단품 SendItem 공존 가능.
+    """
+    slot = dispatch_excel_service._assert_slot_active(slot_number)
+    candidates = dispatch_excel_service.get_vip_candidates(
+        db=db,
+        slot_number=slot_number,
+        issue=query.issue,
+        postal_code=query.postal_code,
+    )
+    return ResponseModel(
+        message=f"VIP{slot_number} 엑셀 후보를 조회했습니다.",
+        data=VipExcelCandidatesResponse(
+            slot_number=slot_number,
+            slot_label=slot.label,
+            issue=query.issue,
+            total=len(candidates),
+            candidates=candidates,
+        ),
+    )
+
+
+@router.post(
+    "/dispatches/excel/vip/{slot_number}",
+    response_class=StreamingResponse,
+)
+def download_vip_excel(
+    req: VipExcelDownloadRequest,
+    request: Request,
+    slot_number: int = Path(..., ge=1, le=6),
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_admin),
+):
+    """VIP 엑셀 다운로드 (DB 변경 없음). 슬롯 N 비활성 → 400."""
+    slot = dispatch_excel_service._assert_slot_active(slot_number)
+
+    if not req.send_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="선택된 발송이 없습니다.",
+        )
+
+    output, included_ids, skipped = dispatch_excel_service.build_vip_excel(
+        db=db,
+        send_ids=req.send_ids,
+        slot_number=slot_number,
+        send_date_yyyymmdd=req.send_date,
+    )
+
+    if not included_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="엑셀에 포함할 수 있는 발송이 없습니다. (모두 조건 불일치)",
+        )
+
+    filename = dispatch_excel_service.vip_filename(slot_number, slot.label, req.send_date)
+
+    response = StreamingResponse(
+        output,
+        media_type=XLSX_MEDIA_TYPE,
+        headers=_build_excel_response_headers(
+            filename=filename,
+            included_count=len(included_ids),
+            skipped_count=len(skipped),
+        ),
+    )
+
+    activity_log_service.create_log(
+        db=db,
+        action=ActivityAction.DISPATCH,
+        target_type=ActivityTargetType.SEND,
+        admin_id=current_admin.admin_id,
+        admin_name=current_admin.admin_name,
+        target_id=None,
+        target_name=f"VIP{slot_number} 엑셀 다운로드 / {req.send_date} / {len(included_ids)}건",
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        details={
+            "excel_type": f"VIP_{slot_number}",
+            "slot_number": slot_number,
+            "slot_label": slot.label,
+            "send_date": req.send_date,
             "send_ids": included_ids,
             "requested_count": len(req.send_ids),
             "included_count": len(included_ids),

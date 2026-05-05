@@ -6,6 +6,8 @@ import type {
   ExcelDownloadMeta,
   MonthlyExcelCandidatesResponse,
   MonthlyExcelDownloadRequest,
+  VipExcelCandidatesResponse,
+  VipExcelDownloadRequest,
   YearlyExcelCandidatesResponse,
   YearlyExcelDownloadRequest,
 } from "../types/dispatchExcel";
@@ -34,20 +36,10 @@ function parseExcelDownloadMeta(
   const included = Number(response.headers["x-included-count"] ?? 0);
   const skipped = Number(response.headers["x-skipped-count"] ?? 0);
 
-  // 백엔드가 한글을 URL-encode해서 보내므로 디코딩 필요 (latin-1 헤더 제약)
-  const rawCourier = String(response.headers["x-courier-company"] ?? "");
-  let courier = rawCourier;
-  try {
-    courier = decodeURIComponent(rawCourier);
-  } catch {
-    // 디코딩 실패 시 원본 유지
-  }
-
   return {
     filename,
     includedCount: Number.isFinite(included) ? included : 0,
     skippedCount: Number.isFinite(skipped) ? skipped : 0,
-    courierCompany: courier,
   };
 }
 
@@ -102,7 +94,17 @@ export const dispatchExcelApi = {
     );
   },
 
-  // ── 엑셀 다운로드 (+ SHIPPING 전환) ─────────────────────────────────────
+  getVipCandidates: (
+    slot_number: number,
+    params: { issue: string; postal_code?: string | null },
+  ) => {
+    return api.get<ResponseModel<VipExcelCandidatesResponse>>(
+      `/dispatches/excel/vip/${slot_number}/candidates`,
+      { params },
+    );
+  },
+
+  // ── 엑셀 다운로드 ────────────────────────────────────────────────────────
 
   downloadMonthly: async (
     data: MonthlyExcelDownloadRequest,
@@ -145,6 +147,23 @@ export const dispatchExcelApi = {
     const meta = parseExcelDownloadMeta(
       response,
       `우체국_정기구독_${data.issue}.xlsx`,
+    );
+    triggerBlobDownload(response.data, meta.filename);
+    return meta;
+  },
+
+  downloadVipExcel: async (
+    slot_number: number,
+    data: VipExcelDownloadRequest,
+  ): Promise<ExcelDownloadMeta> => {
+    const response = await api.post<Blob>(
+      `/dispatches/excel/vip/${slot_number}`,
+      data,
+      { responseType: "blob" },
+    );
+    const meta = parseExcelDownloadMeta(
+      response,
+      `vip${slot_number}_${data.send_date}.xlsx`,
     );
     triggerBlobDownload(response.data, meta.filename);
     return meta;

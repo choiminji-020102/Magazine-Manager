@@ -10,6 +10,7 @@
 
 # 표준 라이브러리
 import io
+import re
 from typing import Dict, List, Optional, Tuple
 
 # 서드파티 라이브러리
@@ -21,6 +22,8 @@ from openpyxl.worksheet.worksheet import Worksheet
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
+from app.core import vip_slots
+from app.models.address import Address
 from app.models.order_item import OrderItem
 from app.models.send import Send
 from app.models.send_item import SendItem
@@ -28,6 +31,8 @@ from app.schemas.dispatch_excel import (
     ExcelDownloadSkip,
     MonthlyExcelCandidate,
     MonthlyExcelCandidateItem,
+    VipExcelCandidate,
+    VipExcelCandidateItem,
     YearlyExcelCandidate,
 )
 
@@ -52,11 +57,6 @@ POSTOFFICE_YEARLY_PREFIXES: Tuple[str, ...] = ("HN", "CL", "CH", "JN")
 
 # 허용 전체
 ALLOWED_PREFIXES: Tuple[str, ...] = tuple(PREFIX_TO_PRODUCT_NAME.keys())
-
-# 엑셀 종류별 courier_company 고정값
-COURIER_MONTHLY = "CJ대한통운"
-COURIER_YEARLY_GICHULYU = "기출유우편"
-COURIER_YEARLY_POSTOFFICE = "일반우편"
 
 
 # ── 유틸 ──────────────────────────────────────────────────────────────────────
@@ -595,3 +595,239 @@ def yearly_gichulyu_filename(issue: str) -> str:
 
 def yearly_postoffice_filename(issue: str) -> str:
     return f"우체국_정기구독_{issue}.xlsx"
+
+
+# ── VIP 엑셀 — 단품 형식 99% 재사용. 차이: country_code 필터 없음, 비고 컬럼=정기/단품 ──
+
+def _sanitize_label_for_filename(label: Optional[str]) -> str:
+    """OS 금지 문자(/ \\ : * ? " < > |) 를 _ 로 치환. 빈/공백 입력 → 빈 문자열."""
+    if not label:
+        return ""
+    cleaned = re.sub(r'[\\/:*?"<>|]', "_", label).strip()
+    return cleaned
+
+
+def vip_filename(slot_number: int, label: Optional[str], send_date_yyyymmdd: str) -> str:
+    """VIP 엑셀 파일명.
+
+    - label None / 빈 / 공백 / sanitize 결과 빈 → 'vip{N}_YYYYMMDD.xlsx'
+    - 그 외 → 'vip{N}_{sanitized_label}_YYYYMMDD.xlsx'
+    이중 underscore 방지.
+    """
+    sanitized = _sanitize_label_for_filename(label)
+    if sanitized:
+        return f"vip{slot_number}_{sanitized}_{send_date_yyyymmdd}.xlsx"
+    return f"vip{slot_number}_{send_date_yyyymmdd}.xlsx"
+
+
+def _vip_base_filter():
+    """VIP 엑셀 대상 공통 필터 — 단품 _base_filter() 와 통일성 (인자 없음).
+
+    _base_filter() 와 달리 country_code='KR' 강제 없음 (VIP 는 해외 포함).
+    SendItem.cancelled_at IS NULL, Send.cancelled_at IS NULL,
+    Send.send_status=PREPARING, OrderItem.cancelled_at IS NULL.
+    슬롯별 vipN=true 필터는 호출자가 인라인으로 추가.
+    """
+    return (
+        SendItem.cancelled_at.is_(None),
+        Send.cancelled_at.is_(None),
+        Send.send_status == "PREPARING",
+        OrderItem.cancelled_at.is_(None),
+    )
+
+
+def _assert_slot_active(slot_number: int):
+    """슬롯 N 활성화 검증 + VipSlot 객체 반환. 비활성 → 400."""
+    if slot_number < 1 or slot_number > 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"slot_number 는 1..6 범위여야 합니다: {slot_number}",
+        )
+    slot = next((s for s in vip_slots.list_slots() if s.slot_number == slot_number), None)
+    if slot is None or not slot.is_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"비활성 슬롯입니다: vip{slot_number}",
+        )
+    return slot
+
+
+def get_vip_candidates(
+    db: Session,
+    slot_number: int,
+    issue: str,
+    postal_code: Optional[str] = None,
+) -> List[VipExcelCandidate]:
+    """VIP 엑셀 후보 조회 (Send 단위, SendItem 집계 포함).
+
+    - 슬롯 N 비활성 → 400
+    - 대상: PREPARING + Address.vip{N}=true + cancelled_at NULL + product_kind 무관 (정기+단품 통합)
+    - 🚫 country_code 필터 절대 사용 안 함 (VIP 해외 포함)
+    - prefix 가 PREFIX_TO_PRODUCT_NAME 6종에 없는 SendItem 은 스킵 (단품과 동일)
+    - issue 파라미터: 정기 SendItem 의 발송 호 컬럼 표시용. 후보는 issue 별 분리 안 함
+      (한 박스에 issue 다른 정기·단품 공존 가능)
+    """
+    _assert_slot_active(slot_number)
+    vip_col = getattr(Address, f"vip{slot_number}")
+
+    query = (
+        db.query(Send, SendItem, OrderItem)
+        .join(SendItem, SendItem.send_id == Send.send_id)
+        .join(OrderItem, OrderItem.order_item_id == SendItem.order_item_id)
+        .join(Address, Address.address_id == OrderItem.address_id)
+        .filter(*_vip_base_filter())
+        .filter(vip_col.is_(True))
+    )
+    if postal_code:
+        query = query.filter(Send.postal_code == postal_code.strip())
+
+    rows = query.order_by(
+        Send.postal_code.asc(), Send.send_id.asc(), SendItem.send_item_id.asc()
+    ).all()
+
+    by_send: Dict[int, VipExcelCandidate] = {}
+    for send, send_item, order_item in rows:
+        prefix = extract_prefix(send_item.product_code)
+        if prefix not in PREFIX_TO_PRODUCT_NAME:
+            continue
+
+        if send.send_id not in by_send:
+            by_send[send.send_id] = VipExcelCandidate(
+                send_id=send.send_id,
+                recipient_name=send.recipient_name or "",
+                recipient_phone=send.recipient_phone or "",
+                country_code=send.country_code or "",
+                postal_code=send.postal_code or "",
+                recipient_address=send.recipient_address or "",
+                customer_memo=send.customer_memo,
+                items=[],
+            )
+        by_send[send.send_id].items.append(VipExcelCandidateItem(
+            send_item_id=send_item.send_item_id,
+            product_code=send_item.product_code,
+            product_name=send_item.product_name,
+            prefix=prefix,
+            display_product_name=PREFIX_TO_PRODUCT_NAME[prefix],
+            issue=send_item.issue or "",
+            send_num=send_item.send_num,
+            product_kind=order_item.product_kind,
+        ))
+
+    return list(by_send.values())
+
+
+# 비고 컬럼(9번) 매핑 — VIP 만 채움 (단품/정기는 빈칸 유지)
+_VIP_REMARK_BY_KIND: Dict[str, str] = {"YEARLY": "정기", "MONTHLY": "단품"}
+
+
+def build_vip_excel(
+    db: Session,
+    send_ids: List[int],
+    slot_number: int,
+    send_date_yyyymmdd: str,
+) -> Tuple[io.BytesIO, List[int], List[ExcelDownloadSkip]]:
+    """VIP 엑셀 생성 (단품과 동일한 컬럼/병합/스타일/정렬, 시트 1개).
+
+    - 슬롯 N 비활성 → 400
+    - 시트명 항상 f"vip{N}" (Excel 시트명 31자/특수문자 제약 회피, 단순화)
+    - 비고 컬럼: SendItem→OrderItem.product_kind 따라 "정기"/"단품" 자동 채움
+    - 단품과 달리 country_code='KR' 강제 없음 (해외 포함)
+    """
+    _assert_slot_active(slot_number)
+    date_label = format_send_date_label(send_date_yyyymmdd)
+    vip_col = getattr(Address, f"vip{slot_number}")
+
+    # 대상 Send + SendItem + OrderItem(product_kind) 한번에 조회
+    rows = (
+        db.query(Send, SendItem, OrderItem)
+        .join(SendItem, SendItem.send_id == Send.send_id)
+        .join(OrderItem, OrderItem.order_item_id == SendItem.order_item_id)
+        .join(Address, Address.address_id == OrderItem.address_id)
+        .filter(Send.send_id.in_(send_ids))
+        .filter(*_vip_base_filter())
+        .filter(vip_col.is_(True))
+        .all()
+    )
+
+    # Send 단위 그룹화 + product_kind 사전 (비고 컬럼 lookup용)
+    sends_by_id: Dict[int, Send] = {}
+    items_by_send: Dict[int, List[SendItem]] = {}
+    pk_by_si_id: Dict[int, str] = {}
+    for send, send_item, order_item in rows:
+        prefix = extract_prefix(send_item.product_code)
+        if prefix not in PREFIX_TO_PRODUCT_NAME:
+            continue
+        sends_by_id.setdefault(send.send_id, send)
+        items_by_send.setdefault(send.send_id, []).append(send_item)
+        pk_by_si_id[send_item.send_item_id] = order_item.product_kind
+
+    included_send_ids = set(items_by_send.keys())
+    skipped: List[ExcelDownloadSkip] = []
+    for sid in send_ids:
+        if sid not in included_send_ids:
+            skipped.append(ExcelDownloadSkip(
+                send_id=sid,
+                reason="대상 조건 불일치(상태/취소/슬롯/prefix)",
+            ))
+
+    # 정렬 (단품과 동일): Send 간 우편번호 → 주소 → 이름 → send_id
+    sorted_sends = sorted(
+        sends_by_id.values(),
+        key=lambda s: (
+            (s.postal_code or "").strip(),
+            (s.recipient_address or "").strip(),
+            (s.recipient_name or "").strip(),
+            s.send_id,
+        ),
+    )
+
+    # 엑셀 생성
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f"vip{slot_number}"
+    _write_header(ws, _MONTHLY_HEADERS)
+
+    row_idx = 2
+    for send in sorted_sends:
+        # Send 안 SendItem 정렬 (단품과 동일): prefix → issue → send_item_id
+        items = sorted(
+            items_by_send[send.send_id],
+            key=lambda si: (extract_prefix(si.product_code), si.issue or "", si.send_item_id),
+        )
+        start_row = row_idx
+        for si in items:
+            prefix = extract_prefix(si.product_code)
+            row_values = [
+                date_label,                                  # 1 날짜 (병합)
+                send.recipient_name or "",                   # 2 이름
+                send.recipient_phone or "",                  # 3 연락처
+                send.postal_code or "",                      # 4 우편번호
+                send.recipient_address or "",                # 5 주소
+                format_issue_ko_short(si.issue or ""),       # 6 발행호
+                PREFIX_TO_PRODUCT_NAME[prefix],              # 7 상품명
+                si.send_num,                                 # 8 수량
+                _VIP_REMARK_BY_KIND.get(pk_by_si_id.get(si.send_item_id, ""), ""),  # 9 비고
+                "",                                          # 10 박스수 (병합)
+                "",                                          # 11 안전봉투 (병합)
+                "",                                          # 12 송장번호 (병합)
+            ]
+            for col_idx, value in enumerate(row_values, start=1):
+                cell = ws.cell(row=row_idx, column=col_idx, value=value)
+                cell.border = _THIN_BORDER
+                cell.alignment = _CENTER_ALIGN if col_idx in _MONTHLY_CENTER_COLUMNS else _LEFT_ALIGN
+            row_idx += 1
+        end_row = row_idx - 1
+        if end_row > start_row:
+            for col_idx in _MONTHLY_MERGE_COLUMNS:
+                ws.merge_cells(
+                    start_row=start_row, end_row=end_row,
+                    start_column=col_idx, end_column=col_idx,
+                )
+
+    _set_column_widths(ws, _MONTHLY_WIDTHS)
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    return output, sorted(included_send_ids), skipped

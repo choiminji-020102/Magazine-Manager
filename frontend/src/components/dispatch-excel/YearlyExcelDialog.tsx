@@ -234,10 +234,7 @@ export default function YearlyExcelDialog({
         send_ids: Array.from(selectedIds) as number[],
         issue,
       });
-      toast.success(
-        `${meta.includedCount}건 다운로드 완료`,
-        `배송중(${meta.courierCompany})으로 전환됨`,
-      );
+      toast.success(`엑셀 다운로드 완료 (${meta.includedCount}건)`);
       if (meta.skippedCount > 0) {
         toast.warning(`${meta.skippedCount}건은 조건 불일치로 스킵됨`);
       }

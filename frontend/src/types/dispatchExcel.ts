@@ -73,5 +73,42 @@ export interface ExcelDownloadMeta {
   filename: string;
   includedCount: number;
   skippedCount: number;
-  courierCompany: string;
+}
+
+// ── 후보 (VIP) ────────────────────────────────────────────────────────────────
+// VIP 엑셀은 단품 형식 99% 재사용. 차이: country_code 노출 + product_kind(비고용)
+
+export interface VipExcelCandidateItem {
+  send_item_id: number;
+  product_code: string;
+  product_name: string;
+  prefix: string;                      // W0/WB/HN/CL/CH/JN
+  display_product_name: string;        // 기본판/큰글자/꿀땅/저학년/고학년/청소년
+  issue: string;                       // YYYYMM
+  send_num: number;
+  product_kind: "YEARLY" | "MONTHLY";  // 비고 컬럼 표시용 ("정기"/"단품")
+}
+
+export interface VipExcelCandidate {
+  send_id: number;
+  recipient_name: string;
+  recipient_phone: string;
+  country_code: string;                // 단품과 달리 KR 외 가능
+  postal_code: string;
+  recipient_address: string;
+  customer_memo?: string | null;
+  items: VipExcelCandidateItem[];
+}
+
+export interface VipExcelCandidatesResponse {
+  slot_number: number;
+  slot_label: string | null;
+  issue: string;
+  total: number;
+  candidates: VipExcelCandidate[];
+}
+
+export interface VipExcelDownloadRequest {
+  send_ids: number[];
+  send_date: string;   // YYYYMMDD
 }

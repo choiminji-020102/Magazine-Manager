@@ -1,5 +1,5 @@
 # 표준 라이브러리
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 # 서드파티 라이브러리
 from fastapi import Query
@@ -109,6 +109,72 @@ class YearlyExcelDownloadRequest(BaseModel):
     """정기구독 엑셀 다운로드 요청 (A/B 공용)"""
     send_ids: List[int] = Field(..., min_length=1)
     issue: str = Field(..., description="발송 호 (YYYYMM, 파일명용)")
+
+
+# ── 후보 조회 응답 (VIP) ──────────────────────────────────────────────────────
+# VIP 엑셀은 단품 형식 99% 재사용. 차이: country_code 노출 + product_kind 비고 컬럼용
+
+class VipExcelCandidateItem(BaseModel):
+    """VIP 후보 내 SendItem 1건 (1 SendItem = 엑셀 1행).
+
+    단품 MonthlyExcelCandidateItem 과 동일 + product_kind 만 추가 (비고 컬럼 표시용).
+    order_item_id 는 노출 안 함 (단품과 일관 — 정기에만 있음).
+    """
+    send_item_id: int
+    product_code: str
+    product_name: str
+    prefix: str
+    display_product_name: str
+    issue: str
+    send_num: int
+    product_kind: Literal["YEARLY", "MONTHLY"]   # 비고 컬럼 표시용 ("정기"/"단품")
+
+
+class VipExcelCandidate(BaseModel):
+    """VIP 엑셀 후보 1건 (Send 단위).
+
+    단품 MonthlyExcelCandidate 와 동일 + country_code 추가 (VIP 는 KR 외 가능 — 운영자에게 노출).
+    """
+    send_id: int
+    recipient_name: str
+    recipient_phone: str
+    country_code: str                           # 단품과 달리 KR 외 가능
+    postal_code: str
+    recipient_address: str
+    customer_memo: Optional[str] = None
+    items: List[VipExcelCandidateItem]
+
+
+class VipExcelCandidatesResponse(BaseModel):
+    slot_number: int
+    slot_label: Optional[str] = None
+    issue: str
+    total: int
+    candidates: List[VipExcelCandidate]
+
+
+# ── 후보 조회 쿼리 (VIP) ──────────────────────────────────────────────────────
+
+class VipCandidatesQuery(BaseModel):
+    """VIP 후보 조회 쿼리 — issue 필수 (정기 SendItem 처리용)."""
+    issue: str
+    postal_code: Optional[str] = None
+
+    @classmethod
+    def as_query_params(
+        cls,
+        issue: str = Query(..., description="발송 호 (YYYYMM)"),
+        postal_code: Optional[str] = Query(None, description="우편번호 정확 일치"),
+    ):
+        return cls(issue=issue, postal_code=postal_code)
+
+
+# ── 다운로드 요청 (VIP) ───────────────────────────────────────────────────────
+
+class VipExcelDownloadRequest(BaseModel):
+    """VIP 엑셀 다운로드 요청 (단품 패턴 일관 — send_ids + send_date)."""
+    send_ids: List[int] = Field(..., min_length=1)
+    send_date: str = Field(..., description="YYYYMMDD (관리자 입력 발송날짜)")
 
 
 # ── 다운로드 후 상태 전환 결과 (활동 로그 details용) ──────────────────────────

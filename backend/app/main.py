@@ -37,7 +37,6 @@ app.add_middleware(
         "Content-Disposition",
         "X-Included-Count",
         "X-Skipped-Count",
-        "X-Courier-Company",
     ],
 )
 
