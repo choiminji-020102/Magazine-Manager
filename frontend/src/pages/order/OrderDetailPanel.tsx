@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/useDebounce";
 import { X, Edit2, Plus } from "lucide-react";
@@ -176,6 +176,37 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     queryFn: () => vipSlotsApi.getVipSlots().then((res) => res.data.data ?? []),
     staleTime: 5 * 60 * 1000,
   });
+
+  // 재배송 이력 — 한 번 조회 후 send_id 별 그룹핑 (N+1 회피).
+  // 데이터 누적 시 백엔드에 target_ids[] 필터 추가하면 더 좁힐 수 있음.
+  const { data: resendLogs = [] } = useQuery({
+    queryKey: ["resendLogs", "order", orderId],
+    queryFn: () =>
+      activityLogsApi
+        .getActivityLogs({
+          page: 1,
+          limit: 100,
+          target_type: "SEND",
+          action: "RESEND",
+        })
+        .then((r) => r.data.items ?? []),
+    enabled: !!order?.sends && order.sends.length > 0,
+  });
+
+  const resendsBySendId = useMemo(() => {
+    const sendIdSet = new Set((order?.sends ?? []).map((s) => s.send_id));
+    const map = new Map<number, typeof resendLogs>();
+    for (const log of resendLogs) {
+      if (log.target_id == null || !sendIdSet.has(log.target_id)) continue;
+      const arr = map.get(log.target_id) ?? [];
+      arr.push(log);
+      map.set(log.target_id, arr);
+    }
+    for (const arr of map.values()) {
+      arr.sort((a, b) => a.created_at.localeCompare(b.created_at));
+    }
+    return map;
+  }, [resendLogs, order?.sends]);
 
   // 배송지 변경 mutation
   const addressChangeMutation = useMutation({
@@ -733,11 +764,23 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                       <span className="text-xs text-gray-700">{send.admin_memo}</span>
                     </div>
                   )}
+                  {/* 배송 방법 */}
+                  {send.send_method && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-xs text-gray-400 w-24 flex-shrink-0">배송방법</span>
+                      <span className="text-xs text-gray-700">
+                        {send.send_method}
+                        {send.courier_company && (
+                          <span className="text-gray-400"> · {send.courier_company}</span>
+                        )}
+                      </span>
+                    </div>
+                  )}
                   {/* 운송장 */}
                   {send.tracking_no ? (
                     <div className="flex items-start gap-3">
                       <span className="text-xs text-gray-400 w-24 flex-shrink-0">운송장</span>
-                      <span className="text-xs text-gray-700 font-mono">{send.courier_company} {send.tracking_no}</span>
+                      <span className="text-xs text-gray-700 font-mono">{send.tracking_no}</span>
                     </div>
                   ) : (
                     <div className="text-xs text-gray-300">운송장 미등록</div>
@@ -755,6 +798,21 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                       <span className="text-xs text-red-600">{formatDateTime(send.cancelled_at)}</span>
                     </div>
                   )}
+                  {/* 재배송 이력 */}
+                  {(resendsBySendId.get(send.send_id) ?? []).map((log, idx) => {
+                    const d = log.details ?? {};
+                    const parts: string[] = [];
+                    if (d.reason) parts.push(d.reason);
+                    if (d.send_method) parts.push(d.send_method);
+                    if (d.tracking_no) parts.push(`운송장 ${d.tracking_no}`);
+                    if (d.memo) parts.push(d.memo);
+                    return (
+                      <div key={log.log_id} className="flex items-start gap-3">
+                        <span className="text-xs text-gray-400 w-24 flex-shrink-0">재배송 #{idx + 1}</span>
+                        <span className="text-xs text-orange-600">{parts.join(" · ")}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}
