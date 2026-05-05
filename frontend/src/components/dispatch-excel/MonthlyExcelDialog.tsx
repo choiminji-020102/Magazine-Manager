@@ -185,8 +185,8 @@ export default function MonthlyExcelDialog({
           <DialogHeader>
             <DialogTitle>기출유 단품 엑셀 다운로드</DialogTitle>
             <p className="text-xs text-gray-500 mt-1">
-              다운로드 즉시 선택된 발송이 <span className="font-medium">배송중(CJ대한통운)</span>으로
-              전환됩니다. 체크 해제된 건은 유지됩니다.
+              선택된 PREPARING 박스를 엑셀로 출력합니다. 박스 상태는 유지되며, 배송완료 처리는
+              별도 [배송완료 처리] 단계에서 진행합니다.
             </p>
           </DialogHeader>
 
@@ -254,9 +254,7 @@ export default function MonthlyExcelDialog({
                 전체 <span className="font-semibold text-gray-900">{candidates.length}</span>건 중{" "}
                 <span className="font-semibold text-blue-700">{selectedIds.size}</span>건 선택됨
               </span>
-              <span className="text-amber-700">
-                ⚠ 다운로드 즉시 배송중(SHIPPING) 전환 · 체크 해제된 건은 전환되지 않음
-              </span>
+              <span className="text-gray-400">박스 상태는 변경되지 않습니다.</span>
             </div>
           )}
 
@@ -291,10 +289,8 @@ export default function MonthlyExcelDialog({
               선택된 <span className="font-semibold text-gray-900">{selectedIds.size}건</span>을
               기출유 단품 엑셀로 다운로드합니다.
             </p>
-            <p className="text-amber-700">
-              다운로드 직후 이 발송들은{" "}
-              <span className="font-semibold">배송중(CJ대한통운)</span> 상태로 전환됩니다. 계속
-              진행하시겠습니까?
+            <p className="text-gray-500 text-xs">
+              박스 상태는 변경되지 않습니다. 배송완료 처리는 별도 [배송완료 처리] 단계에서.
             </p>
           </div>
           <DialogFooter>
