@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { DataTable, type ColumnDef } from "@/components/common/DataTable";
 import { Pagination } from "@/components/common/Pagination";
 import RegeneratePreparingConfirmModal from "@/components/dispatch/RegeneratePreparingConfirmModal";
+import MonthlyExcelDialog from "@/components/dispatch-excel/MonthlyExcelDialog";
+import YearlyExcelDialog from "@/components/dispatch-excel/YearlyExcelDialog";
 import { sendsApi } from "@/api/sendsApi";
 import { dispatchApi } from "@/api/dispatchApi";
 import { formatDate, formatPhone } from "@/utils/format";
@@ -27,6 +29,9 @@ export default function PreparingSendListPage() {
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
   const [regenerateOpen, setRegenerateOpen] = useState(false);
+  const [excelOpen, setExcelOpen] = useState<
+    null | "monthly" | "yearly-gichulyu" | "yearly-postoffice"
+  >(null);
 
   const issueValid = /^\d{6}$/.test(issueInput);
 
@@ -177,9 +182,39 @@ export default function PreparingSendListPage() {
           <Button size="sm" variant="outline" onClick={() => setRegenerateOpen(true)}>
             발송 생성
           </Button>
-          <Button size="sm" variant="outline" disabled>
-            엑셀 다운로드
-          </Button>
+          {scope === "monthly" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setExcelOpen("monthly")}
+              disabled={!issueValid}
+              title={!issueValid ? "엑셀 다운로드는 발송 호 입력 필요" : undefined}
+            >
+              엑셀 다운로드
+            </Button>
+          )}
+          {scope === "yearly" && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setExcelOpen("yearly-gichulyu")}
+                disabled={!issueValid}
+                title={!issueValid ? "엑셀 다운로드는 발송 호 입력 필요" : undefined}
+              >
+                기출유 엑셀
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setExcelOpen("yearly-postoffice")}
+                disabled={!issueValid}
+                title={!issueValid ? "엑셀 다운로드는 발송 호 입력 필요" : undefined}
+              >
+                우체국 엑셀
+              </Button>
+            </>
+          )}
           <Button size="sm" disabled={selectedIds.size === 0}>
             배송완료 처리 ({selectedIds.size}건)
           </Button>
@@ -197,6 +232,19 @@ export default function PreparingSendListPage() {
           queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
           setSelectedIds(new Set());
         }}
+      />
+
+      {/* 엑셀 다운로드 모달 */}
+      <MonthlyExcelDialog
+        open={excelOpen === "monthly"}
+        onClose={() => setExcelOpen(null)}
+        issue={issueInput}
+      />
+      <YearlyExcelDialog
+        open={excelOpen === "yearly-gichulyu" || excelOpen === "yearly-postoffice"}
+        onClose={() => setExcelOpen(null)}
+        issue={issueInput}
+        variant={excelOpen === "yearly-gichulyu" ? "gichulyu" : "postoffice"}
       />
 
       {/* 박스 목록 */}
