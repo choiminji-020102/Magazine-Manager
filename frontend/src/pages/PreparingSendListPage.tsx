@@ -12,20 +12,25 @@ import MonthlyExcelDialog from "@/components/dispatch-excel/MonthlyExcelDialog";
 import YearlyExcelDialog from "@/components/dispatch-excel/YearlyExcelDialog";
 import { sendsApi } from "@/api/sendsApi";
 import { dispatchApi } from "@/api/dispatchApi";
+import { vipSlotsApi } from "@/api/vipSlotsApi";
 import { formatDate, formatPhone } from "@/utils/format";
 import type { SendResponse } from "@/types/send";
-import type { PaidNotPreparedCountResponse } from "@/types/dispatch";
-
-// PR6.3 골격 — 단품/정기 탭 + 박스 목록 + 카운트 배너 + 액션 버튼 (placeholder).
-// VIP 동적 탭은 PR6.4, 모달 4종은 PR6.3 후속 커밋에서 와이어링.
-
-type ScopeTab = "monthly" | "yearly";
+import type { DispatchScope, PaidNotPreparedCountResponse } from "@/types/dispatch";
 
 const LIMIT = 50;
 
+// scope 가 vipN 이면 슬롯 번호 반환, 그 외 null
+function vipSlotOf(scope: DispatchScope): number | null {
+  if (scope.startsWith("vip")) {
+    const n = Number(scope.slice(3));
+    if (n >= 1 && n <= 6) return n;
+  }
+  return null;
+}
+
 export default function PreparingSendListPage() {
   const queryClient = useQueryClient();
-  const [scope, setScope] = useState<ScopeTab>("monthly");
+  const [scope, setScope] = useState<DispatchScope>("monthly");
   const [issueInput, setIssueInput] = useState("");
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
@@ -36,8 +41,20 @@ export default function PreparingSendListPage() {
   const [transitionOpen, setTransitionOpen] = useState(false);
 
   const issueValid = /^\d{6}$/.test(issueInput);
+  const vipSlot = vipSlotOf(scope);
+  const isVip = vipSlot !== null;
 
-  // 발송 박스 목록 (PREPARING)
+  // 활성 VIP 슬롯 (동적 탭 렌더링용)
+  const { data: vipSlots = [] } = useQuery({
+    queryKey: ["vip-slots"],
+    queryFn: () => vipSlotsApi.getVipSlots().then((r) => r.data.data ?? []),
+    staleTime: 5 * 60 * 1000,
+  });
+  const activeVipSlots = useMemo(() => vipSlots.filter((s) => s.is_enabled), [vipSlots]);
+
+  // 발송 박스 목록 (PREPARING).
+  // VIP 탭: vip_slot_number 필터 (product_kind 무관, 정기+단품 혼합 가능)
+  // monthly/yearly: product_kind 필터 (KR 강제는 백엔드 그룹핑 단계에서 보장)
   const { data: sendsData, isLoading } = useQuery({
     queryKey: ["preparing-sends", scope, issueInput, page],
     queryFn: () =>
@@ -46,7 +63,8 @@ export default function PreparingSendListPage() {
           page,
           limit: LIMIT,
           send_status: "PREPARING",
-          product_kind: scope === "monthly" ? "MONTHLY" : "YEARLY",
+          product_kind: isVip ? null : scope === "monthly" ? "MONTHLY" : "YEARLY",
+          vip_slot_number: vipSlot,
           issue: issueValid ? issueInput : null,
           sort_by: "created_at",
           sort_order: "desc",
@@ -69,7 +87,7 @@ export default function PreparingSendListPage() {
 
   // 탭 전환 시 페이지·선택 초기화
   const handleTabChange = (next: string) => {
-    setScope(next as ScopeTab);
+    setScope(next as DispatchScope);
     setPage(1);
     setSelectedIds(new Set());
   };
@@ -130,11 +148,16 @@ export default function PreparingSendListPage() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      {/* 탭 */}
+      {/* 탭 — 단품 / 정기 + 활성 VIP 슬롯만 동적 렌더링 */}
       <Tabs value={scope} onValueChange={handleTabChange} className="bg-white border-b border-gray-200">
         <TabsList className="ml-5 mt-2">
           <TabsTrigger value="monthly">단품</TabsTrigger>
           <TabsTrigger value="yearly">정기</TabsTrigger>
+          {activeVipSlots.map((s) => (
+            <TabsTrigger key={s.slot_number} value={`vip${s.slot_number}`}>
+              {s.label || `VIP ${s.slot_number}`}
+            </TabsTrigger>
+          ))}
         </TabsList>
       </Tabs>
 
@@ -285,12 +308,16 @@ export default function PreparingSendListPage() {
   );
 }
 
-// 탭별 카운트 추출 (16+2 키 응답에서 scope 별 1쌍 꺼내기)
+// 탭별 카운트 추출 (16+2 키 응답에서 scope 별 1쌍 꺼내기, 8개 scope 모두 처리)
 function extractCounts(
   data: PaidNotPreparedCountResponse | undefined,
-  scope: ScopeTab,
+  scope: DispatchScope,
 ): { count: number; preparing: number } {
   if (!data) return { count: 0, preparing: 0 };
-  if (scope === "monthly") return { count: data.monthly_count, preparing: data.monthly_preparing };
-  return { count: data.yearly_count, preparing: data.yearly_preparing };
+  const countKey = `${scope}_count` as keyof PaidNotPreparedCountResponse;
+  const preparingKey = `${scope}_preparing` as keyof PaidNotPreparedCountResponse;
+  return {
+    count: (data[countKey] as number | undefined) ?? 0,
+    preparing: (data[preparingKey] as number | undefined) ?? 0,
+  };
 }
