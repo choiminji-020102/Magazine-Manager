@@ -15,6 +15,7 @@ import AdminListPage from "@/pages/AdminListPage";
 import ActivityLogPage from "@/pages/ActivityLogPage";
 import SettingsPage from "@/pages/SettingsPage";
 import SubscriptionListPage from "@/pages/SubscriptionListPage";
+import PreparingSendListPage from "@/pages/PreparingSendListPage";
 import Cafe24ProductListPage from "@/pages/Cafe24ProductListPage";
 import Cafe24OrderListPage from "@/pages/Cafe24OrderListPage";
 
@@ -58,6 +59,7 @@ export default function App() {
           <Route path="/customers" element={<CustomerListPage />} />
           <Route path="/products" element={<ProductListPage />} />
           <Route path="/subscriptions" element={<SubscriptionListPage />} />
+          <Route path="/sends/preparing" element={<PreparingSendListPage />} />
           <Route path="/inquiries" element={<InquiryListPage />} />
           <Route path="/admins" element={<AdminListPage />} />
           <Route path="/activity-logs" element={<ActivityLogPage />} />

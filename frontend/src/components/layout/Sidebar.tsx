@@ -12,6 +12,7 @@ import {
   Activity,
   Settings,
   Store,
+  Truck,
   ChevronLeft,
   ChevronRight,
   Link,
@@ -47,6 +48,12 @@ const navigation: NavGroup[] = [
       { label: "전체 주문 조회", path: "/orders", icon: ShoppingCart, activeOn: ["/orders", "/orders/new"] },
       { label: "입금전 관리", path: "/orders/unpaid", icon: ShoppingCart },
       { label: "구독 목록", path: "/subscriptions", icon: BookOpen },
+    ],
+  },
+  {
+    group: "발송",
+    items: [
+      { label: "배송 준비 중 관리", path: "/sends/preparing", icon: Truck },
     ],
   },
   {
