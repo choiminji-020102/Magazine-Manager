@@ -37,9 +37,18 @@ export interface SendResendRequest {
 
 // ── 응답 스키마 ───────────────────────────────────────────────────────────────
 
+export interface RelatedOrderInfo {
+  // Send 에 묶인 주문 정보 (자기 주문 외 묶인 주문 표시용).
+  // SendItem→OrderItem→Order→Customer 경유 derived. 자기 orderId 제외는 프론트 책임.
+  order_id: number;
+  customer_name: string;
+  customer_phone: string;
+}
+
 export interface SendResponse {
   send_id: number;
   order_ids: number[];                    // SendItem→OrderItem 경유 derived (백엔드 @property)
+  related_orders: RelatedOrderInfo[];     // 묶인 주문 정보 (이름/전화 포함)
   address_id?: number | null;
   send_status: SendStatus;
   send_method?: SendMethod | null;

@@ -697,6 +697,21 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                   </div>
                 </div>
                 <div className="px-3.5 py-3 space-y-2">
+                  {/* 함께 묶인 주문 (자기 주문 제외) */}
+                  {send.related_orders
+                    .filter((ro) => ro.order_id !== orderId)
+                    .map((ro) => (
+                      <div key={ro.order_id} className="flex items-start gap-3">
+                        <span className="text-xs text-gray-400 w-24 flex-shrink-0">묶인 주문</span>
+                        <span className="text-xs text-gray-600">
+                          <span className="font-mono text-gray-400">#{ro.order_id}</span>
+                          <span className="mx-1.5 text-gray-300">·</span>
+                          {ro.customer_name}
+                          <span className="mx-1.5 text-gray-300">·</span>
+                          <span className="font-mono">{formatPhone(ro.customer_phone)}</span>
+                        </span>
+                      </div>
+                    ))}
                   {/* 수령인 정보 */}
                   <div className="flex items-start gap-3">
                     <span className="text-xs text-gray-400 w-24 flex-shrink-0">수령인</span>
