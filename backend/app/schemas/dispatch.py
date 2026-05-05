@@ -97,12 +97,22 @@ class TransitionToDeliveredResponse(BaseModel):
 
 
 class PaidNotPreparedCountResponse(BaseModel):
-    """PAID 지만 PREPARING 에 안 들어간 OrderItem 카운트 (PreparingSendListPage 알림 배너용).
+    """PreparingSendListPage 카운트 배너용 — 두 묶음을 한 응답에 담음.
 
-    8 키 분해 (PR5) — monthly/yearly 는 KR + 활성 vipN 모두 false, vipN 은 Address.vipN=true
-    (country_code 무관, kind 무관). 비활성 슬롯은 0. 단일성 제약(V-7) 덕에 8 키 합계 = total_count.
-    기존 monthly_count / yearly_count / total_count 키 유지 (frontend backwards-compat).
+    *_count (8 키 + total_count): "신규 결제" — PAID 지만 PREPARING 에 아직 안 들어간 OrderItem.
+        다음 [발송 생성] 시 박스에 들어갈 후보. (PR5)
+
+    *_preparing (8 키 + total_preparing): "박스 처리됨" — 현재 PREPARING Send 의 활성 SendItem 안
+        OrderItem 수. 이미 박스에 들어가 있는 것. (PR5.1)
+
+    분해 정책 (두 묶음 동일):
+    - monthly/yearly = KR + 활성 vipN 모두 false + 해당 product_kind
+    - vipN = Address.vipN=true (country_code 무관, kind 무관). 비활성 슬롯은 0
+    - 단일성 제약(V-7) 덕에 8 키 합계 = 묶음별 total
+
+    프론트 카운트 배너: "📦 박스 처리 {*_preparing} / {*_preparing + *_count}건 · 🔔 신규 결제 {*_count}건"
     """
+    # 신규 결제 (PAID 미반영)
     monthly_count: int
     yearly_count: int
     vip1_count: int = 0
@@ -112,3 +122,14 @@ class PaidNotPreparedCountResponse(BaseModel):
     vip5_count: int = 0
     vip6_count: int = 0
     total_count: int
+
+    # 박스 처리됨 (현재 PREPARING)
+    monthly_preparing: int = 0
+    yearly_preparing: int = 0
+    vip1_preparing: int = 0
+    vip2_preparing: int = 0
+    vip3_preparing: int = 0
+    vip4_preparing: int = 0
+    vip5_preparing: int = 0
+    vip6_preparing: int = 0
+    total_preparing: int = 0

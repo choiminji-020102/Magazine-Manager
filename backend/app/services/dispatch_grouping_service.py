@@ -523,3 +523,68 @@ def count_paid_not_prepared(db: Session) -> Dict[str, int]:
         result[f"vip{n}"] = cnt or 0
 
     return result
+
+
+def count_orderitems_in_preparing(db: Session) -> Dict[str, int]:
+    """현재 PREPARING Send 의 활성 SendItem 안 OrderItem 수를 scope 별로 분해해 반환.
+
+    PreparingSendListPage 카운트 배너의 "박스 처리됨 N건" 부분 — 이미 발송 박스에 들어간
+    OrderItem 수. count_paid_not_prepared 와 합쳐 "처리 / 전체" 진척도 표시.
+
+    반환 dict 키 (항상 고정 8개, count_paid_not_prepared 와 동일 구조):
+    - "monthly": MONTHLY OrderItem 의 PREPARING SendItem (KR + 활성 vipN 모두 false)
+    - "yearly":  YEARLY  OrderItem 의 PREPARING SendItem (KR + 활성 vipN 모두 false)
+    - "vip1".."vip6": Address.vip{N}=true OrderItem 의 PREPARING SendItem (country_code 무관, kind 무관)
+
+    공통 조건:
+    - Send.send_status = 'PREPARING' AND Send.cancelled_at IS NULL
+    - SendItem.cancelled_at IS NULL (활성 SendItem 만)
+    - OrderItem.cancelled_at IS NULL
+
+    단일성 제약(V-7) 덕에 한 OrderItem 의 활성 PREPARING SendItem 은 정확히 한 키에만 카운트.
+    같은 OrderItem 이 여러 호 SendItem 을 가질 수 있어 distinct 적용.
+    """
+    result: Dict[str, int] = {"monthly": 0, "yearly": 0}
+    for n in range(1, 7):
+        result[f"vip{n}"] = 0
+
+    active_slots = [s.slot_number for s in vip_slots.list_slots() if s.is_enabled]
+
+    base_filters = [
+        Send.send_status == "PREPARING",
+        Send.cancelled_at.is_(None),
+        SendItem.cancelled_at.is_(None),
+        OrderItem.cancelled_at.is_(None),
+    ]
+
+    # monthly + yearly (KR + 활성 vipN 제외) — 단일 group_by 쿼리
+    my_query = (
+        db.query(OrderItem.product_kind, func.count(func.distinct(OrderItem.order_item_id)))
+        .join(SendItem, SendItem.order_item_id == OrderItem.order_item_id)
+        .join(Send, Send.send_id == SendItem.send_id)
+        .join(Address, Address.address_id == OrderItem.address_id)
+        .filter(*base_filters, Address.country_code == "KR")
+    )
+    if active_slots:
+        vip_columns = [getattr(Address, f"vip{n}") for n in active_slots]
+        my_query = my_query.filter(not_(or_(*vip_columns)))
+    for kind, cnt in my_query.group_by(OrderItem.product_kind).all():
+        if kind == "MONTHLY":
+            result["monthly"] = cnt
+        elif kind == "YEARLY":
+            result["yearly"] = cnt
+
+    # 활성 vipN 각각 (country_code 무관, kind 무관)
+    for n in active_slots:
+        vip_col = getattr(Address, f"vip{n}")
+        cnt = (
+            db.query(func.count(func.distinct(OrderItem.order_item_id)))
+            .join(SendItem, SendItem.order_item_id == OrderItem.order_item_id)
+            .join(Send, Send.send_id == SendItem.send_id)
+            .join(Address, Address.address_id == OrderItem.address_id)
+            .filter(*base_filters, vip_col.is_(True))
+            .scalar()
+        )
+        result[f"vip{n}"] = cnt or 0
+
+    return result

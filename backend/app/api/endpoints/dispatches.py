@@ -218,13 +218,14 @@ def paid_not_prepared_count_endpoint(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_manager),
 ):
-    """PAID 지만 PREPARING 에 안 들어간 OrderItem 카운트 (PreparingSendListPage 알림 배너용).
+    """PreparingSendListPage 카운트 배너용 — 두 묶음 한 응답.
 
-    [발송 생성] 을 다시 눌러야 PREPARING 에 추가될 OrderItem 이 scope 별로 몇 개인지 알려준다.
-    응답: monthly/yearly/vip1..vip6 각 카운트 + total_count (8키 합계 = total, 단일성 제약 덕).
+    - *_count (PR5): "신규 결제" — PAID 지만 PREPARING 안 들어간 OrderItem (다음 [발송 생성] 시 추가될 후보)
+    - *_preparing (PR5.1): "박스 처리됨" — 현재 PREPARING 박스에 들어가 있는 활성 OrderItem
+    8키 합계 = 각 묶음의 total (단일성 제약 V-7 덕).
     """
     counts = dispatch_grouping_service.count_paid_not_prepared(db)
-    total = sum(counts.values())
+    in_preparing = dispatch_grouping_service.count_orderitems_in_preparing(db)
     return ResponseModel(
         data=PaidNotPreparedCountResponse(
             monthly_count=counts["monthly"],
@@ -235,6 +236,15 @@ def paid_not_prepared_count_endpoint(
             vip4_count=counts["vip4"],
             vip5_count=counts["vip5"],
             vip6_count=counts["vip6"],
-            total_count=total,
+            total_count=sum(counts.values()),
+            monthly_preparing=in_preparing["monthly"],
+            yearly_preparing=in_preparing["yearly"],
+            vip1_preparing=in_preparing["vip1"],
+            vip2_preparing=in_preparing["vip2"],
+            vip3_preparing=in_preparing["vip3"],
+            vip4_preparing=in_preparing["vip4"],
+            vip5_preparing=in_preparing["vip5"],
+            vip6_preparing=in_preparing["vip6"],
+            total_preparing=sum(in_preparing.values()),
         ),
     )
