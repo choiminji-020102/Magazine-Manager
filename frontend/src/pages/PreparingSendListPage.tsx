@@ -10,6 +10,7 @@ import RegeneratePreparingConfirmModal from "@/components/dispatch/RegeneratePre
 import TransitionToDeliveredModal from "@/components/dispatch/TransitionToDeliveredModal";
 import MonthlyExcelDialog from "@/components/dispatch-excel/MonthlyExcelDialog";
 import YearlyExcelDialog from "@/components/dispatch-excel/YearlyExcelDialog";
+import VipExcelDialog from "@/components/dispatch-excel/VipExcelDialog";
 import { sendsApi } from "@/api/sendsApi";
 import { dispatchApi } from "@/api/dispatchApi";
 import { vipSlotsApi } from "@/api/vipSlotsApi";
@@ -36,7 +37,7 @@ export default function PreparingSendListPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
   const [regenerateOpen, setRegenerateOpen] = useState(false);
   const [excelOpen, setExcelOpen] = useState<
-    null | "monthly" | "yearly-gichulyu" | "yearly-postoffice"
+    null | "monthly" | "yearly-gichulyu" | "yearly-postoffice" | "vip"
   >(null);
   const [transitionOpen, setTransitionOpen] = useState(false);
 
@@ -238,6 +239,17 @@ export default function PreparingSendListPage() {
               </Button>
             </>
           )}
+          {isVip && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setExcelOpen("vip")}
+              disabled={!issueValid}
+              title={!issueValid ? "엑셀 다운로드는 발송 호 입력 필요" : undefined}
+            >
+              엑셀 다운로드
+            </Button>
+          )}
           <Button
             size="sm"
             disabled={selectedIds.size === 0}
@@ -273,6 +285,15 @@ export default function PreparingSendListPage() {
         issue={issueInput}
         variant={excelOpen === "yearly-gichulyu" ? "gichulyu" : "postoffice"}
       />
+      {isVip && vipSlot !== null && (
+        <VipExcelDialog
+          open={excelOpen === "vip"}
+          onClose={() => setExcelOpen(null)}
+          slotNumber={vipSlot}
+          slotLabel={activeVipSlots.find((s) => s.slot_number === vipSlot)?.label ?? null}
+          issue={issueInput}
+        />
+      )}
 
       {/* 배송완료 처리 모달 */}
       <TransitionToDeliveredModal
