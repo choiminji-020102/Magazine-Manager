@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { DataTable, type ColumnDef } from "@/components/common/DataTable";
 import { Pagination } from "@/components/common/Pagination";
 import RegeneratePreparingConfirmModal from "@/components/dispatch/RegeneratePreparingConfirmModal";
+import TransitionToDeliveredModal from "@/components/dispatch/TransitionToDeliveredModal";
 import MonthlyExcelDialog from "@/components/dispatch-excel/MonthlyExcelDialog";
 import YearlyExcelDialog from "@/components/dispatch-excel/YearlyExcelDialog";
 import { sendsApi } from "@/api/sendsApi";
@@ -32,6 +33,7 @@ export default function PreparingSendListPage() {
   const [excelOpen, setExcelOpen] = useState<
     null | "monthly" | "yearly-gichulyu" | "yearly-postoffice"
   >(null);
+  const [transitionOpen, setTransitionOpen] = useState(false);
 
   const issueValid = /^\d{6}$/.test(issueInput);
 
@@ -215,7 +217,11 @@ export default function PreparingSendListPage() {
               </Button>
             </>
           )}
-          <Button size="sm" disabled={selectedIds.size === 0}>
+          <Button
+            size="sm"
+            disabled={selectedIds.size === 0}
+            onClick={() => setTransitionOpen(true)}
+          >
             배송완료 처리 ({selectedIds.size}건)
           </Button>
         </div>
@@ -245,6 +251,18 @@ export default function PreparingSendListPage() {
         onClose={() => setExcelOpen(null)}
         issue={issueInput}
         variant={excelOpen === "yearly-gichulyu" ? "gichulyu" : "postoffice"}
+      />
+
+      {/* 배송완료 처리 모달 */}
+      <TransitionToDeliveredModal
+        open={transitionOpen}
+        onClose={() => setTransitionOpen(false)}
+        sends={sends.filter((s) => selectedIds.has(s.send_id))}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
+          queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
+          setSelectedIds(new Set());
+        }}
       />
 
       {/* 박스 목록 */}
