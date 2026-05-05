@@ -156,6 +156,10 @@ class SendListQuery(BaseModel):
     postal_code: Optional[str] = None
     issue: Optional[str] = None                 # SendItem.issue 기준 필터 (YYYYMM)
     product_kind: Optional[str] = None          # YEARLY | MONTHLY (SendItem → OrderItem 조인)
+    vip_slot_number: Optional[int] = Field(     # SendItem→OrderItem→Address.vipN=true 필터
+        None, ge=1, le=6,
+        description="VIP 슬롯 번호 (1~6) — Address.vipN=true 인 Send 만",
+    )
     sort_by: str = "created_at"
     sort_order: str = "desc"
 
@@ -174,6 +178,7 @@ class SendListQuery(BaseModel):
         postal_code: Optional[str] = Query(None),
         issue: Optional[str] = Query(None),
         product_kind: Optional[str] = Query(None),
+        vip_slot_number: Optional[int] = Query(None, ge=1, le=6),
         sort_by: str = Query("created_at"),
         sort_order: str = Query("desc"),
     ):
@@ -190,6 +195,7 @@ class SendListQuery(BaseModel):
             postal_code=postal_code,
             issue=issue,
             product_kind=product_kind,
+            vip_slot_number=vip_slot_number,
             sort_by=sort_by,
             sort_order=sort_order,
         )

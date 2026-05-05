@@ -45,11 +45,9 @@ def list_sends(db: Session, query: SendListQuery) -> Tuple[List[Send], int]:
 
     if query.send_status:
         q = q.filter(Send.send_status == query.send_status)
-        if query.send_status == "PREPARING":
-            # 새 흐름: PREPARING 목록(배송 준비중 관리 페이지)은 KR만 노출
-            # — 해외 발송은 그룹핑 단계에서 제외되므로 자연스럽게 0건이지만,
-            # 옛 PREPARING 잔존 데이터 방어용 안전망.
-            q = q.filter(Send.country_code == "KR")
+        # 옛 KR 강제 필터 제거 (PR4) — VIP 슬롯은 비-KR Send 도 허용해야 하므로
+        # 일반 monthly/yearly 그룹핑 단계의 country_code='KR' 격리는 그룹핑 함수가 책임.
+        # 목록 조회는 country_code 필터 없음.
     if query.courier_company:
         q = q.filter(Send.courier_company == query.courier_company)
     if query.tracking_no:
@@ -84,6 +82,21 @@ def list_sends(db: Session, query: SendListQuery) -> Tuple[List[Send], int]:
             q.join(si_alias, si_alias.send_id == Send.send_id)
             .join(oi_alias, oi_alias.order_item_id == si_alias.order_item_id)
             .filter(oi_alias.product_kind == query.product_kind)
+            .distinct()
+        )
+    if query.vip_slot_number is not None:
+        # Send → SendItem → OrderItem → Address.vipN=true 필터
+        # 다른 SendItem/OrderItem/Address 조인과 중복되지 않게 alias 사용
+        from sqlalchemy.orm import aliased
+        si_vip = aliased(SendItem)
+        oi_vip = aliased(OrderItem)
+        addr_vip = aliased(Address)
+        vip_col = getattr(addr_vip, f"vip{query.vip_slot_number}")
+        q = (
+            q.join(si_vip, si_vip.send_id == Send.send_id)
+            .join(oi_vip, oi_vip.order_item_id == si_vip.order_item_id)
+            .join(addr_vip, addr_vip.address_id == oi_vip.address_id)
+            .filter(vip_col.is_(True))
             .distinct()
         )
 
