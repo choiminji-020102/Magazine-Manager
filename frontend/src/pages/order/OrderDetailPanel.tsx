@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/useDebounce";
-import { X, MoreHorizontal, Edit2, Plus } from "lucide-react";
+import { X, Edit2, Plus } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,13 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -33,7 +26,6 @@ import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { ordersApi } from "@/api/ordersApi";
 import { orderItemsApi } from "@/api/orderItemsApi";
-import { sendsApi } from "@/api/sendsApi";
 import { activityLogsApi } from "@/api/activityLogsApi";
 import { getLogDisplay } from "@/utils/activityLogDisplay";
 import { productsApi } from "@/api/productsApi";
@@ -261,37 +253,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       setCancelRefundBank("");
       setCancelRefundAccount("");
       queryClient.removeQueries({ queryKey: ["cancelCalculate", orderId] });
-    },
-    onError: (err) => toast.error(getErrorMessage(err)),
-  });
-
-  // 발송 액션 상태
-  const [sendCancelTarget, setSendCancelTarget] = useState<number | null>(null);
-
-  const sendShippingMutation = useMutation({
-    mutationFn: (sendId: number) => sendsApi.batchShipping([sendId]),
-    onSuccess: () => {
-      toast.success("배송중으로 전환되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
-    },
-    onError: (err) => toast.error(getErrorMessage(err)),
-  });
-
-  const sendDeliveredMutation = useMutation({
-    mutationFn: (sendId: number) => sendsApi.batchDelivered([sendId]),
-    onSuccess: () => {
-      toast.success("배송완료로 전환되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
-    },
-    onError: (err) => toast.error(getErrorMessage(err)),
-  });
-
-  const sendCancelMutation = useMutation({
-    mutationFn: (sendId: number) => sendsApi.cancelSend(sendId),
-    onSuccess: () => {
-      toast.success("발송이 취소되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
-      setSendCancelTarget(null);
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });
@@ -734,44 +695,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                     <StatusBadge type="send_status" value={send.send_status} />
                     <span className="text-xs text-gray-400 font-mono">#{send.send_id}</span>
                   </div>
-                  {send.send_status !== "CANCELLED" && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon-sm">
-                          <MoreHorizontal className="h-3.5 w-3.5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {send.send_status === "PREPARING" && (
-                          <DropdownMenuItem
-                            onClick={() => sendShippingMutation.mutate(send.send_id)}
-                            disabled={sendShippingMutation.isPending}
-                          >
-                            배송중 전환
-                          </DropdownMenuItem>
-                        )}
-                        {send.send_status === "SHIPPING" && (
-                          <DropdownMenuItem
-                            onClick={() => sendDeliveredMutation.mutate(send.send_id)}
-                            disabled={sendDeliveredMutation.isPending}
-                          >
-                            배송완료 전환
-                          </DropdownMenuItem>
-                        )}
-                        {send.send_status === "PREPARING" && (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                              onClick={() => setSendCancelTarget(send.send_id)}
-                            >
-                              발송 취소
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
                 </div>
                 <div className="px-3.5 py-3 space-y-2">
                   {/* 수령인 정보 */}
@@ -805,12 +728,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                     <div className="text-xs text-gray-300">운송장 미등록</div>
                   )}
                   {/* 타임스탬프 */}
-                  {send.shipped_at && (
-                    <div className="flex items-start gap-3">
-                      <span className="text-xs text-gray-400 w-24 flex-shrink-0">배송시작</span>
-                      <span className="text-xs text-gray-700">{formatDateTime(send.shipped_at)}</span>
-                    </div>
-                  )}
                   {send.delivered_at && (
                     <div className="flex items-start gap-3">
                       <span className="text-xs text-gray-400 w-24 flex-shrink-0">배송완료</span>
@@ -1202,18 +1119,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
           orderId={orderId}
         />
       )}
-
-      {/* 발송 취소 확인 모달 */}
-      <ConfirmModal
-        open={sendCancelTarget !== null}
-        onClose={() => setSendCancelTarget(null)}
-        onConfirm={() => sendCancelTarget && sendCancelMutation.mutate(sendCancelTarget)}
-        title="발송 취소"
-        description="이 발송을 취소합니다. 취소 후에는 되돌릴 수 없습니다."
-        confirmLabel="발송 취소"
-        variant="destructive"
-        isLoading={sendCancelMutation.isPending}
-      />
 
       {/* 품목 추가 다이얼로그 */}
       <Dialog open={addItemOpen} onOpenChange={(o) => {

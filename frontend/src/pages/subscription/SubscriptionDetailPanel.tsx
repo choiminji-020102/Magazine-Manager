@@ -416,7 +416,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
                   </span>
                   <StatusBadge type="send_status" value={send.send_status} />
                   <span className="text-gray-500 flex-1">
-                    {send.shipped_at ? formatDate(send.shipped_at) : "-"}
+                    {send.delivered_at ? formatDate(send.delivered_at) : "-"}
                   </span>
                   {send.tracking_no && (
                     <span className="font-mono text-gray-500 truncate max-w-[90px]">
