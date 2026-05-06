@@ -9,6 +9,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/orders/new": "주문 등록",
   "/subscriptions": "구독 목록",
   "/sends/preparing": "배송 준비 중 관리",
+  "/sends/delivered": "배송 완료 조회",
   "/customers": "고객 목록",
   "/products": "상품 목록",
   "/inquiries": "문의 관리",

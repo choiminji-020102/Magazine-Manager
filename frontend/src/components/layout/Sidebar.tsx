@@ -54,6 +54,7 @@ const navigation: NavGroup[] = [
     group: "발송",
     items: [
       { label: "배송 준비 중 관리", path: "/sends/preparing", icon: Truck },
+      { label: "배송 완료 조회", path: "/sends/delivered", icon: Truck },
     ],
   },
   {
