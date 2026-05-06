@@ -1,5 +1,3 @@
-import React from "react";
-
 export function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex gap-2 leading-tight">
