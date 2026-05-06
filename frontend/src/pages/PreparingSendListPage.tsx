@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,18 @@ export default function PreparingSendListPage() {
     staleTime: 5 * 60 * 1000,
   });
   const activeVipSlots = useMemo(() => vipSlots.filter((s) => s.is_enabled), [vipSlots]);
+
+  // 현재 scope 가 vipN 인데 그 슬롯이 비활성으로 바뀌었으면 monthly 로 fallback (탭 자체가 사라지므로).
+  useEffect(() => {
+    if (vipSlot === null) return;
+    if (vipSlots.length === 0) return; // 슬롯 데이터 로드 전엔 판단 보류
+    const slotMeta = vipSlots.find((s) => s.slot_number === vipSlot);
+    if (!slotMeta || !slotMeta.is_enabled) {
+      setScope("monthly");
+      setSelectedIds(new Set());
+      setPage(1);
+    }
+  }, [vipSlot, vipSlots]);
 
   // 발송 박스 목록 (PREPARING).
   // VIP 탭: vip_slot_number 필터 (product_kind 무관, 정기+단품 혼합 가능)
@@ -285,7 +297,7 @@ export default function PreparingSendListPage() {
         issue={issueInput}
         variant={excelOpen === "yearly-gichulyu" ? "gichulyu" : "postoffice"}
       />
-      {isVip && vipSlot !== null && (
+      {vipSlot !== null && (
         <VipExcelDialog
           open={excelOpen === "vip"}
           onClose={() => setExcelOpen(null)}
