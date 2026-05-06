@@ -64,4 +64,7 @@ class ActivityLog(Base):
 
     __table_args__ = (
         Index("idx_admin_id", "admin_id"),
+        # target_type+target_id+action 좁혀 조회용 (DeliveredSendListPage 재배송 배지 등).
+        # 좌측 prefix 활용 가능: target_type 단독 / target_type+target_id 조합 / 셋 다.
+        Index("idx_activity_logs_target_action", "target_type", "target_id", "action"),
     )
