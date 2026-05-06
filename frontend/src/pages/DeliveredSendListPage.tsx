@@ -255,7 +255,7 @@ export default function DeliveredSendListPage() {
       cell: (r) => {
         if (editingId === r.send_id) {
           return (
-            <div className="space-y-1">
+            <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-1">
                 <Select
                   value={editDraft.send_method}
@@ -356,9 +356,10 @@ export default function DeliveredSendListPage() {
       key: "actions",
       header: "",
       cell: (r) => {
+        // 셀 안 버튼 클릭 시 행 onClick (SendDetailPanel 열기) 가 같이 트리거되지 않도록 stopPropagation.
         if (editingId === r.send_id) {
           return (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
               <Button
                 size="icon-sm"
                 variant="ghost"
@@ -385,15 +386,17 @@ export default function DeliveredSendListPage() {
           );
         }
         return (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            onClick={() => startEdit(r)}
-            disabled={editingId !== null}
-            title={editingId !== null ? "다른 행 편집 중" : "운송장/배송방법/배송업체 수정"}
-          >
-            <Pencil className="h-3.5 w-3.5 text-gray-400" />
-          </Button>
+          <div onClick={(e) => e.stopPropagation()}>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              onClick={() => startEdit(r)}
+              disabled={editingId !== null}
+              title={editingId !== null ? "다른 행 편집 중" : "운송장/배송방법/배송업체 수정"}
+            >
+              <Pencil className="h-3.5 w-3.5 text-gray-400" />
+            </Button>
+          </div>
         );
       },
       width: "w-20",

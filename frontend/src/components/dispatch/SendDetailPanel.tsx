@@ -188,9 +188,11 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
             )}
           </Section>
 
-          {/* 재배송 입력 — DELIVERED 박스만 노출 */}
+          {/* 재배송 입력 — DELIVERED 박스만 노출.
+              key={send.send_id} 로 박스 바뀔 때 ResendInputSection 의 toggle/입력 state 초기화. */}
           {send.send_status === "DELIVERED" && (
             <ResendInputSection
+              key={send.send_id}
               send={send}
               onSuccess={() => {
                 queryClient.invalidateQueries({ queryKey: ["send-resend-logs", sendId] });
