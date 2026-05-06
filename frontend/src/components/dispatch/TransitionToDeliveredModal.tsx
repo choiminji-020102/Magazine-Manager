@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueries } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -19,15 +19,16 @@ import {
 } from "@/components/ui/select";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { dispatchApi } from "@/api/dispatchApi";
+import { sendsApi } from "@/api/sendsApi";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
-import { formatPhone } from "@/utils/format";
+import { formatPhone, formatIssue } from "@/utils/format";
 import {
   SEND_METHOD_OPTIONS,
   COURIER_COMPANY_OPTIONS,
   SEND_METHOD_TO_COURIER,
 } from "@/utils/constants";
-import type { SendResponse, SendMethod, CourierCompany } from "@/types/send";
+import type { SendResponse, SendMethod, CourierCompany, SendDetailResponse } from "@/types/send";
 
 interface Props {
   open: boolean;
@@ -63,6 +64,24 @@ export default function TransitionToDeliveredModal({ open, onClose, sends, onSuc
     () => sends.every((s) => (trackingMap[s.send_id] ?? "").trim().length > 0),
     [sends, trackingMap],
   );
+
+  // 박스 안 SendItem 정보 — 모달 열린 상태에서 박스마다 detail 병렬 조회 (운영자 박스 식별용).
+  // 정기 박스: 1 SendItem (한 줄). 단품 박스: N SendItem (여러 줄).
+  const detailQueries = useQueries({
+    queries: sends.map((s) => ({
+      queryKey: ["send-detail", s.send_id],
+      queryFn: () => sendsApi.getSend(s.send_id).then((r) => r.data.data!),
+      enabled: open,
+      staleTime: 60 * 1000,
+    })),
+  });
+  const detailBySendId = useMemo(() => {
+    const map = new Map<number, SendDetailResponse>();
+    detailQueries.forEach((q, i) => {
+      if (q.data) map.set(sends[i].send_id, q.data);
+    });
+    return map;
+  }, [detailQueries, sends]);
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -107,7 +126,7 @@ export default function TransitionToDeliveredModal({ open, onClose, sends, onSuc
         if (!o && !mutation.isPending) onClose();
       }}
     >
-      <DialogContent className="max-w-3xl max-h-[88vh] flex flex-col gap-4">
+      <DialogContent className="max-w-5xl max-h-[88vh] flex flex-col gap-4">
         <DialogHeader>
           <DialogTitle>[배송완료 처리]</DialogTitle>
           <p className="text-xs text-gray-500 mt-1">
@@ -164,7 +183,8 @@ export default function TransitionToDeliveredModal({ open, onClose, sends, onSuc
               <tr>
                 <th className="px-2 py-2 text-left font-medium w-20">발송ID</th>
                 <th className="px-2 py-2 text-left font-medium w-32">수령인</th>
-                <th className="px-2 py-2 text-left font-medium">배송지</th>
+                <th className="px-2 py-2 text-left font-medium w-64">배송지</th>
+                <th className="px-2 py-2 text-left font-medium">상품</th>
                 <th className="px-2 py-2 text-left font-medium w-44">
                   운송장 번호 <span className="text-red-500">*</span>
                 </th>
@@ -174,8 +194,10 @@ export default function TransitionToDeliveredModal({ open, onClose, sends, onSuc
               {sends.map((s) => {
                 const value = trackingMap[s.send_id] ?? "";
                 const empty = value.trim().length === 0;
+                const detail = detailBySendId.get(s.send_id);
+                const items = detail?.items ?? [];
                 return (
-                  <tr key={s.send_id} className="border-t border-gray-100">
+                  <tr key={s.send_id} className="border-t border-gray-100 align-top">
                     <td className="px-2 py-2 font-mono text-gray-400">#{s.send_id}</td>
                     <td className="px-2 py-2">
                       <div>{s.recipient_name}</div>
@@ -183,7 +205,25 @@ export default function TransitionToDeliveredModal({ open, onClose, sends, onSuc
                     </td>
                     <td className="px-2 py-2">
                       <div className="font-mono text-gray-400">{s.postal_code}</div>
-                      <div className="truncate max-w-md">{s.recipient_address}</div>
+                      <div className="truncate">{s.recipient_address}</div>
+                    </td>
+                    <td className="px-2 py-2">
+                      {detail === undefined ? (
+                        <span className="text-gray-300 text-[11px]">로딩…</span>
+                      ) : items.length === 0 ? (
+                        <span className="text-gray-300">-</span>
+                      ) : (
+                        <div className="space-y-0.5">
+                          {items.map((it) => (
+                            <div key={it.send_item_id} className="flex items-center gap-1.5">
+                              <span className="font-mono text-gray-500">{it.product_code}</span>
+                              <span className="text-gray-300">·</span>
+                              <span className="text-gray-600">{formatIssue(it.issue)}</span>
+                              <span className="text-gray-400 ml-auto">× {it.send_num}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </td>
                     <td className="px-2 py-2">
                       <Input
