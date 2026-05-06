@@ -8,6 +8,7 @@ import { DataTable, type ColumnDef } from "@/components/common/DataTable";
 import { Pagination } from "@/components/common/Pagination";
 import RegeneratePreparingConfirmModal from "@/components/dispatch/RegeneratePreparingConfirmModal";
 import TransitionToDeliveredModal from "@/components/dispatch/TransitionToDeliveredModal";
+import SendDetailPanel from "@/components/dispatch/SendDetailPanel";
 import MonthlyExcelDialog from "@/components/dispatch-excel/MonthlyExcelDialog";
 import YearlyExcelDialog from "@/components/dispatch-excel/YearlyExcelDialog";
 import VipExcelDialog from "@/components/dispatch-excel/VipExcelDialog";
@@ -40,6 +41,7 @@ export default function PreparingSendListPage() {
     null | "monthly" | "yearly-gichulyu" | "yearly-postoffice" | "vip"
   >(null);
   const [transitionOpen, setTransitionOpen] = useState(false);
+  const [detailSendId, setDetailSendId] = useState<number | null>(null);
 
   const issueValid = /^\d{6}$/.test(issueInput);
   const vipSlot = vipSlotOf(scope);
@@ -329,8 +331,16 @@ export default function PreparingSendListPage() {
           emptyMessage="조건에 맞는 PREPARING 박스가 없습니다."
           selectedIds={selectedIds}
           onSelectionChange={setSelectedIds}
+          onRowClick={(r) => setDetailSendId(r.send_id)}
         />
       </div>
+
+      {/* 박스 상세 패널 — #11 약점 보강: TransitionToDeliveredModal 진입 전 박스 안 책 종류 확인 가능 */}
+      <SendDetailPanel
+        open={detailSendId !== null}
+        onClose={() => setDetailSendId(null)}
+        sendId={detailSendId}
+      />
 
       {/* 페이지네이션 */}
       {totalPages > 1 && (

@@ -15,6 +15,7 @@ import {
 import { DataTable, type ColumnDef } from "@/components/common/DataTable";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { Pagination } from "@/components/common/Pagination";
+import SendDetailPanel from "@/components/dispatch/SendDetailPanel";
 import { sendsApi } from "@/api/sendsApi";
 import { vipSlotsApi } from "@/api/vipSlotsApi";
 import { activityLogsApi } from "@/api/activityLogsApi";
@@ -50,6 +51,9 @@ export default function DeliveredSendListPage() {
   const [scope, setScope] = useState<DispatchScope>("monthly");
   const [issueInput, setIssueInput] = useState("");
   const [page, setPage] = useState(1);
+
+  // 박스 상세 패널
+  const [detailSendId, setDetailSendId] = useState<number | null>(null);
 
   // 한 번에 한 행만 inline 편집 (운송장/배송방법/배송업체)
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -439,8 +443,20 @@ export default function DeliveredSendListPage() {
           getRowId={(r) => r.send_id}
           isLoading={isLoading}
           emptyMessage="조건에 맞는 DELIVERED 박스가 없습니다."
+          onRowClick={(r) => {
+            // 편집 중에는 행 클릭 무시 (실수로 패널 열림 방지)
+            if (editingId !== null) return;
+            setDetailSendId(r.send_id);
+          }}
         />
       </div>
+
+      {/* 박스 상세 패널 */}
+      <SendDetailPanel
+        open={detailSendId !== null}
+        onClose={() => setDetailSendId(null)}
+        sendId={detailSendId}
+      />
 
       {/* 페이지네이션 */}
       {totalPages > 1 && (
