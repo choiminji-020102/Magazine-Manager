@@ -46,7 +46,6 @@ const navigation: NavGroup[] = [
     group: "업무",
     items: [
       { label: "전체 주문 조회", path: "/orders", icon: ShoppingCart, activeOn: ["/orders", "/orders/new"] },
-      { label: "입금전 관리", path: "/orders/unpaid", icon: ShoppingCart },
       { label: "구독 목록", path: "/subscriptions", icon: BookOpen },
     ],
   },
