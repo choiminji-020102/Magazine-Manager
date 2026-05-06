@@ -46,6 +46,7 @@ def get_logs(
     action: Optional[str] = None,
     target_type: Optional[str] = None,
     target_id: Optional[int] = None,
+    target_ids: Optional[List[int]] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> Tuple[List[ActivityLog], int]:
@@ -57,7 +58,10 @@ def get_logs(
         query = query.filter(ActivityLog.action == action)
     if target_type:
         query = query.filter(ActivityLog.target_type == target_type)
-    if target_id:
+    # target_ids 가 우선 (다중 IN), 없을 때만 target_id 단건 적용
+    if target_ids:
+        query = query.filter(ActivityLog.target_id.in_(target_ids))
+    elif target_id:
         query = query.filter(ActivityLog.target_id == target_id)
     if start_date:
         try:
