@@ -17,6 +17,7 @@ import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { Pagination } from "@/components/common/Pagination";
 import { sendsApi } from "@/api/sendsApi";
 import { vipSlotsApi } from "@/api/vipSlotsApi";
+import { activityLogsApi } from "@/api/activityLogsApi";
 import { formatDate, formatPhone } from "@/utils/format";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
@@ -102,6 +103,36 @@ export default function DeliveredSendListPage() {
   const totalPages = sendsData?.total_pages ?? 1;
   const total = sendsData?.total ?? 0;
 
+  // 보이는 박스들의 RESEND 활동 로그 — target_ids 로 좁혀 한 번 조회
+  const sendIdsOnPage = useMemo(() => sends.map((s) => s.send_id), [sends]);
+  const { data: resendLogs = [] } = useQuery({
+    queryKey: ["delivered-resend-logs", sendIdsOnPage],
+    queryFn: () =>
+      activityLogsApi
+        .getActivityLogs({
+          page: 1,
+          limit: 100,
+          target_type: "SEND",
+          action: "RESEND",
+          target_ids: sendIdsOnPage,
+        })
+        .then((r) => r.data.items ?? []),
+    enabled: sendIdsOnPage.length > 0,
+  });
+  const resendsBySendId = useMemo(() => {
+    const map = new Map<number, typeof resendLogs>();
+    for (const log of resendLogs) {
+      if (log.target_id == null) continue;
+      const arr = map.get(log.target_id) ?? [];
+      arr.push(log);
+      map.set(log.target_id, arr);
+    }
+    for (const arr of map.values()) {
+      arr.sort((a, b) => a.created_at.localeCompare(b.created_at));
+    }
+    return map;
+  }, [resendLogs]);
+
   const handleTabChange = (next: string) => {
     setScope(next as DispatchScope);
     setPage(1);
@@ -157,8 +188,34 @@ export default function DeliveredSendListPage() {
     {
       key: "send_id",
       header: "발송ID",
-      cell: (r) => <span className="font-mono text-xs text-gray-400">#{r.send_id}</span>,
-      width: "w-20",
+      cell: (r) => {
+        const logs = resendsBySendId.get(r.send_id) ?? [];
+        const lastLog = logs[logs.length - 1];
+        const tooltip = lastLog
+          ? [
+              lastLog.details?.reason && `사유: ${lastLog.details.reason}`,
+              lastLog.details?.send_method && `방법: ${lastLog.details.send_method}`,
+              lastLog.details?.tracking_no && `운송장: ${lastLog.details.tracking_no}`,
+              lastLog.details?.memo && `메모: ${lastLog.details.memo}`,
+            ]
+              .filter(Boolean)
+              .join("\n")
+          : "";
+        return (
+          <div className="flex items-center gap-1">
+            <span className="font-mono text-xs text-gray-400">#{r.send_id}</span>
+            {logs.length > 0 && (
+              <span
+                className="px-1 py-0.5 bg-orange-50 text-orange-700 rounded text-[10px] font-semibold cursor-help"
+                title={tooltip}
+              >
+                🔁 재배송
+              </span>
+            )}
+          </div>
+        );
+      },
+      width: "w-32",
     },
     {
       key: "recipient",
