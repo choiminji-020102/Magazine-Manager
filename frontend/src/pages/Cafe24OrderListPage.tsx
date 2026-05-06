@@ -17,6 +17,8 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
 import { ImportStatCard, ImportDetailCard } from "@/components/common/ImportResultCards";
+import { InfoRow } from "@/components/common/list-card/InfoRow";
+import { SectionHeader } from "@/components/common/list-card/SectionHeader";
 import type {
   Cafe24Order,
   Cafe24MappedOrderItem,
@@ -250,31 +252,6 @@ function OrderCard({
           />
         </div>
       </section>
-    </div>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex gap-2 leading-tight">
-      <span className="text-gray-400 w-14 shrink-0">{label}</span>
-      <span className="text-gray-700 break-all flex-1">{value}</span>
-    </div>
-  );
-}
-
-function SectionHeader({
-  title, children,
-}: {
-  title: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div className="h-9 px-3 bg-gray-100 flex items-center gap-1.5">
-      <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
-        {title}
-      </span>
-      {children}
     </div>
   );
 }
