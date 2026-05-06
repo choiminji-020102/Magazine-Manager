@@ -177,10 +177,14 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     staleTime: 5 * 60 * 1000,
   });
 
-  // 재배송 이력 — 한 번 조회 후 send_id 별 그룹핑 (N+1 회피).
-  // 데이터 누적 시 백엔드에 target_ids[] 필터 추가하면 더 좁힐 수 있음.
+  // 재배송 이력 — 이 주문에 묶인 send_id 만 좁혀 한 번 조회 (target_ids 다중 필터).
+  // limit=100 도 그대로 두지만 보통 박스가 100개를 넘지 않아 누락 없음.
+  const sendIdsOfOrder = useMemo(
+    () => (order?.sends ?? []).map((s) => s.send_id),
+    [order?.sends],
+  );
   const { data: resendLogs = [] } = useQuery({
-    queryKey: ["resendLogs", "order", orderId],
+    queryKey: ["resendLogs", "order", orderId, sendIdsOfOrder],
     queryFn: () =>
       activityLogsApi
         .getActivityLogs({
@@ -188,16 +192,16 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
           limit: 100,
           target_type: "SEND",
           action: "RESEND",
+          target_ids: sendIdsOfOrder,
         })
         .then((r) => r.data.items ?? []),
-    enabled: !!order?.sends && order.sends.length > 0,
+    enabled: sendIdsOfOrder.length > 0,
   });
 
   const resendsBySendId = useMemo(() => {
-    const sendIdSet = new Set((order?.sends ?? []).map((s) => s.send_id));
     const map = new Map<number, typeof resendLogs>();
     for (const log of resendLogs) {
-      if (log.target_id == null || !sendIdSet.has(log.target_id)) continue;
+      if (log.target_id == null) continue;
       const arr = map.get(log.target_id) ?? [];
       arr.push(log);
       map.set(log.target_id, arr);
@@ -206,7 +210,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       arr.sort((a, b) => a.created_at.localeCompare(b.created_at));
     }
     return map;
-  }, [resendLogs, order?.sends]);
+  }, [resendLogs]);
 
   // 배송지 변경 mutation
   const addressChangeMutation = useMutation({
