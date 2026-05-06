@@ -195,15 +195,19 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
     staleTime: 5 * 60 * 1000,
   });
 
+  // VIP 라디오 — 한 PATCH 로 vip1~vip6 6개 필드 일괄 갱신.
+  // 단건만 보내면 백엔드 V-7 단일성 검증 시 잔존 슬롯 때문에 422.
   const updateAddressVipMutation = useMutation({
-    mutationFn: ({ addressId, slotNumber, checked }: {
+    mutationFn: ({ addressId, slotNumber }: {
       addressId: number;
-      slotNumber: number;
-      checked: boolean;
-    }) =>
-      addressesApi.updateAddress(addressId, {
-        [`vip${slotNumber}`]: checked,
-      } as Record<string, boolean>),
+      slotNumber: number | null;   // null = 전체 해제
+    }) => {
+      const payload: Record<string, boolean> = {};
+      for (let n = 1; n <= 6; n++) {
+        payload[`vip${n}`] = slotNumber === n;
+      }
+      return addressesApi.updateAddress(addressId, payload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customer", customerId] });
     },
@@ -538,11 +542,10 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
                   onUpdateMemo={(memo) =>
                     updateAddressMemoMutation.mutate({ addressId: address.address_id, memo })
                   }
-                  onToggleVip={(slotNumber, checked) =>
+                  onChangeVip={(slotNumber) =>
                     updateAddressVipMutation.mutate({
                       addressId: address.address_id,
                       slotNumber,
-                      checked,
                     })
                   }
                   vipDisabled={updateAddressVipMutation.isPending}
@@ -679,14 +682,14 @@ function AddressCard({
   vipSlots,
   onDelete,
   onUpdateMemo,
-  onToggleVip,
+  onChangeVip,
   vipDisabled,
 }: {
   address: AddressResponse;
   vipSlots: VipSlotResponse[];
   onDelete: () => void;
   onUpdateMemo: (memo: string | null) => void;
-  onToggleVip: (slotNumber: number, checked: boolean) => void;
+  onChangeVip: (slotNumber: number | null) => void;
   vipDisabled?: boolean;
 }) {
   const [editingMemo, setEditingMemo] = useState(false);
@@ -750,7 +753,7 @@ function AddressCard({
               <VipFlagsEditor
                 address={address}
                 slots={vipSlots}
-                onToggle={onToggleVip}
+                onChange={onChangeVip}
                 disabled={vipDisabled}
               />
             </div>

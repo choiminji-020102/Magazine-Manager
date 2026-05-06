@@ -1,4 +1,3 @@
-import { Checkbox } from "@/components/ui/checkbox";
 import type { VipSlotResponse } from "@/types/vipSlot";
 
 type VipKey = "vip1" | "vip2" | "vip3" | "vip4" | "vip5" | "vip6";
@@ -51,34 +50,51 @@ export function VipFlagsDisplay({
   );
 }
 
-// 활성화된 슬롯만 체크박스 노출 (편집 가능)
+// 활성화된 슬롯만 라디오로 노출 (편집 가능, 한 Address 당 최대 1개).
+// 같은 슬롯 다시 클릭 시 해제 (별도 '사용 안 함' 옵션 없음).
+// onChange 콜백: 새로 선택된 슬롯 번호 (해제 시 null) — 호출자가 한 PATCH 로 전체 vip1~vip6 일괄 갱신.
 export function VipFlagsEditor({
   address,
   slots,
-  onToggle,
+  onChange,
   disabled,
 }: {
   address: VipSource;
   slots: VipSlotResponse[];
-  onToggle: (slotNumber: number, checked: boolean) => void;
+  onChange: (slotNumber: number | null) => void;
   disabled?: boolean;
 }) {
   const enabled = slots.filter((s) => s.is_enabled);
   if (enabled.length === 0) return null;
 
+  // 현재 활성 슬롯 (V-7 단일성 보장 — 없거나 1개)
+  const currentActive = enabled.find((s) => Boolean(address[vipKey(s.slot_number)]));
+  const currentSlotNumber = currentActive?.slot_number ?? null;
+
   return (
-    <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+    <div className="flex flex-wrap gap-x-3 gap-y-1.5" role="radiogroup">
       {enabled.map((s) => {
-        const checked = Boolean(address[vipKey(s.slot_number)]);
+        const checked = currentSlotNumber === s.slot_number;
         return (
           <label
             key={s.slot_number}
-            className="flex items-center gap-1.5 cursor-pointer select-none"
+            className={`flex items-center gap-1.5 select-none ${
+              disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+            }`}
           >
-            <Checkbox
+            {/* HTML radio + custom onClick — 표준 radio 는 같은 항목 재클릭으로 해제 안 되므로 onClick 으로 처리.
+                name 안 쓰고 checked prop 으로만 제어 (한 페이지 안 여러 주소의 라디오 그룹 격리). */}
+            <input
+              type="radio"
               checked={checked}
-              onCheckedChange={(c) => onToggle(s.slot_number, c === true)}
               disabled={disabled}
+              readOnly
+              onClick={() => {
+                if (disabled) return;
+                // 같은 슬롯 다시 클릭 시 해제, 다른 슬롯 클릭 시 그 슬롯으로 변경
+                onChange(checked ? null : s.slot_number);
+              }}
+              className="h-3.5 w-3.5 cursor-pointer accent-blue-600"
             />
             <span className="text-xs text-gray-600">{slotLabel(s)}</span>
           </label>
