@@ -133,6 +133,8 @@ def list_orders(
             send_fee=order.send_fee,
             payment_amount=order.payment_amount,
             payment_method=order.payment_method,
+            customer_memo=order.customer_memo,
+            admin_memo=order.admin_memo,
             order_at=order.order_at,
             payment_at=order.payment_at,
             cancelled_at=order.cancelled_at,

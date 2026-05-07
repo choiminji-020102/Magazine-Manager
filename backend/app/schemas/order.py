@@ -199,6 +199,8 @@ class OrderListResponse(BaseModel):
     send_fee: int = 0
     payment_amount: int
     payment_method: Optional[PaymentMethod] = None
+    customer_memo: Optional[str] = None
+    admin_memo: Optional[str] = None
     order_at: datetime
     payment_at: Optional[datetime] = None
     cancelled_at: Optional[datetime] = None
