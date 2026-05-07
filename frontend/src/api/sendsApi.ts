@@ -39,4 +39,9 @@ export const sendsApi = {
   resendSend: (sendId: number, data: SendResendRequest) => {
     return api.post<ResponseModel<SendResponse>>(`/sends/${sendId}/resend`, data);
   },
+
+  // DELETE /sends/{send_id}/preparing - PREPARING 박스 강제 삭제 (잔여 SendItem cascade)
+  deletePreparingSend: (sendId: number) => {
+    return api.delete<ResponseModel<null>>(`/sends/${sendId}/preparing`);
+  },
 };

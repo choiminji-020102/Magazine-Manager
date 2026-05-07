@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -214,6 +215,20 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
             />
           )}
 
+          {/* PREPARING 박스 강제 삭제 — PREPARING 박스만 노출, 위험 액션 (확인 모달) */}
+          {send.send_status === "PREPARING" && (
+            <PreparingDeleteSection
+              send={send}
+              onSuccess={() => {
+                onClose();
+                queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
+                queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
+                queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
+                queryClient.invalidateQueries({ queryKey: ["order-sends"] });
+              }}
+            />
+          )}
+
           {/* 시스템 메타 */}
           <Section title="시스템">
             <Row label="생성">{formatDateTime(send.created_at)}</Row>
@@ -280,6 +295,64 @@ function AdminMemoSection({ send, onSuccess }: AdminMemoSectionProps) {
           저장
         </Button>
       </div>
+    </Section>
+  );
+}
+
+
+// ── PREPARING 박스 강제 삭제 섹션 ─────────────────────────────────────────────
+// PREPARING 박스만 노출. 위험 액션이라 ConfirmModal 한 번 더 확인.
+// OrderItem 취소 시 자동 제거 흐름과 별개 — 운영자 직접 박스 단위 정리용.
+
+interface PreparingDeleteSectionProps {
+  send: SendDetailResponse;
+  onSuccess: () => void;
+}
+
+function PreparingDeleteSection({ send, onSuccess }: PreparingDeleteSectionProps) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const mutation = useMutation({
+    mutationFn: () => sendsApi.deletePreparingSend(send.send_id).then((r) => r.data),
+    onSuccess: (res) => {
+      toast.success(res.message ?? "PREPARING 박스가 삭제되었습니다.");
+      setConfirmOpen(false);
+      onSuccess();
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+
+  return (
+    <Section title="박스 강제 삭제">
+      <p className="text-xs text-gray-500 mb-2">
+        이 박스 (#{send.send_id}) 와 박스 안 발송 품목 {send.items.length}건을 모두 삭제합니다.
+        주문 자체는 유지됩니다.
+      </p>
+      <Button
+        size="sm"
+        variant="destructive"
+        onClick={() => setConfirmOpen(true)}
+        disabled={mutation.isPending}
+      >
+        {mutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+        박스 강제 삭제
+      </Button>
+      <ConfirmModal
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={() => mutation.mutate()}
+        title="박스 강제 삭제"
+        description={
+          <>
+            발송 박스 <span className="font-mono">#{send.send_id}</span> 와 발송 품목{" "}
+            <strong>{send.items.length}건</strong>이 모두 삭제됩니다. 되돌릴 수 없습니다.
+            <br />계속하시겠습니까?
+          </>
+        }
+        confirmLabel="삭제"
+        variant="destructive"
+        isLoading={mutation.isPending}
+      />
     </Section>
   );
 }
