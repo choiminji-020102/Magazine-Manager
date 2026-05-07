@@ -9,6 +9,16 @@ export function formatIssue(issue: string): string {
 }
 
 /**
+ * 호(YYYYMM) → "26년 04월호" (좁은 컨테이너용 단축형, MM 항상 2자리)
+ */
+export function formatIssueShort(issue: string): string {
+  if (!issue || issue.length < 6) return issue;
+  const yearShort = issue.slice(2, 4);
+  const month = issue.slice(4, 6);
+  return `${yearShort}년 ${month}월호`;
+}
+
+/**
  * 정수(원) → "1,000원"
  */
 export function formatAmount(amount: number | null | undefined): string {

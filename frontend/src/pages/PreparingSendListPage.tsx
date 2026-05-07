@@ -1,22 +1,22 @@
 import { useState, useMemo, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DataTable, type ColumnDef } from "@/components/common/DataTable";
+import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { Pagination } from "@/components/common/Pagination";
 import RegeneratePreparingConfirmModal from "@/components/dispatch/RegeneratePreparingConfirmModal";
 import TransitionToDeliveredModal from "@/components/dispatch/TransitionToDeliveredModal";
 import SendDetailPanel from "@/components/dispatch/SendDetailPanel";
+import PreparingSendCard from "@/components/dispatch/PreparingSendCard";
 import MonthlyExcelDialog from "@/components/dispatch-excel/MonthlyExcelDialog";
 import YearlyExcelDialog from "@/components/dispatch-excel/YearlyExcelDialog";
 import VipExcelDialog from "@/components/dispatch-excel/VipExcelDialog";
 import { sendsApi } from "@/api/sendsApi";
 import { dispatchApi } from "@/api/dispatchApi";
 import { vipSlotsApi } from "@/api/vipSlotsApi";
-import { formatDate, formatPhone } from "@/utils/format";
-import type { SendResponse } from "@/types/send";
+import type { SendDetailResponse } from "@/types/send";
 import type { DispatchScope, PaidNotPreparedCountResponse } from "@/types/dispatch";
 
 const LIMIT = 50;
@@ -35,7 +35,7 @@ export default function PreparingSendListPage() {
   const [scope, setScope] = useState<DispatchScope>("monthly");
   const [issueInput, setIssueInput] = useState("");
   const [page, setPage] = useState(1);
-  const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [regenerateOpen, setRegenerateOpen] = useState(false);
   const [excelOpen, setExcelOpen] = useState<
     null | "monthly" | "yearly-gichulyu" | "yearly-postoffice" | "vip"
@@ -107,66 +107,56 @@ export default function PreparingSendListPage() {
     setSelectedIds(new Set());
   };
 
-  const columns: ColumnDef<SendResponse>[] = [
-    {
-      key: "send_id",
-      header: "발송ID",
-      cell: (r) => <span className="font-mono text-xs text-gray-400">#{r.send_id}</span>,
-      width: "w-20",
-    },
-    {
-      key: "recipient",
-      header: "수령인",
-      cell: (r) => (
-        <div>
-          <div className="text-sm">{r.recipient_name}</div>
-          <div className="text-xs text-gray-500">{formatPhone(r.recipient_phone)}</div>
-        </div>
-      ),
-      width: "w-36",
-    },
-    {
-      key: "address",
-      header: "배송지",
-      cell: (r) => (
-        <div>
-          <div className="text-xs text-gray-500 font-mono flex items-center gap-1">
-            {r.country_code !== "KR" && (
-              <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-semibold">
-                🌐 {r.country_code}
-              </span>
-            )}
-            <span>{r.postal_code}</span>
-          </div>
-          <div className="text-sm">{r.recipient_address}</div>
-        </div>
-      ),
-    },
-    {
-      key: "related",
-      header: "묶인 주문",
-      cell: (r) => (
-        <div className="flex flex-wrap gap-1">
-          {r.related_orders.map((ro) => (
-            <span
-              key={ro.order_id}
-              className="text-xs px-1.5 py-0.5 bg-sky-50 text-sky-700 rounded"
-              title={`${ro.customer_name} · ${formatPhone(ro.customer_phone)}`}
-            >
-              #{ro.order_id}
-            </span>
-          ))}
-        </div>
-      ),
-      width: "w-40",
-    },
-    {
-      key: "created_at",
-      header: "생성일",
-      cell: (r) => <span className="text-xs text-gray-500">{formatDate(r.created_at)}</span>,
-      width: "w-28",
-    },
-  ];
+  // 카드 그리드용 — 박스마다 detail 병렬 호출 (SendItem 인라인 표시).
+  // TransitionToDeliveredModal 와 동일 패턴, queryKey 공유로 캐시 재사용.
+  const detailQueries = useQueries({
+    queries: sends.map((s) => ({
+      queryKey: ["send-detail", s.send_id],
+      queryFn: () => sendsApi.getSend(s.send_id).then((r) => r.data.data!),
+      staleTime: 60 * 1000,
+    })),
+  });
+  const detailBySendId = useMemo(() => {
+    const map = new Map<number, SendDetailResponse>();
+    detailQueries.forEach((q, i) => {
+      if (q.data) map.set(sends[i].send_id, q.data);
+    });
+    return map;
+  }, [detailQueries, sends]);
+  const errorBySendId = useMemo(() => {
+    const set = new Set<number>();
+    detailQueries.forEach((q, i) => {
+      if (q.isError) set.add(sends[i].send_id);
+    });
+    return set;
+  }, [detailQueries, sends]);
+
+  // 체크박스 헬퍼
+  const toggleOne = (sendId: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(sendId)) next.delete(sendId);
+      else next.add(sendId);
+      return next;
+    });
+  };
+  const allSelected = sends.length > 0 && sends.every((s) => selectedIds.has(s.send_id));
+  const toggleAllOnPage = () => {
+    if (allSelected) {
+      // 현재 페이지 박스만 해제 (다른 페이지 선택은 보존)
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        sends.forEach((s) => next.delete(s.send_id));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        sends.forEach((s) => next.add(s.send_id));
+        return next;
+      });
+    }
+  };
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -264,6 +254,15 @@ export default function PreparingSendListPage() {
               엑셀 다운로드
             </Button>
           )}
+          {/* 페이지 전체 선택 토글 — 클릭 시 현재 페이지 박스만 토글 (다른 페이지 선택 보존) */}
+          <button
+            type="button"
+            className="text-xs text-gray-500 hover:text-gray-700 underline-offset-2 hover:underline"
+            onClick={toggleAllOnPage}
+            disabled={sends.length === 0}
+          >
+            {allSelected ? "이 페이지 해제" : "이 페이지 선택"} ({selectedIds.size}/{sends.length})
+          </button>
           <Button
             size="sm"
             disabled={selectedIds.size === 0}
@@ -321,18 +320,31 @@ export default function PreparingSendListPage() {
         }}
       />
 
-      {/* 박스 목록 */}
-      <div className="flex-1 overflow-auto bg-white">
-        <DataTable
-          columns={columns}
-          data={sends}
-          getRowId={(r) => r.send_id}
-          isLoading={isLoading}
-          emptyMessage="조건에 맞는 PREPARING 박스가 없습니다."
-          selectedIds={selectedIds}
-          onSelectionChange={setSelectedIds}
-          onRowClick={(r) => setDetailSendId(r.send_id)}
-        />
+      {/* 박스 목록 — 카드 그리드 */}
+      <div className="flex-1 overflow-auto bg-gray-50 px-5 py-4">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <LoadingSpinner size="lg" />
+          </div>
+        ) : sends.length === 0 ? (
+          <div className="text-center py-16 text-sm text-gray-500">
+            조건에 맞는 PREPARING 박스가 없습니다.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {sends.map((s) => (
+              <PreparingSendCard
+                key={s.send_id}
+                send={s}
+                detail={detailBySendId.get(s.send_id)}
+                detailError={errorBySendId.has(s.send_id)}
+                checked={selectedIds.has(s.send_id)}
+                onToggleCheck={() => toggleOne(s.send_id)}
+                onCardClick={() => setDetailSendId(s.send_id)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 박스 상세 패널 — #11 약점 보강: TransitionToDeliveredModal 진입 전 박스 안 책 종류 확인 가능 */}
