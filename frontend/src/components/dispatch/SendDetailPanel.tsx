@@ -137,14 +137,16 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
             </Section>
           )}
 
-          {/* 운송장 */}
-          <Section title="운송장">
-            <Row label="배송 방법">{send.send_method ?? "-"}</Row>
-            <Row label="운송사">{send.courier_company ?? "-"}</Row>
-            <Row label="송장 번호">
-              <span className="font-mono">{send.tracking_no ?? "-"}</span>
-            </Row>
-          </Section>
+          {/* 운송장 — DELIVERED 박스에서만 편집 가능 (PREPARING/CANCELLED 은 read-only) */}
+          <TrackingSection
+            key={`tracking-${send.send_id}`}
+            send={send}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
+              queryClient.invalidateQueries({ queryKey: ["delivered-sends"] });
+              queryClient.invalidateQueries({ queryKey: ["order-sends"] });
+            }}
+          />
 
           {/* 박스 안 SendItem 목록 — #11 약점 보강 */}
           <Section title={`박스 내용 (${send.items.length}건)`}>
@@ -241,6 +243,149 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
     </SlidingPanel>
   );
 }
+
+// ── 운송장 섹션 — read-only (PREPARING/CANCELLED) / 편집 가능 (DELIVERED) ─────
+
+interface TrackingSectionProps {
+  send: SendDetailResponse;
+  onSuccess: () => void;
+}
+
+function TrackingSection({ send, onSuccess }: TrackingSectionProps) {
+  const [editing, setEditing] = useState(false);
+  const [tracking, setTracking] = useState(send.tracking_no ?? "");
+  const [sendMethod, setSendMethod] = useState<SendMethod | "">(
+    (send.send_method as SendMethod | null) ?? "",
+  );
+  const [courier, setCourier] = useState<CourierCompany | "">(
+    (send.courier_company as CourierCompany | null) ?? "",
+  );
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      sendsApi
+        .updateTracking(send.send_id, {
+          tracking_no: tracking.trim() || null,
+          send_method: sendMethod || null,
+          courier_company: courier || null,
+        })
+        .then((r) => r.data),
+    onSuccess: (res) => {
+      toast.success(res.message ?? "운송장 정보가 수정되었습니다.");
+      setEditing(false);
+      onSuccess();
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+
+  const handleSave = () => {
+    const allEmpty = tracking.trim() === "" && sendMethod === "" && courier === "";
+    if (allEmpty) {
+      toast.error("운송장·배송방법·배송업체 중 최소 1개를 입력해주세요.");
+      return;
+    }
+    mutation.mutate();
+  };
+
+  // read-only — DELIVERED 외 상태 OR 편집 닫힘
+  if (!editing) {
+    return (
+      <Section title="운송장">
+        <Row label="배송 방법">{send.send_method ?? "-"}</Row>
+        <Row label="운송사">{send.courier_company ?? "-"}</Row>
+        <Row label="송장 번호">
+          <span className="font-mono">{send.tracking_no ?? "-"}</span>
+        </Row>
+        {send.send_status === "DELIVERED" && (
+          <div className="mt-2">
+            <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+              운송장 수정
+            </Button>
+          </div>
+        )}
+      </Section>
+    );
+  }
+
+  // 편집 모드 (DELIVERED 만 도달)
+  return (
+    <Section title="운송장 수정">
+      <div className="space-y-3 border border-gray-200 rounded p-3 bg-gray-50/50">
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label className="text-xs text-gray-600">배송 방법</Label>
+            <Select
+              value={sendMethod}
+              onValueChange={(v) => {
+                const sm = v as SendMethod;
+                setSendMethod(sm);
+                const derived = SEND_METHOD_TO_COURIER[sm] as CourierCompany | undefined;
+                // 운영자가 courier 를 이미 다른 값으로 지정한 상태라면 덮지 않음
+                if (derived && !courier) setCourier(derived);
+              }}
+            >
+              <SelectTrigger className="mt-1 h-8 text-xs">
+                <SelectValue placeholder="선택" />
+              </SelectTrigger>
+              <SelectContent>
+                {SEND_METHOD_OPTIONS.map((m) => (
+                  <SelectItem key={m.value} value={m.value} className="text-xs">
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs text-gray-600">운송사</Label>
+            <Select value={courier} onValueChange={(v) => setCourier(v as CourierCompany)}>
+              <SelectTrigger className="mt-1 h-8 text-xs">
+                <SelectValue placeholder="선택" />
+              </SelectTrigger>
+              <SelectContent>
+                {COURIER_COMPANY_OPTIONS.map((c) => (
+                  <SelectItem key={c.value} value={c.value} className="text-xs">
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs text-gray-600">송장 번호</Label>
+          <Input
+            className="mt-1 h-8 text-xs font-mono"
+            placeholder="숫자만 추출되어 저장됨"
+            value={tracking}
+            onChange={(e) => setTracking(e.target.value)}
+          />
+        </div>
+        <div className="flex justify-end gap-2 pt-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              // 편집 취소 — draft 를 현재 값으로 복원
+              setTracking(send.tracking_no ?? "");
+              setSendMethod((send.send_method as SendMethod | null) ?? "");
+              setCourier((send.courier_company as CourierCompany | null) ?? "");
+              setEditing(false);
+            }}
+            disabled={mutation.isPending}
+          >
+            취소
+          </Button>
+          <Button size="sm" onClick={handleSave} disabled={mutation.isPending}>
+            {mutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+            저장
+          </Button>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
 
 // ── 관리자 메모 섹션 (편집 가능, 상태 무관) ────────────────────────────────────
 
