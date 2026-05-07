@@ -393,6 +393,20 @@ def update_admin_memo(db: Session, send: Send, admin_memo: Optional[str]) -> Sen
     return send_crud.update_admin_memo(db=db, send=send, admin_memo=admin_memo)
 
 
+def delete_single_preparing_send(db: Session, send: Send) -> int:
+    """운영자 직접 박스 강제 삭제 — PREPARING 만 허용.
+
+    DELIVERED/CANCELLED 차단. 잔여 SendItem 까지 cascade 삭제.
+    Returns: 삭제된 SendItem 수 (활동 로그용).
+    """
+    if send.send_status != "PREPARING":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"박스 삭제는 PREPARING 상태에서만 가능합니다. 현재 상태: {send.send_status}",
+        )
+    return send_crud.delete_single_preparing_send(db=db, send=send)
+
+
 def assert_resend_eligible(db: Session, send: Send) -> None:
     """재배송 가능 여부 검증 — Send 본체는 변경하지 않음 (활동 로그 기록은 호출자 책임).
 

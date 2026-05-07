@@ -201,6 +201,50 @@ def update_admin_memo(
     )
 
 
+@router.delete(
+    "/sends/{send_id}/preparing",
+    response_model=ResponseModel[None],
+)
+def delete_preparing_send(
+    send_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_manager),
+):
+    """PREPARING Send 강제 삭제 (운영자 직접 박스 단위 정리).
+
+    DELIVERED/CANCELLED 차단. 잔여 SendItem 까지 cascade DELETE.
+    OrderItem 취소 시 자동 삭제(delete_preparing_send_items_for_order_items)와 별도 흐름.
+    권한: SUPER_ADMIN/ADMIN/MANAGER 모두 허용.
+    """
+    send = send_service.get_send_by_id(db, send_id)
+    snapshot = {
+        "send_id": send.send_id,
+        "recipient_name": send.recipient_name,
+        "send_status": send.send_status,
+    }
+
+    deleted_items = send_service.delete_single_preparing_send(db, send)
+
+    activity_log_service.create_log(
+        db=db,
+        action=ActivityAction.DELETE,
+        target_type=ActivityTargetType.SEND,
+        admin_id=current_admin.admin_id,
+        admin_name=current_admin.admin_name,
+        target_id=send_id,
+        target_name=snapshot["recipient_name"],
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        details={**snapshot, "deleted_send_items_count": deleted_items},
+    )
+
+    return ResponseModel(
+        message=f"PREPARING 박스 #{send_id} 가 삭제되었습니다 (잔여 품목 {deleted_items}건 함께 정리).",
+        data=None,
+    )
+
+
 # ── 재배송 ──────────────────────────────────────────────────────────────────
 
 @router.post(

@@ -143,6 +143,22 @@ def update_admin_memo(db: Session, send: Send, admin_memo: Optional[str]) -> Sen
     return send
 
 
+def delete_single_preparing_send(db: Session, send: Send) -> int:
+    """PREPARING Send 1건 + 잔여 SendItem cascade 삭제. 삭제된 SendItem 수 반환.
+
+    호출자가 PREPARING 상태 검증 책임 (services 레이어).
+    SendItem 먼저 DELETE → Send DELETE (FK 순서). db.commit() 까지 본 함수가 책임.
+    """
+    deleted_items = (
+        db.query(SendItem)
+        .filter(SendItem.send_id == send.send_id)
+        .delete(synchronize_session=False)
+    )
+    db.delete(send)
+    db.commit()
+    return deleted_items
+
+
 def delete_preparing_sends(db: Session, scope: str) -> int:
     """PREPARING Send + SendItem 일괄 삭제. 삭제된 Send 수 반환.
 
