@@ -149,6 +149,7 @@ export interface OrderDetailResponse extends OrderResponse {
   sends: import("./send").SendResponse[];
 }
 
+// 백엔드 OrderListResponse 와 1:1 동기화 (backend/app/schemas/order.py)
 export interface OrderListResponse {
   order_id: number;
   customer_id: number;
@@ -156,6 +157,12 @@ export interface OrderListResponse {
   customer_phone?: string | null;
   external_order_id?: string | null;
   address_id: number;
+  // 배송지 스냅샷 (Address LEFT JOIN — 카드 그리드 표시용)
+  recipient_name?: string | null;
+  recipient_phone?: string | null;
+  country_code?: string | null;
+  postal_code?: string | null;
+  recipient_address?: string | null;
   order_channel: string;
   order_status: string;
   total_amount: number;
