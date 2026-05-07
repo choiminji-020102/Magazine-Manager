@@ -104,8 +104,20 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
             </Row>
             <Row label="주소">{send.recipient_address}</Row>
             {send.customer_memo && <Row label="배송메모">{send.customer_memo}</Row>}
-            {send.admin_memo && <Row label="관리자메모">{send.admin_memo}</Row>}
           </Section>
+
+          {/* 관리자 메모 — 편집 가능. 상태 무관 (PREPARING/DELIVERED/CANCELLED). */}
+          <AdminMemoSection
+            key={send.send_id}
+            send={send}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
+              queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
+              queryClient.invalidateQueries({ queryKey: ["delivered-sends"] });
+              // SubscriptionDetailPanel 의 묶인 발송 query — orderId 무관 prefix 무효화
+              queryClient.invalidateQueries({ queryKey: ["order-sends"] });
+            }}
+          />
 
           {/* 묶인 주문 */}
           {send.related_orders.length > 0 && (
@@ -214,6 +226,64 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
     </SlidingPanel>
   );
 }
+
+// ── 관리자 메모 섹션 (편집 가능, 상태 무관) ────────────────────────────────────
+
+interface AdminMemoSectionProps {
+  send: SendDetailResponse;
+  onSuccess: () => void;
+}
+
+function AdminMemoSection({ send, onSuccess }: AdminMemoSectionProps) {
+  const initial = send.admin_memo ?? "";
+  const [memo, setMemo] = useState(initial);
+  const dirty = memo.trim() !== initial.trim();
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      sendsApi
+        .updateAdminMemo(send.send_id, { admin_memo: memo.trim() || null })
+        .then((r) => r.data),
+    onSuccess: (res) => {
+      toast.success(res.message ?? "관리자 메모가 수정되었습니다.");
+      onSuccess();
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+
+  const MAX_LEN = 1000;
+  const overLimit = memo.length > MAX_LEN;
+
+  return (
+    <Section title="관리자 메모">
+      <textarea
+        className={`w-full px-3 py-2 text-xs border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 ${
+          overLimit ? "border-red-300" : "border-gray-300"
+        }`}
+        rows={3}
+        maxLength={MAX_LEN}
+        placeholder="관리자 메모 (저장 시 빈 값이면 메모 삭제)"
+        value={memo}
+        onChange={(e) => setMemo(e.target.value)}
+        disabled={mutation.isPending}
+      />
+      <div className="flex items-center justify-between mt-2">
+        <span className={`text-[11px] ${overLimit ? "text-red-500" : "text-gray-400"}`}>
+          {memo.length} / {MAX_LEN}
+        </span>
+        <Button
+          size="sm"
+          onClick={() => mutation.mutate()}
+          disabled={!dirty || mutation.isPending || overLimit}
+        >
+          {mutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+          저장
+        </Button>
+      </div>
+    </Section>
+  );
+}
+
 
 // ── 재배송 입력 섹션 ──────────────────────────────────────────────────────────
 // DELIVERED 박스에만 노출. 토글로 폼 펼침. 박스 안 SendItem 다중 선택 (기본 모두).

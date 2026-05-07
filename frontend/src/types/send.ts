@@ -24,6 +24,12 @@ export interface SendTrackingUpdate {
   courier_company?: CourierCompany | null;
 }
 
+export interface SendAdminMemoUpdate {
+  // PATCH /sends/{send_id}/admin-memo — 상태 무관 (PREPARING/DELIVERED/CANCELLED 모두 허용).
+  // 빈/공백 문자열은 백엔드에서 None 으로 저장 (메모 삭제).
+  admin_memo: string | null;
+}
+
 export interface SendResendRequest {
   // POST /sends/{send_id}/resend — DELIVERED Send 재배송 이력 기록 (Send 본체 변경 없음).
   // send_item_ids: 박스 통째 재발송 시 UI가 모든 SendItem ID 채워서 보냄.

@@ -5,6 +5,7 @@ import type {
   SendDetailResponse,
   SendListQuery,
   SendTrackingUpdate,
+  SendAdminMemoUpdate,
   SendResendRequest,
 } from "../types/send";
 
@@ -27,6 +28,11 @@ export const sendsApi = {
   // PATCH /sends/{send_id}/tracking - DELIVERED Send 운송장/배송업체/배송방법 수정
   updateTracking: (sendId: number, data: SendTrackingUpdate) => {
     return api.patch<ResponseModel<SendResponse>>(`/sends/${sendId}/tracking`, data);
+  },
+
+  // PATCH /sends/{send_id}/admin-memo - 관리자 메모 수정 (상태 무관)
+  updateAdminMemo: (sendId: number, data: SendAdminMemoUpdate) => {
+    return api.patch<ResponseModel<SendResponse>>(`/sends/${sendId}/admin-memo`, data);
   },
 
   // POST /sends/{send_id}/resend - DELIVERED Send 재배송 이력 기록 (Send 본체 변경 없음)
