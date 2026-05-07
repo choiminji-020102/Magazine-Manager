@@ -2,9 +2,9 @@ import type { KeyboardEvent } from "react";
 import { InfoRow } from "@/components/common/list-card/InfoRow";
 import { SectionHeader } from "@/components/common/list-card/SectionHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
-import { formatDate, formatDateTime, formatIssueShort, formatPhone } from "@/utils/format";
+import SendItemBox from "@/components/dispatch/SendItemBox";
+import { formatDate, formatShortDateTime, formatPhone } from "@/utils/format";
 import type { SendResponse, SendDetailResponse } from "@/types/send";
-import type { SendItemResponse } from "@/types/sendItem";
 import type { ActivityLogResponse } from "@/types/activityLog";
 
 interface Props {
@@ -186,48 +186,9 @@ export default function DeliveredSendCard({
 
       {/* 카드 footer — 시스템 메타 */}
       <div className="px-3 py-1.5 text-[10px] text-gray-400 border-t border-gray-100 flex justify-end gap-3">
-        <span>생성 {formatShortDt(send.created_at)}</span>
-        <span>수정 {formatShortDt(send.updated_at)}</span>
+        <span>생성 {formatShortDateTime(send.created_at)}</span>
+        <span>수정 {formatShortDateTime(send.updated_at)}</span>
       </div>
     </div>
   );
-}
-
-// ── SendItem 박스 — §2.3 압축 (배송 준비 중 + 배송 완료 공통) ────────────────
-// PreparingSendCard 와 동일 구조. PR-C 단계에서는 그대로 복제 — PR 정리 단계에서
-// 별도 파일 (components/dispatch/SendItemBox.tsx) 로 추출 예정.
-function SendItemBox({ item }: { item: SendItemResponse }) {
-  const isCancelled = item.cancelled_at != null;
-  return (
-    <div
-      className={`border border-gray-100 rounded p-2 text-[11px] space-y-0.5 ${
-        isCancelled ? "opacity-60 bg-gray-50" : ""
-      }`}
-    >
-      <div className="flex items-center gap-1.5">
-        <span className="font-mono text-gray-500">{item.product_code}</span>
-        <span className="text-gray-700 truncate">{item.product_name}</span>
-      </div>
-      <div className="text-gray-600">
-        {formatIssueShort(item.issue)} × {item.send_num}부
-      </div>
-      {item.admin_memo && (
-        <div className="block truncate text-gray-500" title={item.admin_memo}>
-          📝 {item.admin_memo}
-        </div>
-      )}
-      {isCancelled && (
-        <div className="text-red-500">취소 {formatDate(item.cancelled_at)}</div>
-      )}
-      <div className="text-[9px] text-gray-300 pt-0.5">
-        생성 {formatShortDt(item.created_at)} · 수정 {formatShortDt(item.updated_at)}
-      </div>
-    </div>
-  );
-}
-
-function formatShortDt(dt: string | Date | null | undefined): string {
-  const formatted = formatDateTime(dt);
-  if (formatted === "-") return "-";
-  return formatted.length >= 10 ? formatted.slice(5) : formatted;
 }

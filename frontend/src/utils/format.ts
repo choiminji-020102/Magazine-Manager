@@ -95,3 +95,13 @@ export function formatDate(
 export function formatDateTime(dt: string | Date | null | undefined): string {
   return formatDate(dt, { showTime: true });
 }
+
+/**
+ * 좁은 컨테이너용 단축 형식 (연도 생략) → "04-01 14:32"
+ * 카드 시스템 메타·박스 우하단 표시용.
+ */
+export function formatShortDateTime(dt: string | Date | null | undefined): string {
+  const formatted = formatDateTime(dt);
+  if (formatted === "-") return "-";
+  return formatted.length >= 10 ? formatted.slice(5) : formatted;
+}
