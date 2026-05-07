@@ -40,6 +40,11 @@ def list_orders(
             Order,
             Customer.customer_name,
             Customer.customer_phone,
+            Address.recipient_name,
+            Address.recipient_phone,
+            Address.country_code,
+            Address.postal_code,
+            Address.recipient_address,
             Address.vip1,
             Address.vip2,
             Address.vip3,
@@ -93,7 +98,17 @@ def list_orders(
     results = query.offset(offset).limit(limit).all()
 
     items = []
-    for order, customer_name, customer_phone, vip1, vip2, vip3, vip4, vip5, vip6 in results:
+    for (
+        order,
+        customer_name,
+        customer_phone,
+        recipient_name,
+        recipient_phone,
+        country_code,
+        postal_code,
+        recipient_address,
+        vip1, vip2, vip3, vip4, vip5, vip6,
+    ) in results:
         item_count = db.query(OrderItem).filter(
             OrderItem.order_id == order.order_id,
             OrderItem.cancelled_at.is_(None),
@@ -105,6 +120,11 @@ def list_orders(
             customer_phone=customer_phone,
             external_order_id=order.external_order_id,
             address_id=order.address_id,
+            recipient_name=recipient_name,
+            recipient_phone=recipient_phone,
+            country_code=country_code,
+            postal_code=postal_code,
+            recipient_address=recipient_address,
             order_channel=order.order_channel,
             order_status=order.order_status,
             total_amount=order.total_amount,

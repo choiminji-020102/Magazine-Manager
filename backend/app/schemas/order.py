@@ -185,6 +185,12 @@ class OrderListResponse(BaseModel):
     customer_phone: Optional[str] = None
     external_order_id: Optional[str] = None
     address_id: int
+    # 배송지 스냅샷 (Address LEFT JOIN — 카드 그리드 표시용)
+    recipient_name: Optional[str] = None
+    recipient_phone: Optional[str] = None
+    country_code: Optional[str] = None
+    postal_code: Optional[str] = None
+    recipient_address: Optional[str] = None
     order_channel: str
     order_status: str
     total_amount: int
