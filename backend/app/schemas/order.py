@@ -202,6 +202,8 @@ class OrderListResponse(BaseModel):
     order_at: datetime
     payment_at: Optional[datetime] = None
     cancelled_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
     item_count: int = 0
     vip1: bool = False
     vip2: bool = False

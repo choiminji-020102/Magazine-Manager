@@ -136,6 +136,8 @@ def list_orders(
             order_at=order.order_at,
             payment_at=order.payment_at,
             cancelled_at=order.cancelled_at,
+            created_at=order.created_at,
+            updated_at=order.updated_at,
             item_count=item_count,
             vip1=bool(vip1),
             vip2=bool(vip2),
