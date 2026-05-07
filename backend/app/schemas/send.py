@@ -56,6 +56,23 @@ class SendTrackingUpdate(BaseModel):
         return self
 
 
+class SendAdminMemoUpdate(BaseModel):
+    """Send 관리자 메모 수정 (PATCH /sends/{send_id}/admin-memo).
+
+    상태 무관 (PREPARING/DELIVERED/CANCELLED 모두 허용).
+    빈/공백 문자열은 None 으로 저장 (메모 삭제 의도로 처리).
+    길이 제한 1000자 (운영 메모는 보통 한 줄~한 단락).
+    """
+    admin_memo: Optional[str] = Field(default=None, max_length=1000)
+
+    @field_validator("admin_memo", mode="before")
+    @classmethod
+    def _strip_or_none(cls, v):
+        if isinstance(v, str):
+            return v.strip() or None
+        return v
+
+
 class SendResendRequest(BaseModel):
     """DELIVERED Send에 대한 재배송 이력 입력 (POST /sends/{send_id}/resend).
 

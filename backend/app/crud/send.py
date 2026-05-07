@@ -135,6 +135,14 @@ def update_tracking(
     return send
 
 
+def update_admin_memo(db: Session, send: Send, admin_memo: Optional[str]) -> Send:
+    """Send.admin_memo 수정. 상태 무관, 빈/None 은 NULL 저장."""
+    send.admin_memo = admin_memo
+    db.commit()
+    db.refresh(send)
+    return send
+
+
 def delete_preparing_sends(db: Session, scope: str) -> int:
     """PREPARING Send + SendItem 일괄 삭제. 삭제된 Send 수 반환.
 

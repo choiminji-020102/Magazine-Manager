@@ -388,6 +388,11 @@ def update_tracking(
     )
 
 
+def update_admin_memo(db: Session, send: Send, admin_memo: Optional[str]) -> Send:
+    """Send.admin_memo 수정. 상태 무관 (PREPARING/DELIVERED/CANCELLED 모두 허용)."""
+    return send_crud.update_admin_memo(db=db, send=send, admin_memo=admin_memo)
+
+
 def assert_resend_eligible(db: Session, send: Send) -> None:
     """재배송 가능 여부 검증 — Send 본체는 변경하지 않음 (활동 로그 기록은 호출자 책임).
 

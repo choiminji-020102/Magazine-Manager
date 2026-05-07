@@ -12,6 +12,7 @@ from app.models.admin import Admin
 from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.schemas.common import PaginatedResponse, ResponseModel
 from app.schemas.send import (
+    SendAdminMemoUpdate,
     SendDetailResponse,
     SendListQuery,
     SendResendRequest,
@@ -147,6 +148,50 @@ def update_tracking(
     changed = [FIELD_LABEL[k] for k in ("tracking_no", "send_method", "courier_company") if before[k] != after[k]]
     if changed:
         message = f"{'/'.join(changed)} 정보가 수정되었습니다. Cafe24 관리자에서도 동일하게 변경해 주세요."
+    else:
+        message = "변경된 항목이 없습니다."
+
+    return ResponseModel(
+        message=message,
+        data=SendResponse.model_validate(updated),
+    )
+
+
+@router.patch(
+    "/sends/{send_id}/admin-memo",
+    response_model=ResponseModel[SendResponse],
+)
+def update_admin_memo(
+    send_id: int,
+    memo_in: SendAdminMemoUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_manager),
+):
+    """Send 관리자 메모 수정. 상태 무관 (PREPARING/DELIVERED/CANCELLED 모두 허용).
+
+    권한: SUPER_ADMIN/ADMIN/MANAGER 모두 허용 (운영 메모는 자주 수정되는 보조 정보).
+    """
+    send = send_service.get_send_by_id(db, send_id)
+    before = send.admin_memo
+
+    updated = send_service.update_admin_memo(db, send, memo_in.admin_memo)
+    after = updated.admin_memo
+
+    if before != after:
+        activity_log_service.create_log(
+            db=db,
+            action=ActivityAction.UPDATE,
+            target_type=ActivityTargetType.SEND,
+            admin_id=current_admin.admin_id,
+            admin_name=current_admin.admin_name,
+            target_id=send_id,
+            target_name=send.recipient_name,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+            details={"before": {"admin_memo": before}, "after": {"admin_memo": after}},
+        )
+        message = "관리자 메모가 수정되었습니다."
     else:
         message = "변경된 항목이 없습니다."
 
