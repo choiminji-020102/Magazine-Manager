@@ -174,6 +174,8 @@ export interface OrderListResponse {
   order_at: string;
   payment_at?: string | null;
   cancelled_at?: string | null;
+  created_at: string;
+  updated_at: string;
   item_count: number;
   vip1: boolean;
   vip2: boolean;

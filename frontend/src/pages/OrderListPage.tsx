@@ -1,8 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/useDebounce";
-import { Plus, MoreHorizontal } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,26 +12,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { DataTable, type ColumnDef } from "@/components/common/DataTable";
 import { FilterBar } from "@/components/common/FilterBar";
+import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { Pagination } from "@/components/common/Pagination";
-import { StatusBadge } from "@/components/common/StatusBadge";
 import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import OrderListCard from "@/components/order/OrderListCard";
 import { ordersApi } from "@/api/ordersApi";
+import { orderItemsApi } from "@/api/orderItemsApi";
 import { vipSlotsApi } from "@/api/vipSlotsApi";
 import { toast } from "@/hooks/use-toast";
-import { formatAmount, formatDate, formatPhone } from "@/utils/format";
 import { PAYMENT_METHOD_LABEL, PAYMENT_METHOD_OPTIONS } from "@/utils/constants";
-import { VipFlagsDisplay } from "@/components/common/VipFlags";
-import type { OrderListResponse } from "@/types/order";
 import OrderDetailPanel from "./order/OrderDetailPanel";
+import type { OrderItemDetailResponse } from "@/types/orderItem";
 
 const CHANNEL_OPTIONS = [
   { value: "", label: "전체 채널" },
@@ -113,6 +106,32 @@ export default function OrderListPage() {
         .then((r) => r.data),
   });
 
+  const orders = useMemo(() => data?.items ?? [], [data]);
+
+  // 카드별 OrderItem 병렬 호출 — OrderDetailPanel 의 useQuery (queryKey ["order", id]) 와는
+  // 다른 키 사용. 카드는 OrderItem 만 필요 (다른 detail 필드는 카드에 없음).
+  const itemQueries = useQueries({
+    queries: orders.map((o) => ({
+      queryKey: ["order-items-by-order", o.order_id],
+      queryFn: () => orderItemsApi.getItemsByOrder(o.order_id).then((r) => r.data.data ?? []),
+      staleTime: 60 * 1000,
+    })),
+  });
+  const itemsByOrderId = useMemo(() => {
+    const map = new Map<number, OrderItemDetailResponse[]>();
+    itemQueries.forEach((q, i) => {
+      if (q.data) map.set(orders[i].order_id, q.data);
+    });
+    return map;
+  }, [itemQueries, orders]);
+  const itemsErrorByOrderId = useMemo(() => {
+    const set = new Set<number>();
+    itemQueries.forEach((q, i) => {
+      if (q.isError) set.add(orders[i].order_id);
+    });
+    return set;
+  }, [itemQueries, orders]);
+
   const paymentMutation = useMutation({
     mutationFn: (orderId: number) => ordersApi.completePayment(orderId),
     onSuccess: () => {
@@ -131,8 +150,8 @@ export default function OrderListPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const handleRowClick = useCallback((order: OrderListResponse) => {
-    setSelectedOrderId(order.order_id);
+  const handleCardClick = useCallback((orderId: number) => {
+    setSelectedOrderId(orderId);
     setPanelOpen(true);
   }, []);
 
@@ -140,118 +159,6 @@ export default function OrderListPage() {
     setPanelOpen(false);
     setTimeout(() => setSelectedOrderId(null), 250);
   }, []);
-
-  const columns: ColumnDef<OrderListResponse>[] = [
-    {
-      key: "order_id",
-      header: "주문번호",
-      cell: (row) => (
-        <span className="font-mono text-xs text-gray-600">#{row.order_id}</span>
-      ),
-      width: "w-20",
-    },
-    {
-      key: "customer",
-      header: "고객",
-      cell: (row) => (
-        <div>
-          <div className="font-medium text-gray-900 text-[13px] flex items-center gap-1.5 flex-wrap">
-            <span>{row.customer_name ?? "-"}</span>
-            <VipFlagsDisplay address={row} slots={vipSlots} compact />
-          </div>
-          <div className="text-xs text-gray-400">
-            {formatPhone(row.customer_phone)}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "channel",
-      header: "채널",
-      cell: (row) => (
-        <StatusBadge type="channel" value={row.order_channel} />
-      ),
-      width: "w-24",
-    },
-    {
-      key: "items",
-      header: "주문 내용",
-      cell: (row) => (
-        <span className="text-[13px] text-gray-600">
-          {row.item_count}개 상품
-          {row.external_order_id && (
-            <span className="ml-1.5 text-xs text-gray-400 font-mono">
-              {row.external_order_id}
-            </span>
-          )}
-        </span>
-      ),
-    },
-    {
-      key: "amount",
-      header: "결제금액",
-      cell: (row) => (
-        <span className="text-[13px] font-medium">
-          {formatAmount(row.payment_amount)}
-        </span>
-      ),
-      width: "w-28",
-    },
-    {
-      key: "status",
-      header: "상태",
-      cell: (row) => (
-        <StatusBadge type="order_status" value={row.order_status} />
-      ),
-      width: "w-24",
-    },
-    {
-      key: "order_at",
-      header: "주문일",
-      cell: (row) => (
-        <span className="text-xs text-gray-500">
-          {formatDate(row.order_at)}
-        </span>
-      ),
-      width: "w-24",
-    },
-    {
-      key: "actions",
-      header: "",
-      cell: (row) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon-sm">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {row.order_status === "ORDERED" && (
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setPaymentConfirmId(row.order_id);
-                }}
-              >
-                결제완료 처리
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedOrderId(row.order_id);
-                setPanelOpen(true);
-              }}
-            >
-              상세 보기
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-      width: "w-12",
-      className: "text-right",
-    },
-  ];
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -384,19 +291,29 @@ export default function OrderListPage() {
         ]}
       />
 
-      {/* 테이블 */}
-      <div className="flex-1 overflow-hidden bg-white">
-        <div className="h-full overflow-y-auto">
-          <DataTable
-            columns={columns}
-            data={data?.items ?? []}
-            getRowId={(row) => row.order_id}
-            onRowClick={handleRowClick}
-            isLoading={isLoading}
-            emptyMessage="주문이 없습니다."
-            activeRowId={selectedOrderId}
-          />
-        </div>
+      {/* 카드 그리드 */}
+      <div className="flex-1 overflow-auto bg-gray-50 px-5 py-4">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <LoadingSpinner size="lg" />
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="text-center py-16 text-sm text-gray-500">주문이 없습니다.</div>
+        ) : (
+          <div className="space-y-3">
+            {orders.map((order) => (
+              <OrderListCard
+                key={order.order_id}
+                order={order}
+                items={itemsByOrderId.get(order.order_id)}
+                itemsError={itemsErrorByOrderId.has(order.order_id)}
+                vipSlots={vipSlots}
+                onCardClick={() => handleCardClick(order.order_id)}
+                onPaymentComplete={() => setPaymentConfirmId(order.order_id)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 페이지네이션 */}
