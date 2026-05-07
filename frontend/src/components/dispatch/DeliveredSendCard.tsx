@@ -74,6 +74,16 @@ export default function DeliveredSendCard({
               label="완료일"
               value={send.delivered_at ? formatDate(send.delivered_at) : "-"}
             />
+            <InfoRow
+              label="취소일"
+              value={
+                send.cancelled_at ? (
+                  <span className="text-red-500">{formatDate(send.cancelled_at)}</span>
+                ) : (
+                  "-"
+                )
+              }
+            />
             <InfoRow label="배송 방법" value={send.send_method ?? "-"} />
             <InfoRow label="운송사" value={send.courier_company ?? "-"} />
             <InfoRow

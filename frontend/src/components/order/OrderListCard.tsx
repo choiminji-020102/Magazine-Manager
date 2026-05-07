@@ -134,6 +134,26 @@ export default function OrderListCard({
                 </span>
               }
             />
+            {order.customer_memo && (
+              <InfoRow
+                label="고객메모"
+                value={
+                  <span className="block truncate text-gray-500" title={order.customer_memo}>
+                    {order.customer_memo}
+                  </span>
+                }
+              />
+            )}
+            {order.admin_memo && (
+              <InfoRow
+                label="메모"
+                value={
+                  <span className="block truncate text-gray-500" title={order.admin_memo}>
+                    📝 {order.admin_memo}
+                  </span>
+                }
+              />
+            )}
           </div>
         </section>
 

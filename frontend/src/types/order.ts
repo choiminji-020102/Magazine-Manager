@@ -171,6 +171,8 @@ export interface OrderListResponse {
   send_fee: number;
   payment_amount: number;
   payment_method?: PaymentMethod | null;
+  customer_memo?: string | null;
+  admin_memo?: string | null;
   order_at: string;
   payment_at?: string | null;
   cancelled_at?: string | null;
