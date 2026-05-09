@@ -14,6 +14,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { ImportStatCard, ImportDetailCard } from "@/components/common/ImportResultCards";
+import Cafe24ConnectionGate from "@/components/cafe24/Cafe24ConnectionGate";
 import type { Cafe24Product, Cafe24ProductImportResponse } from "@/types/cafe24";
 import Cafe24ProductImportModal from "./Cafe24ProductImportModal";
 
@@ -262,24 +263,26 @@ export default function Cafe24ProductListPage() {
         }
       />
 
-      <div className="flex-1 min-h-0 overflow-auto">
-        <DataTable
-          columns={columns}
-          data={products}
-          getRowId={(row) => row.product_no}
-          isLoading={isLoading}
-          emptyMessage="Cafe24 상품이 없습니다."
-          selectedIds={selectedIds}
-          onSelectionChange={setSelectedIds}
-          isRowSelectable={(row) => !row.already_imported}
-          disabledRowLabel={() => (
-            <div className="text-[10px] text-green-700 font-medium leading-tight text-center">
-              <div>이미</div>
-              <div>가져옴</div>
-            </div>
-          )}
-        />
-      </div>
+      <Cafe24ConnectionGate>
+        <div className="flex-1 min-h-0 overflow-auto">
+          <DataTable
+            columns={columns}
+            data={products}
+            getRowId={(row) => row.product_no}
+            isLoading={isLoading}
+            emptyMessage="Cafe24 상품이 없습니다."
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+            isRowSelectable={(row) => !row.already_imported}
+            disabledRowLabel={() => (
+              <div className="text-[10px] text-green-700 font-medium leading-tight text-center">
+                <div>이미</div>
+                <div>가져옴</div>
+              </div>
+            )}
+          />
+        </div>
+      </Cafe24ConnectionGate>
 
       <Cafe24ProductImportModal
         open={importOpen}

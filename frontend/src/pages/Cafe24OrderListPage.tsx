@@ -19,6 +19,7 @@ import { getErrorMessage } from "@/utils/errorHandler";
 import { ImportStatCard, ImportDetailCard } from "@/components/common/ImportResultCards";
 import { InfoRow } from "@/components/common/list-card/InfoRow";
 import { SectionHeader } from "@/components/common/list-card/SectionHeader";
+import Cafe24ConnectionGate from "@/components/cafe24/Cafe24ConnectionGate";
 import type {
   Cafe24Order,
   Cafe24MappedOrderItem,
@@ -529,71 +530,73 @@ export default function Cafe24OrderListPage() {
         }
       />
 
-      {/* 필터 영역 */}
-      <div className="flex items-end gap-3 px-5 py-3 border-b border-gray-200 bg-white">
-        <div>
-          <Label className="text-xs text-gray-500">시작일</Label>
-          <Input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            disabled={filterLocked}
-            className="mt-1 w-36"
-          />
-        </div>
-        <div>
-          <Label className="text-xs text-gray-500">종료일</Label>
-          <Input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            disabled={filterLocked}
-            className="mt-1 w-36"
-          />
-        </div>
-        <Button size="sm" onClick={handleSearch} disabled={isLoading || filterLocked}>
-          조회
-        </Button>
-        <span className="text-xs text-gray-400">최대 3개월</span>
-        {filterLocked && (
-          <span className="text-xs text-amber-600">미리보기 중: 필터 변경 불가</span>
-        )}
-        <div className="ml-auto flex items-center gap-2 text-xs text-gray-600">
-          <input
-            type="checkbox"
-            checked={allSelected}
-            disabled={importableIds.length === 0 || filterLocked}
-            onChange={toggleSelectAll}
-            className="h-4 w-4"
-            id="select-all"
-          />
-          <label htmlFor="select-all" className="cursor-pointer select-none">
-            신규 전체 선택/해제
-          </label>
-        </div>
-      </div>
-
-      {/* 카드 목록 */}
-      <div className="flex-1 min-h-0 overflow-auto p-3 space-y-2 bg-gray-50">
-        {isLoading ? (
-          <div className="py-10 text-center">
-            <LoadingSpinner size="sm" />
-          </div>
-        ) : orders.length === 0 ? (
-          <div className="py-10 text-center text-sm text-gray-400">
-            Cafe24 주문이 없습니다.
-          </div>
-        ) : (
-          orders.map((order) => (
-            <OrderCard
-              key={order.external_order_id}
-              order={order}
-              checked={selectedIds.has(order.external_order_id)}
-              onToggle={() => toggleSelect(order.external_order_id)}
+      <Cafe24ConnectionGate>
+        {/* 필터 영역 */}
+        <div className="flex items-end gap-3 px-5 py-3 border-b border-gray-200 bg-white">
+          <div>
+            <Label className="text-xs text-gray-500">시작일</Label>
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              disabled={filterLocked}
+              className="mt-1 w-36"
             />
-          ))
-        )}
-      </div>
+          </div>
+          <div>
+            <Label className="text-xs text-gray-500">종료일</Label>
+            <Input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              disabled={filterLocked}
+              className="mt-1 w-36"
+            />
+          </div>
+          <Button size="sm" onClick={handleSearch} disabled={isLoading || filterLocked}>
+            조회
+          </Button>
+          <span className="text-xs text-gray-400">최대 3개월</span>
+          {filterLocked && (
+            <span className="text-xs text-amber-600">미리보기 중: 필터 변경 불가</span>
+          )}
+          <div className="ml-auto flex items-center gap-2 text-xs text-gray-600">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              disabled={importableIds.length === 0 || filterLocked}
+              onChange={toggleSelectAll}
+              className="h-4 w-4"
+              id="select-all"
+            />
+            <label htmlFor="select-all" className="cursor-pointer select-none">
+              신규 전체 선택/해제
+            </label>
+          </div>
+        </div>
+
+        {/* 카드 목록 */}
+        <div className="flex-1 min-h-0 overflow-auto p-3 space-y-2 bg-gray-50">
+          {isLoading ? (
+            <div className="py-10 text-center">
+              <LoadingSpinner size="sm" />
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="py-10 text-center text-sm text-gray-400">
+              Cafe24 주문이 없습니다.
+            </div>
+          ) : (
+            orders.map((order) => (
+              <OrderCard
+                key={order.external_order_id}
+                order={order}
+                checked={selectedIds.has(order.external_order_id)}
+                onToggle={() => toggleSelect(order.external_order_id)}
+              />
+            ))
+          )}
+        </div>
+      </Cafe24ConnectionGate>
 
       <PreviewModal
         open={previewOpen}
