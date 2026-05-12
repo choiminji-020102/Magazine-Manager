@@ -210,6 +210,8 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customer", customerId] });
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });
