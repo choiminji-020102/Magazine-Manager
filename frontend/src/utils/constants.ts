@@ -5,6 +5,7 @@ export const ORDER_STATUS_LABEL: Record<string, string> = {
   PAID: "결제완료",
   CANCELLED: "취소",
   UNPAID_CANCELLED: "미결제 취소",
+  UNKNOWN: "지원 안 함",  // Cafe24 매핑 실패 시 sentinel
 };
 
 export const ORDER_STATUS_COLOR: Record<string, string> = {
@@ -12,6 +13,7 @@ export const ORDER_STATUS_COLOR: Record<string, string> = {
   PAID: "bg-green-50 text-green-700",
   CANCELLED: "bg-red-50 text-red-700",
   UNPAID_CANCELLED: "bg-orange-50 text-orange-700",
+  UNKNOWN: "bg-yellow-50 text-yellow-700",
 };
 
 // ── 발송 상태 (SHIPPING 폐기됨, 마이그레이션 011 — 3값) ──────────────────────

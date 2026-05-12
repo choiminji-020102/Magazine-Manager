@@ -16,12 +16,13 @@ import {
 import { statsApi } from "@/api/statsApi";
 import { ordersApi } from "@/api/ordersApi";
 import { formatAmount, formatDate, formatIssue } from "@/utils/format";
+import { todayKstDate } from "@/utils/date";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 
-// 오늘 날짜 (YYYY-MM-DD)
+// 오늘 날짜 (KST 기준 YYYY-MM-DD)
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return todayKstDate();
 }
 
 // 이번 달 첫날 (YYYY-MM-DD)

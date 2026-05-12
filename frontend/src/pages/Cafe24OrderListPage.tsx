@@ -16,9 +16,13 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
+import { todayKstDate } from "@/utils/date";
+import { PAYMENT_METHOD_LABEL } from "@/utils/constants";
+import { formatAmount, formatDateTime, formatPhone } from "@/utils/format";
 import { ImportStatCard, ImportDetailCard } from "@/components/common/ImportResultCards";
 import { InfoRow } from "@/components/common/list-card/InfoRow";
 import { SectionHeader } from "@/components/common/list-card/SectionHeader";
+import { StatusBadge } from "@/components/common/StatusBadge";
 import Cafe24ConnectionGate from "@/components/cafe24/Cafe24ConnectionGate";
 import type {
   Cafe24Order,
@@ -28,46 +32,8 @@ import type {
 
 // ── 헬퍼 ────────────────────────────────────────────────────────────────────
 
-function formatPrice(value: number | null | undefined): string {
-  if (value == null) return "-";
-  return value.toLocaleString("ko-KR") + "원";
-}
-
-function formatDateTime(dateStr: string | null | undefined): string {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  return d.toLocaleString("ko-KR", {
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit",
-  });
-}
-
-const ORDER_STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  ORDERED: { label: "주문완료", cls: "bg-blue-50 text-blue-700" },
-  PAID: { label: "결제완료", cls: "bg-green-50 text-green-700" },
-  CANCELLED: { label: "취소", cls: "bg-red-50 text-red-700" },
-  UNPAID_CANCELLED: { label: "미결제 취소", cls: "bg-orange-50 text-orange-700" },
-  UNKNOWN: { label: "지원 안 함", cls: "bg-yellow-50 text-yellow-700" },
-};
-
-function statusBadge(order_status: Cafe24Order["order_status"]) {
-  if (!order_status) return { label: "-", cls: "bg-gray-50 text-gray-500" };
-  return ORDER_STATUS_BADGE[order_status] ?? { label: order_status, cls: "bg-gray-50 text-gray-600" };
-}
-
-const PAYMENT_METHOD_LABEL: Record<string, string> = {
-  cash: "무통장",
-  card: "신용카드",
-  icash: "가상계좌",
-  tcash: "계좌이체",
-};
-
 function getDefaultDates() {
-  const end = new Date();
-  const start = new Date();
-  start.setDate(start.getDate() - 3);
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
-  return { start: fmt(start), end: fmt(end) };
+  return { start: todayKstDate(-3), end: todayKstDate() };
 }
 
 // ── 품목 박스 ───────────────────────────────────────────────────────────────
@@ -79,49 +45,65 @@ function ItemBox({ item }: { item: Cafe24MappedOrderItem }) {
 
   return (
     <div
-      className={`border rounded px-2 py-1 text-xs ${
-        matched ? "border-gray-200 bg-white" : "border-red-200 bg-red-50"
+      className={`border rounded p-2 text-[11px] space-y-0.5 ${
+        matched ? "border-gray-100 bg-white" : "border-red-200 bg-red-50"
       }`}
     >
-      <div className="flex items-center justify-between gap-3 flex-wrap leading-tight">
+      {/* 그룹 1 — 식별 (OrderItemBox §4.3 와 동일 패턴) */}
+      <div className="flex items-center gap-1.5 flex-wrap">
         {matched ? (
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <span className="text-green-600 shrink-0">✅</span>
-            <span className="font-medium text-gray-900 break-all">{item.product_name}</span>
-          </div>
-        ) : (
-          <span className="text-red-600 font-medium shrink-0">⚠️ 미등록</span>
-        )}
-        {matched && (
           <span
-            className={`px-1.5 py-0.5 rounded text-[11px] shrink-0 ${
-              isYearly ? "bg-purple-50 text-purple-700" : "bg-sky-50 text-sky-700"
+            className={`px-1 py-0.5 rounded text-[10px] font-semibold ${
+              isYearly ? "bg-purple-100 text-purple-700" : "bg-sky-100 text-sky-700"
             }`}
           >
-            {item.product_kind}
+            {isYearly ? "정기" : "단품"}
+          </span>
+        ) : (
+          <span className="px-1 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-700">
+            ⚠️ 미등록
+          </span>
+        )}
+        {matched && item.product_name && (
+          <span className="text-gray-700 truncate">{item.product_name}</span>
+        )}
+        <span className="font-mono text-gray-500">
+          {matched ? item.product_code : item.cafe24_product_code}
+        </span>
+        {item.external_order_item_id && (
+          <span className="font-mono text-gray-400 text-[10px]">
+            {item.external_order_item_id}
           </span>
         )}
       </div>
-      <div className="text-gray-600 leading-tight break-all mt-0.5">
-        {matched && isYearly && years !== null && item.sale_price !== null && item.line_total !== null ? (
+
+      {/* 그룹 2 — 가격 */}
+      <div className="text-gray-600">
+        {matched && item.sale_price !== null ? (
           <>
-            1년단가 {formatPrice(item.unit_price)} × {years}년 = {formatPrice(item.sale_price)}
-            {" / "}수량 {item.order_num}개 → <span className="font-medium text-gray-900">{formatPrice(item.line_total)}원</span>
-          </>
-        ) : matched && item.sale_price !== null && item.line_total !== null ? (
-          <>
-            단가 {formatPrice(item.sale_price)} × 수량 {item.order_num}개 → <span className="font-medium text-gray-900">{formatPrice(item.line_total)}원</span>
+            {formatAmount(item.sale_price)} × {item.order_num}개
+            {isYearly && years !== null && (
+              <span className="text-gray-400">
+                {" "}(1년단가 {formatAmount(item.unit_price)} × {years}년)
+              </span>
+            )}
           </>
         ) : (
           <>
-            단가 {formatPrice(item.unit_price)} × 수량 {item.order_num}개 <span className="text-red-600">(상품 미매칭)</span>
+            {formatAmount(item.unit_price)} × {item.order_num}개
+            <span className="text-red-600"> (상품 미매칭)</span>
           </>
         )}
       </div>
+
+      {/* 그룹 3 — 구독 (정기 + 매칭 시) */}
+      {matched && isYearly && item.subscribe_period && (
+        <div className="text-gray-600">구독 {item.subscribe_period}개월</div>
+      )}
+
+      {/* 옵션 (있을 때) */}
       {item.option_value && (
-        <div className="text-gray-500 leading-tight break-all mt-0.5">
-          옵션: {item.option_value}
-        </div>
+        <div className="text-gray-500 break-all">옵션: {item.option_value}</div>
       )}
     </div>
   );
@@ -139,7 +121,7 @@ function OrderCard({
   onToggle: () => void;
 }) {
   const isImported = order.already_imported;
-  const status = statusBadge(order.order_status);
+  const isOverseas = order.country_code != null && order.country_code !== "KR";
   const pmLabel = order.payment_method
     ? (PAYMENT_METHOD_LABEL[order.payment_method] ?? order.payment_method)
     : "-";
@@ -154,7 +136,7 @@ function OrderCard({
   }
 
   return (
-    <div className={`border border-gray-200 rounded-lg overflow-hidden grid grid-cols-[50px_280px_1fr_1fr] grid-rows-[auto_1fr] shadow-sm bg-white ${isImported ? "opacity-90" : ""}`}>
+    <div className={`border border-gray-200 rounded-lg overflow-hidden grid grid-cols-[50px_280px_1fr_1fr] grid-rows-[auto_1fr] shadow-sm hover:shadow-md transition-shadow bg-white ${isImported ? "opacity-90" : ""}`}>
       {/* 좌측: 체크박스 / 이미 가져옴 표시 통합 (row-span 2) */}
       <div
         className={`row-span-2 flex flex-col items-center justify-center gap-1 border-r border-gray-100 ${
@@ -181,9 +163,10 @@ function OrderCard({
       {/* 주문 (row-span 2, 세로 전체) */}
       <section className="row-span-2 border-r border-gray-100 text-xs">
         <SectionHeader title="주문">
-          <span className={`px-1.5 py-0.5 rounded text-[11px] font-medium ${status.cls}`}>
-            {status.label}
-          </span>
+          {order.order_status && (
+            <StatusBadge type="order_status" value={order.order_status} />
+          )}
+          <StatusBadge type="channel" value={order.order_channel} />
           {order.payment_method && (
             <span className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-white text-gray-700">
               {pmLabel}
@@ -195,12 +178,22 @@ function OrderCard({
           <InfoRow label="주문일" value={formatDateTime(order.order_at)} />
           <InfoRow label="결제일" value={formatDateTime(order.payment_at)} />
           <div className="h-2" />
-          <InfoRow label="상품금액" value={formatPrice(order.total_amount)} />
-          <InfoRow label="배송비" value={formatPrice(order.send_fee)} />
+          <InfoRow label="상품금액" value={formatAmount(order.total_amount)} />
+          <InfoRow label="배송비" value={formatAmount(order.send_fee)} />
           <InfoRow
             label="결제금액"
-            value={<span className="font-semibold text-gray-900">{formatPrice(order.payment_amount)}</span>}
+            value={<span className="font-semibold text-gray-900">{formatAmount(order.payment_amount)}</span>}
           />
+          {order.customer_memo && (
+            <InfoRow
+              label="고객메모"
+              value={
+                <span className="block truncate text-gray-500" title={order.customer_memo}>
+                  {order.customer_memo}
+                </span>
+              }
+            />
+          )}
         </div>
       </section>
 
@@ -209,7 +202,7 @@ function OrderCard({
         <SectionHeader title="고객" />
         <div className="px-3 py-2 space-y-0.5">
           <InfoRow label="이름" value={order.customer_name || "-"} />
-          <InfoRow label="연락처" value={order.customer_phone || "-"} />
+          <InfoRow label="연락처" value={formatPhone(order.customer_phone)} />
           <InfoRow label="이메일" value={order.customer_email || "-"} />
         </div>
       </section>
@@ -223,7 +216,7 @@ function OrderCard({
         </SectionHeader>
         <div className="px-3 py-2">
           {order.items.length > 0 ? (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               {order.items.map((item, i) => (
                 <ItemBox key={i} item={item} />
               ))}
@@ -236,16 +229,22 @@ function OrderCard({
 
       {/* 배송지 (2열 하단) */}
       <section className="border-r border-gray-100 text-xs">
-        <SectionHeader title="배송지" />
+        <SectionHeader title="배송지">
+          {isOverseas && (
+            <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-semibold">
+              🌐 {order.country_code}
+            </span>
+          )}
+        </SectionHeader>
         <div className="px-3 py-2 space-y-0.5">
           <InfoRow label="수령인" value={order.recipient_name || "-"} />
-          <InfoRow label="연락처" value={order.recipient_phone || "-"} />
+          <InfoRow label="연락처" value={formatPhone(order.recipient_phone)} />
           <InfoRow
             label="주소"
             value={
               <>
                 {order.postal_code && (
-                  <span className="mr-1">[{order.postal_code}]</span>
+                  <span className="font-mono mr-1">[{order.postal_code}]</span>
                 )}
                 {order.recipient_address || "-"}
               </>

@@ -10,6 +10,21 @@ export function nowKstISO(): string {
 }
 
 /**
+ * 오늘 KST 날짜를 YYYY-MM-DD 로 반환 (offsetDays 만큼 가감)
+ * UTC 기준 toISOString().slice(0,10) 은 한국 새벽 시간대(00~09시)에 전날을 돌려주므로 사용 금지
+ * 예: todayKstDate()    → "2026-05-12"
+ *     todayKstDate(-3)  → "2026-05-09"
+ */
+export function todayKstDate(offsetDays: number = 0): string {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  if (offsetDays !== 0) {
+    kst.setUTCDate(kst.getUTCDate() + offsetDays);
+  }
+  return kst.toISOString().slice(0, 10);
+}
+
+/**
  * 호(YYYYMM)에 N개월을 더한 호 반환 (음수 가능)
  * 예: addMonthsToIssue("202604", 3) → "202607"
  * 예: addMonthsToIssue("202604", -2) → "202602"
