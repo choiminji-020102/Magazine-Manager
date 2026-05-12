@@ -155,6 +155,7 @@ export interface OrderListResponse {
   customer_id: number;
   customer_name?: string | null;
   customer_phone?: string | null;
+  customer_email?: string | null;
   external_order_id?: string | null;
   address_id: number;
   // 배송지 스냅샷 (Address LEFT JOIN — 카드 그리드 표시용)

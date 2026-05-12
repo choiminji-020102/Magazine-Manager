@@ -183,6 +183,7 @@ class OrderListResponse(BaseModel):
     customer_id: int
     customer_name: Optional[str] = None
     customer_phone: Optional[str] = None
+    customer_email: Optional[str] = None
     external_order_id: Optional[str] = None
     address_id: int
     # 배송지 스냅샷 (Address LEFT JOIN — 카드 그리드 표시용)
