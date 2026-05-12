@@ -543,14 +543,16 @@ async def _import_single_order(
     send_fee = to_int(initial.get("shipping_fee"))
     expected_payment = items_sum + send_fee
 
-    # 8) payment_amount / total_amount_due 검증 (경고)
-    # paid="T" 보장 → 결제금액 일치 + 잔액 0 두 가지만 검증
+    # 8) payment_amount / total_amount_due 검증
+    # paid="T" 보장 → 결제금액 일치 + 잔액 0 두 가지 검증
     cafe24_payment = to_int(base_order.get("payment_amount"))
     cafe24_due = to_int(initial.get("total_amount_due"))
     if cafe24_payment != expected_payment:
-        warn(f"payment_amount 불일치: Cafe24={cafe24_payment}, 계산={expected_payment}")
+        raise ImportSkip(
+            f"payment_amount 불일치: Cafe24={cafe24_payment}, 계산={expected_payment}"
+        )
     if cafe24_due != 0:
-        warn(f"paid=T인데 total_amount_due={cafe24_due}")
+        raise ImportSkip(f"paid=T인데 total_amount_due={cafe24_due} (미납 잔액 존재)")
 
     # 9) 주문 레벨 할인 0 검증 (경고)
     for f in ORDER_DISCOUNT_FIELDS:
