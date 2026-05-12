@@ -4,7 +4,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
+import { EmptyState } from "@/components/common/EmptyState";
 import { Pagination } from "@/components/common/Pagination";
+import { CheckCircle2 } from "lucide-react";
 import SendDetailPanel from "@/components/dispatch/SendDetailPanel";
 import DeliveredSendCard from "@/components/dispatch/DeliveredSendCard";
 import { sendsApi } from "@/api/sendsApi";
@@ -137,16 +139,18 @@ export default function DeliveredSendListPage() {
   return (
     <div className="flex-1 min-h-0 flex flex-col">
       {/* 탭 */}
-      <Tabs value={scope} onValueChange={handleTabChange} className="bg-white border-b border-gray-200">
-        <TabsList className="ml-5 mt-2">
-          <TabsTrigger value="monthly">단품</TabsTrigger>
-          <TabsTrigger value="yearly">정기</TabsTrigger>
-          {activeVipSlots.map((s) => (
-            <TabsTrigger key={s.slot_number} value={`vip${s.slot_number}`}>
-              {s.label || `VIP ${s.slot_number}`}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      <Tabs value={scope} onValueChange={handleTabChange}>
+        <div className="px-5 py-3 bg-white border-b border-gray-200">
+          <TabsList>
+            <TabsTrigger value="monthly">단품</TabsTrigger>
+            <TabsTrigger value="yearly">정기</TabsTrigger>
+            {activeVipSlots.map((s) => (
+              <TabsTrigger key={s.slot_number} value={`vip${s.slot_number}`}>
+                {s.label || `VIP ${s.slot_number}`}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
       </Tabs>
 
       {/* 호 필터 */}
@@ -176,9 +180,11 @@ export default function DeliveredSendListPage() {
             <LoadingSpinner size="lg" />
           </div>
         ) : sends.length === 0 ? (
-          <div className="text-center py-16 text-sm text-gray-500">
-            조건에 맞는 DELIVERED 박스가 없습니다.
-          </div>
+          <EmptyState
+            icon={<CheckCircle2 className="h-10 w-10 mb-2 opacity-40" />}
+            message="배송 완료된 발송이 없습니다"
+            description="발송 처리 후 여기에 표시됩니다. 호 필터를 사용 중이라면 변경해 보세요."
+          />
         ) : (
           <div className="space-y-3">
             {sends.map((s) => (
