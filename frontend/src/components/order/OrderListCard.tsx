@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import OrderItemBox from "@/components/order/OrderItemBox";
-import { formatAmount, formatDate, formatPhone, formatShortDateTime } from "@/utils/format";
+import { formatAmount, formatDateTime, formatPhone, formatShortDateTime } from "@/utils/format";
 import { PAYMENT_METHOD_LABEL } from "@/utils/constants";
 import type { OrderListResponse, PaymentMethod } from "@/types/order";
 import type { OrderItemDetailResponse } from "@/types/orderItem";
@@ -59,34 +59,33 @@ export default function OrderListCard({
       }`}
     >
       <div className="grid grid-cols-[280px_1fr_1fr] grid-rows-[auto_1fr]">
-        {/* 주문 (row-span 2) */}
-        <section className="row-span-2 border-r border-gray-100 text-xs">
+        {/* 주문 (col 1, row 1-2) */}
+        <section className="col-start-1 row-start-1 row-span-2 border-r border-gray-100 text-xs">
           <SectionHeader title="주문">
             <StatusBadge type="order_status" value={order.order_status} />
             <StatusBadge type="channel" value={order.order_channel} />
             {paymentMethodLabel && (
-              <span className="px-1 py-0.5 bg-gray-100 text-gray-700 rounded text-[10px] font-semibold">
+              <span className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-white text-gray-700">
                 {paymentMethodLabel}
               </span>
             )}
-            {/* 카드 우상단 ⋯ 액션 드롭다운 */}
-            <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon-sm">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {order.order_status === "ORDERED" && (
+            {/* 카드 우상단 ⋯ 액션 드롭다운 — 표시할 액션이 있을 때만 렌더 (상세 보기는 카드 본문 클릭으로 열림) */}
+            {order.order_status === "ORDERED" && (
+              <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon-sm">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={onPaymentComplete}>
                       결제완료 처리
                     </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onClick={onCardClick}>상세 보기</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
           </SectionHeader>
           <div className="px-3 py-2 space-y-0.5">
             <InfoRow
@@ -102,14 +101,14 @@ export default function OrderListCard({
                 </>
               }
             />
-            <InfoRow label="주문일" value={formatDate(order.order_at)} />
+            <InfoRow label="주문일" value={formatDateTime(order.order_at)} />
             {order.payment_at && (
-              <InfoRow label="결제일" value={formatDate(order.payment_at)} />
+              <InfoRow label="결제일" value={formatDateTime(order.payment_at)} />
             )}
             {order.cancelled_at && (
               <InfoRow
                 label="취소일"
-                value={<span className="text-red-500">{formatDate(order.cancelled_at)}</span>}
+                value={<span className="text-red-500">{formatDateTime(order.cancelled_at)}</span>}
               />
             )}
             <div className="h-2" />
@@ -157,19 +156,20 @@ export default function OrderListCard({
           </div>
         </section>
 
-        {/* 고객 (위) */}
-        <section className="border-r border-b border-gray-100 text-xs">
+        {/* 고객 (col 2, row 1) */}
+        <section className="col-start-2 row-start-1 border-r border-b border-gray-100 text-xs">
           <SectionHeader title="고객">
             <VipFlagsDisplay address={order} slots={vipSlots} compact />
           </SectionHeader>
           <div className="px-3 py-2 space-y-0.5">
             <InfoRow label="이름" value={order.customer_name ?? "-"} />
             <InfoRow label="연락처" value={formatPhone(order.customer_phone)} />
+            <InfoRow label="이메일" value={order.customer_email || "-"} />
           </div>
         </section>
 
-        {/* 배송지 (아래) */}
-        <section className="border-r border-gray-100 text-xs">
+        {/* 배송지 (col 2, row 2) */}
+        <section className="col-start-2 row-start-2 border-r border-gray-100 text-xs">
           <SectionHeader title="배송지">
             {isOverseas && (
               <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-semibold">
@@ -200,8 +200,8 @@ export default function OrderListCard({
           </div>
         </section>
 
-        {/* 품목 (row-span 2) */}
-        <section className="row-span-2 text-xs">
+        {/* 품목 (col 3, row 1-2) */}
+        <section className="col-start-3 row-start-1 row-span-2 text-xs">
           <SectionHeader title="품목">
             <span className="text-gray-400 text-xs font-normal normal-case tracking-normal">
               ({order.item_count}건)

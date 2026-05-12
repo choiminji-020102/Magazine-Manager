@@ -55,7 +55,7 @@ export default function OrderListPage() {
   const [externalOrderId, setExternalOrderId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [adminMemo, setAdminMemo] = useState("");
-  const [sortBy, setSortBy] = useState("created_at");
+  const [sortBy, setSortBy] = useState("payment_at");
   const [sortOrder, setSortOrder] = useState("desc");
 
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
