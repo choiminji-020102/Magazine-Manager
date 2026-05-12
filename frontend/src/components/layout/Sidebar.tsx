@@ -43,39 +43,39 @@ const navigation: NavGroup[] = [
     ],
   },
   {
-    group: "업무",
-    items: [
-      { label: "전체 주문 조회", path: "/orders", icon: ShoppingCart, activeOn: ["/orders", "/orders/new"] },
-      { label: "구독 목록", path: "/subscriptions", icon: BookOpen },
-    ],
-  },
-  {
-    group: "발송",
-    items: [
-      { label: "배송 준비 중 관리", path: "/sends/preparing", icon: Truck },
-      { label: "배송 완료 조회", path: "/sends/delivered", icon: Truck },
-    ],
-  },
-  {
-    group: "데이터",
-    items: [
-      { label: "고객 목록", path: "/customers", icon: Users },
-      { label: "상품 목록", path: "/products", icon: Box },
-    ],
-  },
-  {
-    group: "Cafe24",
+    group: "가져오기",
     items: [
       { label: "Cafe24 상품", path: "/cafe24/products", icon: Store },
       { label: "Cafe24 주문", path: "/cafe24/orders", icon: ShoppingCart },
     ],
   },
   {
-    group: "운영",
+    group: "주문·발송",
     items: [
-      { label: "문의 관리", path: "/inquiries", icon: MessageSquare },
+      { label: "전체 주문 조회", path: "/orders", icon: ShoppingCart, activeOn: ["/orders", "/orders/new"] },
+      { label: "배송 준비중", path: "/sends/preparing", icon: Truck },
+      { label: "배송 완료", path: "/sends/delivered", icon: Truck },
+    ],
+  },
+  {
+    group: "마스터",
+    items: [
+      { label: "고객 목록", path: "/customers", icon: Users },
+      { label: "상품 목록", path: "/products", icon: Box },
+      { label: "구독 목록", path: "/subscriptions", icon: BookOpen },
+    ],
+  },
+  {
+    group: "응대",
+    items: [
+      { label: "문의 목록", path: "/inquiries", icon: MessageSquare },
+    ],
+  },
+  {
+    group: "시스템",
+    items: [
       {
-        label: "관리자 관리",
+        label: "관리자 목록",
         path: "/admins",
         icon: Shield,
         requireSuperAdmin: true,
