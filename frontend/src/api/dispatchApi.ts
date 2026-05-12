@@ -4,6 +4,8 @@ import type {
   DispatchSummaryResponse,
   RegeneratePreparingSendsRequest,
   RegeneratePreparingSendsResponse,
+  AddToPreparingYearlyRequest,
+  AddToPreparingYearlyResponse,
   TransitionToDeliveredRequest,
   TransitionToDeliveredResponse,
   PaidNotPreparedCountResponse,
@@ -18,10 +20,18 @@ export const dispatchApi = {
     );
   },
 
-  // POST /dispatches/regenerate-preparing-sends - [발송 생성]: scope 별 PREPARING Send 일괄 재계산
+  // POST /dispatches/regenerate-preparing-sends - [발송 생성]: scope 별 PREPARING Send 일괄 재계산 (monthly/vipN 용)
   regeneratePreparingSends: (data: RegeneratePreparingSendsRequest) => {
     return api.post<ResponseModel<RegeneratePreparingSendsResponse>>(
       "/dispatches/regenerate-preparing-sends",
+      data,
+    );
+  },
+
+  // POST /dispatches/add-to-preparing-yearly - [정기 신규 결제 추가]: incremental, 기존 박스 보존
+  addToPreparingYearly: (data: AddToPreparingYearlyRequest) => {
+    return api.post<ResponseModel<AddToPreparingYearlyResponse>>(
+      "/dispatches/add-to-preparing-yearly",
       data,
     );
   },

@@ -40,6 +40,18 @@ export interface RegeneratePreparingSendsResponse {
   created_count: number;
 }
 
+// ── [정기 신규 결제 추가] (POST /dispatches/add-to-preparing-yearly) ───────────
+// 정기(YEARLY) incremental — 기존 PREPARING 박스 보존, 신규 OI 만 박스 추가
+
+export interface AddToPreparingYearlyRequest {
+  issue: string;                  // YYYYMM (필수)
+}
+
+export interface AddToPreparingYearlyResponse {
+  issue: string;
+  created_count: number;
+}
+
 // ── [배송완료 처리] (POST /dispatches/transition-to-delivered) ─────────────────
 
 export interface TransitionSendItem {
@@ -60,9 +72,11 @@ export interface TransitionToDeliveredResponse {
 
 // ── 카운트 배너 (GET /dispatches/paid-not-prepared-count) ──────────────────────
 
-// 16+2 키 — *_count (신규 결제: PAID 미반영) + *_preparing (현재 PREPARING 박스).
+// 16+2 키 — *_count (발송 미생성 결제: PAID 미반영 OrderItem) + *_preparing (현재 PREPARING Send 박스).
 // 단일성 제약(V-7) 덕에 8키 합계 = 묶음별 total.
-// 프론트 카운트 배너: "📦 박스 처리 {*_preparing} / {*_preparing + *_count}건 · 🔔 신규 결제 {*_count}건"
+// 프론트 표시:
+// - 카운트 배너 "총 N건" = sendsApi 응답의 total (Send 박스 단위, 필터 적용)
+// - 별도 알림 "🔔 발송 미생성 결제 M건" = total_count (OrderItem 단위, 호 무관) — 단위/필터 달라 괄호 패턴 안 씀
 export interface PaidNotPreparedCountResponse {
   // 신규 결제 (PAID 미반영)
   monthly_count: number;
