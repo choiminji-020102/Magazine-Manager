@@ -1,4 +1,5 @@
 # 표준 라이브러리
+import re
 from typing import List, Optional, Tuple
 
 # 서드파티 라이브러리
@@ -126,6 +127,23 @@ def create_preparing_sends_from_groups(
 
             # 종류별 product_code·issue 결정
             if order_item.product_kind == "YEARLY":
+                # invariant assert — group_yearly_for_send 가 거름망이지만 우회 호출 방어.
+                # 박기 직전 last_send_issue / 구독 범위 한 번 더 확인.
+                if order_item.last_send_issue and order_item.last_send_issue >= issue:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"OrderItem #{order_item_id} 는 이미 {order_item.last_send_issue} 호로 발송됨. issue={issue} 박기 불가",
+                    )
+                if order_item.final_subscribe_start_issue and order_item.final_subscribe_start_issue > issue:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"OrderItem #{order_item_id} 의 구독 시작({order_item.final_subscribe_start_issue}) 이 issue({issue}) 보다 큼",
+                    )
+                if order_item.final_subscribe_end_issue and order_item.final_subscribe_end_issue < issue:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"OrderItem #{order_item_id} 의 구독 종료({order_item.final_subscribe_end_issue}) 가 issue({issue}) 보다 작음",
+                    )
                 send_item_product_code = convert_to_send_product_code(
                     product.product_code, "YEARLY", issue
                 )
@@ -133,10 +151,11 @@ def create_preparing_sends_from_groups(
             else:  # MONTHLY
                 send_item_product_code = order_item.product_code
                 send_item_issue = parse_subscribe_start_issue(order_item.product_code)
-                if not send_item_issue:
+                # YYYYMM 형식 + month 01~12 강제 — product_code 가 오염돼 있어도 비정상 SendItem 생성 차단
+                if not send_item_issue or not re.match(r"^\d{4}(0[1-9]|1[0-2])$", send_item_issue):
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"MONTHLY product_code에서 호 파싱 실패: {order_item.product_code}",
+                        detail=f"MONTHLY product_code 에서 호 파싱 실패 또는 형식 오류: {order_item.product_code}",
                     )
 
             send_item = SendItem(
@@ -340,6 +359,39 @@ def regenerate_preparing_sends(
     created_sends = create_preparing_sends_from_groups(db, groups, issue=issue)
 
     return deleted_count, len(created_sends)
+
+
+def add_paid_to_preparing_yearly(
+    db: Session,
+    issue: str,
+) -> int:
+    """[정기 신규 결제 추가] — incremental. 기존 PREPARING Send 박스는 건드리지 않음.
+
+    정기(YEARLY)는 1 OrderItem = 1 박스(Send) 매핑이므로 같은 배송지 묶음 재계산 불필요.
+    신규 PAID OrderItem 만 추가로 박스 생성.
+
+    group_yearly_for_send 가 이미 다음을 자동 제외:
+    - 활성 SendItem 있는 OrderItem (= 이미 PREPARING 박스에 든 것)
+    - DELIVERED/CANCELLED Send 안의 SendItem
+    - 휴지(Pause)된 OrderItem
+    - 활성 VIP 슬롯 매칭 OrderItem
+    - last_send_issue 가드 (이전 호 이미 발송)
+    - 구독 범위 밖 OrderItem
+    - 해외(KR 외) OrderItem
+
+    호출자(엔드포인트)가 db.commit() + 활동 로그 기록 책임.
+    """
+    if not issue:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="정기구독(YEARLY) 신규 결제 추가 시 issue를 입력해야 합니다.",
+        )
+
+    yearly_items, _ = get_paid_order_items_for_dispatch(db)
+    yearly_ids = [oi.order_item_id for oi in yearly_items]
+    groups: List[SendGroup] = group_yearly_for_send(db, yearly_ids, issue)
+    created_sends = create_preparing_sends_from_groups(db, groups, issue=issue)
+    return len(created_sends)
 
 
 # ── 조회 ──────────────────────────────────────────────────────────────────────
