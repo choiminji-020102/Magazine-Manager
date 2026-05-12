@@ -1,5 +1,6 @@
 # 서드파티 라이브러리
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
@@ -11,6 +12,8 @@ from app.models.send_item import SendItem
 from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.schemas.common import ResponseModel
 from app.schemas.dispatch import (
+    AddToPreparingYearlyRequest,
+    AddToPreparingYearlyResponse,
     DispatchSummaryResponse,
     PaidNotPreparedCountResponse,
     RegeneratePreparingSendsRequest,
@@ -121,13 +124,22 @@ def regenerate_preparing_sends_endpoint(
     각 scope 의 delete 는 자기 영역의 PREPARING Send 만 삭제.
     DELIVERED/CANCELLED Send 는 모든 scope 에서 절대 건드리지 않음.
     """
-    deleted_count, created_count = send_service.regenerate_preparing_sends(
-        db=db,
-        scope=req.scope,
-        issue=req.issue,
-    )
-
-    db.commit()
+    try:
+        deleted_count, created_count = send_service.regenerate_preparing_sends(
+            db=db,
+            scope=req.scope,
+            issue=req.issue,
+        )
+        db.commit()
+    except IntegrityError:
+        # SendItem UNIQUE(order_item_id, issue) 위반 — 동시 클릭/race condition 의심.
+        # 활동 로그는 일부러 기록하지 않음 (성공한 작업만 로그 남기는 기존 패턴 일관).
+        # 운영상 race 가 자주 보이면 audit log 별도 도입 검토.
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="이미 같은 호로 발송 박스가 생성되어 있습니다. 페이지를 새로고침한 후 다시 시도해주세요.",
+        )
 
     activity_log_service.create_log(
         db=db,
@@ -153,6 +165,70 @@ def regenerate_preparing_sends_endpoint(
             scope=req.scope,
             issue=req.issue,
             deleted_count=deleted_count,
+            created_count=created_count,
+        ),
+    )
+
+
+@router.post(
+    "/dispatches/add-to-preparing-yearly",
+    response_model=ResponseModel[AddToPreparingYearlyResponse],
+    status_code=status.HTTP_200_OK,
+)
+def add_to_preparing_yearly_endpoint(
+    req: AddToPreparingYearlyRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_admin),
+):
+    """[정기 신규 결제 추가] — incremental. 기존 PREPARING 박스 건드리지 않음.
+
+    정기(YEARLY)는 1 OrderItem = 1 박스 매핑이므로 묶음 재계산 불필요.
+    신규 PAID OrderItem 만 추가 박스 생성 → 기존 박스/메모/ID 완전 보존.
+
+    제외 조건 (group_yearly_for_send 가 자동 적용):
+    - 활성 SendItem 있는 OrderItem (이미 PREPARING 박스에 든 것)
+    - DELIVERED/CANCELLED Send 안의 SendItem
+    - 휴지된 OrderItem
+    - 활성 VIP 슬롯 매칭 (VIP 탭에서 별도 처리)
+    - 구독 범위 밖 / 해외 / 이전 호 발송된 OrderItem
+    """
+    try:
+        created_count = send_service.add_paid_to_preparing_yearly(
+            db=db,
+            issue=req.issue,
+        )
+        db.commit()
+    except IntegrityError:
+        # SendItem UNIQUE(order_item_id, issue) 위반 — 동시 클릭/race condition 의심.
+        # 활동 로그는 일부러 기록하지 않음 (성공한 작업만 로그 남기는 기존 패턴 일관).
+        # 운영상 race 가 자주 보이면 audit log 별도 도입 검토.
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="이미 같은 호로 발송 박스가 생성되어 있습니다. 페이지를 새로고침한 후 다시 시도해주세요.",
+        )
+
+    activity_log_service.create_log(
+        db=db,
+        action=ActivityAction.DISPATCH,
+        target_type=ActivityTargetType.SEND,
+        admin_id=current_admin.admin_id,
+        admin_name=current_admin.admin_name,
+        target_id=None,
+        target_name=f"[정기 신규 결제 추가] {req.issue}호",
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        details={
+            "issue": req.issue,
+            "created_count": created_count,
+        },
+    )
+
+    return ResponseModel(
+        message="정기 신규 결제 추가 완료",
+        data=AddToPreparingYearlyResponse(
+            issue=req.issue,
             created_count=created_count,
         ),
     )

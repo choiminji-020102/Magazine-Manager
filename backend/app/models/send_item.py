@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, String, DateTime, Integer, DECIMAL, Text, ForeignKey, Index
+from sqlalchemy import Column, BigInteger, String, DateTime, Integer, DECIMAL, Text, ForeignKey, Index, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -49,6 +49,9 @@ class SendItem(Base):
     )
 
     __table_args__ = (
+        # 한 OrderItem 에 같은 호 SendItem 이 두 번 만들어지는 것을 DB 레벨에서 차단
+        # (마이그레이션 013). 위반 시 IntegrityError → 엔드포인트에서 400 변환.
+        UniqueConstraint("order_item_id", "issue", name="uq_send_items_order_item_issue"),
         Index("ix_send_items_send_id", "send_id"),
         Index("ix_send_items_order_item_id", "order_item_id"),
     )

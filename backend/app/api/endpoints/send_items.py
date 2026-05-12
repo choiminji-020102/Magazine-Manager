@@ -2,7 +2,8 @@
 from typing import List
 
 # 서드파티 라이브러리
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
@@ -76,7 +77,15 @@ def create_send_item(
     """발송 품목 추가"""
     send = send_service.get_send_by_id(db, send_id)
 
-    item = send_item_service.create_send_item(db, send, item_in)
+    try:
+        item = send_item_service.create_send_item(db, send, item_in)
+    except IntegrityError:
+        # SendItem UNIQUE(order_item_id, issue) 위반 — 같은 OI 에 같은 호로 이미 SendItem 존재
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"OrderItem #{item_in.order_item_id} 에 이미 {item_in.issue} 호 발송 품목이 있습니다.",
+        )
 
     activity_log_service.create_log(
         db=db,
