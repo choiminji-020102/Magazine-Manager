@@ -281,7 +281,12 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
       {/* 스크롤 영역 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {/* 고객 */}
-        <Section title="고객">
+        <Section
+          title="고객"
+          action={detail?.address ? (
+            <VipFlagsDisplay address={detail.address} slots={vipSlots} compact />
+          ) : undefined}
+        >
           <InfoRow label="고객명" value={item.customer_name ?? "-"} />
           <InfoRow label="연락처" value={formatPhone(item.customer_phone)} />
           {item.order_channel && (
@@ -306,9 +311,6 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
           )}
           {detail?.address?.admin_memo && (
             <InfoRow label="관리자메모" value={detail.address.admin_memo} />
-          )}
-          {detail?.address && (
-            <VipFlagsDisplay address={detail.address} slots={vipSlots} />
           )}
         </Section>
 

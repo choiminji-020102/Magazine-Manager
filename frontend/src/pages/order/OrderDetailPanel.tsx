@@ -474,7 +474,12 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
           {/* 기본 정보 탭 */}
           <TabsContent value="info" className="m-0 p-4 space-y-3">
             {/* 고객 정보 */}
-            <Section title="고객 정보">
+            <Section
+              title="고객 정보"
+              action={order.address ? (
+                <VipFlagsDisplay address={order.address} slots={vipSlots} compact />
+              ) : undefined}
+            >
               <InfoRow label="고객명" value={order.customer?.customer_name} />
               <InfoRow label="연락처" value={formatPhone(order.customer?.customer_phone)} />
               <InfoRow label="이메일" value={order.customer?.customer_email} />
@@ -504,9 +509,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
               )}
               {order.address?.admin_memo && (
                 <InfoRow label="관리자메모" value={order.address.admin_memo} />
-              )}
-              {order.address && (
-                <VipFlagsDisplay address={order.address} slots={vipSlots} />
               )}
             </Section>
 
