@@ -84,7 +84,8 @@ class YearlyCandidatesQuery(BaseModel):
     @classmethod
     def as_query_params(
         cls,
-        issue: str = Query(..., description="발송 호 (YYYYMM)"),
+        # YYYYMM — month 부분 01~12 강제
+        issue: str = Query(..., pattern=r"^\d{4}(0[1-9]|1[0-2])$", description="발송 호 (YYYYMM)"),
         postal_code: Optional[str] = Query(None, description="우편번호 정확 일치"),
         product_codes: Optional[str] = Query(
             None,
@@ -108,7 +109,8 @@ class MonthlyExcelDownloadRequest(BaseModel):
 class YearlyExcelDownloadRequest(BaseModel):
     """정기구독 엑셀 다운로드 요청 (A/B 공용)"""
     send_ids: List[int] = Field(..., min_length=1)
-    issue: str = Field(..., description="발송 호 (YYYYMM, 파일명용)")
+    # YYYYMM — month 부분 01~12 강제
+    issue: str = Field(..., pattern=r"^\d{4}(0[1-9]|1[0-2])$", description="발송 호 (YYYYMM, 파일명용)")
 
 
 # ── 후보 조회 응답 (VIP) ──────────────────────────────────────────────────────
@@ -163,7 +165,8 @@ class VipCandidatesQuery(BaseModel):
     @classmethod
     def as_query_params(
         cls,
-        issue: str = Query(..., description="발송 호 (YYYYMM)"),
+        # YYYYMM — month 부분 01~12 강제
+        issue: str = Query(..., pattern=r"^\d{4}(0[1-9]|1[0-2])$", description="발송 호 (YYYYMM)"),
         postal_code: Optional[str] = Query(None, description="우편번호 정확 일치"),
     ):
         return cls(issue=issue, postal_code=postal_code)

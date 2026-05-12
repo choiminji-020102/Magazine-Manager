@@ -49,13 +49,28 @@ class RegeneratePreparingSendsRequest(BaseModel):
       issue 필수 (정기 SendItem 처리용). 슬롯 비활성이면 400.
     """
     scope: Literal["monthly", "yearly", "vip1", "vip2", "vip3", "vip4", "vip5", "vip6"]
-    issue: Optional[str] = Field(default=None, pattern=r"^\d{6}$", description="YYYYMM (scope=yearly/vipN일 때 필수)")
+    # YYYYMM — month 부분 01~12 강제 (예: 202613 같은 무의미한 값 차단)
+    issue: Optional[str] = Field(default=None, pattern=r"^\d{4}(0[1-9]|1[0-2])$", description="YYYYMM (scope=yearly/vipN일 때 필수)")
 
 
 class RegeneratePreparingSendsResponse(BaseModel):
     scope: str
     issue: Optional[str] = None
     deleted_count: int
+    created_count: int
+
+
+class AddToPreparingYearlyRequest(BaseModel):
+    """[정기 신규 결제 추가] — incremental. 기존 PREPARING 박스는 건드리지 않고
+    PAID + 호 범위 + 발송 이력 없는 YEARLY OrderItem 만 박스 추가 생성.
+    정기는 1 OrderItem = 1 박스 매핑이라 묶음 재계산 불필요.
+    """
+    # YYYYMM — month 부분 01~12 강제 (예: 202613 같은 무의미한 값 차단)
+    issue: str = Field(pattern=r"^\d{4}(0[1-9]|1[0-2])$", description="YYYYMM (필수)")
+
+
+class AddToPreparingYearlyResponse(BaseModel):
+    issue: str
     created_count: int
 
 

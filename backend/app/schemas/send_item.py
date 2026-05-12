@@ -3,12 +3,13 @@ from datetime import datetime
 from typing import Optional
 
 # 서드파티 라이브러리
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SendItemCreate(BaseModel):
     order_item_id: int
-    issue: str                                  # 발송 호 (YYYYMM, 필수)
+    # YYYYMM — month 부분 01~12 강제 (예: 202613 같은 무의미한 값 차단)
+    issue: str = Field(..., pattern=r"^\d{4}(0[1-9]|1[0-2])$", description="발송 호 (YYYYMM, 필수)")
     send_num: int = 1
 
 
