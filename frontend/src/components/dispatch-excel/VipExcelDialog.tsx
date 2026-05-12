@@ -17,7 +17,6 @@ import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 
 import { dispatchExcelApi } from "@/api/dispatchExcelApi";
 import { toast } from "@/hooks/use-toast";
-import { formatIssue } from "@/utils/format";
 import { getErrorMessage } from "@/utils/errorHandler";
 import type { VipExcelCandidate } from "@/types/dispatchExcel";
 
@@ -26,7 +25,6 @@ interface VipExcelDialogProps {
   onClose: () => void;
   slotNumber: number;       // 1~6
   slotLabel?: string | null;
-  issue: string;
   onSuccess?: () => void;
 }
 
@@ -99,30 +97,32 @@ export default function VipExcelDialog({
   onClose,
   slotNumber,
   slotLabel,
-  issue,
   onSuccess,
 }: VipExcelDialogProps) {
+  const [issue, setIssue] = useState("");
+  const [issueError, setIssueError] = useState(false);
   const [postalCode, setPostalCode] = useState("");
   const [sendDate, setSendDate] = useState(todayYYYYMMDD());
   const [searchTriggered, setSearchTriggered] = useState(false);
   const [searchParams, setSearchParams] = useState<{ issue: string; postal_code: string | null }>({
-    issue,
+    issue: "",
     postal_code: null,
   });
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
   const [downloading, setDownloading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // 다이얼로그가 열리는 시점에 최신 issue / 오늘 날짜로 초기화
+  // 다이얼로그 오픈 시 입력 초기화
   useEffect(() => {
     if (open) {
+      setIssue("");
+      setIssueError(false);
       setPostalCode("");
       setSendDate(todayYYYYMMDD());
       setSearchTriggered(false);
-      setSearchParams({ issue, postal_code: null });
+      setSearchParams({ issue: "", postal_code: null });
       setSelectedIds(new Set());
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const { data, isFetching } = useQuery({
@@ -147,8 +147,9 @@ export default function VipExcelDialog({
   }, [data]);
 
   const handleSearch = () => {
-    if (!issue || issue.length !== 6) {
-      toast.error("발송 호가 올바르지 않습니다. (YYYYMM)");
+    if (!/^\d{6}$/.test(issue)) {
+      setIssueError(true);
+      toast.error("발송 호를 YYYYMM 6자리로 입력해주세요.");
       return;
     }
     if (!/^\d{8}$/.test(sendDate)) {
@@ -212,11 +213,24 @@ export default function VipExcelDialog({
 
           {/* 필터 영역 */}
           <div className="flex flex-wrap items-end gap-3 pb-3 border-b border-gray-100">
+            {/* PLAN §10.2 / §10.6 — VIP 박스에 정기 SendItem 섞일 수 있어 운영 일관성 차원 필수 */}
             <div className="flex flex-col gap-1">
-              <Label className="text-xs text-gray-500">발송 호</Label>
-              <div className="h-9 px-3 flex items-center bg-gray-50 rounded-md border border-gray-200 text-sm font-medium text-gray-900 min-w-[120px]">
-                {issue.length === 6 ? formatIssue(issue) : "-"}
-              </div>
+              <Label className={`text-xs ${issueError ? "text-red-500" : "text-gray-500"}`}>
+                정기구독 발송 호 (YYYYMM) <span className="text-red-500 ml-0.5">*</span>
+              </Label>
+              <Input
+                className={`w-32 font-mono ${issueError ? "border-red-500" : ""}`}
+                placeholder="YYYYMM"
+                value={issue}
+                maxLength={6}
+                onChange={(e) => {
+                  setIssue(e.target.value.replace(/\D/g, ""));
+                  setIssueError(false);
+                }}
+              />
+              {issueError && (
+                <p className="text-xs text-red-500 mt-1">발송 호를 6자리로 입력해주세요.</p>
+              )}
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-xs text-gray-500">우편번호 필터 (선택)</Label>

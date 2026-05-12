@@ -62,8 +62,8 @@ export function triggerBlobDownload(blob: Blob, filename: string): void {
 export const dispatchExcelApi = {
   // ── 후보 조회 ────────────────────────────────────────────────────────────
 
+  // 단품 엑셀 후보 조회 — PLAN §5.1.2: 단품은 호 무관 (issue 안 받음)
   getMonthlyCandidates: (params: {
-    issue: string;
     postal_code?: string | null;
   }) => {
     return api.get<ResponseModel<MonthlyExcelCandidatesResponse>>(

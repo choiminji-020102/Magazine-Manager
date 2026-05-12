@@ -17,14 +17,12 @@ import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 
 import { dispatchExcelApi } from "@/api/dispatchExcelApi";
 import { toast } from "@/hooks/use-toast";
-import { formatIssue } from "@/utils/format";
 import { getErrorMessage } from "@/utils/errorHandler";
 import type { MonthlyExcelCandidate } from "@/types/dispatchExcel";
 
 interface MonthlyExcelDialogProps {
   open: boolean;
   onClose: () => void;
-  issue: string;
   onSuccess?: () => void;
 }
 
@@ -83,43 +81,39 @@ const columns: ColumnDef<MonthlyExcelCandidate>[] = [
 export default function MonthlyExcelDialog({
   open,
   onClose,
-  issue,
   onSuccess,
 }: MonthlyExcelDialogProps) {
+  // 단품 엑셀은 호 무관 (PLAN §5.1.2) — issue 입력 없음, postal_code/발송날짜만 받음
   const [postalCode, setPostalCode] = useState("");
   const [sendDate, setSendDate] = useState(todayYYYYMMDD());
   const [searchTriggered, setSearchTriggered] = useState(false);
-  const [searchParams, setSearchParams] = useState<{ issue: string; postal_code: string | null }>({
-    issue,
+  const [searchParams, setSearchParams] = useState<{ postal_code: string | null }>({
     postal_code: null,
   });
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
   const [downloading, setDownloading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // 다이얼로그가 열리는 시점에 최신 issue/오늘 날짜 기준으로 초기화
-  // open=true 이후 부모의 issue가 바뀌면 다이얼로그 내 [대상 조회] 누를 때 최신 issue가 반영됨
+  // 다이얼로그 오픈 시 입력 초기화
   useEffect(() => {
     if (open) {
       setPostalCode("");
       setSendDate(todayYYYYMMDD());
       setSearchTriggered(false);
-      setSearchParams({ issue, postal_code: null });
+      setSearchParams({ postal_code: null });
       setSelectedIds(new Set());
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const { data, isFetching } = useQuery({
-    queryKey: ["monthly-excel-candidates", searchParams.issue, searchParams.postal_code],
+    queryKey: ["monthly-excel-candidates", searchParams.postal_code],
     queryFn: () =>
       dispatchExcelApi
         .getMonthlyCandidates({
-          issue: searchParams.issue,
           postal_code: searchParams.postal_code,
         })
         .then((r) => r.data),
-    enabled: open && searchTriggered && searchParams.issue.length === 6,
+    enabled: open && searchTriggered,
   });
 
   const candidates: MonthlyExcelCandidate[] = data?.data?.candidates ?? [];
@@ -132,15 +126,11 @@ export default function MonthlyExcelDialog({
   }, [data]);
 
   const handleSearch = () => {
-    if (!issue || issue.length !== 6) {
-      toast.error("발송 호가 올바르지 않습니다. (YYYYMM)");
-      return;
-    }
     if (!/^\d{8}$/.test(sendDate)) {
       toast.error("발송날짜를 YYYYMMDD 8자리로 입력해주세요.");
       return;
     }
-    setSearchParams({ issue, postal_code: postalCode.trim() || null });
+    setSearchParams({ postal_code: postalCode.trim() || null });
     setSearchTriggered(true);
   };
 
@@ -192,12 +182,6 @@ export default function MonthlyExcelDialog({
 
           {/* 필터 영역 */}
           <div className="flex flex-wrap items-end gap-3 pb-3 border-b border-gray-100">
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs text-gray-500">발송 호</Label>
-              <div className="h-9 px-3 flex items-center bg-gray-50 rounded-md border border-gray-200 text-sm font-medium text-gray-900 min-w-[120px]">
-                {issue.length === 6 ? formatIssue(issue) : "-"}
-              </div>
-            </div>
             <div className="flex flex-col gap-1">
               <Label className="text-xs text-gray-500">우편번호 필터 (선택)</Label>
               <Input

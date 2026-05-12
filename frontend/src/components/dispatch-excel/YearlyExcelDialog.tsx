@@ -18,7 +18,6 @@ import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 
 import { dispatchExcelApi } from "@/api/dispatchExcelApi";
 import { toast } from "@/hooks/use-toast";
-import { formatIssue } from "@/utils/format";
 import { getErrorMessage } from "@/utils/errorHandler";
 import type { YearlyExcelCandidate } from "@/types/dispatchExcel";
 
@@ -27,7 +26,6 @@ type YearlyExcelVariant = "gichulyu" | "postoffice";
 interface YearlyExcelDialogProps {
   open: boolean;
   onClose: () => void;
-  issue: string;
   variant: YearlyExcelVariant;
   onSuccess?: () => void;
 }
@@ -119,13 +117,14 @@ const columns: ColumnDef<YearlyExcelCandidate>[] = [
 export default function YearlyExcelDialog({
   open,
   onClose,
-  issue,
   variant,
   onSuccess,
 }: YearlyExcelDialogProps) {
   const prefixOptions = PREFIX_OPTIONS[variant];
   const allPrefixes = useMemo(() => prefixOptions.map((o) => o.value), [prefixOptions]);
 
+  const [issue, setIssue] = useState("");
+  const [issueError, setIssueError] = useState(false);
   const [postalCode, setPostalCode] = useState("");
   const [selectedPrefixes, setSelectedPrefixes] = useState<Set<string>>(new Set(allPrefixes));
   const [searchTriggered, setSearchTriggered] = useState(false);
@@ -134,7 +133,7 @@ export default function YearlyExcelDialog({
     postal_code: string | null;
     product_codes: string | null;
   }>({
-    issue,
+    issue: "",
     postal_code: null,
     product_codes: null,
   });
@@ -142,13 +141,15 @@ export default function YearlyExcelDialog({
   const [downloading, setDownloading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // 다이얼로그가 열리는 시점에 최신 props(issue/variant)를 기준으로 초기화
+  // 다이얼로그 오픈 시 입력 초기화
   useEffect(() => {
     if (open) {
+      setIssue("");
+      setIssueError(false);
       setPostalCode("");
       setSelectedPrefixes(new Set(allPrefixes));
       setSearchTriggered(false);
-      setSearchParams({ issue, postal_code: null, product_codes: null });
+      setSearchParams({ issue: "", postal_code: null, product_codes: null });
       setSelectedIds(new Set());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -194,8 +195,9 @@ export default function YearlyExcelDialog({
   };
 
   const handleSearch = () => {
-    if (!issue || issue.length !== 6) {
-      toast.error("발송 호가 올바르지 않습니다. (YYYYMM)");
+    if (!/^\d{6}$/.test(issue)) {
+      setIssueError(true);
+      toast.error("발송 호를 YYYYMM 6자리로 입력해주세요.");
       return;
     }
     if (selectedPrefixes.size === 0) {
@@ -227,7 +229,8 @@ export default function YearlyExcelDialog({
           : dispatchExcelApi.downloadYearlyPostoffice;
       const meta = await downloader({
         send_ids: Array.from(selectedIds) as number[],
-        issue,
+        // 검증된 조회 시점 값 사용 — 조회 후 사용자가 입력을 비워도 안전
+        issue: searchParams.issue,
       });
       toast.success(`엑셀 다운로드 완료 (${meta.includedCount}건)`);
       if (meta.skippedCount > 0) {
@@ -260,10 +263,22 @@ export default function YearlyExcelDialog({
           {/* 필터 영역 */}
           <div className="flex flex-wrap items-end gap-3 pb-3 border-b border-gray-100">
             <div className="flex flex-col gap-1">
-              <Label className="text-xs text-gray-500">발송 호</Label>
-              <div className="h-9 px-3 flex items-center bg-gray-50 rounded-md border border-gray-200 text-sm font-medium text-gray-900 min-w-[120px]">
-                {issue.length === 6 ? formatIssue(issue) : "-"}
-              </div>
+              <Label className={`text-xs ${issueError ? "text-red-500" : "text-gray-500"}`}>
+                발송 호 <span className="text-red-500 ml-0.5">*</span>
+              </Label>
+              <Input
+                className={`w-32 font-mono ${issueError ? "border-red-500" : ""}`}
+                placeholder="YYYYMM"
+                value={issue}
+                maxLength={6}
+                onChange={(e) => {
+                  setIssue(e.target.value.replace(/\D/g, ""));
+                  setIssueError(false);
+                }}
+              />
+              {issueError && (
+                <p className="text-xs text-red-500 mt-1">발송 호를 6자리로 입력해주세요.</p>
+              )}
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-xs text-gray-500">우편번호 필터 (선택)</Label>
