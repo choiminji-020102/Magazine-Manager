@@ -89,23 +89,22 @@ function ConnectionPrompt({
   onConnect: () => void;
 }) {
   return (
-    <div className="flex-1 flex items-center justify-center px-5 py-10">
-      <div className="max-w-md w-full border border-amber-200 bg-amber-50 rounded-lg p-6 text-center space-y-3">
-        <div className="flex justify-center">
-          <AlertCircle className="h-10 w-10 text-amber-600" />
+    <div className="px-5 py-4">
+      <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+        <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+        <div className="flex-1 text-xs text-amber-700 leading-relaxed pt-0.5">
+          <span className="font-semibold">{title}</span>
+          <span className="text-amber-600/80"> — </span>
+          <span>{description}</span>
         </div>
-        <h3 className="text-base font-semibold text-gray-900">{title}</h3>
-        <p className="text-sm text-gray-600">{description}</p>
-        <div className="pt-2">
-          <Button onClick={onConnect} disabled={connecting}>
-            {connecting ? (
-              <LoadingSpinner size="sm" className="mr-1.5" />
-            ) : (
-              <Link2 className="h-4 w-4 mr-1.5" />
-            )}
-            {buttonLabel}
-          </Button>
-        </div>
+        <Button size="sm" onClick={onConnect} disabled={connecting} className="shrink-0">
+          {connecting ? (
+            <LoadingSpinner size="sm" className="mr-1" />
+          ) : (
+            <Link2 className="h-3.5 w-3.5 mr-1" />
+          )}
+          {buttonLabel}
+        </Button>
       </div>
     </div>
   );
