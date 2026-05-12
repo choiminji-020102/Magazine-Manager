@@ -5,8 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
+import { EmptyState } from "@/components/common/EmptyState";
 import { Pagination } from "@/components/common/Pagination";
+import { Package } from "lucide-react";
 import RegeneratePreparingConfirmModal from "@/components/dispatch/RegeneratePreparingConfirmModal";
+import AddToPreparingYearlyModal from "@/components/dispatch/AddToPreparingYearlyModal";
 import TransitionToDeliveredModal from "@/components/dispatch/TransitionToDeliveredModal";
 import SendDetailPanel from "@/components/dispatch/SendDetailPanel";
 import PreparingSendCard from "@/components/dispatch/PreparingSendCard";
@@ -161,26 +164,28 @@ export default function PreparingSendListPage() {
   return (
     <div className="flex-1 min-h-0 flex flex-col">
       {/* 탭 — 단품 / 정기 + 활성 VIP 슬롯만 동적 렌더링 */}
-      <Tabs value={scope} onValueChange={handleTabChange} className="bg-white border-b border-gray-200">
-        <TabsList className="ml-5 mt-2">
-          <TabsTrigger value="monthly">단품</TabsTrigger>
-          <TabsTrigger value="yearly">정기</TabsTrigger>
-          {activeVipSlots.map((s) => (
-            <TabsTrigger key={s.slot_number} value={`vip${s.slot_number}`}>
-              {s.label || `VIP ${s.slot_number}`}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      <Tabs value={scope} onValueChange={handleTabChange}>
+        <div className="px-5 py-3 bg-white border-b border-gray-200">
+          <TabsList>
+            <TabsTrigger value="monthly">단품</TabsTrigger>
+            <TabsTrigger value="yearly">정기</TabsTrigger>
+            {activeVipSlots.map((s) => (
+              <TabsTrigger key={s.slot_number} value={`vip${s.slot_number}`}>
+                {s.label || `VIP ${s.slot_number}`}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
       </Tabs>
 
       {/* 카운트 배너 + 필터 / 액션 */}
       <div className="px-5 py-3 bg-white border-b border-gray-200 flex items-center gap-4 flex-wrap">
-        {/* 호 입력 */}
+        {/* 호 필터 — 카드 목록 필터링만 담당. 발송 생성/엑셀 다운로드 시 호는 각 모달·다이얼로그 안에서 별도 입력 */}
         <div className="flex items-center gap-2">
-          <Label className="text-xs text-gray-500">발송 호</Label>
+          <Label className="text-xs text-gray-500">발송 호 필터</Label>
           <Input
             className="w-32 font-mono"
-            placeholder="YYYYMM"
+            placeholder="YYYYMM (선택)"
             value={issueInput}
             maxLength={6}
             onChange={(e) => {
@@ -193,15 +198,13 @@ export default function PreparingSendListPage() {
           )}
         </div>
 
-        {/* 카운트 배너 */}
-        <div className="flex items-center text-xs text-gray-600 gap-2">
-          <span>
-            📦 박스 처리 <span className="font-semibold text-gray-900">{counts.preparing}</span> /{" "}
-            <span className="font-semibold text-gray-900">{counts.preparing + counts.count}</span>건
-          </span>
+        {/* 카운트 배너 — "총 N건" 은 다른 목록 페이지와 동일 (필터 적용된 PREPARING Send 박스 수).
+            "발송 미생성 결제" 는 별도 라벨로 분리 — 단위(OrderItem)·필터(호 무관) 다르므로 괄호로 묶지 않음 */}
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-gray-500">총 {total}건</span>
           <span className="text-gray-300">·</span>
-          <span>
-            🔔 신규 결제 <span className="font-semibold text-orange-600">{counts.count}</span>건
+          <span className={counts.count > 0 ? "text-orange-600" : "text-gray-400"}>
+            🔔 발송 미생성 결제 {counts.count}건
           </span>
         </div>
 
@@ -211,46 +214,22 @@ export default function PreparingSendListPage() {
             발송 생성
           </Button>
           {scope === "monthly" && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setExcelOpen("monthly")}
-              disabled={!issueValid}
-              title={!issueValid ? "엑셀 다운로드는 발송 호 입력 필요" : undefined}
-            >
+            <Button size="sm" variant="outline" onClick={() => setExcelOpen("monthly")}>
               엑셀 다운로드
             </Button>
           )}
           {scope === "yearly" && (
             <>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setExcelOpen("yearly-gichulyu")}
-                disabled={!issueValid}
-                title={!issueValid ? "엑셀 다운로드는 발송 호 입력 필요" : undefined}
-              >
+              <Button size="sm" variant="outline" onClick={() => setExcelOpen("yearly-gichulyu")}>
                 기출유 엑셀
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setExcelOpen("yearly-postoffice")}
-                disabled={!issueValid}
-                title={!issueValid ? "엑셀 다운로드는 발송 호 입력 필요" : undefined}
-              >
+              <Button size="sm" variant="outline" onClick={() => setExcelOpen("yearly-postoffice")}>
                 우체국 엑셀
               </Button>
             </>
           )}
           {isVip && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setExcelOpen("vip")}
-              disabled={!issueValid}
-              title={!issueValid ? "엑셀 다운로드는 발송 호 입력 필요" : undefined}
-            >
+            <Button size="sm" variant="outline" onClick={() => setExcelOpen("vip")}>
               엑셀 다운로드
             </Button>
           )}
@@ -273,29 +252,39 @@ export default function PreparingSendListPage() {
         </div>
       </div>
 
-      {/* 발송 생성 모달 */}
-      <RegeneratePreparingConfirmModal
-        open={regenerateOpen}
-        onClose={() => setRegenerateOpen(false)}
-        scope={scope}
-        initialIssue={issueInput}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
-          queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
-          setSelectedIds(new Set());
-        }}
-      />
+      {/* 발송 생성 모달 — 정기는 incremental(기존 박스 보존), 단품/VIP 는 전체 재계산.
+          호 입력은 모달 안에서 직접 받음 (페이지 상단 '발송 호 필터'와 무관). */}
+      {scope === "yearly" ? (
+        <AddToPreparingYearlyModal
+          open={regenerateOpen}
+          onClose={() => setRegenerateOpen(false)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
+            queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
+            setSelectedIds(new Set());
+          }}
+        />
+      ) : (
+        <RegeneratePreparingConfirmModal
+          open={regenerateOpen}
+          onClose={() => setRegenerateOpen(false)}
+          scope={scope}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
+            queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
+            setSelectedIds(new Set());
+          }}
+        />
+      )}
 
-      {/* 엑셀 다운로드 모달 */}
+      {/* 엑셀 다운로드 다이얼로그 — 호 입력은 다이얼로그 안에서 직접 받음 */}
       <MonthlyExcelDialog
         open={excelOpen === "monthly"}
         onClose={() => setExcelOpen(null)}
-        issue={issueInput}
       />
       <YearlyExcelDialog
         open={excelOpen === "yearly-gichulyu" || excelOpen === "yearly-postoffice"}
         onClose={() => setExcelOpen(null)}
-        issue={issueInput}
         variant={excelOpen === "yearly-gichulyu" ? "gichulyu" : "postoffice"}
       />
       {vipSlot !== null && (
@@ -304,7 +293,6 @@ export default function PreparingSendListPage() {
           onClose={() => setExcelOpen(null)}
           slotNumber={vipSlot}
           slotLabel={activeVipSlots.find((s) => s.slot_number === vipSlot)?.label ?? null}
-          issue={issueInput}
         />
       )}
 
@@ -327,9 +315,11 @@ export default function PreparingSendListPage() {
             <LoadingSpinner size="lg" />
           </div>
         ) : sends.length === 0 ? (
-          <div className="text-center py-16 text-sm text-gray-500">
-            조건에 맞는 PREPARING 박스가 없습니다.
-          </div>
+          <EmptyState
+            icon={<Package className="h-10 w-10 mb-2 opacity-40" />}
+            message="배송 준비 중인 발송이 없습니다"
+            description="결제 완료 시 자동으로 생성됩니다. 호 필터를 사용 중이라면 변경해 보세요."
+          />
         ) : (
           <div className="space-y-3">
             {sends.map((s) => (

@@ -12,7 +12,6 @@ interface Props {
   open: boolean;
   onClose: () => void;
   scope: DispatchScope;
-  initialIssue?: string;       // 페이지의 호 입력값을 초기 노출 (yearly/vipN 시)
   onSuccess?: (created: number, deleted: number) => void;
 }
 
@@ -36,20 +35,19 @@ export default function RegeneratePreparingConfirmModal({
   open,
   onClose,
   scope,
-  initialIssue,
   onSuccess,
 }: Props) {
   const requiresIssue = scopeRequiresIssue(scope);
-  const [issue, setIssue] = useState(initialIssue ?? "");
+  const [issue, setIssue] = useState("");
   const [issueError, setIssueError] = useState(false);
 
-  // 모달 오픈 시 입력 초기화 (페이지 호 입력값 반영)
+  // 모달 오픈 시 입력 초기화
   useEffect(() => {
     if (open) {
-      setIssue(initialIssue ?? "");
+      setIssue("");
       setIssueError(false);
     }
-  }, [open, initialIssue]);
+  }, [open]);
 
   const mutation = useMutation({
     mutationFn: () =>
