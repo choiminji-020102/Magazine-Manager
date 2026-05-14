@@ -25,7 +25,7 @@ export const SEND_STATUS_LABEL: Record<string, string> = {
 };
 
 export const SEND_STATUS_COLOR: Record<string, string> = {
-  PREPARING: "bg-gray-100 text-gray-600",
+  PREPARING: "bg-blue-50 text-blue-700",
   DELIVERED: "bg-green-50 text-green-700",
   CANCELLED: "bg-red-50 text-red-700",
 };
