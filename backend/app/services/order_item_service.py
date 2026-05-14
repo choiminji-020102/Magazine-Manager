@@ -220,6 +220,60 @@ def update_order_item(db: Session, order_item: OrderItem, item_in: OrderItemUpda
 
 # ── 배송지 변경 ───────────────────────────────────────────────────────────────
 
+def apply_address_to_order_item(
+    db: Session,
+    order_item: OrderItem,
+    new_address: Address,
+) -> Tuple[List[str], List[str]]:
+    """한 OrderItem 에 새 배송지 적용 — DELIVERED 차단 + PREPARING Send 스냅샷 동기화.
+
+    공유 helper — `update_address` (개별 품목 변경) 와 `order_service.change_order_address`
+    (주문 단위 일괄 변경) 가 동일한 안전 가드를 적용하도록 분리.
+
+    동작:
+    - DELIVERED Send 만 있고 PENDING 없으면 OrderItem 자체 안 건드림 (옛 주소 유지).
+    - PENDING 있으면 OrderItem.address_id 변경 + PREPARING Send 의 6필드 동기화
+      (address_id / recipient_name / recipient_phone / country_code / postal_code /
+       recipient_address / customer_memo).
+    - 트랜잭션 commit/refresh 는 호출자 책임.
+
+    Returns:
+        (already_shipped_issues, pending_issues)
+    """
+    send_items = _get_active_send_items(db, order_item.order_item_id)
+
+    already_shipped_issues: List[str] = []
+    pending_issues: List[str] = []
+    pending_send_ids: set = set()
+
+    for si in send_items:
+        if si.send.send_status == "DELIVERED":
+            already_shipped_issues.append(si.issue)
+        else:
+            pending_issues.append(si.issue)
+            pending_send_ids.add(si.send_id)
+
+    # DELIVERED 만 있으면 OrderItem 안 건드림 (옛 주소 유지)
+    if not pending_issues and already_shipped_issues:
+        return sorted(set(already_shipped_issues)), []
+
+    order_item.address_id = new_address.address_id
+
+    if pending_send_ids:
+        sends = db.query(Send).filter(Send.send_id.in_(pending_send_ids)).all()
+        for send in sends:
+            if send.send_status == "PREPARING":
+                send.address_id = new_address.address_id
+                send.recipient_name = new_address.recipient_name
+                send.recipient_phone = new_address.recipient_phone
+                send.country_code = new_address.country_code or "KR"
+                send.postal_code = new_address.postal_code
+                send.recipient_address = new_address.recipient_address
+                send.customer_memo = new_address.customer_memo
+
+    return sorted(set(already_shipped_issues)), sorted(set(pending_issues))
+
+
 def update_address(
     db: Session,
     order_item: OrderItem,
@@ -242,54 +296,28 @@ def update_address(
         )
         new_address, _ = address_service.find_or_create_address(db, new_address_data)
 
-    new_address_id = new_address.address_id
+    # 공유 helper 로 적용 (DELIVERED 차단 + PREPARING Send 동기화)
+    already_shipped_issues, pending_issues = apply_address_to_order_item(
+        db, order_item, new_address
+    )
 
-    # 활성 SendItem 조회
-    send_items = _get_active_send_items(db, order_item.order_item_id)
-
-    already_shipped_issues: List[str] = []
-    pending_issues: List[str] = []
-    pending_send_ids: set = set()
-
-    for si in send_items:
-        if si.send.send_status == "DELIVERED":
-            already_shipped_issues.append(si.issue)
-        else:
-            pending_issues.append(si.issue)
-            pending_send_ids.add(si.send_id)
-
+    # DELIVERED 만 있는 경우 — OrderItem 안 건드린 상태로 차단 응답
     if not pending_issues and already_shipped_issues:
         return OrderItemAddressUpdateResponse(
             can_change=False,
-            already_shipped_issues=sorted(set(already_shipped_issues)),
+            already_shipped_issues=already_shipped_issues,
             pending_issues=[],
             message="이미 배송이 시작되었거나 배송 예정일이 지나 배송지를 변경할 수 없습니다.",
         )
-
-    # 품목 배송지 변경
-    order_item.address_id = new_address_id
-
-    # PREPARING Send 스냅샷 동기화
-    if pending_send_ids:
-        sends = db.query(Send).filter(Send.send_id.in_(pending_send_ids)).all()
-        for send in sends:
-            if send.send_status == "PREPARING":
-                send.address_id = new_address_id
-                send.recipient_name = new_address.recipient_name
-                send.recipient_phone = new_address.recipient_phone
-                send.country_code = new_address.country_code or "KR"
-                send.postal_code = new_address.postal_code
-                send.recipient_address = new_address.recipient_address
-                send.customer_memo = new_address.customer_memo
 
     db.commit()
     db.refresh(order_item)
 
     return OrderItemAddressUpdateResponse(
         can_change=True,
-        changed_address_id=new_address_id,
-        already_shipped_issues=sorted(set(already_shipped_issues)),
-        pending_issues=sorted(set(pending_issues)),
+        changed_address_id=new_address.address_id,
+        already_shipped_issues=already_shipped_issues,
+        pending_issues=pending_issues,
         message="배송지가 변경되었습니다.",
     )
 

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 # 로컬 애플리케이션
 from app.core.utils import calculate_subscribe_end_issue, count_issue_diff, format_phone_number, now_kst
 from app.crud import order as order_crud
+from app.models.address import Address
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.product import Product
@@ -17,7 +18,7 @@ from app.schemas.order import (
     OrderCancelCalculateResponse, OrderCancelItemDetail, OrderCancelRequest,
     OrderCreate, OrderListQuery, OrderListResponse, OrderPaymentUpdate, OrderUpdate,
 )
-from app.services import send_service
+from app.services import order_item_service, send_service
 
 
 def get_orders(db: Session, query: OrderListQuery) -> Tuple[List[OrderListResponse], int]:
@@ -217,12 +218,36 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
     return order
 
 
-def update_order(db: Session, order: Order, order_in: OrderUpdate) -> Order:
-    """주문 수정 (address_id 변경 시 모든 품목 배송지 일괄 변경)"""
-    if order_in.address_id is not None and order_in.address_id != order.address_id:
-        order_crud.bulk_update_items_address(
-            db=db, order_id=order.order_id, address_id=order_in.address_id
+def change_order_address(db: Session, order: Order, new_address_id: int) -> None:
+    """주문 단위 배송지 일괄 변경 — 모든 활성 OrderItem 의 배송지 + PREPARING Send 스냅샷 동기화.
+
+    `order_item_service.update_address` 와 동일한 안전 가드를 각 OrderItem 에 적용:
+    - DELIVERED Send 가 있는 OrderItem 은 옛 주소 유지 (건드리지 않음)
+    - PREPARING Send 있는 OrderItem 은 address_id 변경 + Send 6필드 스냅샷 동기화
+    - CANCELLED OrderItem 은 처리 대상에서 제외 (`cancelled_at IS NULL` 필터)
+
+    트랜잭션 commit 은 호출자(update_order) 가 `order_crud.update_order` 호출 시 수행.
+    """
+    new_address = db.query(Address).filter(Address.address_id == new_address_id).first()
+    if not new_address:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="배송지를 찾을 수 없습니다.",
         )
+
+    items = db.query(OrderItem).filter(
+        OrderItem.order_id == order.order_id,
+        OrderItem.cancelled_at.is_(None),
+    ).all()
+
+    for item in items:
+        order_item_service.apply_address_to_order_item(db, item, new_address)
+
+
+def update_order(db: Session, order: Order, order_in: OrderUpdate) -> Order:
+    """주문 수정 (address_id 변경 시 모든 품목 배송지 일괄 변경 + PREPARING Send 동기화)"""
+    if order_in.address_id is not None and order_in.address_id != order.address_id:
+        change_order_address(db=db, order=order, new_address_id=order_in.address_id)
     return order_crud.update_order(db=db, order=order, order_in=order_in)
 
 

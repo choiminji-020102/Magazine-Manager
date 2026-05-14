@@ -256,14 +256,6 @@ def update_order(db: Session, order: Order, order_in: OrderUpdate) -> Order:
     return order
 
 
-def bulk_update_items_address(db: Session, order_id: int, address_id: int) -> None:
-    """주문 내 모든 미취소 품목의 배송지를 일괄 변경"""
-    db.query(OrderItem).filter(
-        OrderItem.order_id == order_id,
-        OrderItem.cancelled_at.is_(None),
-    ).update({"address_id": address_id}, synchronize_session=False)
-
-
 def set_order_status(
     db: Session,
     order: Order,
