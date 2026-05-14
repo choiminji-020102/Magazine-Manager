@@ -9,6 +9,18 @@ export function formatIssue(issue: string): string {
 }
 
 /**
+ * 누락된 호 리스트 → 표시 문자열.
+ * 1건: "2026년 10월호"
+ * 2건+: "2026년 10월호 외 N건"
+ */
+export function formatMissingIssues(issues: string[]): string {
+  if (!issues || issues.length === 0) return "";
+  const head = formatIssue(issues[0]);
+  if (issues.length === 1) return head;
+  return `${head} 외 ${issues.length - 1}건`;
+}
+
+/**
  * 호(YYYYMM) → "26년 04월호" (좁은 컨테이너용 단축형, MM 항상 2자리)
  */
 export function formatIssueShort(issue: string): string {

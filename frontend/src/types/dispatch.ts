@@ -70,6 +70,26 @@ export interface TransitionToDeliveredResponse {
   transitioned_count: number;
 }
 
+// ── [발송 생성 사전 미리보기] (POST /dispatches/preview-skipped-issues) ───────
+// 순차 발송 위반(중간 호 누락) 검사. scope=monthly 는 호 무관이라 항상 빈 응답.
+
+export interface PreviewSkippedIssuesRequest {
+  scope: DispatchScope;
+  issue: string;                  // YYYYMM (필수)
+}
+
+export interface SequenceViolationItem {
+  order_item_id: number;
+  product_code: string;
+  recipient_name: string;
+  missing_issues: string[];       // 누락된 호 (오름차순 YYYYMM)
+}
+
+export interface PreviewSkippedIssuesResponse {
+  violation_count: number;
+  samples: SequenceViolationItem[];  // 최대 3건
+}
+
 // ── 카운트 배너 (GET /dispatches/paid-not-prepared-count) ──────────────────────
 
 // 16+2 키 — *_count (발송 미생성 결제: PAID 미반영 OrderItem) + *_preparing (현재 PREPARING Send 박스).

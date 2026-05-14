@@ -9,6 +9,8 @@ import type {
   TransitionToDeliveredRequest,
   TransitionToDeliveredResponse,
   PaidNotPreparedCountResponse,
+  PreviewSkippedIssuesRequest,
+  PreviewSkippedIssuesResponse,
 } from "../types/dispatch";
 
 export const dispatchApi = {
@@ -40,6 +42,14 @@ export const dispatchApi = {
   transitionToDelivered: (data: TransitionToDeliveredRequest) => {
     return api.post<ResponseModel<TransitionToDeliveredResponse>>(
       "/dispatches/transition-to-delivered",
+      data,
+    );
+  },
+
+  // POST /dispatches/preview-skipped-issues - [발송 생성] 사전 미리보기: 순차 위반(중간 호 누락) 후보
+  previewSkippedIssues: (data: PreviewSkippedIssuesRequest) => {
+    return api.post<ResponseModel<PreviewSkippedIssuesResponse>>(
+      "/dispatches/preview-skipped-issues",
       data,
     );
   },
