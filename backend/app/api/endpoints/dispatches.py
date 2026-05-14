@@ -16,8 +16,11 @@ from app.schemas.dispatch import (
     AddToPreparingYearlyResponse,
     DispatchSummaryResponse,
     PaidNotPreparedCountResponse,
+    PreviewSkippedIssuesRequest,
+    PreviewSkippedIssuesResponse,
     RegeneratePreparingSendsRequest,
     RegeneratePreparingSendsResponse,
+    SequenceViolationItem,
     TransitionToDeliveredRequest,
     TransitionToDeliveredResponse,
 )
@@ -283,6 +286,50 @@ def transition_to_delivered_endpoint(
     return ResponseModel(
         message=f"배송완료 처리 완료: {transitioned_count}건",
         data=TransitionToDeliveredResponse(transitioned_count=transitioned_count),
+    )
+
+
+@router.post(
+    "/dispatches/preview-skipped-issues",
+    response_model=ResponseModel[PreviewSkippedIssuesResponse],
+)
+def preview_skipped_issues_endpoint(
+    req: PreviewSkippedIssuesRequest,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_manager),
+):
+    """[발송 생성] 사전 미리보기 — 순차 발송 위반(중간 호 누락) 후보 조회.
+
+    target_issue 로 발송 시 시작호부터 순차 발송이 아닌 OrderItem 들을 검사한다.
+    - scope=monthly 는 호 무관이라 항상 빈 응답
+    - scope=yearly / vipN: 그룹핑 통과한 YEARLY OrderItem 만 검사
+      누락된 호가 있는 OrderItem 들의 카운트 + 상위 3건 샘플 반환
+    DB 변경 없음 (조회 전용).
+    """
+    if req.scope == "monthly":
+        return ResponseModel(
+            data=PreviewSkippedIssuesResponse(violation_count=0, samples=[]),
+        )
+
+    violations = dispatch_grouping_service.find_violations_for_scope(
+        db=db,
+        scope=req.scope,
+        target_issue=req.issue,
+    )
+    samples = [
+        SequenceViolationItem(
+            order_item_id=v.order_item_id,
+            product_code=v.product_code,
+            recipient_name=v.recipient_name,
+            missing_issues=v.missing_issues,
+        )
+        for v in violations[:3]
+    ]
+    return ResponseModel(
+        data=PreviewSkippedIssuesResponse(
+            violation_count=len(violations),
+            samples=samples,
+        ),
     )
 
 

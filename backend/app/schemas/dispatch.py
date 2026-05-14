@@ -111,6 +111,34 @@ class TransitionToDeliveredResponse(BaseModel):
     transitioned_count: int
 
 
+class PreviewSkippedIssuesRequest(BaseModel):
+    """[발송 생성] 사전 미리보기 — 순차 위반(중간 호 누락) 후보 검사 요청.
+
+    scope=monthly 는 호 무관이라 호출 의미 없음 (백엔드 빈 응답 반환).
+    yearly / vip1..6 만 의미 있음.
+    """
+    scope: Literal["monthly", "yearly", "vip1", "vip2", "vip3", "vip4", "vip5", "vip6"]
+    issue: str = Field(pattern=r"^\d{4}(0[1-9]|1[0-2])$", description="YYYYMM (필수)")
+
+
+class SequenceViolationItem(BaseModel):
+    """순차 발송 위반 한 건 — 미리보기에 표시할 OrderItem 정보."""
+    order_item_id: int
+    product_code: str
+    recipient_name: str
+    missing_issues: List[str]
+
+
+class PreviewSkippedIssuesResponse(BaseModel):
+    """순차 위반 미리보기 결과.
+
+    - violation_count: 위반 OrderItem 총 개수
+    - samples: 표시용 샘플 (최대 3건). violation_count 가 0 이면 빈 리스트.
+    """
+    violation_count: int
+    samples: List[SequenceViolationItem]
+
+
 class PaidNotPreparedCountResponse(BaseModel):
     """PreparingSendListPage 카운트 배너용 — 두 묶음을 한 응답에 담음.
 

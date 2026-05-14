@@ -154,13 +154,27 @@ def calculate_subscribe_end_issue(start_issue: str, period: int) -> str:
     """
     if not start_issue or len(start_issue) != 6:
         return start_issue
-    
+
     year = int(start_issue[:4])
     month = int(start_issue[4:6])
-    
+
     # period - 1 개월 후 (시작호 포함이므로)
     total_months = year * 12 + month + (period - 1)
     end_year = (total_months - 1) // 12
     end_month = (total_months - 1) % 12 + 1
-    
+
     return f"{end_year:04d}{end_month:02d}"
+
+
+def add_months_to_issue(issue: str, n: int) -> str:
+    """호(YYYYMM)에 n개월을 더한 호 반환. n 음수면 빼기.
+    예: add_months_to_issue("202607", 1) → "202608"
+        add_months_to_issue("202612", 1) → "202701"
+        add_months_to_issue("202601", -1) → "202512"
+    """
+    year = int(issue[:4])
+    month = int(issue[4:6])
+    total = year * 12 + (month - 1) + n
+    new_year = total // 12
+    new_month = total % 12 + 1
+    return f"{new_year:04d}{new_month:02d}"

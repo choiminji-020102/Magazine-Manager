@@ -32,12 +32,26 @@ from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
 from app.core import vip_slots
+from app.core.utils import add_months_to_issue
 from app.models.address import Address
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.pause import Pause
 from app.models.send import Send
 from app.models.send_item import SendItem
+
+
+@dataclass
+class SequenceViolation:
+    """순차 발송 위반 한 건 — find_sequence_violations 반환 원소.
+
+    target_issue 로 발송 시 누락되는 호(missing_issues)가 1개 이상인 OrderItem 정보.
+    누락 호는 휴지(Pause) 가 아니고 SendItem 도 없는 호.
+    """
+    order_item_id: int
+    product_code: str
+    recipient_name: str
+    missing_issues: List[str]
 
 
 @dataclass
@@ -71,9 +85,8 @@ def exclude_active_vip(query, active_slots: List[int], address_ref=Address):
     호출자는 미리 `address_ref` (plain Address 또는 aliased(Address)) 를 query 에 join 해야 함.
     `address_ref` default 는 plain Address — **alias join 컨텍스트면 반드시 명시 전달.**
     default 를 그대로 쓰면 SQLAlchemy 가 plain Address 를 참조해 silently wrong SQL 생성됨
-    (실수 방지를 위해 호출자가 alias 인 경우 인자 명시 필수).
-
-    활성 슬롯이 0개면 필터 미적용.
+    (alias 와 plain 이 다른 테이블 참조로 해석).
+    활성 슬롯이 0개면 필터 미적용 (현재 동작 그대로).
     """
     if not active_slots:
         return query
@@ -593,3 +606,151 @@ def count_orderitems_in_preparing(db: Session) -> Dict[str, int]:
         result[f"vip{n}"] = cnt or 0
 
     return result
+
+
+# ── 순차 발송 위반 검사 (정기·VIP-YEARLY 부분) ─────────────────────────────────
+
+def find_sequence_violations(
+    db: Session,
+    order_item_ids: List[int],
+    target_issue: str,
+) -> List[SequenceViolation]:
+    """target_issue 로 발송 시 순차 위반(=중간 호 누락)이 발생하는 OrderItem 들을 반환.
+
+    순차 위반 정의 (사용자 정의 — final_subscribe_start_issue 부터 순차 발송 기준):
+    - 검사 범위: final_subscribe_start_issue ~ target_issue 직전 (각 호 1개월 단위)
+    - 각 호가 다음 중 하나면 "처리된 호" (스킵):
+      1) 재발송 불가 SendItem 존재 — group_yearly_for_send.already_sent_ids 와 동일 조건:
+         `SendItem.cancelled_at IS NULL` OR `Send.send_status IN ('DELIVERED','CANCELLED')`
+         → "한 번이라도 발송 처리되거나 박스 종료된" 호
+      2) 활성 휴지(Pause.deleted_at IS NULL) 존재
+    - 둘 다 아닌 호 = 누락. 1개 이상이면 위반.
+    - target_issue ≤ final_subscribe_start_issue 이면 위반 아님 (그룹핑 단계에서도 이미 걸러짐).
+
+    last_send_issue 미사용 — DELIVERED 시점에만 갱신되는 필드라 PREPARING/CANCELLED
+    상태 전환에 영향받음. 대신 SendItem 자체를 검사해 데이터 정합성에 강건하게 설계.
+
+    누락된 호 리스트(missing_issues)는 오름차순.
+    YEARLY OrderItem 만 대상 (호 무관 MONTHLY 는 검사 의미 없음 — 호출자가 필터링).
+    """
+    if not order_item_ids:
+        return []
+
+    order_items = (
+        db.query(OrderItem)
+        .filter(OrderItem.order_item_id.in_(order_item_ids))
+        .all()
+    )
+    if not order_items:
+        return []
+
+    # "재발송 불가" 호 집합 (OrderItem 별) — group_yearly_for_send.already_sent_ids 와 동일 조건.
+    # 활성 SendItem 또는 종료된 박스(DELIVERED/CANCELLED) 의 SendItem 모두 포함.
+    sent_rows = (
+        db.query(SendItem.order_item_id, SendItem.issue)
+        .join(Send, SendItem.send_id == Send.send_id)
+        .filter(
+            SendItem.order_item_id.in_(order_item_ids),
+            or_(
+                SendItem.cancelled_at.is_(None),
+                Send.send_status.in_(["DELIVERED", "CANCELLED"]),
+            ),
+        )
+        .all()
+    )
+    sent_map: Dict[int, set] = {}
+    for oi_id, issue in sent_rows:
+        sent_map.setdefault(oi_id, set()).add(issue)
+
+    # 활성 휴지 호 집합 (OrderItem 별)
+    pause_rows = (
+        db.query(Pause.order_item_id, Pause.pause_issue)
+        .filter(
+            Pause.order_item_id.in_(order_item_ids),
+            Pause.deleted_at.is_(None),
+        )
+        .all()
+    )
+    pause_map: Dict[int, set] = {}
+    for oi_id, p_issue in pause_rows:
+        pause_map.setdefault(oi_id, set()).add(p_issue)
+
+    # 수령인 이름 (Address 스냅샷)
+    addr_rows = (
+        db.query(OrderItem.order_item_id, Address.recipient_name)
+        .join(Address, Address.address_id == OrderItem.address_id)
+        .filter(OrderItem.order_item_id.in_(order_item_ids))
+        .all()
+    )
+    name_map: Dict[int, str] = {oi_id: name for oi_id, name in addr_rows}
+
+    violations: List[SequenceViolation] = []
+    for oi in order_items:
+        expected_start = oi.final_subscribe_start_issue
+        if not expected_start or expected_start >= target_issue:
+            continue
+
+        sent_issues = sent_map.get(oi.order_item_id, set())
+        paused_issues = pause_map.get(oi.order_item_id, set())
+
+        missing: List[str] = []
+        cur = expected_start
+        while cur < target_issue:
+            if cur not in sent_issues and cur not in paused_issues:
+                missing.append(cur)
+            cur = add_months_to_issue(cur, 1)
+
+        if missing:
+            violations.append(
+                SequenceViolation(
+                    order_item_id=oi.order_item_id,
+                    product_code=oi.product_code,
+                    recipient_name=name_map.get(oi.order_item_id, ""),
+                    missing_issues=missing,
+                )
+            )
+
+    # 누락 호가 작은 순 → product_code → order_item_id 로 안정 정렬
+    violations.sort(key=lambda v: (v.missing_issues[0], v.product_code, v.order_item_id))
+    return violations
+
+
+def find_violations_for_scope(
+    db: Session,
+    scope: str,
+    target_issue: str,
+) -> List[SequenceViolation]:
+    """[발송 생성] 사전 미리보기용 — scope 의 그룹핑 통과 후보 중 순차 위반만 반환.
+
+    scope:
+      - "yearly"  : group_yearly_for_send 가 통과시킬 YEARLY OrderItem 검사
+      - "vip1..6" : 해당 슬롯의 YEARLY 부분만 검사 (MONTHLY 는 호 무관)
+
+    monthly scope 는 호 무관이라 본 함수 호출 의미 없음 — 호출자가 분기.
+    """
+    if scope == "yearly":
+        yearly_items, _ = get_paid_order_items_for_dispatch(db)
+        groups = group_yearly_for_send(
+            db=db,
+            order_item_ids=[oi.order_item_id for oi in yearly_items],
+            issue=target_issue,
+        )
+        candidate_ids = [oi_id for g in groups for oi_id in g.order_item_ids]
+        return find_sequence_violations(db, candidate_ids, target_issue)
+
+    if scope.startswith("vip") and scope[3:].isdigit() and 1 <= int(scope[3:]) <= 6:
+        slot_number = int(scope[3:])
+        groups = group_vip_for_send(db=db, slot_number=slot_number, issue=target_issue)
+        # VIP 그룹은 YEARLY+MONTHLY 혼합 — 순차 검사는 YEARLY 만
+        candidate_ids = [oi_id for g in groups for oi_id in g.order_item_ids]
+        if not candidate_ids:
+            return []
+        yearly_ids = [
+            row[0] for row in db.query(OrderItem.order_item_id).filter(
+                OrderItem.order_item_id.in_(candidate_ids),
+                OrderItem.product_kind == "YEARLY",
+            ).all()
+        ]
+        return find_sequence_violations(db, yearly_ids, target_issue)
+
+    return []
