@@ -60,19 +60,24 @@ class SendGroup:
 
 # ── 내부 헬퍼 ──────────────────────────────────────────────────────────────────
 
-def _active_vip_slot_numbers() -> List[int]:
+def active_vip_slot_numbers() -> List[int]:
     """현재 활성화된 VIP 슬롯 번호 리스트 (1..6 부분집합)."""
     return [s.slot_number for s in vip_slots.list_slots() if s.is_enabled]
 
 
-def _exclude_active_vip(query, active_slots: List[int]):
-    """쿼리에 '활성 vipN 모두 false' 필터 적용 (Address join 이미 되어 있다고 가정).
+def exclude_active_vip(query, active_slots: List[int], address_ref=Address):
+    """쿼리에 '활성 vipN 모두 false' 필터 적용.
 
-    활성 슬롯이 0개면 필터 미적용 (현재 동작 그대로).
+    호출자는 미리 `address_ref` (plain Address 또는 aliased(Address)) 를 query 에 join 해야 함.
+    `address_ref` default 는 plain Address — **alias join 컨텍스트면 반드시 명시 전달.**
+    default 를 그대로 쓰면 SQLAlchemy 가 plain Address 를 참조해 silently wrong SQL 생성됨
+    (실수 방지를 위해 호출자가 alias 인 경우 인자 명시 필수).
+
+    활성 슬롯이 0개면 필터 미적용.
     """
     if not active_slots:
         return query
-    vip_columns = [getattr(Address, f"vip{n}") for n in active_slots]
+    vip_columns = [getattr(address_ref, f"vip{n}") for n in active_slots]
     return query.filter(not_(or_(*vip_columns)))
 
 
@@ -112,7 +117,7 @@ def group_monthly_for_send(
     if not target_ids:
         return []
 
-    active_slots = _active_vip_slot_numbers()
+    active_slots = active_vip_slot_numbers()
     rows_query = (
         db.query(OrderItem, Address)
         .join(Address, OrderItem.address_id == Address.address_id)
@@ -121,7 +126,7 @@ def group_monthly_for_send(
             Address.country_code == "KR",   # 해외 발송은 새 흐름 대상 외
         )
     )
-    rows_query = _exclude_active_vip(rows_query, active_slots)
+    rows_query = exclude_active_vip(rows_query, active_slots)
     rows = rows_query.all()
 
     # (우편번호, 주소)로 그룹화 + 후보 누적
@@ -212,7 +217,7 @@ def group_yearly_for_send(
         .subquery()
     )
 
-    active_slots = _active_vip_slot_numbers()
+    active_slots = active_vip_slot_numbers()
     rows_query = (
         db.query(OrderItem, Address)
         .join(Address, OrderItem.address_id == Address.address_id)
@@ -228,7 +233,7 @@ def group_yearly_for_send(
             ~OrderItem.order_item_id.in_(db.query(pause_subquery)),
         )
     )
-    rows_query = _exclude_active_vip(rows_query, active_slots)
+    rows_query = exclude_active_vip(rows_query, active_slots)
     rows = rows_query.all()
 
     # 정렬 후 SendGroup 생성 — rows 가 이미 OrderItem 을 들고 있어 추가 IN 쿼리 불필요

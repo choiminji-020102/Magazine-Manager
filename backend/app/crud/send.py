@@ -82,8 +82,17 @@ def list_sends(db: Session, query: SendListQuery) -> Tuple[List[Send], int]:
             q.join(si_alias, si_alias.send_id == Send.send_id)
             .join(oi_alias, oi_alias.order_item_id == si_alias.order_item_id)
             .filter(oi_alias.product_kind == query.product_kind)
-            .distinct()
         )
+        # 일반 단품/정기 탭(vip_slot_number 미지정) 은 활성 VIP 슬롯 주소 제외
+        # — VIP 박스는 VIP 탭에서만 보이도록 격리. [발송 생성] 단계의 VIP 자동 제외와 일관성.
+        if query.vip_slot_number is None:
+            active_slots = [s.slot_number for s in vip_slots.list_slots() if s.is_enabled]
+            if active_slots:
+                addr_alias = aliased(Address)
+                q = q.join(addr_alias, addr_alias.address_id == oi_alias.address_id)
+                vip_columns = [getattr(addr_alias, f"vip{n}") for n in active_slots]
+                q = q.filter(not_(or_(*vip_columns)))
+        q = q.distinct()
     if query.vip_slot_number is not None:
         # Send → SendItem → OrderItem → Address.vipN=true 필터
         # 다른 SendItem/OrderItem/Address 조인과 중복되지 않게 alias 사용

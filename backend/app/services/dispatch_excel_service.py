@@ -19,7 +19,7 @@ from fastapi import HTTPException, status
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 # 로컬 애플리케이션
 from app.core import vip_slots
@@ -35,6 +35,7 @@ from app.schemas.dispatch_excel import (
     VipExcelCandidateItem,
     YearlyExcelCandidate,
 )
+from app.services.dispatch_grouping_service import active_vip_slot_numbers, exclude_active_vip
 
 
 # ── 상수 ──────────────────────────────────────────────────────────────────────
@@ -105,6 +106,24 @@ def _base_filter():
     )
 
 
+def _exclude_active_vip_from_query(query):
+    """엑셀 후보 조회 쿼리에 활성 VIP 격리 적용 — grouping 헬퍼 wrapper.
+
+    VIP 박스는 VIP 엑셀로만 출력되어야 하므로 단품/정기 엑셀에서 격리.
+    plain `OrderItem` join 이 query 에 이미 있다는 전제 — 내부 Address alias join 이
+    `OrderItem.address_id` 를 직접 참조하므로, 호출처가 `aliased(OrderItem)` 를
+    쓰는 형태가 추가되면 이 함수 시그니처에 `order_item_ref` 인자를 받아 명시 전달하도록 변경해야 함.
+    핵심 vipN filter 로직은 `dispatch_grouping_service.exclude_active_vip` 에 위임.
+    활성 슬롯이 0개면 필터 미적용 (조회 결과 그대로).
+    """
+    active_slots = active_vip_slot_numbers()
+    if not active_slots:
+        return query
+    addr_alias = aliased(Address)
+    query = query.join(addr_alias, addr_alias.address_id == OrderItem.address_id)
+    return exclude_active_vip(query, active_slots, address_ref=addr_alias)
+
+
 # ── 후보 조회 (단품) ──────────────────────────────────────────────────────────
 
 def get_monthly_candidates(
@@ -124,6 +143,7 @@ def get_monthly_candidates(
         .filter(*_base_filter())
         .filter(OrderItem.product_kind == "MONTHLY")
     )
+    query = _exclude_active_vip_from_query(query)
     if postal_code:
         query = query.filter(Send.postal_code == postal_code.strip())
 
@@ -193,6 +213,7 @@ def _yearly_candidates_core(
         .filter(OrderItem.product_kind == "YEARLY")
         .filter(or_(*prefix_filters))
     )
+    query = _exclude_active_vip_from_query(query)
     if postal_code:
         query = query.filter(Send.postal_code == postal_code.strip())
 
@@ -318,15 +339,16 @@ def build_monthly_excel(
     date_label = format_send_date_label(send_date_yyyymmdd)
 
     # 대상 Send + SendItem 조회 (호 무관, country_code='KR' + PREPARING + cancelled_at NULL 등 §5.1.1)
-    rows = (
+    # 활성 VIP 슬롯 주소는 격리 (단품 엑셀에 VIP 박스 포함 방지)
+    monthly_query = (
         db.query(Send, SendItem)
         .join(SendItem, SendItem.send_id == Send.send_id)
         .join(OrderItem, OrderItem.order_item_id == SendItem.order_item_id)
         .filter(Send.send_id.in_(send_ids))
         .filter(*_base_filter())
         .filter(OrderItem.product_kind == "MONTHLY")
-        .all()
     )
+    rows = _exclude_active_vip_from_query(monthly_query).all()
 
     # Send 단위 그룹화 (1 Send = 박스 1개)
     sends_by_id: Dict[int, Send] = {}
@@ -476,15 +498,16 @@ def _fetch_yearly_candidates_by_send_ids(
     Returns:
         (후보 목록, 스킵된 send_id 목록)
     """
-    rows = (
+    # 활성 VIP 슬롯 주소는 격리 (정기 엑셀에 VIP 박스 포함 방지)
+    yearly_query = (
         db.query(Send, SendItem, OrderItem)
         .join(SendItem, SendItem.send_id == Send.send_id)
         .join(OrderItem, OrderItem.order_item_id == SendItem.order_item_id)
         .filter(Send.send_id.in_(send_ids))
         .filter(*_base_filter())
         .filter(OrderItem.product_kind == "YEARLY")
-        .all()
     )
+    rows = _exclude_active_vip_from_query(yearly_query).all()
 
     included_send_ids: set = set()
     candidates: List[YearlyExcelCandidate] = []
