@@ -126,7 +126,7 @@ def update_send_item(
 ):
     """발송 품목 수정"""
     item = send_item_service.get_send_item_by_id(db, send_item_id)
-    before = {"send_num": item.send_num, "admin_memo": item.admin_memo}
+    before = {"admin_memo": item.admin_memo}
 
     updated = send_item_service.update_send_item(db, item, item_in)
 

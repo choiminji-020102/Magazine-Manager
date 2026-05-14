@@ -48,7 +48,9 @@ def create_send_item(db: Session, send: Send, item_in: SendItemCreate) -> SendIt
         order_item_id=item_in.order_item_id,
         issue=item_in.issue,
         product=product,
-        send_num=item_in.send_num,
+        # send_num 은 OrderItem.order_num 스냅샷 — 일괄 생성 경로
+        # (send_service.create_preparing_sends_from_groups) 와 동일 매핑.
+        send_num=order_item.order_num,
     )
     db.commit()
     db.refresh(item)

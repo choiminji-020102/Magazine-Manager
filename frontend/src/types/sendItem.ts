@@ -3,11 +3,10 @@
 export interface SendItemCreate {
   order_item_id: number;
   issue: string;        // 발송 호 (YYYYMM, 필수)
-  send_num?: number;    // 기본값: 1
+  // send_num 은 서버가 OrderItem.order_num 으로 스냅샷 — 클라이언트 입력 불가.
 }
 
 export interface SendItemUpdate {
-  send_num?: number | null;
   admin_memo?: string | null;
 }
 

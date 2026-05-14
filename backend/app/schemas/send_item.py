@@ -10,11 +10,12 @@ class SendItemCreate(BaseModel):
     order_item_id: int
     # YYYYMM — month 부분 01~12 강제 (예: 202613 같은 무의미한 값 차단)
     issue: str = Field(..., pattern=r"^\d{4}(0[1-9]|1[0-2])$", description="발송 호 (YYYYMM, 필수)")
-    send_num: int = 1
+    # send_num 은 서버에서 OrderItem.order_num 으로 스냅샷 — 클라이언트 입력 차단.
 
 
 class SendItemUpdate(BaseModel):
-    send_num: Optional[int] = None
+    # send_num 은 OrderItem.order_num 에서 생성 시점에 스냅샷되며,
+    # 발송 후 부 수 조정은 운영 모델에 없음 — 수정 불가.
     admin_memo: Optional[str] = None
 
 

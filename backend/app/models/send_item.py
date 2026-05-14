@@ -18,7 +18,7 @@ class SendItem(Base):
 
     issue = Column(String(10), nullable=False, comment="발송 호 (YYYYMM)")
 
-    send_num = Column(Integer, nullable=False, server_default="1")
+    send_num = Column(Integer, nullable=False, server_default="1", comment="발송 부수 (OrderItem.order_num 스냅샷)")
 
     cost_price = Column(Integer, nullable=False, server_default="0", comment="제작단가 (스냅샷)")
 
