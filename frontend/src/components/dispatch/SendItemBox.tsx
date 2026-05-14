@@ -1,9 +1,8 @@
-import { formatDate, formatIssueShort, formatShortDateTime } from "@/utils/format";
+import { formatDate, formatIssueShort } from "@/utils/format";
 import type { SendItemResponse } from "@/types/sendItem";
 
-// SendItem 압축 박스 — LIST_CARD_LAYOUT.md §2.3 (배송 준비 중 + 배송 완료 공통).
-// product_code · product_name / issue × 수량 / admin_memo / cancelled_at /
-// 시스템 메타 (생성·수정 일시) 6그룹.
+// SendItem 압축 박스 — 배송 준비 중 + 배송 완료 공통.
+// product_code · product_name / issue × 수량 / admin_memo / cancelled_at.
 export default function SendItemBox({ item }: { item: SendItemResponse }) {
   const isCancelled = item.cancelled_at != null;
   return (
@@ -27,9 +26,6 @@ export default function SendItemBox({ item }: { item: SendItemResponse }) {
       {isCancelled && (
         <div className="text-red-500">취소 {formatDate(item.cancelled_at)}</div>
       )}
-      <div className="text-[9px] text-gray-300 pt-0.5">
-        생성 {formatShortDateTime(item.created_at)} · 수정 {formatShortDateTime(item.updated_at)}
-      </div>
     </div>
   );
 }
