@@ -173,7 +173,7 @@ export default function MonthlyExcelDialog({
       >
         <DialogContent className="max-w-5xl max-h-[92vh] flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>기출유 단품 엑셀 다운로드</DialogTitle>
+            <DialogTitle>기출유택배 단품 엑셀 다운로드</DialogTitle>
             <p className="text-xs text-gray-500 mt-1">
               선택된 PREPARING 박스를 엑셀로 출력합니다. 박스 상태는 유지되며, 배송완료 처리는
               별도 [배송완료 처리] 단계에서 진행합니다.
@@ -271,7 +271,7 @@ export default function MonthlyExcelDialog({
           <div className="py-2 text-sm text-gray-700 space-y-2">
             <p>
               선택된 <span className="font-semibold text-gray-900">{selectedIds.size}건</span>을
-              기출유 단품 엑셀로 다운로드합니다.
+              기출유택배 단품 엑셀로 다운로드합니다.
             </p>
             <p className="text-gray-500 text-xs">
               박스 상태는 변경되지 않습니다. 배송완료 처리는 별도 [배송완료 처리] 단계에서.

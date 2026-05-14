@@ -215,22 +215,22 @@ export default function PreparingSendListPage() {
           </Button>
           {scope === "monthly" && (
             <Button size="sm" variant="outline" onClick={() => setExcelOpen("monthly")}>
-              엑셀 다운로드
+              기출유택배 엑셀
             </Button>
           )}
           {scope === "yearly" && (
             <>
               <Button size="sm" variant="outline" onClick={() => setExcelOpen("yearly-gichulyu")}>
-                기출유 엑셀
+                기출유우편 엑셀
               </Button>
               <Button size="sm" variant="outline" onClick={() => setExcelOpen("yearly-postoffice")}>
-                우체국 엑셀
+                일반우편 엑셀
               </Button>
             </>
           )}
           {isVip && (
             <Button size="sm" variant="outline" onClick={() => setExcelOpen("vip")}>
-              엑셀 다운로드
+              일반우편 엑셀
             </Button>
           )}
           {/* 페이지 전체 선택 토글 — 클릭 시 현재 페이지 박스만 토글 (다른 페이지 선택 보존) */}

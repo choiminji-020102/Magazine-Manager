@@ -190,8 +190,8 @@ export default function VipExcelDialog({
   };
 
   const dialogTitle = slotLabel
-    ? `VIP ${slotNumber} (${slotLabel}) 엑셀 다운로드`
-    : `VIP ${slotNumber} 엑셀 다운로드`;
+    ? `VIP ${slotNumber} (${slotLabel}) 일반우편 엑셀 다운로드`
+    : `VIP ${slotNumber} 일반우편 엑셀 다운로드`;
 
   return (
     <>

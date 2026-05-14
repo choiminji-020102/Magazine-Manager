@@ -44,8 +44,8 @@ const PREFIX_OPTIONS: Record<YearlyExcelVariant, { value: string; label: string 
 };
 
 const VARIANT_TITLE: Record<YearlyExcelVariant, string> = {
-  gichulyu: "기출유 정기구독 엑셀 (말씀함께)",
-  postoffice: "우체국 정기구독 엑셀 (청소년이하)",
+  gichulyu: "기출유우편 정기구독 엑셀 (말씀함께)",
+  postoffice: "일반우편 정기구독 엑셀 (청소년이하)",
 };
 
 const VARIANT_DESCRIPTION: Record<YearlyExcelVariant, string> = {
@@ -370,7 +370,7 @@ export default function YearlyExcelDialog({
           <div className="py-2 text-sm text-gray-700 space-y-2">
             <p>
               선택된 <span className="font-semibold text-gray-900">{selectedIds.size}건</span>을{" "}
-              {variant === "gichulyu" ? "기출유 정기구독" : "우체국 정기구독"} 엑셀로 다운로드합니다.
+              {variant === "gichulyu" ? "기출유우편 정기구독" : "일반우편 정기구독"} 엑셀로 다운로드합니다.
             </p>
             <p className="text-gray-500 text-xs">
               박스 상태는 변경되지 않습니다. 배송완료 처리는 별도 [배송완료 처리] 단계에서.
