@@ -45,9 +45,11 @@ export default function PreparingSendCard({
       }`}
     >
       <div className="grid grid-cols-[50px_280px_1fr_1fr] grid-rows-[auto_1fr]">
-        {/* 좌측 체크박스 (row-span 2) — div onClick 으로 영역 클릭 흡수, input onChange 가 토글 처리 */}
+        {/* 좌측 체크박스 (col 1, row 1-2) — div onClick 으로 영역 클릭 흡수, input onChange 가 토글 처리.
+            grid 위치는 OrderListCard 와 동일하게 명시적으로 지정 — auto-placement 가 묶인 주문/품목 순서로
+            인해 배송지를 col 4 row 1 로 잘못 보내는 문제 방지. */}
         <div
-          className="row-span-2 flex items-center justify-center border-r border-gray-100"
+          className="col-start-1 row-start-1 row-span-2 flex items-center justify-center border-r border-gray-100"
           onClick={(e) => e.stopPropagation()}
         >
           <input
@@ -59,8 +61,9 @@ export default function PreparingSendCard({
           />
         </div>
 
-        {/* 발송 (row-span 2) */}
-        <section className="row-span-2 border-r border-gray-100 text-xs">
+        {/* 발송 (col 2, row 1-2) — OrderListCard "주문" 섹션과 동일한 시각 무게:
+            ID/일자 그룹 → h-2 간격 → 묶인 주문 그룹 → 메모 */}
+        <section className="col-start-2 row-start-1 row-span-2 border-r border-gray-100 text-xs">
           <SectionHeader title="발송">
             <StatusBadge type="send_status" value={send.send_status} />
           </SectionHeader>
@@ -70,6 +73,30 @@ export default function PreparingSendCard({
               value={<span className="font-mono text-gray-600">#{send.send_id}</span>}
             />
             <InfoRow label="생성일" value={formatDate(send.created_at)} />
+            <div className="h-2" />
+            <InfoRow
+              label="주문"
+              value={
+                send.related_orders.length === 0 ? (
+                  <span className="text-gray-300 text-[11px]">-</span>
+                ) : (
+                  <span className="flex flex-wrap items-center gap-1">
+                    <span className="text-gray-400 text-[11px]">
+                      ({send.related_orders.length}건)
+                    </span>
+                    {send.related_orders.map((ro) => (
+                      <span
+                        key={ro.order_id}
+                        className="text-xs px-1.5 py-0.5 bg-sky-50 text-sky-700 rounded"
+                        title={`${ro.customer_name} · ${formatPhone(ro.customer_phone)}`}
+                      >
+                        #{ro.order_id} · {ro.customer_name}
+                      </span>
+                    ))}
+                  </span>
+                )
+              }
+            />
             {send.admin_memo && (
               <InfoRow
                 label="메모"
@@ -83,9 +110,19 @@ export default function PreparingSendCard({
           </div>
         </section>
 
-        {/* 수령·배송지 (위) */}
-        <section className="border-r border-b border-gray-100 text-xs">
-          <SectionHeader title="수령·배송지">
+        {/* 수령인 (col 3, row 1) — OrderListCard "고객" 위치와 동일 */}
+        <section className="col-start-3 row-start-1 border-r border-b border-gray-100 text-xs">
+          <SectionHeader title="수령인" />
+          <div className="px-3 py-2 space-y-0.5">
+            <InfoRow label="이름" value={send.recipient_name} />
+            <InfoRow label="연락처" value={formatPhone(send.recipient_phone)} />
+          </div>
+        </section>
+
+        {/* 배송지 (col 3, row 2) — OrderListCard "배송지" 위치와 동일.
+            country_code 배지는 OrderListCard 와 동일하게 SectionHeader 우측에 표시 */}
+        <section className="col-start-3 row-start-2 border-r border-gray-100 text-xs">
+          <SectionHeader title="배송지">
             {isOverseas && (
               <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-semibold">
                 🌐 {send.country_code}
@@ -93,8 +130,6 @@ export default function PreparingSendCard({
             )}
           </SectionHeader>
           <div className="px-3 py-2 space-y-0.5">
-            <InfoRow label="수령인" value={send.recipient_name} />
-            <InfoRow label="연락처" value={formatPhone(send.recipient_phone)} />
             <InfoRow
               label="주소"
               value={
@@ -119,34 +154,8 @@ export default function PreparingSendCard({
           </div>
         </section>
 
-        {/* 묶인 주문 (아래) */}
-        <section className="border-r border-gray-100 text-xs">
-          <SectionHeader title="묶인 주문">
-            <span className="text-gray-400 text-xs font-normal normal-case tracking-normal">
-              ({send.related_orders.length}건)
-            </span>
-          </SectionHeader>
-          <div className="px-3 py-2">
-            {send.related_orders.length === 0 ? (
-              <span className="text-gray-300 text-[11px]">-</span>
-            ) : (
-              <div className="flex flex-wrap gap-1">
-                {send.related_orders.map((ro) => (
-                  <span
-                    key={ro.order_id}
-                    className="text-xs px-1.5 py-0.5 bg-sky-50 text-sky-700 rounded"
-                    title={`${ro.customer_name} · ${formatPhone(ro.customer_phone)}`}
-                  >
-                    #{ro.order_id} · {ro.customer_name}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* 품목 (row-span 2) */}
-        <section className="row-span-2 text-xs">
+        {/* 품목 (col 4, row 1-2) */}
+        <section className="col-start-4 row-start-1 row-span-2 text-xs">
           <SectionHeader title="품목">
             <span className="text-gray-400 text-xs font-normal normal-case tracking-normal">
               ({items.length}건)
