@@ -1,9 +1,9 @@
 """기출유/우체국 발송 엑셀 생성 서비스
 
 엑셀 3종 (모두 1 SendItem = 1행. DB 변경 없음):
-- 단품 엑셀 (`기출유_단품_YYYYMMDD.xlsx`) — 같은 Send 4컬럼(날짜/박스수/안전봉투/송장번호) 셀 병합, CJ대한통운
-- 정기구독 엑셀 A (`기출유_정기구독_YYYYMM.xlsx`) — W0/WB 2시트, 같은 배송지(우편번호+주소) 연속 정렬, 기출유우편
-- 정기구독 엑셀 B (`우체국_정기구독_YYYYMM.xlsx`) — HN/CL/CH/JN 1시트, 같은 배송지(우편번호+주소) 연속 정렬, 일반우편
+- 단품 엑셀 (`기출유_단품_YYYYMMDD.xlsx`) — 같은 Send 8컬럼(날짜/이름/연락처/우편번호/주소/박스수/안전봉투/송장번호) 셀 병합, CJ대한통운
+- 정기구독 엑셀 A (`기출유_정기구독_YYYYMM.xlsx`) — W0/WB 2시트, 같은 배송지(우편번호+주소) 연속 정렬, 기출유우편 (셀 병합 없음)
+- 정기구독 엑셀 B (`우체국_정기구독_YYYYMM.xlsx`) — HN/CL/CH/JN 1시트, 같은 배송지(우편번호+주소) 연속 정렬, 일반우편 (셀 병합 없음)
 
 상세 사양: `SHIPPING_REFACTOR_PLAN.md` §5
 """
@@ -310,8 +310,8 @@ def _set_column_widths(ws: Worksheet, widths: List[int]) -> None:
 
 
 # ── 엑셀 빌더 (단품) ──────────────────────────────────────────────────────────
-# SHIPPING_REFACTOR_PLAN.md §5.2: 1 SendItem = 1행, 같은 Send 행들의
-# 날짜/박스수/안전봉투/송장번호 4컬럼 셀 병합
+# 1 SendItem = 1행, 같은 Send 행들의 8컬럼 셀 병합
+# (날짜/이름/연락처/우편번호/주소 + 박스수/안전봉투/송장번호)
 
 _MONTHLY_HEADERS = [
     "날짜", "이름", "연락처", "우편번호", "주소",
@@ -320,8 +320,10 @@ _MONTHLY_HEADERS = [
 ]
 _MONTHLY_WIDTHS = [12, 12, 16, 10, 40, 14, 10, 8, 14, 8, 10, 16]
 
-# 같은 Send 행들에서 셀 병합 대상 컬럼 인덱스 (1-based: 날짜=1, 박스수=10, 안전봉투=11, 송장번호=12)
-_MONTHLY_MERGE_COLUMNS: Tuple[int, ...] = (1, 10, 11, 12)
+# 같은 Send 행들에서 셀 병합 대상 컬럼 인덱스 (1-based)
+# 날짜=1, 이름=2, 연락처=3, 우편번호=4, 주소=5, 박스수=10, 안전봉투=11, 송장번호=12
+# 발행호/상품명/수량/비고(6~9)는 SendItem 별로 다른 값이라 병합 대상에서 제외.
+_MONTHLY_MERGE_COLUMNS: Tuple[int, ...] = (1, 2, 3, 4, 5, 10, 11, 12)
 # 가운데 정렬 컬럼: 날짜·우편번호·발행호·상품명·수량·박스수·안전봉투·송장번호
 _MONTHLY_CENTER_COLUMNS: Tuple[int, ...] = (1, 4, 6, 7, 8, 10, 11, 12)
 
@@ -331,7 +333,11 @@ def build_monthly_excel(
     send_ids: List[int],
     send_date_yyyymmdd: str,
 ) -> Tuple[io.BytesIO, List[int], List[ExcelDownloadSkip]]:
-    """단품 엑셀 생성 (1 SendItem = 1행, 같은 Send 4컬럼 셀 병합).
+    """단품 엑셀 생성 (1 SendItem = 1행, 같은 Send 8컬럼 셀 병합).
+
+    같은 Send 안 SendItem 이 2건 이상이면 다음 8컬럼이 셀 병합됨:
+    - 날짜(1) / 이름(2) / 연락처(3) / 우편번호(4) / 주소(5) — 박스 단위 동일값
+    - 박스수(10) / 안전봉투(11) / 송장번호(12) — 박스 단위 입력값
 
     Returns:
         (BytesIO, 실제 엑셀에 포함된 send_ids, 스킵된 send_ids)
