@@ -49,6 +49,7 @@ class YearlyExcelCandidate(BaseModel):
     product_code: str
     prefix: str                     # W0/WB/HN/CL/CH/JN
     display_product_name: str       # 기본판/큰글자/꿀땅/저학년/고학년/청소년
+    issue: str                      # YYYYMM (SendItem.issue, 엑셀 발행호 컬럼)
     send_num: int
     final_subscribe_start_issue: str
     final_subscribe_end_issue: str

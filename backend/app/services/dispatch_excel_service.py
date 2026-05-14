@@ -239,6 +239,7 @@ def _yearly_candidates_core(
             product_code=send_item.product_code,
             prefix=prefix,
             display_product_name=PREFIX_TO_PRODUCT_NAME.get(prefix, send_item.product_name),
+            issue=send_item.issue or "",
             send_num=send_item.send_num,
             final_subscribe_start_issue=start,
             final_subscribe_end_issue=end,
@@ -443,9 +444,11 @@ def build_monthly_excel(
 # ── 엑셀 빌더 (정기구독 공통) ──────────────────────────────────────────────────
 
 _YEARLY_HEADERS = [
-    "이름", "연락처", "우편번호", "주소", "시작", "상품명", "구독기간", "수량", "비고",
+    "이름", "연락처", "우편번호", "주소", "시작", "구독기간", "발행호", "상품명", "수량", "비고",
 ]
-_YEARLY_WIDTHS = [12, 16, 10, 40, 12, 10, 24, 8, 14]
+_YEARLY_WIDTHS = [12, 16, 10, 40, 12, 24, 14, 10, 8, 14]
+# 가운데 정렬 컬럼: 우편번호(3) / 시작(5) / 구독기간(6) / 발행호(7) / 상품명(8) / 수량(9)
+_YEARLY_CENTER_COLUMNS: Tuple[int, ...] = (3, 5, 6, 7, 8, 9)
 
 
 def _write_yearly_sheet(
@@ -473,23 +476,21 @@ def _write_yearly_sheet(
 
     for row_idx, cand in enumerate(sorted_cands, start=2):
         row_values = [
-            cand.recipient_name,
-            cand.recipient_phone,
-            cand.postal_code,
-            cand.recipient_address,
-            cand.start_label,
-            cand.display_product_name,
-            cand.period_label,
-            cand.send_num,
-            "",    # 비고
+            cand.recipient_name,                          # 1 이름
+            cand.recipient_phone,                         # 2 연락처
+            cand.postal_code,                             # 3 우편번호
+            cand.recipient_address,                       # 4 주소
+            cand.start_label,                             # 5 시작 ("2026년 04월")
+            cand.period_label,                            # 6 구독기간 ("25년 04월호~26년 04월호")
+            format_issue_ko_short(cand.issue or ""),      # 7 발행호 ("26년 04월호", 단품과 동일 포맷)
+            cand.display_product_name,                    # 8 상품명
+            cand.send_num,                                # 9 수량
+            "",                                           # 10 비고
         ]
         for col_idx, value in enumerate(row_values, start=1):
             cell = ws.cell(row=row_idx, column=col_idx, value=value)
             cell.border = _THIN_BORDER
-            if col_idx in (3, 5, 6, 7, 8):  # 우편번호/시작/상품명/구독기간/수량 가운데
-                cell.alignment = _CENTER_ALIGN
-            else:
-                cell.alignment = _LEFT_ALIGN
+            cell.alignment = _CENTER_ALIGN if col_idx in _YEARLY_CENTER_COLUMNS else _LEFT_ALIGN
 
     _set_column_widths(ws, _YEARLY_WIDTHS)
 
@@ -534,6 +535,7 @@ def _fetch_yearly_candidates_by_send_ids(
             product_code=send_item.product_code,
             prefix=prefix,
             display_product_name=PREFIX_TO_PRODUCT_NAME.get(prefix, send_item.product_name),
+            issue=send_item.issue or "",
             send_num=send_item.send_num,
             final_subscribe_start_issue=start,
             final_subscribe_end_issue=end,
