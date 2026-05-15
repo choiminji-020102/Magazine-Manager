@@ -238,6 +238,7 @@ def download_yearly_gichulyu_excel(
     output, included_ids, skipped = dispatch_excel_service.build_yearly_gichulyu_excel(
         db=db,
         send_ids=req.send_ids,
+        issue=req.issue,
     )
 
     if not included_ids:
@@ -302,6 +303,7 @@ def download_yearly_postoffice_excel(
     output, included_ids, skipped = dispatch_excel_service.build_yearly_postoffice_excel(
         db=db,
         send_ids=req.send_ids,
+        issue=req.issue,
     )
 
     if not included_ids:

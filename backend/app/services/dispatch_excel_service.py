@@ -499,8 +499,14 @@ def _fetch_yearly_candidates_by_send_ids(
     db: Session,
     send_ids: List[int],
     allowed_prefixes: Tuple[str, ...],
+    issue: str,
 ) -> Tuple[List[YearlyExcelCandidate], List[ExcelDownloadSkip]]:
     """send_ids에 해당하는 정기구독 SendItem들을 YearlyExcelCandidate 형태로 조회
+
+    issue: 후보 조회 단계와 동일한 `SendItem.issue == issue` 가드를 다운로드 시점에도
+    재적용 (defense in depth). 정상 UI 흐름에서는 후보 조회가 이미 같은 issue 로 거른
+    send_ids 만 넘어오지만, 직접 API 호출 시 send_ids/issue 미스매치를 차단해 파일명과
+    내용의 호 불일치를 방지.
 
     Returns:
         (후보 목록, 스킵된 send_id 목록)
@@ -512,6 +518,7 @@ def _fetch_yearly_candidates_by_send_ids(
         .join(OrderItem, OrderItem.order_item_id == SendItem.order_item_id)
         .filter(Send.send_id.in_(send_ids))
         .filter(*_base_filter())
+        .filter(SendItem.issue == issue)
         .filter(OrderItem.product_kind == "YEARLY")
     )
     rows = _exclude_active_vip_from_query(yearly_query).all()
@@ -549,7 +556,7 @@ def _fetch_yearly_candidates_by_send_ids(
         if sid not in included_send_ids:
             skipped.append(ExcelDownloadSkip(
                 send_id=sid,
-                reason="대상 조건 불일치(상태/취소/해외/상품종류/prefix)",
+                reason="대상 조건 불일치(상태/취소/해외/상품종류/prefix/호)",
             ))
 
     return candidates, skipped
@@ -560,12 +567,14 @@ def _fetch_yearly_candidates_by_send_ids(
 def build_yearly_gichulyu_excel(
     db: Session,
     send_ids: List[int],
+    issue: str,
 ) -> Tuple[io.BytesIO, List[int], List[ExcelDownloadSkip]]:
     """정기구독 엑셀 A 생성 (시트 2개: 기본판 / 큰글자)"""
     candidates, skipped = _fetch_yearly_candidates_by_send_ids(
         db=db,
         send_ids=send_ids,
         allowed_prefixes=GICHULYU_YEARLY_PREFIXES,
+        issue=issue,
     )
 
     wb = openpyxl.Workbook()
@@ -593,12 +602,14 @@ def build_yearly_gichulyu_excel(
 def build_yearly_postoffice_excel(
     db: Session,
     send_ids: List[int],
+    issue: str,
 ) -> Tuple[io.BytesIO, List[int], List[ExcelDownloadSkip]]:
     """정기구독 엑셀 B 생성 (시트 1개, 4종 혼합)"""
     candidates, skipped = _fetch_yearly_candidates_by_send_ids(
         db=db,
         send_ids=send_ids,
         allowed_prefixes=POSTOFFICE_YEARLY_PREFIXES,
+        issue=issue,
     )
 
     wb = openpyxl.Workbook()
