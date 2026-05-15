@@ -18,6 +18,7 @@ import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { dispatchExcelApi } from "@/api/dispatchExcelApi";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
+import { formatIssueShort } from "@/utils/format";
 import type { MonthlyExcelCandidate } from "@/types/dispatchExcel";
 
 interface MonthlyExcelDialogProps {
@@ -54,21 +55,54 @@ const columns: ColumnDef<MonthlyExcelCandidate>[] = [
     ),
   },
   {
-    key: "products",
-    header: "상품 / 수량",
+    key: "product",
+    header: "상품",
     cell: (r) => (
-      <div className="flex flex-wrap gap-1">
+      <div className="space-y-0.5">
         {r.items.map((it) => (
-          <span
-            key={it.send_item_id}
-            className="text-xs px-1.5 py-0.5 bg-sky-50 text-sky-700 rounded"
-          >
-            {it.display_product_name} × {it.send_num}
-          </span>
+          <div key={it.send_item_id} className="flex items-center h-6">
+            <span className="text-xs px-1.5 py-0.5 bg-sky-50 text-sky-700 rounded">
+              {it.display_product_name}
+            </span>
+          </div>
         ))}
       </div>
     ),
-    width: "w-64",
+    width: "w-28",
+  },
+  {
+    key: "issue",
+    header: "발행호",
+    cell: (r) => (
+      <div className="space-y-0.5">
+        {r.items.map((it) => (
+          <div
+            key={it.send_item_id}
+            className="flex items-center h-6 text-sm font-medium text-gray-700"
+          >
+            {formatIssueShort(it.issue)}
+          </div>
+        ))}
+      </div>
+    ),
+    width: "w-28",
+  },
+  {
+    key: "num",
+    header: "수량",
+    cell: (r) => (
+      <div className="space-y-0.5">
+        {r.items.map((it) => (
+          <div
+            key={it.send_item_id}
+            className="flex items-center h-6 text-sm font-medium"
+          >
+            {it.send_num}
+          </div>
+        ))}
+      </div>
+    ),
+    width: "w-16",
   },
 ];
 
