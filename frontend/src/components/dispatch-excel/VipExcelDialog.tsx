@@ -65,7 +65,7 @@ const columns: ColumnDef<VipExcelCandidate>[] = [
   },
   {
     key: "product",
-    header: "상품 (정기/단품)",
+    header: "상품",
     cell: (r) => (
       <div className="space-y-0.5">
         {r.items.map((it) => (
@@ -84,7 +84,7 @@ const columns: ColumnDef<VipExcelCandidate>[] = [
         ))}
       </div>
     ),
-    width: "w-36",
+    width: "w-28",
   },
   {
     key: "issue",

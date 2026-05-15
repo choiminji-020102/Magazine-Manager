@@ -86,7 +86,7 @@ const columns: ColumnDef<YearlyExcelCandidate>[] = [
         {r.display_product_name}
       </span>
     ),
-    width: "w-24",
+    width: "w-28",
   },
   {
     key: "issue",
