@@ -96,7 +96,7 @@ export const dispatchExcelApi = {
 
   getVipCandidates: (
     slot_number: number,
-    params: { issue: string; postal_code?: string | null },
+    params: { postal_code?: string | null },
   ) => {
     return api.get<ResponseModel<VipExcelCandidatesResponse>>(
       `/dispatches/excel/vip/${slot_number}/candidates`,

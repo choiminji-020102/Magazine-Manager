@@ -133,13 +133,11 @@ export default function VipExcelDialog({
   slotLabel,
   onSuccess,
 }: VipExcelDialogProps) {
-  const [issue, setIssue] = useState("");
-  const [issueError, setIssueError] = useState(false);
+  // VIP 엑셀은 단품 엑셀과 동일하게 호 무관 — 발송 생성 단계에서 정기는 이미 issue 검증됨
   const [postalCode, setPostalCode] = useState("");
   const [sendDate, setSendDate] = useState(todayYYYYMMDD());
   const [searchTriggered, setSearchTriggered] = useState(false);
-  const [searchParams, setSearchParams] = useState<{ issue: string; postal_code: string | null }>({
-    issue: "",
+  const [searchParams, setSearchParams] = useState<{ postal_code: string | null }>({
     postal_code: null,
   });
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
@@ -149,26 +147,23 @@ export default function VipExcelDialog({
   // 다이얼로그 오픈 시 입력 초기화
   useEffect(() => {
     if (open) {
-      setIssue("");
-      setIssueError(false);
       setPostalCode("");
       setSendDate(todayYYYYMMDD());
       setSearchTriggered(false);
-      setSearchParams({ issue: "", postal_code: null });
+      setSearchParams({ postal_code: null });
       setSelectedIds(new Set());
     }
   }, [open]);
 
   const { data, isFetching } = useQuery({
-    queryKey: ["vip-excel-candidates", slotNumber, searchParams.issue, searchParams.postal_code],
+    queryKey: ["vip-excel-candidates", slotNumber, searchParams.postal_code],
     queryFn: () =>
       dispatchExcelApi
         .getVipCandidates(slotNumber, {
-          issue: searchParams.issue,
           postal_code: searchParams.postal_code,
         })
         .then((r) => r.data),
-    enabled: open && searchTriggered && searchParams.issue.length === 6,
+    enabled: open && searchTriggered,
   });
 
   const candidates: VipExcelCandidate[] = data?.data?.candidates ?? [];
@@ -181,16 +176,11 @@ export default function VipExcelDialog({
   }, [data]);
 
   const handleSearch = () => {
-    if (!/^\d{6}$/.test(issue)) {
-      setIssueError(true);
-      toast.error("발송 호를 YYYYMM 6자리로 입력해주세요.");
-      return;
-    }
     if (!/^\d{8}$/.test(sendDate)) {
       toast.error("발송날짜를 YYYYMMDD 8자리로 입력해주세요.");
       return;
     }
-    setSearchParams({ issue, postal_code: postalCode.trim() || null });
+    setSearchParams({ postal_code: postalCode.trim() || null });
     setSearchTriggered(true);
   };
 
@@ -245,27 +235,8 @@ export default function VipExcelDialog({
             </p>
           </DialogHeader>
 
-          {/* 필터 영역 */}
+          {/* 필터 영역 (단품 엑셀과 동일 — 호 무관) */}
           <div className="flex flex-wrap items-end gap-3 pb-3 border-b border-gray-100">
-            {/* PLAN §10.2 / §10.6 — VIP 박스에 정기 SendItem 섞일 수 있어 운영 일관성 차원 필수 */}
-            <div className="flex flex-col gap-1">
-              <Label className={`text-xs ${issueError ? "text-red-500" : "text-gray-500"}`}>
-                정기구독 발송 호 (YYYYMM) <span className="text-red-500 ml-0.5">*</span>
-              </Label>
-              <Input
-                className={`w-32 font-mono ${issueError ? "border-red-500" : ""}`}
-                placeholder="YYYYMM"
-                value={issue}
-                maxLength={6}
-                onChange={(e) => {
-                  setIssue(e.target.value.replace(/\D/g, ""));
-                  setIssueError(false);
-                }}
-              />
-              {issueError && (
-                <p className="text-xs text-red-500 mt-1">발송 호를 6자리로 입력해주세요.</p>
-              )}
-            </div>
             <div className="flex flex-col gap-1">
               <Label className="text-xs text-gray-500">우편번호 필터 (선택)</Label>
               <Input

@@ -686,7 +686,6 @@ def _assert_slot_active(slot_number: int):
 def get_vip_candidates(
     db: Session,
     slot_number: int,
-    issue: str,
     postal_code: Optional[str] = None,
 ) -> List[VipExcelCandidate]:
     """VIP 엑셀 후보 조회 (Send 단위, SendItem 집계 포함).
@@ -695,8 +694,9 @@ def get_vip_candidates(
     - 대상: PREPARING + Address.vip{N}=true + cancelled_at NULL + product_kind 무관 (정기+단품 통합)
     - 🚫 country_code 필터 절대 사용 안 함 (VIP 해외 포함)
     - prefix 가 PREFIX_TO_PRODUCT_NAME 6종에 없는 SendItem 은 스킵 (단품과 동일)
-    - issue 파라미터: 정기 SendItem 의 발송 호 컬럼 표시용. 후보는 issue 별 분리 안 함
-      (한 박스에 issue 다른 정기·단품 공존 가능)
+    - 호 필터 없음 — 단품 엑셀과 동일 정책. 발송 생성 단계에서 정기는 이미 issue 검증을
+      거쳐 박스에 들어왔으므로, 엑셀 출력 단계에서 다시 호로 거르지 않는다.
+      박스 안 SendItem 은 모두 출력 (정기 SendItem 의 issue 는 SendItem.issue 그대로 표시).
     """
     _assert_slot_active(slot_number)
     vip_col = getattr(Address, f"vip{slot_number}")
@@ -763,6 +763,8 @@ def build_vip_excel(
     - 시트명 항상 f"vip{N}" (Excel 시트명 31자/특수문자 제약 회피, 단순화)
     - 비고 컬럼: SendItem→OrderItem.product_kind 따라 "정기"/"단품" 자동 채움
     - 단품과 달리 country_code='KR' 강제 없음 (해외 포함)
+    - 호 필터 없음 — 단품 엑셀과 동일 정책 (후보 조회와 일관). 발송 생성 단계에서 정기는
+      이미 issue 검증을 거쳐 박스에 들어왔으므로 엑셀 출력 단계에서 재검증 안 함.
     """
     _assert_slot_active(slot_number)
     date_label = format_send_date_label(send_date_yyyymmdd)

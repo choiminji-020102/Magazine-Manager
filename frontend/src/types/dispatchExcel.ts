@@ -102,7 +102,6 @@ export interface VipExcelCandidate {
 export interface VipExcelCandidatesResponse {
   slot_number: number;
   slot_label: string | null;
-  issue: string;
   total: number;
   candidates: VipExcelCandidate[];
 }

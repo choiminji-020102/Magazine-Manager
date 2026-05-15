@@ -151,7 +151,6 @@ class VipExcelCandidate(BaseModel):
 class VipExcelCandidatesResponse(BaseModel):
     slot_number: int
     slot_label: Optional[str] = None
-    issue: str
     total: int
     candidates: List[VipExcelCandidate]
 
@@ -159,18 +158,20 @@ class VipExcelCandidatesResponse(BaseModel):
 # ── 후보 조회 쿼리 (VIP) ──────────────────────────────────────────────────────
 
 class VipCandidatesQuery(BaseModel):
-    """VIP 후보 조회 쿼리 — issue 필수 (정기 SendItem 처리용)."""
-    issue: str
+    """VIP 후보 조회 쿼리 — 호 무관 (단품 엑셀과 동일 정책).
+
+    VIP 박스는 (postal_code, recipient_address) 그룹화 결과로 정기·단품이 섞일 수 있고,
+    엑셀에는 박스 안 SendItem 을 그대로 출력. 발송 생성 단계에서 이미 정기는 issue 검증을
+    거쳐 박스에 들어왔으므로, 엑셀 출력 단계에서 다시 호로 거르지 않는다.
+    """
     postal_code: Optional[str] = None
 
     @classmethod
     def as_query_params(
         cls,
-        # YYYYMM — month 부분 01~12 강제
-        issue: str = Query(..., pattern=r"^\d{4}(0[1-9]|1[0-2])$", description="발송 호 (YYYYMM)"),
         postal_code: Optional[str] = Query(None, description="우편번호 정확 일치"),
     ):
-        return cls(issue=issue, postal_code=postal_code)
+        return cls(postal_code=postal_code)
 
 
 # ── 다운로드 요청 (VIP) ───────────────────────────────────────────────────────

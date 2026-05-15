@@ -361,12 +361,12 @@ def get_vip_excel_candidates(
     """VIP 엑셀 후보 조회. 슬롯 N 비활성 → 400.
 
     country_code 필터 없음 (해외 포함). 한 박스에 정기+단품 SendItem 공존 가능.
+    호 필터 없음 — 단품 엑셀과 동일 정책 (발송 생성 단계에서 정기는 이미 issue 검증됨).
     """
     slot = dispatch_excel_service._assert_slot_active(slot_number)
     candidates = dispatch_excel_service.get_vip_candidates(
         db=db,
         slot_number=slot_number,
-        issue=query.issue,
         postal_code=query.postal_code,
     )
     return ResponseModel(
@@ -374,7 +374,6 @@ def get_vip_excel_candidates(
         data=VipExcelCandidatesResponse(
             slot_number=slot_number,
             slot_label=slot.label,
-            issue=query.issue,
             total=len(candidates),
             candidates=candidates,
         ),
