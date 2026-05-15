@@ -35,12 +35,6 @@ function todayYYYYMMDD(): string {
 
 const columns: ColumnDef<VipExcelCandidate>[] = [
   {
-    key: "send_id",
-    header: "발송ID",
-    cell: (r) => <span className="font-mono text-xs text-gray-400">#{r.send_id}</span>,
-    width: "w-20",
-  },
-  {
     key: "recipient",
     header: "수령인",
     cell: (r) => (
