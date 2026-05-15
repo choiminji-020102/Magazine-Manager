@@ -63,7 +63,7 @@ const columns: ColumnDef<MonthlyExcelCandidate>[] = [
             key={it.send_item_id}
             className="text-xs px-1.5 py-0.5 bg-sky-50 text-sky-700 rounded"
           >
-            {it.column_label} × {it.send_num}
+            {it.display_product_name} × {it.send_num}
           </span>
         ))}
       </div>

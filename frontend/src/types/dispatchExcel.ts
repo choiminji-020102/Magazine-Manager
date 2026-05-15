@@ -6,14 +6,14 @@ export interface MonthlyExcelCandidateItem {
   send_item_id: number;
   product_code: string;
   product_name: string;
-  prefix: string;          // W0/WB/HN/CL/CH/JN
-  column_label: string;    // 말씀함께/큰글자/꿀땅/저학년/고학년/청소년
+  prefix: string;                     // W0/WB/HN/CL/CH/JN
+  display_product_name: string;       // 기본판/큰글자/꿀땅/저학년/고학년/청소년
+  issue: string;                      // YYYYMM (엑셀 발행호 컬럼)
   send_num: number;
 }
 
 export interface MonthlyExcelCandidate {
   send_id: number;
-  order_id: number;
   recipient_name: string;
   recipient_phone: string;
   postal_code: string;
@@ -23,7 +23,6 @@ export interface MonthlyExcelCandidate {
 }
 
 export interface MonthlyExcelCandidatesResponse {
-  issue: string;
   total: number;
   candidates: MonthlyExcelCandidate[];
 }
@@ -33,7 +32,6 @@ export interface MonthlyExcelCandidatesResponse {
 export interface YearlyExcelCandidate {
   send_id: number;
   send_item_id: number;
-  order_id: number;
   order_item_id: number;
   recipient_name: string;
   recipient_phone: string;
