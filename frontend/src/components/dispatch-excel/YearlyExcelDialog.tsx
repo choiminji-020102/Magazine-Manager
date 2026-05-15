@@ -87,6 +87,8 @@ const columns: ColumnDef<YearlyExcelCandidate>[] = [
       </span>
     ),
     width: "w-28",
+    className: "text-center",
+    headerClassName: "text-center",
   },
   {
     key: "issue",
@@ -106,6 +108,8 @@ const columns: ColumnDef<YearlyExcelCandidate>[] = [
     header: "수량",
     cell: (r) => <span className="text-sm font-medium">{r.send_num}</span>,
     width: "w-16",
+    className: "text-center",
+    headerClassName: "text-center",
   },
 ];
 

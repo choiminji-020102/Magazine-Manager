@@ -60,7 +60,7 @@ const columns: ColumnDef<MonthlyExcelCandidate>[] = [
     cell: (r) => (
       <div className="space-y-0.5">
         {r.items.map((it) => (
-          <div key={it.send_item_id} className="flex items-center h-6">
+          <div key={it.send_item_id} className="flex items-center justify-center h-6">
             <span className="text-xs px-1.5 py-0.5 bg-sky-50 text-sky-700 rounded">
               {it.display_product_name}
             </span>
@@ -69,6 +69,8 @@ const columns: ColumnDef<MonthlyExcelCandidate>[] = [
       </div>
     ),
     width: "w-28",
+    className: "text-center",
+    headerClassName: "text-center",
   },
   {
     key: "issue",
@@ -95,7 +97,7 @@ const columns: ColumnDef<MonthlyExcelCandidate>[] = [
         {r.items.map((it) => (
           <div
             key={it.send_item_id}
-            className="flex items-center h-6 text-sm font-medium"
+            className="flex items-center justify-center h-6 text-sm font-medium"
           >
             {it.send_num}
           </div>
@@ -103,6 +105,8 @@ const columns: ColumnDef<MonthlyExcelCandidate>[] = [
       </div>
     ),
     width: "w-16",
+    className: "text-center",
+    headerClassName: "text-center",
   },
 ];
 
