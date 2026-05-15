@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Pagination } from "@/components/common/Pagination";
-import { Package } from "lucide-react";
+import { Package, CheckSquare, Square } from "lucide-react";
 import RegeneratePreparingConfirmModal from "@/components/dispatch/RegeneratePreparingConfirmModal";
 import AddToPreparingYearlyModal from "@/components/dispatch/AddToPreparingYearlyModal";
 import TransitionToDeliveredModal from "@/components/dispatch/TransitionToDeliveredModal";
@@ -234,14 +234,19 @@ export default function PreparingSendListPage() {
             </Button>
           )}
           {/* 페이지 전체 선택 토글 — 클릭 시 현재 페이지 박스만 토글 (다른 페이지 선택 보존) */}
-          <button
-            type="button"
-            className="text-xs text-gray-500 hover:text-gray-700 underline-offset-2 hover:underline"
+          <Button
+            size="sm"
+            variant="outline"
             onClick={toggleAllOnPage}
             disabled={sends.length === 0}
           >
-            {allSelected ? "이 페이지 해제" : "이 페이지 선택"} ({selectedIds.size}/{sends.length})
-          </button>
+            {allSelected ? (
+              <CheckSquare className="h-3.5 w-3.5" />
+            ) : (
+              <Square className="h-3.5 w-3.5" />
+            )}
+            {allSelected ? "페이지 해제" : "페이지 선택"} ({selectedIds.size}/{sends.length})
+          </Button>
           <Button
             size="sm"
             disabled={selectedIds.size === 0}
