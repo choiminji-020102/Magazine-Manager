@@ -42,6 +42,7 @@ export interface YearlyExcelCandidate {
   product_code: string;
   prefix: string;                     // W0/WB/HN/CL/CH/JN
   display_product_name: string;       // 기본판/큰글자/꿀땅/저학년/고학년/청소년
+  issue: string;                      // YYYYMM (SendItem.issue, 엑셀 발행호 컬럼)
   send_num: number;
   final_subscribe_start_issue: string;
   final_subscribe_end_issue: string;

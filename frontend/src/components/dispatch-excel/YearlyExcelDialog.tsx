@@ -19,6 +19,7 @@ import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { dispatchExcelApi } from "@/api/dispatchExcelApi";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
+import { formatIssueShort } from "@/utils/format";
 import type { YearlyExcelCandidate } from "@/types/dispatchExcel";
 
 type YearlyExcelVariant = "gichulyu" | "postoffice";
@@ -96,15 +97,20 @@ const columns: ColumnDef<YearlyExcelCandidate>[] = [
     width: "w-24",
   },
   {
+    key: "issue",
+    header: "발행호",
+    cell: (r) => (
+      <span className="text-sm font-medium text-gray-700">
+        {formatIssueShort(r.issue)}
+      </span>
+    ),
+    width: "w-24",
+  },
+  {
     key: "period",
     header: "구독기간",
-    cell: (r) => (
-      <div>
-        <div className="text-xs text-gray-500">시작: {r.start_label}</div>
-        <div className="text-sm">{r.period_label}</div>
-      </div>
-    ),
-    width: "w-52",
+    cell: (r) => <span className="text-sm">{r.period_label}</span>,
+    width: "w-44",
   },
   {
     key: "num",
