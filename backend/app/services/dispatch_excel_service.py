@@ -444,10 +444,10 @@ def build_monthly_excel(
 # ── 엑셀 빌더 (정기구독 공통) ──────────────────────────────────────────────────
 
 _YEARLY_HEADERS = [
-    "이름", "연락처", "우편번호", "주소", "시작", "구독기간", "발행호", "상품명", "수량", "비고",
+    "이름", "연락처", "우편번호", "주소", "시작", "구독기간", "상품명", "발행호", "수량", "비고",
 ]
-_YEARLY_WIDTHS = [12, 16, 10, 40, 12, 24, 14, 10, 8, 14]
-# 가운데 정렬 컬럼: 우편번호(3) / 시작(5) / 구독기간(6) / 발행호(7) / 상품명(8) / 수량(9)
+_YEARLY_WIDTHS = [12, 16, 10, 40, 12, 24, 10, 14, 8, 14]
+# 가운데 정렬 컬럼: 우편번호(3) / 시작(5) / 구독기간(6) / 상품명(7) / 발행호(8) / 수량(9)
 _YEARLY_CENTER_COLUMNS: Tuple[int, ...] = (3, 5, 6, 7, 8, 9)
 
 
@@ -482,8 +482,8 @@ def _write_yearly_sheet(
             cand.recipient_address,                       # 4 주소
             cand.start_label,                             # 5 시작 ("2026년 04월")
             cand.period_label,                            # 6 구독기간 ("25년 04월호~26년 04월호")
-            format_issue_ko_short(cand.issue or ""),      # 7 발행호 ("26년 04월호", 단품과 동일 포맷)
-            cand.display_product_name,                    # 8 상품명
+            cand.display_product_name,                    # 7 상품명
+            format_issue_ko_short(cand.issue or ""),      # 8 발행호 ("26년 04월호", 단품과 동일 포맷)
             cand.send_num,                                # 9 수량
             "",                                           # 10 비고
         ]
