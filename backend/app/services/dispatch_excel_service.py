@@ -316,16 +316,16 @@ def _set_column_widths(ws: Worksheet, widths: List[int]) -> None:
 
 _MONTHLY_HEADERS = [
     "날짜", "이름", "연락처", "우편번호", "주소",
-    "발행호", "상품명", "수량", "비고",
+    "상품명", "발행호", "수량", "비고",
     "박스수", "안전봉투", "송장번호",
 ]
-_MONTHLY_WIDTHS = [12, 12, 16, 10, 40, 14, 10, 8, 14, 8, 10, 16]
+_MONTHLY_WIDTHS = [12, 12, 16, 10, 40, 10, 14, 8, 14, 8, 10, 16]
 
 # 같은 Send 행들에서 셀 병합 대상 컬럼 인덱스 (1-based)
 # 날짜=1, 이름=2, 연락처=3, 우편번호=4, 주소=5, 박스수=10, 안전봉투=11, 송장번호=12
-# 발행호/상품명/수량/비고(6~9)는 SendItem 별로 다른 값이라 병합 대상에서 제외.
+# 상품명/발행호/수량/비고(6~9)는 SendItem 별로 다른 값이라 병합 대상에서 제외.
 _MONTHLY_MERGE_COLUMNS: Tuple[int, ...] = (1, 2, 3, 4, 5, 10, 11, 12)
-# 가운데 정렬 컬럼: 날짜·우편번호·발행호·상품명·수량·박스수·안전봉투·송장번호
+# 가운데 정렬 컬럼: 날짜·우편번호·상품명·발행호·수량·박스수·안전봉투·송장번호
 _MONTHLY_CENTER_COLUMNS: Tuple[int, ...] = (1, 4, 6, 7, 8, 10, 11, 12)
 
 
@@ -410,8 +410,8 @@ def build_monthly_excel(
                 send.recipient_phone or "",                  # 3 연락처
                 send.postal_code or "",                      # 4 우편번호
                 send.recipient_address or "",                # 5 주소
-                format_issue_ko_short(si.issue or ""),       # 6 발행호
-                PREFIX_TO_PRODUCT_NAME[prefix],              # 7 상품명
+                PREFIX_TO_PRODUCT_NAME[prefix],              # 6 상품명
+                format_issue_ko_short(si.issue or ""),       # 7 발행호
                 si.send_num,                                 # 8 수량
                 "",                                          # 9 비고
                 "",                                          # 10 박스수 (병합)
@@ -834,8 +834,8 @@ def build_vip_excel(
                 send.recipient_phone or "",                  # 3 연락처
                 send.postal_code or "",                      # 4 우편번호
                 send.recipient_address or "",                # 5 주소
-                format_issue_ko_short(si.issue or ""),       # 6 발행호
-                PREFIX_TO_PRODUCT_NAME[prefix],              # 7 상품명
+                PREFIX_TO_PRODUCT_NAME[prefix],              # 6 상품명
+                format_issue_ko_short(si.issue or ""),       # 7 발행호
                 si.send_num,                                 # 8 수량
                 _VIP_REMARK_BY_KIND.get(pk_by_si_id.get(si.send_item_id, ""), ""),  # 9 비고
                 "",                                          # 10 박스수 (병합)
