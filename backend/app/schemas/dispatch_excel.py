@@ -104,7 +104,12 @@ class YearlyCandidatesQuery(BaseModel):
 class MonthlyExcelDownloadRequest(BaseModel):
     """단품 엑셀 다운로드 요청"""
     send_ids: List[int] = Field(..., min_length=1)
-    send_date: str = Field(..., description="YYYYMMDD (관리자 입력 발송날짜)")
+    # YYYYMMDD — month 01~12 + day 01~31 강제 (런타임 format_send_date_label 과 일관)
+    send_date: str = Field(
+        ...,
+        pattern=r"^\d{4}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$",
+        description="YYYYMMDD (관리자 입력 발송날짜)",
+    )
 
 
 class YearlyExcelDownloadRequest(BaseModel):
@@ -179,7 +184,12 @@ class VipCandidatesQuery(BaseModel):
 class VipExcelDownloadRequest(BaseModel):
     """VIP 엑셀 다운로드 요청 (단품 패턴 일관 — send_ids + send_date)."""
     send_ids: List[int] = Field(..., min_length=1)
-    send_date: str = Field(..., description="YYYYMMDD (관리자 입력 발송날짜)")
+    # YYYYMMDD — month 01~12 + day 01~31 강제 (MonthlyExcelDownloadRequest 와 동일)
+    send_date: str = Field(
+        ...,
+        pattern=r"^\d{4}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$",
+        description="YYYYMMDD (관리자 입력 발송날짜)",
+    )
 
 
 # ── 다운로드 후 상태 전환 결과 (활동 로그 details용) ──────────────────────────
