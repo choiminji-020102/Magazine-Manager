@@ -92,16 +92,13 @@ const columns: ColumnDef<YearlyExcelCandidate>[] = [
     key: "issue",
     header: "발행호",
     cell: (r) => (
-      <span className="text-sm font-medium text-gray-700">
-        {formatIssueShort(r.issue)}
-      </span>
+      <div>
+        <div className="text-sm font-medium text-gray-700">
+          {formatIssueShort(r.issue)}
+        </div>
+        <div className="text-xs text-gray-500">{r.period_label}</div>
+      </div>
     ),
-    width: "w-24",
-  },
-  {
-    key: "period",
-    header: "구독기간",
-    cell: (r) => <span className="text-sm">{r.period_label}</span>,
     width: "w-44",
   },
   {
