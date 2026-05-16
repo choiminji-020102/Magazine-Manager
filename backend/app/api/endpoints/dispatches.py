@@ -251,7 +251,7 @@ def transition_to_delivered_endpoint(
     """선택된 PREPARING Send들을 DELIVERED로 일괄 전환 ("보냈다 = 끝", SHIPPING 단계 없음).
 
     send_method, courier_company는 항상 필수.
-    tracking_no는 박스(Send)마다 개별 입력 (모두 필수).
+    tracking_no는 박스(Send)마다 개별 입력 (선택 — 비워두면 NULL 저장. 우편·자체배송 등 운송장 없는 케이스 허용).
     한 건이라도 PREPARING이 아니면 전체 거부 (all-or-nothing).
     """
     sends_input = [(s.send_id, s.tracking_no) for s in req.sends]

@@ -78,17 +78,31 @@ class TransitionSendItem(BaseModel):
     """[배송완료 처리] 시 Send 1개에 대한 운송장 입력.
 
     tracking_no는 입력에서 숫자만 추출해 저장 (공백·하이픈·문자 자동 제거).
-    추출 결과가 비면 422 (운영자 실수로 인한 빈 운송장 저장 방지).
-    SendTrackingUpdate / SendResendRequest와 동일 정책.
+    None / 빈 문자열은 옵셔널로 허용 (우편·자체배송 등 운송장 없는 케이스).
+    문자만 있고 숫자가 0개인 입력은 422 (운영자 오타 방지).
+
+    cf. SendTrackingUpdate / SendResendRequest 는 DELIVERED 이후 수정·재발송 흐름이라
+    빈 문자열 입력도 422 로 거부 (이미 발송된 박스의 운송장을 실수로 비우는 것 차단).
+    배송완료 처리(이 스키마)는 PREPARING → DELIVERED 최초 전환이며 우편 케이스 자체가
+    운송장 없음이 정상이므로 빈 입력을 None 으로 통과시키는 점이 다르다.
     """
     send_id: int
-    tracking_no: str = Field(..., max_length=50, description="운송장 번호 (필수, 숫자만 추출되어 저장)")
+    tracking_no: Optional[str] = Field(
+        None,
+        max_length=50,
+        description="운송장 번호 (선택, 숫자만 추출되어 저장. 비워두면 NULL 저장)",
+    )
 
     @field_validator("tracking_no", mode="before")
     @classmethod
     def _extract_digits(cls, v):
+        if v is None:
+            return None
         if isinstance(v, str):
-            digits = re.sub(r"\D", "", v)
+            stripped = v.strip()
+            if stripped == "":
+                return None
+            digits = re.sub(r"\D", "", stripped)
             if digits == "":
                 raise ValueError("tracking_no에서 숫자를 찾을 수 없습니다. 운송장 번호를 확인해주세요.")
             return digits
@@ -100,7 +114,7 @@ class TransitionToDeliveredRequest(BaseModel):
 
     여러 PREPARING Send를 한 번에 DELIVERED로 전환 ("보냈다 = 끝", SHIPPING 단계 없음).
     send_method/courier_company는 모든 Send에 공통 적용.
-    tracking_no는 박스(Send)마다 개별 입력 (모두 필수).
+    tracking_no는 박스(Send)마다 개별 입력 (선택 — courier_company 무관, 비워두면 NULL).
     """
     sends: List[TransitionSendItem] = Field(..., min_length=1, description="전환할 Send 배열")
     send_method: Literal["기출유우편", "기출유택배", "일반우편", "찾아가기"] = Field(..., description="발송 방법")

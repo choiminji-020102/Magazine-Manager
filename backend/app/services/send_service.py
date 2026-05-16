@@ -186,11 +186,11 @@ def transition_send_to_delivered(
     send: Send,
     send_method: str,
     courier_company: str,
-    tracking_no: str,
+    tracking_no: Optional[str],
 ) -> Send:
     """단일 PREPARING Send를 DELIVERED로 전환 ("보냈다 = 끝", SHIPPING 단계 없음).
 
-    - send_method, courier_company, tracking_no 모두 필수
+    - send_method, courier_company 필수. tracking_no 선택 (None 허용 — 우편·자체배송 등 운송장 없는 케이스)
     - delivered_at = now_kst()
     - 각 SendItem 마다 OrderItem.product_kind 로 판정:
       - YEARLY OrderItem: last_send_issue 를 SendItem.issue 기준 max 로 갱신
@@ -204,10 +204,10 @@ def transition_send_to_delivered(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"PREPARING 상태에서만 배송완료로 전환 가능합니다. 현재: {send.send_status}",
         )
-    if not send_method or not courier_company or not tracking_no:
+    if not send_method or not courier_company:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="send_method, courier_company, tracking_no 모두 필수입니다.",
+            detail="send_method, courier_company는 필수입니다.",
         )
 
     send.send_status = "DELIVERED"
@@ -243,13 +243,13 @@ def transition_send_to_delivered(
 
 def transition_sends_to_delivered_batch(
     db: Session,
-    sends_input: List[Tuple[int, str]],
+    sends_input: List[Tuple[int, Optional[str]]],
     send_method: str,
     courier_company: str,
 ) -> int:
     """선택된 PREPARING Send들을 일괄 DELIVERED 전환. 전환된 Send 수 반환.
 
-    sends_input: (send_id, tracking_no) 페어 리스트. 박스마다 운송장 다를 수 있음. tracking_no 모두 필수.
+    sends_input: (send_id, tracking_no) 페어 리스트. 박스마다 운송장 다를 수 있음. tracking_no 선택 (None 허용).
     send_method, courier_company는 모든 Send에 공통 적용.
 
     Upfront 검증: 모든 Send가 존재하고 PREPARING 상태여야 함.
