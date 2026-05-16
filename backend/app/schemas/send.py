@@ -26,6 +26,10 @@ class SendTrackingUpdate(BaseModel):
       - 추출 결과가 비면 422 (운영자 실수로 인한 빈 운송장 저장 방지)
     정규화 후 셋 다 None이면 422.
     send_method와 courier_company는 완전 독립 (자동 도출 안 함).
+
+    cf. TransitionSendItem (배송완료 처리)은 PREPARING → DELIVERED 최초 전환이며 우편·자체배송
+    케이스의 운송장 없음을 허용 — 빈 입력을 None 으로 통과시킴. 본 스키마는 사후 수정 흐름이라
+    빈 입력을 거부(422).
     """
     tracking_no: Optional[str] = None
     send_method: Optional[SendMethodLiteral] = None
@@ -83,6 +87,10 @@ class SendResendRequest(BaseModel):
       - 추출 결과가 비면 422
     send_item_ids는 재발송 대상 SendItem ID 배열 (최소 1개). 박스 통째 재발송 시
     UI가 모든 SendItem ID를 채워서 보냄 (해당 send_id에 속하지 않은 ID 포함 시 422).
+
+    cf. TransitionSendItem (배송완료 처리)은 PREPARING → DELIVERED 최초 전환이며 우편·자체배송
+    케이스의 운송장 없음을 허용 — 빈 입력을 None 으로 통과시킴. 본 스키마는 재발송 이력 기록
+    흐름이라 빈 입력을 거부(422).
     """
     reason: str
     send_method: SendMethodLiteral
