@@ -56,8 +56,9 @@ export interface AddToPreparingYearlyResponse {
 
 export interface TransitionSendItem {
   // tracking_no 는 입력에서 숫자만 추출돼 저장됨 (공백·하이픈·문자 제거).
+  // 선택 입력 — 우편·자체배송 등 운송장 없는 케이스는 미전송. 비워두면 NULL 저장.
   send_id: number;
-  tracking_no: string;
+  tracking_no?: string;
 }
 
 export interface TransitionToDeliveredRequest {

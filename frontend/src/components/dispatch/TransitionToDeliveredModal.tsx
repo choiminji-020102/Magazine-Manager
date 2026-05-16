@@ -28,16 +28,26 @@ import {
   COURIER_COMPANY_OPTIONS,
   SEND_METHOD_TO_COURIER,
 } from "@/utils/constants";
-import type { SendResponse, SendMethod, CourierCompany, SendDetailResponse } from "@/types/send";
+import type {
+  SendResponse,
+  SendMethod,
+  CourierCompany,
+  SendDetailResponse,
+} from "@/types/send";
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  sends: SendResponse[];      // 선택된 PREPARING 박스 (페이지가 필터링해 전달)
+  sends: SendResponse[]; // 선택된 PREPARING 박스 (페이지가 필터링해 전달)
   onSuccess?: (count: number) => void;
 }
 
-export default function TransitionToDeliveredModal({ open, onClose, sends, onSuccess }: Props) {
+export default function TransitionToDeliveredModal({
+  open,
+  onClose,
+  sends,
+  onSuccess,
+}: Props) {
   const [sendMethod, setSendMethod] = useState<SendMethod | "">("");
   const [courier, setCourier] = useState<CourierCompany | "">("");
   // tracking_no by send_id (운송장 번호 입력값 — 표준화는 백엔드 책임)
@@ -59,11 +69,6 @@ export default function TransitionToDeliveredModal({ open, onClose, sends, onSuc
     const derived = SEND_METHOD_TO_COURIER[sm] as CourierCompany | undefined;
     if (derived) setCourier(derived);
   };
-
-  const allTrackingFilled = useMemo(
-    () => sends.every((s) => (trackingMap[s.send_id] ?? "").trim().length > 0),
-    [sends, trackingMap],
-  );
 
   // 박스 안 SendItem 정보 — 모달 열린 상태에서 박스마다 detail 병렬 조회 (운영자 박스 식별용).
   // 정기 박스: 1 SendItem (한 줄). 단품 박스: N SendItem (여러 줄).
@@ -87,10 +92,13 @@ export default function TransitionToDeliveredModal({ open, onClose, sends, onSuc
     mutationFn: () =>
       dispatchApi
         .transitionToDelivered({
-          sends: sends.map((s) => ({
-            send_id: s.send_id,
-            tracking_no: trackingMap[s.send_id] ?? "",
-          })),
+          sends: sends.map((s) => {
+            const raw = (trackingMap[s.send_id] ?? "").trim();
+            // 빈 입력은 tracking_no 키 자체를 생략 → 백엔드에서 NULL 저장
+            return raw.length > 0
+              ? { send_id: s.send_id, tracking_no: raw }
+              : { send_id: s.send_id };
+          }),
           send_method: sendMethod as SendMethod,
           courier_company: courier as CourierCompany,
         })
@@ -112,10 +120,6 @@ export default function TransitionToDeliveredModal({ open, onClose, sends, onSuc
       toast.error("운송사를 선택해주세요.");
       return;
     }
-    if (!allTrackingFilled) {
-      toast.error("모든 박스의 운송장 번호를 입력해주세요.");
-      return;
-    }
     mutation.mutate();
   };
 
@@ -130,9 +134,11 @@ export default function TransitionToDeliveredModal({ open, onClose, sends, onSuc
         <DialogHeader>
           <DialogTitle>[배송완료 처리]</DialogTitle>
           <p className="text-xs text-gray-500 mt-1">
-            선택된 <span className="font-medium">{sends.length}건</span>을 한 번에 배송완료로
-            처리합니다. 박스마다 운송장 번호를 입력해주세요. 이미 배송완료·취소된 박스가 섞여 있으면
-            전체가 처리되지 않으니, 선택을 다시 확인해주세요.
+            선택된 <span className="font-medium">{sends.length}건</span>을 한
+            번에 배송완료로 처리합니다. 운송장 번호는 선택 입력입니다 —
+            우편·자체배송 등 운송장이 없는 경우 비워두면 됩니다. 이미
+            배송완료·취소된 박스가 섞여 있으면 전체가 처리되지 않으니, 선택을
+            다시 확인해주세요.
           </p>
         </DialogHeader>
 
@@ -159,7 +165,10 @@ export default function TransitionToDeliveredModal({ open, onClose, sends, onSuc
             <Label className="text-xs text-gray-500">
               운송사 <span className="text-red-500 ml-0.5">*</span>
             </Label>
-            <Select value={courier} onValueChange={(v) => setCourier(v as CourierCompany)}>
+            <Select
+              value={courier}
+              onValueChange={(v) => setCourier(v as CourierCompany)}
+            >
               <SelectTrigger className="mt-1 h-9 text-sm">
                 <SelectValue placeholder="선택해주세요" />
               </SelectTrigger>
@@ -187,25 +196,34 @@ export default function TransitionToDeliveredModal({ open, onClose, sends, onSuc
                 <th className="px-2 py-2 text-left font-medium w-64">배송지</th>
                 <th className="px-2 py-2 text-left font-medium">상품</th>
                 <th className="px-2 py-2 text-left font-medium w-44">
-                  운송장 번호 <span className="text-red-500">*</span>
+                  운송장 번호{" "}
+                  <span className="text-gray-400 font-normal">(선택)</span>
                 </th>
               </tr>
             </thead>
             <tbody>
               {sends.map((s) => {
                 const value = trackingMap[s.send_id] ?? "";
-                const empty = value.trim().length === 0;
                 const detail = detailBySendId.get(s.send_id);
                 const items = detail?.items ?? [];
                 return (
-                  <tr key={s.send_id} className="border-t border-gray-100 align-top">
-                    <td className="px-2 py-2 font-mono text-gray-400">#{s.send_id}</td>
-                    <td className="px-2 py-2">
-                      <div>{s.recipient_name}</div>
-                      <div className="text-gray-400">{formatPhone(s.recipient_phone)}</div>
+                  <tr
+                    key={s.send_id}
+                    className="border-t border-gray-100 align-top"
+                  >
+                    <td className="px-2 py-2 font-mono text-gray-400">
+                      #{s.send_id}
                     </td>
                     <td className="px-2 py-2">
-                      <div className="font-mono text-gray-400">{s.postal_code}</div>
+                      <div>{s.recipient_name}</div>
+                      <div className="text-gray-400">
+                        {formatPhone(s.recipient_phone)}
+                      </div>
+                    </td>
+                    <td className="px-2 py-2">
+                      <div className="font-mono text-gray-400">
+                        {s.postal_code}
+                      </div>
                       <div className="truncate">{s.recipient_address}</div>
                     </td>
                     <td className="px-2 py-2">
@@ -216,11 +234,20 @@ export default function TransitionToDeliveredModal({ open, onClose, sends, onSuc
                       ) : (
                         <div className="space-y-0.5">
                           {items.map((it) => (
-                            <div key={it.send_item_id} className="flex items-center gap-1.5">
-                              <span className="font-mono text-gray-500">{it.product_code}</span>
+                            <div
+                              key={it.send_item_id}
+                              className="flex items-center gap-1.5"
+                            >
+                              <span className="font-mono text-gray-500">
+                                {it.product_code}
+                              </span>
                               <span className="text-gray-300">·</span>
-                              <span className="text-gray-600">{formatIssue(it.issue)}</span>
-                              <span className="text-gray-400 ml-auto">× {it.send_num}</span>
+                              <span className="text-gray-600">
+                                {formatIssue(it.issue)}
+                              </span>
+                              <span className="text-gray-400 ml-auto">
+                                × {it.send_num}
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -228,11 +255,14 @@ export default function TransitionToDeliveredModal({ open, onClose, sends, onSuc
                     </td>
                     <td className="px-2 py-2">
                       <Input
-                        className={`h-8 font-mono ${empty ? "border-red-200" : ""}`}
-                        placeholder="운송장 번호"
+                        className="h-8 font-mono"
+                        placeholder="비워두면 운송장 없이 처리"
                         value={value}
                         onChange={(e) =>
-                          setTrackingMap((prev) => ({ ...prev, [s.send_id]: e.target.value }))
+                          setTrackingMap((prev) => ({
+                            ...prev,
+                            [s.send_id]: e.target.value,
+                          }))
                         }
                       />
                     </td>
@@ -244,16 +274,25 @@ export default function TransitionToDeliveredModal({ open, onClose, sends, onSuc
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose} disabled={mutation.isPending}>
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            disabled={mutation.isPending}
+          >
             닫기
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={
-              mutation.isPending || !sendMethod || !courier || !allTrackingFilled || sends.length === 0
+              mutation.isPending ||
+              !sendMethod ||
+              !courier ||
+              sends.length === 0
             }
           >
-            {mutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+            {mutation.isPending && (
+              <LoadingSpinner size="sm" className="mr-1" />
+            )}
             배송완료 처리 ({sends.length}건)
           </Button>
         </DialogFooter>
