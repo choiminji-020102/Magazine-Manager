@@ -130,8 +130,9 @@ export default function TransitionToDeliveredModal({ open, onClose, sends, onSuc
         <DialogHeader>
           <DialogTitle>[배송완료 처리]</DialogTitle>
           <p className="text-xs text-gray-500 mt-1">
-            선택된 <span className="font-medium">{sends.length}건</span>을 일괄 DELIVERED 로
-            전환합니다. 한 건이라도 PREPARING 이 아니면 전체 거부됩니다.
+            선택된 <span className="font-medium">{sends.length}건</span>을 한 번에 배송완료로
+            처리합니다. 박스마다 운송장 번호를 입력해주세요. 이미 배송완료·취소된 박스가 섞여 있으면
+            전체가 처리되지 않으니, 선택을 다시 확인해주세요.
           </p>
         </DialogHeader>
 
