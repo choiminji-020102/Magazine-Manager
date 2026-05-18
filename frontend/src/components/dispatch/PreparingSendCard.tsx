@@ -92,18 +92,10 @@ export default function PreparingSendCard({
           </div>
         </section>
 
-        {/* 수령인 (col 3, row 1) — OrderListCard "고객" 위치와 동일 */}
-        <section className="col-start-3 row-start-1 border-r border-b border-gray-100 text-xs">
-          <SectionHeader title="수령인" />
-          <div className="px-3 py-2 space-y-0.5">
-            <InfoRow label="이름" value={send.recipient_name} />
-            <InfoRow label="연락처" value={formatPhone(send.recipient_phone)} />
-          </div>
-        </section>
-
-        {/* 배송지 (col 3, row 2) — OrderListCard "배송지" 위치와 동일.
-            country_code 배지는 OrderListCard 와 동일하게 SectionHeader 우측에 표시 */}
-        <section className="col-start-3 row-start-2 border-r border-gray-100 text-xs">
+        {/* 배송지 (col 3, row 1-2) — OrderListCard "배송지" 패턴과 동일하게 수령인 정보 통합.
+            customer 가 아닌 recipient_xxx 필드 사용 (Send 는 수령자만 존재).
+            country_code 배지는 SectionHeader 우측에 표시 */}
+        <section className="col-start-3 row-start-1 row-span-2 border-r border-gray-100 text-xs">
           <SectionHeader title="배송지">
             {isOverseas && (
               <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-semibold">
@@ -112,6 +104,8 @@ export default function PreparingSendCard({
             )}
           </SectionHeader>
           <div className="px-3 py-2 space-y-0.5">
+            <InfoRow label="수령인" value={send.recipient_name} />
+            <InfoRow label="연락처" value={formatPhone(send.recipient_phone)} />
             <InfoRow
               label="주소"
               value={
