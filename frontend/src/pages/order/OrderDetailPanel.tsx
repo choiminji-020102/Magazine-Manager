@@ -798,12 +798,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                       <span className="text-xs text-gray-700">{formatDateTime(send.delivered_at)}</span>
                     </div>
                   )}
-                  {send.cancelled_at && (
-                    <div className="flex items-start gap-3">
-                      <span className="text-xs text-gray-400 w-24 flex-shrink-0">취소일시</span>
-                      <span className="text-xs text-red-600">{formatDateTime(send.cancelled_at)}</span>
-                    </div>
-                  )}
                   {/* 재배송 이력 */}
                   {(resendsBySendId.get(send.send_id) ?? []).map((log, idx) => {
                     const d = log.details ?? {};

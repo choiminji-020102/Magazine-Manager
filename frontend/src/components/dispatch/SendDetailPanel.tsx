@@ -236,7 +236,6 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
             <Row label="생성">{formatDateTime(send.created_at)}</Row>
             <Row label="수정">{formatDateTime(send.updated_at)}</Row>
             {send.delivered_at && <Row label="배송완료">{formatDateTime(send.delivered_at)}</Row>}
-            {send.cancelled_at && <Row label="취소">{formatDateTime(send.cancelled_at)}</Row>}
           </Section>
         </div>
       )}
