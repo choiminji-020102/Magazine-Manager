@@ -168,7 +168,7 @@ class SendResponse(BaseModel):
     customer_memo: Optional[str] = None
     admin_memo: Optional[str] = None
     delivered_at: Optional[datetime] = None
-    cancelled_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None  # dead — 미구현 (models/send.py 의 컬럼 정의 주석 참조)
     created_at: datetime
     updated_at: datetime
 

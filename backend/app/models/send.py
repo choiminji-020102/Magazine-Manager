@@ -10,6 +10,7 @@ class Send(Base):
     send_id = Column(BigInteger, primary_key=True, autoincrement=True, comment="발송 ID")
     address_id = Column(BigInteger, ForeignKey("addresses.address_id"), nullable=True, comment="배송지 ID (스냅샷 연결용)")
 
+    # 'CANCELLED' 값은 현재 dead — 발송 취소 기능 미구현으로 어디서도 세팅되지 않음 (cancelled_at 컬럼 주석 참조).
     send_status = Column(Enum("PREPARING", "DELIVERED", "CANCELLED", name="send_status_enum"), nullable=False, comment="발송 상태")
     send_method = Column(Enum("기출유우편", "기출유택배", "일반우편", "찾아가기", name="send_method_enum"), nullable=True, comment="발송 방법")
     courier_company = Column(Enum("CJ대한통운", "자체배송", name="courier_company_enum"), nullable=True, comment="택배사")
@@ -26,7 +27,10 @@ class Send(Base):
     admin_memo = Column(Text, nullable=True, comment="관리자 메모")
 
     delivered_at = Column(DateTime, nullable=True)
-    cancelled_at = Column(DateTime, nullable=True, comment="취소 일시")
+    # dead — 발송 취소 기능 미구현. 백엔드 어디서도 세팅되지 않음. send_status='CANCELLED' 값도 동일하게 미구현.
+    # 현재 취소 흐름은 PREPARING SendItem hard delete (send_service.delete_preparing_send_items_for_order_items) 경로만 존재.
+    # 향후 발송 취소 기능 도입 시 본 컬럼·enum 값·dispatch_grouping_service 의 방어 필터를 함께 활성화.
+    cancelled_at = Column(DateTime, nullable=True, comment="취소 일시 (dead — 미구현)")
 
     created_at = Column(DateTime, nullable=False, server_default=func.now(), comment="생성 일시")
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now(), comment="수정 일시")

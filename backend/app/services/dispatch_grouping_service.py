@@ -15,6 +15,8 @@ VIP 슬롯 격리:
 중복 발송 방지:
 - MONTHLY: SendItem 서브쿼리만 사용 (last_send_issue 미사용)
 - YEARLY: last_send_issue + SendItem 서브쿼리 둘 다 (defense in depth, 기존 find_subscription_targets 패턴)
+- 종료 박스 필터 `Send.send_status IN ('DELIVERED','CANCELLED')` 의 'CANCELLED' 는 현재 dead 분기 —
+  발송 취소 기능 미구현으로 항상 매칭 0건 (Send.cancelled_at 컬럼 주석 참조). 향후 활성화 대비 방어 코드.
 
 출력 정렬 (엑셀 §5.2.4 / §5.3.5 와 일관 — PREPARING Send 생성 순서 = 엑셀 표시 순서):
 - monthly / vipN: (postal_code, recipient_address, chosen_recipient_name, chosen_address_id)

@@ -33,7 +33,7 @@ class SendItemResponse(BaseModel):
     unit_length: Optional[float] = None
     unit_height: Optional[float] = None
     admin_memo: Optional[str] = None
-    cancelled_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None  # dead — 미구현 (models/send_item.py 의 컬럼 정의 주석 참조)
     created_at: datetime
     updated_at: datetime
 

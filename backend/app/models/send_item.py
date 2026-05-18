@@ -29,7 +29,10 @@ class SendItem(Base):
 
     admin_memo = Column(Text, nullable=True, comment="관리자 메모")
 
-    cancelled_at = Column(DateTime, nullable=True, comment="취소 일시")
+    # dead — 품목 취소 기능 미구현. 백엔드 어디서도 세팅되지 않음 (Send.cancelled_at 과 동일).
+    # 현재 취소 흐름은 PREPARING Send 의 SendItem hard delete 경로만 존재 (send_service.delete_preparing_send_items_for_order_items).
+    # dispatch_grouping_service 의 already_sent_ids 필터(`SendItem.cancelled_at IS NULL`)는 향후 활성화 대비 방어 코드.
+    cancelled_at = Column(DateTime, nullable=True, comment="취소 일시 (dead — 미구현)")
 
     created_at = Column(DateTime, nullable=False, server_default=func.now(), comment="생성 일시")
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now(), comment="수정 일시")
