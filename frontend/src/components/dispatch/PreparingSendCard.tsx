@@ -3,7 +3,7 @@ import { InfoRow } from "@/components/common/list-card/InfoRow";
 import { SectionHeader } from "@/components/common/list-card/SectionHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import SendItemBox from "@/components/dispatch/SendItemBox";
-import { formatDate, formatShortDateTime, formatPhone } from "@/utils/format";
+import { formatShortDateTime, formatPhone } from "@/utils/format";
 import type { SendResponse, SendDetailResponse } from "@/types/send";
 
 interface Props {
@@ -61,8 +61,7 @@ export default function PreparingSendCard({
           />
         </div>
 
-        {/* 발송 (col 2, row 1-2) — OrderListCard "주문" 섹션과 동일한 시각 무게:
-            ID/일자 그룹 → h-2 간격 → 묶인 주문 그룹 → 메모 */}
+        {/* 발송 (col 2, row 1-2) — OrderListCard "주문" 섹션과 동일한 시각 무게 */}
         <section className="col-start-2 row-start-1 row-span-2 border-r border-gray-100 text-xs">
           <SectionHeader title="발송">
             <StatusBadge type="send_status" value={send.send_status} />
@@ -72,8 +71,6 @@ export default function PreparingSendCard({
               label="ID"
               value={<span className="font-mono text-gray-600">#{send.send_id}</span>}
             />
-            <InfoRow label="생성일" value={formatDate(send.created_at)} />
-            <div className="h-2" />
             <InfoRow
               label="주문"
               value={

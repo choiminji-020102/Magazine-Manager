@@ -4,7 +4,7 @@ import { InfoRow } from "@/components/common/list-card/InfoRow";
 import { SectionHeader } from "@/components/common/list-card/SectionHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import SendItemBox from "@/components/dispatch/SendItemBox";
-import { formatDate, formatShortDateTime, formatPhone } from "@/utils/format";
+import { formatDateTime, formatShortDateTime, formatPhone } from "@/utils/format";
 import type { SendResponse, SendDetailResponse } from "@/types/send";
 import type { ActivityLogResponse } from "@/types/activityLog";
 
@@ -30,6 +30,7 @@ export default function DeliveredSendCard({
     ? [
         lastResendLog.details?.reason && `사유: ${lastResendLog.details.reason}`,
         lastResendLog.details?.send_method && `방법: ${lastResendLog.details.send_method}`,
+        lastResendLog.details?.courier_company && `운송사: ${lastResendLog.details.courier_company}`,
         lastResendLog.details?.tracking_no && `운송장: ${lastResendLog.details.tracking_no}`,
         lastResendLog.details?.memo && `메모: ${lastResendLog.details.memo}`,
       ]
@@ -53,8 +54,10 @@ export default function DeliveredSendCard({
       className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm hover:shadow-md cursor-pointer transition-shadow flex flex-col focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
     >
       <div className="grid grid-cols-[280px_1fr_1fr] grid-rows-[auto_1fr]">
-        {/* 발송 + 운송장 (row-span 2) */}
-        <section className="row-span-2 border-r border-gray-100 text-xs">
+        {/* 발송 (col 1, row 1-2) — PreparingSendCard 와 동일 구조.
+            grid 위치는 PreparingSendCard 와 동일하게 명시 — auto-placement 가
+            품목/배송지 순서를 흐트러뜨리는 문제 방지. */}
+        <section className="col-start-1 row-start-1 row-span-2 border-r border-gray-100 text-xs">
           <SectionHeader title="발송">
             <StatusBadge type="send_status" value={send.send_status} />
             {resendLogs.length > 0 && (
@@ -72,14 +75,14 @@ export default function DeliveredSendCard({
               value={<span className="font-mono text-gray-600">#{send.send_id}</span>}
             />
             <InfoRow
-              label="완료일"
-              value={send.delivered_at ? formatDate(send.delivered_at) : "-"}
+              label="배송일"
+              value={send.delivered_at ? formatDateTime(send.delivered_at) : "-"}
             />
             <InfoRow
               label="취소일"
               value={
                 send.cancelled_at ? (
-                  <span className="text-red-500">{formatDate(send.cancelled_at)}</span>
+                  <span className="text-red-500">{formatDateTime(send.cancelled_at)}</span>
                 ) : (
                   "-"
                 )
@@ -107,6 +110,29 @@ export default function DeliveredSendCard({
                 )
               }
             />
+            <InfoRow
+              label="주문"
+              value={
+                send.related_orders.length === 0 ? (
+                  <span className="text-gray-300 text-[11px]">-</span>
+                ) : (
+                  <span className="flex flex-wrap items-center gap-1">
+                    <span className="text-gray-400 text-[11px]">
+                      ({send.related_orders.length}건)
+                    </span>
+                    {send.related_orders.map((ro) => (
+                      <span
+                        key={ro.order_id}
+                        className="text-xs px-1.5 py-0.5 bg-sky-50 text-sky-700 rounded"
+                        title={`${ro.customer_name} · ${formatPhone(ro.customer_phone)}`}
+                      >
+                        #{ro.order_id} · {ro.customer_name}
+                      </span>
+                    ))}
+                  </span>
+                )
+              }
+            />
             {send.admin_memo && (
               <InfoRow
                 label="메모"
@@ -120,9 +146,19 @@ export default function DeliveredSendCard({
           </div>
         </section>
 
-        {/* 수령·배송지 (위) */}
-        <section className="border-r border-b border-gray-100 text-xs">
-          <SectionHeader title="수령·배송지">
+        {/* 수령인 (col 2, row 1) — PreparingSendCard 와 동일 위치 */}
+        <section className="col-start-2 row-start-1 border-r border-b border-gray-100 text-xs">
+          <SectionHeader title="수령인" />
+          <div className="px-3 py-2 space-y-0.5">
+            <InfoRow label="이름" value={send.recipient_name} />
+            <InfoRow label="연락처" value={formatPhone(send.recipient_phone)} />
+          </div>
+        </section>
+
+        {/* 배송지 (col 2, row 2) — PreparingSendCard 와 동일 위치.
+            country_code 배지는 SectionHeader 우측에 표시 */}
+        <section className="col-start-2 row-start-2 border-r border-gray-100 text-xs">
+          <SectionHeader title="배송지">
             {isOverseas && (
               <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-semibold">
                 🌐 {send.country_code}
@@ -130,8 +166,6 @@ export default function DeliveredSendCard({
             )}
           </SectionHeader>
           <div className="px-3 py-2 space-y-0.5">
-            <InfoRow label="수령인" value={send.recipient_name} />
-            <InfoRow label="연락처" value={formatPhone(send.recipient_phone)} />
             <InfoRow
               label="주소"
               value={
@@ -156,34 +190,8 @@ export default function DeliveredSendCard({
           </div>
         </section>
 
-        {/* 묶인 주문 (아래) */}
-        <section className="border-r border-gray-100 text-xs">
-          <SectionHeader title="묶인 주문">
-            <span className="text-gray-400 text-xs font-normal normal-case tracking-normal">
-              ({send.related_orders.length}건)
-            </span>
-          </SectionHeader>
-          <div className="px-3 py-2">
-            {send.related_orders.length === 0 ? (
-              <span className="text-gray-300 text-[11px]">-</span>
-            ) : (
-              <div className="flex flex-wrap gap-1">
-                {send.related_orders.map((ro) => (
-                  <span
-                    key={ro.order_id}
-                    className="text-xs px-1.5 py-0.5 bg-sky-50 text-sky-700 rounded"
-                    title={`${ro.customer_name} · ${formatPhone(ro.customer_phone)}`}
-                  >
-                    #{ro.order_id} · {ro.customer_name}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* 품목 (row-span 2) */}
-        <section className="row-span-2 text-xs">
+        {/* 품목 (col 3, row 1-2) */}
+        <section className="col-start-3 row-start-1 row-span-2 text-xs">
           <SectionHeader title="품목">
             <span className="text-gray-400 text-xs font-normal normal-case tracking-normal">
               ({items.length}건)
