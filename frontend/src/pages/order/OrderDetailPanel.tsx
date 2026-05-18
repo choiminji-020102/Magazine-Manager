@@ -803,6 +803,9 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                     const d = log.details ?? {};
                     const parts: string[] = [];
                     if (d.reason) parts.push(d.reason);
+                    if (Array.isArray(d.send_item_ids) && d.send_item_ids.length > 0) {
+                      parts.push(`품목 ${d.send_item_ids.length}건`);
+                    }
                     if (d.send_method) parts.push(d.send_method);
                     if (d.tracking_no) parts.push(`운송장 ${d.tracking_no}`);
                     if (d.memo) parts.push(d.memo);

@@ -57,6 +57,9 @@ export function getLogDisplay(log: { action: string; details?: Record<string, an
   }
   if (log.action === "RESEND") {
     if (d?.reason) parts.push(d.reason);
+    if (Array.isArray(d?.send_item_ids) && d.send_item_ids.length > 0) {
+      parts.push(`품목 ${d.send_item_ids.length}건`);
+    }
     if (d?.send_method) parts.push(d.send_method);
     if (d?.tracking_no) parts.push(`운송장 ${d.tracking_no}`);
     return { label: "재배송", color: "text-orange-600", summary: parts.join(" · ") };

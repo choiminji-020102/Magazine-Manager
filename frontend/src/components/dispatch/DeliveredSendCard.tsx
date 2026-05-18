@@ -26,9 +26,26 @@ export default function DeliveredSendCard({
   const items = detail?.items ?? [];
   const isOverseas = send.country_code !== "KR";
   const lastResendLog = resendLogs[resendLogs.length - 1];
+  // 재배송 품목 매핑: send_item_ids → SendItem detail. detail.items 로딩 전엔 빈 배열.
+  const resendItemIds = (lastResendLog?.details?.send_item_ids ?? []) as number[];
+  const resendItems = resendItemIds
+    .map((id) => items.find((it) => it.send_item_id === id))
+    .filter((it): it is NonNullable<typeof it> => !!it);
+  const resendItemsLine =
+    resendItems.length > 0
+      ? [
+          `품목: ${
+            resendItems.length === items.length
+              ? `전체 ${resendItems.length}건`
+              : `일부 ${resendItems.length}/${items.length}건`
+          }`,
+          ...resendItems.map((it) => `  ${it.product_code} ${it.product_name}`),
+        ].join("\n")
+      : "";
   const resendTooltip = lastResendLog
     ? [
         lastResendLog.details?.reason && `사유: ${lastResendLog.details.reason}`,
+        resendItemsLine,
         lastResendLog.details?.send_method && `방법: ${lastResendLog.details.send_method}`,
         lastResendLog.details?.courier_company && `운송사: ${lastResendLog.details.courier_company}`,
         lastResendLog.details?.tracking_no && `운송장: ${lastResendLog.details.tracking_no}`,

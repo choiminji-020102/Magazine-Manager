@@ -182,10 +182,34 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
               <div className="space-y-2">
                 {resendLogs.map((log) => {
                   const d = log.details ?? {};
+                  const resendIds = (Array.isArray(d.send_item_ids) ? d.send_item_ids : []) as number[];
+                  const resendItems = resendIds
+                    .map((id) => send.items.find((it) => it.send_item_id === id))
+                    .filter((it): it is NonNullable<typeof it> => !!it);
+                  const isFull =
+                    resendItems.length > 0 && resendItems.length === send.items.length;
                   return (
                     <div key={log.log_id} className="border border-orange-100 bg-orange-50/50 rounded p-2 space-y-0.5">
                       <div className="text-xs text-gray-500">{formatDateTime(log.created_at)}</div>
                       {d.reason && <div className="text-xs text-gray-700">사유: {d.reason}</div>}
+                      {resendItems.length > 0 && (
+                        <div className="text-xs text-gray-700">
+                          <div>
+                            품목:{" "}
+                            {isFull
+                              ? `전체 ${resendItems.length}건`
+                              : `일부 ${resendItems.length}/${send.items.length}건`}
+                          </div>
+                          <ul className="ml-4 mt-0.5 space-y-0.5">
+                            {resendItems.map((it) => (
+                              <li key={it.send_item_id}>
+                                <span className="font-mono text-gray-500">{it.product_code}</span>{" "}
+                                <span className="text-gray-700">{it.product_name}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                       {d.send_method && (
                         <div className="text-xs text-gray-700">
                           방법: {d.send_method}
