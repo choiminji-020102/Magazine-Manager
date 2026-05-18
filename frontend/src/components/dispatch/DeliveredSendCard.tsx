@@ -102,7 +102,7 @@ export default function DeliveredSendCard({
                     <ExternalLink className="h-3 w-3 text-gray-400 group-hover:text-gray-700" />
                   </a>
                 ) : (
-                  <span className="font-mono text-gray-700">-</span>
+                  "-"
                 )
               }
             />
