@@ -73,19 +73,8 @@ export default function PreparingSendCard({
                 send.related_orders.length === 0 ? (
                   <span className="text-gray-300 text-[11px]">-</span>
                 ) : (
-                  <span className="flex flex-wrap items-center gap-1">
-                    <span className="text-gray-400 text-[11px]">
-                      ({send.related_orders.length}건)
-                    </span>
-                    {send.related_orders.map((ro) => (
-                      <span
-                        key={ro.order_id}
-                        className="text-xs px-1.5 py-0.5 bg-sky-50 text-sky-700 rounded"
-                        title={`${ro.customer_name} · ${formatPhone(ro.customer_phone)}`}
-                      >
-                        #{ro.order_id} · {ro.customer_name}
-                      </span>
-                    ))}
+                  <span className="text-sky-700 text-[11px]">
+                    {send.related_orders.length}건 묶음
                   </span>
                 )
               }
