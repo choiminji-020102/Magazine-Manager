@@ -88,19 +88,6 @@ export default function OrderListCard({
             )}
           </SectionHeader>
           <div className="px-3 py-2 space-y-0.5">
-            <InfoRow
-              label="ID"
-              value={
-                <>
-                  <span className="font-mono text-gray-600">#{order.order_id}</span>
-                  {order.external_order_id && (
-                    <span className="ml-2 font-mono text-gray-400">
-                      {order.external_order_id}
-                    </span>
-                  )}
-                </>
-              }
-            />
             <InfoRow label="주문일" value={formatDateTime(order.order_at)} />
             {order.payment_at && (
               <InfoRow label="결제일" value={formatDateTime(order.payment_at)} />
@@ -225,8 +212,15 @@ export default function OrderListCard({
         </section>
       </div>
 
-      {/* 카드 footer — 시스템 메타 (우하단 작은 회색) */}
-      <div className="px-3 py-1.5 text-[10px] text-gray-400 border-t border-gray-100 flex justify-end gap-3">
+      {/* 카드 footer — 시스템 메타 (작은 회색).
+          좌측: 식별자 (#ID + 외부 ID) / 우측: 시스템 타임스탬프 (생성·수정) */}
+      <div className="px-3 py-1.5 text-[10px] text-gray-400 border-t border-gray-100 flex items-center gap-3">
+        <span className="font-mono mr-auto">
+          #{order.order_id}
+          {order.external_order_id && (
+            <span className="ml-2">{order.external_order_id}</span>
+          )}
+        </span>
         <span>생성 {formatShortDateTime(order.created_at)}</span>
         <span>수정 {formatShortDateTime(order.updated_at)}</span>
       </div>

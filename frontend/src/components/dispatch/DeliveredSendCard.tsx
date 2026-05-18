@@ -71,10 +71,6 @@ export default function DeliveredSendCard({
           </SectionHeader>
           <div className="px-3 py-2 space-y-0.5">
             <InfoRow
-              label="ID"
-              value={<span className="font-mono text-gray-600">#{send.send_id}</span>}
-            />
-            <InfoRow
               label="배송일"
               value={send.delivered_at ? formatDateTime(send.delivered_at) : "-"}
             />
@@ -215,8 +211,10 @@ export default function DeliveredSendCard({
         </section>
       </div>
 
-      {/* 카드 footer — 시스템 메타 */}
-      <div className="px-3 py-1.5 text-[10px] text-gray-400 border-t border-gray-100 flex justify-end gap-3">
+      {/* 카드 footer — 시스템 메타.
+          좌측: 식별자 (#ID) / 우측: 시스템 타임스탬프 (생성·수정) */}
+      <div className="px-3 py-1.5 text-[10px] text-gray-400 border-t border-gray-100 flex items-center gap-3">
+        <span className="font-mono mr-auto">#{send.send_id}</span>
         <span>생성 {formatShortDateTime(send.created_at)}</span>
         <span>수정 {formatShortDateTime(send.updated_at)}</span>
       </div>
