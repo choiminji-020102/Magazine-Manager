@@ -174,7 +174,8 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
             )}
           </Section>
 
-          {/* 재배송 이력 */}
+          {/* 재배송 이력 — 백엔드 활동 로그 API 는 created_at DESC 반환이라
+              그 순서 그대로 표시 (최신부터 위로). 백엔드 정렬 변경 시 깨짐. */}
           <Section title={`재배송 이력 (${resendLogs.length}건)`}>
             {resendLogs.length === 0 ? (
               <p className="text-xs text-gray-400">재배송 이력이 없습니다.</p>

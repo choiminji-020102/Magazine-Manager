@@ -25,6 +25,8 @@ export default function DeliveredSendCard({
 }: Props) {
   const items = detail?.items ?? [];
   const isOverseas = send.country_code !== "KR";
+  // resendLogs 는 부모(DeliveredSendListPage)가 created_at ASC 로 재정렬 보장 —
+  // 마지막 원소가 가장 최근. 부모 정렬 정책 변경 시 이 가정 깨짐.
   const lastResendLog = resendLogs[resendLogs.length - 1];
   // 재배송 품목 매핑: send_item_ids → SendItem detail. detail.items 로딩 전엔 빈 배열.
   const resendItemIds = (lastResendLog?.details?.send_item_ids ?? []) as number[];

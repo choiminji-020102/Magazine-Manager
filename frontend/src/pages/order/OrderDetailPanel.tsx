@@ -207,6 +207,8 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       map.set(log.target_id, arr);
     }
     for (const arr of map.values()) {
+      // created_at ASC 정렬 — '재배송 #N' 순번 의미 부여 (가장 오래된 = #1, 최신 = #N).
+      // 백엔드 활동 로그 API 는 DESC 반환이라 여기서 재정렬 필수.
       arr.sort((a, b) => a.created_at.localeCompare(b.created_at));
     }
     return map;

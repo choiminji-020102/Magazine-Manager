@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,6 @@ import DeliveredSendCard from "@/components/dispatch/DeliveredSendCard";
 import { sendsApi } from "@/api/sendsApi";
 import { vipSlotsApi } from "@/api/vipSlotsApi";
 import { activityLogsApi } from "@/api/activityLogsApi";
-import type { SendDetailResponse } from "@/types/send";
 import type { DispatchScope } from "@/types/dispatch";
 import type { ActivityLogResponse } from "@/types/activityLog";
 
@@ -27,6 +26,7 @@ function vipSlotOf(scope: DispatchScope): number | null {
 }
 
 export default function DeliveredSendListPage() {
+  const queryClient = useQueryClient();
   const [scope, setScope] = useState<DispatchScope>("monthly");
   const [issueInput, setIssueInput] = useState("");
   const [page, setPage] = useState(1);
@@ -78,28 +78,14 @@ export default function DeliveredSendListPage() {
   const totalPages = sendsData?.total_pages ?? 1;
   const total = sendsData?.total ?? 0;
 
-  // 박스마다 detail 병렬 호출 — TransitionToDeliveredModal 와 queryKey 공유 (캐시 재사용)
-  const detailQueries = useQueries({
-    queries: sends.map((s) => ({
-      queryKey: ["send-detail", s.send_id],
-      queryFn: () => sendsApi.getSend(s.send_id).then((r) => r.data.data!),
-      staleTime: 60 * 1000,
-    })),
-  });
-  const detailBySendId = useMemo(() => {
-    const map = new Map<number, SendDetailResponse>();
-    detailQueries.forEach((q, i) => {
-      if (q.data) map.set(sends[i].send_id, q.data);
+  // 카드 표시용 SendItem 은 list 응답에 인라인으로 함께 옴 (N+1 제거).
+  // SendDetailPanel 의 ["send-detail", id] 캐시도 함께 채워 둠 (패널 즉시 표시).
+  useEffect(() => {
+    if (!sendsData) return;
+    sendsData.items.forEach((s) => {
+      queryClient.setQueryData(["send-detail", s.send_id], s);
     });
-    return map;
-  }, [detailQueries, sends]);
-  const errorBySendId = useMemo(() => {
-    const set = new Set<number>();
-    detailQueries.forEach((q, i) => {
-      if (q.isError) set.add(sends[i].send_id);
-    });
-    return set;
-  }, [detailQueries, sends]);
+  }, [sendsData, queryClient]);
 
   // 보이는 박스들의 RESEND 활동 로그 — target_ids 로 좁혀 한 번 조회
   const sendIdsOnPage = useMemo(() => sends.map((s) => s.send_id), [sends]);
@@ -126,6 +112,8 @@ export default function DeliveredSendListPage() {
       map.set(log.target_id, arr);
     }
     for (const arr of map.values()) {
+      // created_at ASC 정렬 — DeliveredSendCard 가 resendLogs[length-1] 로 '가장 최근'
+      // 도출하는 데 의존. 백엔드 활동 로그 API 는 DESC 반환이라 여기서 재정렬 필수.
       arr.sort((a, b) => a.created_at.localeCompare(b.created_at));
     }
     return map;
@@ -191,8 +179,8 @@ export default function DeliveredSendListPage() {
               <DeliveredSendCard
                 key={s.send_id}
                 send={s}
-                detail={detailBySendId.get(s.send_id)}
-                detailError={errorBySendId.has(s.send_id)}
+                detail={s}
+                detailError={false}
                 resendLogs={resendsBySendId.get(s.send_id) ?? []}
                 onCardClick={() => setDetailSendId(s.send_id)}
               />
