@@ -10,9 +10,9 @@ import type {
 } from "../types/send";
 
 export const sendsApi = {
-  // GET /sends - 발송 목록 조회
+  // GET /sends - 발송 목록 조회 (각 박스의 SendItem 목록도 인라인 포함 — 카드 표시용)
   getSends: (params: SendListQuery) => {
-    return api.get<PaginatedResponse<SendResponse>>("/sends", { params });
+    return api.get<PaginatedResponse<SendDetailResponse>>("/sends", { params });
   },
 
   // GET /orders/{order_id}/sends - 주문별 발송 목록

@@ -47,7 +47,10 @@ class Send(Base):
         primaryjoin="Send.send_id == SendItem.send_id",
         foreign_keys="SendItem.send_id",
         back_populates="send",
-        lazy="select"
+        lazy="select",
+        # 정렬을 detail 엔드포인트(read_send_items_by_send_id) 와 일치시켜
+        # list 응답의 카드 품목 순서가 패널 열었을 때와 동일하게 보이도록 보장.
+        order_by="SendItem.send_item_id.asc()",
     )
 
     @property

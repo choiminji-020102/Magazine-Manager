@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple
 # 서드파티 라이브러리
 from fastapi import HTTPException, status
 from sqlalchemy import not_, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 # 로컬 애플리케이션
 from app.core import vip_slots
@@ -40,8 +40,12 @@ def read_sends_by_order_id(db: Session, order_id: int) -> List[Send]:
 
 
 def list_sends(db: Session, query: SendListQuery) -> Tuple[List[Send], int]:
-    """발송 목록 조회 (필터/정렬/페이지네이션)"""
-    q = db.query(Send)
+    """발송 목록 조회 (필터/정렬/페이지네이션).
+
+    각 Send 의 SendItem 목록도 selectinload 로 한 번에 로드 — 카드 표시용
+    인라인 items 응답을 N+1 없이 채우기 위함.
+    """
+    q = db.query(Send).options(selectinload(Send.items))
 
     if query.send_status:
         q = q.filter(Send.send_status == query.send_status)

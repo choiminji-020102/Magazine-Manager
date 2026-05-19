@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,6 @@ import VipExcelDialog from "@/components/dispatch-excel/VipExcelDialog";
 import { sendsApi } from "@/api/sendsApi";
 import { dispatchApi } from "@/api/dispatchApi";
 import { vipSlotsApi } from "@/api/vipSlotsApi";
-import type { SendDetailResponse } from "@/types/send";
 import type { DispatchScope, PaidNotPreparedCountResponse } from "@/types/dispatch";
 
 const LIMIT = 50;
@@ -94,6 +93,16 @@ export default function PreparingSendListPage() {
   const totalPages = sendsData?.total_pages ?? 1;
   const total = sendsData?.total ?? 0;
 
+  // 카드 표시용 SendItem 은 list 응답에 인라인으로 함께 옴 (N+1 제거).
+  // SendDetailPanel / TransitionToDeliveredModal 의 ["send-detail", id] 캐시도
+  // 함께 채워 두면 패널·모달 열 때 즉시 표시 (staleTime 60s 적용).
+  useEffect(() => {
+    if (!sendsData) return;
+    sendsData.items.forEach((s) => {
+      queryClient.setQueryData(["send-detail", s.send_id], s);
+    });
+  }, [sendsData, queryClient]);
+
   // 카운트 배너 (16+2 응답)
   const { data: countData } = useQuery({
     queryKey: ["paid-not-prepared-count"],
@@ -109,30 +118,6 @@ export default function PreparingSendListPage() {
     setPage(1);
     setSelectedIds(new Set());
   };
-
-  // 카드 그리드용 — 박스마다 detail 병렬 호출 (SendItem 인라인 표시).
-  // TransitionToDeliveredModal 와 동일 패턴, queryKey 공유로 캐시 재사용.
-  const detailQueries = useQueries({
-    queries: sends.map((s) => ({
-      queryKey: ["send-detail", s.send_id],
-      queryFn: () => sendsApi.getSend(s.send_id).then((r) => r.data.data!),
-      staleTime: 60 * 1000,
-    })),
-  });
-  const detailBySendId = useMemo(() => {
-    const map = new Map<number, SendDetailResponse>();
-    detailQueries.forEach((q, i) => {
-      if (q.data) map.set(sends[i].send_id, q.data);
-    });
-    return map;
-  }, [detailQueries, sends]);
-  const errorBySendId = useMemo(() => {
-    const set = new Set<number>();
-    detailQueries.forEach((q, i) => {
-      if (q.isError) set.add(sends[i].send_id);
-    });
-    return set;
-  }, [detailQueries, sends]);
 
   // 체크박스 헬퍼
   const toggleOne = (sendId: number) => {
@@ -331,8 +316,8 @@ export default function PreparingSendListPage() {
               <PreparingSendCard
                 key={s.send_id}
                 send={s}
-                detail={detailBySendId.get(s.send_id)}
-                detailError={errorBySendId.has(s.send_id)}
+                detail={s}
+                detailError={false}
                 checked={selectedIds.has(s.send_id)}
                 onToggleCheck={() => toggleOne(s.send_id)}
                 onCardClick={() => setDetailSendId(s.send_id)}

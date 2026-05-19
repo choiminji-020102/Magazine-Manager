@@ -32,15 +32,20 @@ require_manager = require_roles(["SUPER_ADMIN", "ADMIN", "MANAGER"])
 
 @router.get(
     "/sends",
-    response_model=PaginatedResponse[SendResponse],
+    response_model=PaginatedResponse[SendDetailResponse],
 )
 def list_sends(
     query: SendListQuery = Depends(SendListQuery.as_query_params),
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_manager),
 ):
-    """발송 목록 조회"""
-    items, total = send_service.list_sends(db, query)
+    """발송 목록 조회 (각 박스의 SendItem 목록 인라인 포함).
+
+    카드 그리드 표시 시 박스별 detail 추가 호출(N+1) 을 없애기 위해 items 임베드.
+    SendItem 은 crud.list_sends 의 selectinload(Send.items) 로 한 방에 로드되고,
+    Pydantic from_attributes 가 ORM relationship 을 SendItemResponse 로 자동 매핑.
+    """
+    sends, total = send_service.list_sends(db, query)
     total_pages = (total + query.limit - 1) // query.limit
 
     return PaginatedResponse(
@@ -48,7 +53,7 @@ def list_sends(
         page=query.page,
         limit=query.limit,
         total_pages=total_pages,
-        items=[SendResponse.model_validate(s) for s in items],
+        items=[SendDetailResponse.model_validate(s) for s in sends],
     )
 
 
