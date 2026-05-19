@@ -223,11 +223,24 @@ def delete_preparing_send(
     권한: SUPER_ADMIN/ADMIN/MANAGER 모두 허용.
     """
     send = send_service.get_send_by_id(db, send_id)
-    snapshot = {
-        "send_id": send.send_id,
-        "recipient_name": send.recipient_name,
-        "send_status": send.send_status,
-    }
+
+    # 활동 로그용 스냅샷 — db.delete(send) 직후엔 relationship 접근 불가하므로 미리 추출.
+    # send_id / recipient_name 은 ActivityLog 본체(target_id / target_name) 에 기록되므로
+    # details 에는 중복 저장하지 않고, 사후 추적에 필요한 박스 본문(SendItem 요약) 과
+    # 묶인 주문 ID 만 남긴다. send_status 는 항상 PREPARING (서비스 레이어 검증 통과한 결과) 이라 잉여.
+    recipient_name_snapshot = send.recipient_name
+    send_items_snapshot = [
+        {
+            "send_item_id": si.send_item_id,
+            "order_item_id": si.order_item_id,
+            "product_code": si.product_code,
+            "product_name": si.product_name,
+            "issue": si.issue,
+            "send_num": si.send_num,
+        }
+        for si in send.items
+    ]
+    order_ids_snapshot = list(send.order_ids)
 
     deleted_items = send_service.delete_single_preparing_send(db, send)
 
@@ -238,10 +251,14 @@ def delete_preparing_send(
         admin_id=current_admin.admin_id,
         admin_name=current_admin.admin_name,
         target_id=send_id,
-        target_name=snapshot["recipient_name"],
+        target_name=recipient_name_snapshot,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
-        details={**snapshot, "deleted_send_items_count": deleted_items},
+        details={
+            "deleted_send_items_count": deleted_items,
+            "order_ids": order_ids_snapshot,
+            "send_items": send_items_snapshot,
+        },
     )
 
     return ResponseModel(
