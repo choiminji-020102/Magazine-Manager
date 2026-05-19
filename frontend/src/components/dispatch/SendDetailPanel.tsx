@@ -543,6 +543,11 @@ function ResendInputSection({ send, onSuccess }: ResendInputSectionProps) {
   const [memo, setMemo] = useState("");
   // SendItem 다중 선택 — 기본 모두 선택 (박스 통째 재발송이 기본 시나리오)
   const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(new Set());
+  // 필수 필드 에러 (UI_GUIDE §10 3종 세트: border-red + 메시지 + toast)
+  const [reasonError, setReasonError] = useState(false);
+  const [sendMethodError, setSendMethodError] = useState(false);
+  const [courierError, setCourierError] = useState(false);
+  const [itemsError, setItemsError] = useState(false);
 
   const allItemIds = useMemo(() => send.items.map((it) => it.send_item_id), [send.items]);
 
@@ -552,6 +557,17 @@ function ResendInputSection({ send, onSuccess }: ResendInputSectionProps) {
       setSelectedItemIds(new Set(allItemIds));
     }
   }, [open, allItemIds]);
+
+  // 폼 닫힐 때 에러 상태 초기화 — 다시 열었을 때 이전 빨간 상태 잔존 방지.
+  // onSuccess 경로 외에 취소 버튼 / 외부 트리거로 닫는 경우도 포함.
+  useEffect(() => {
+    if (!open) {
+      setReasonError(false);
+      setSendMethodError(false);
+      setCourierError(false);
+      setItemsError(false);
+    }
+  }, [open]);
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -574,26 +590,36 @@ function ResendInputSection({ send, onSuccess }: ResendInputSectionProps) {
       setCourier("");
       setTrackingNo("");
       setMemo("");
+      setReasonError(false);
+      setSendMethodError(false);
+      setCourierError(false);
+      setItemsError(false);
       onSuccess();
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const handleSubmit = () => {
+    // 모든 필수 누락을 한 번에 표시 (재제출 강요 방지). toast 는 첫 누락만.
+    let firstError: string | null = null;
     if (!reason.trim()) {
-      toast.error("재배송 사유를 입력해주세요.");
-      return;
+      setReasonError(true);
+      if (!firstError) firstError = "재배송 사유를 입력해주세요.";
     }
     if (!sendMethod) {
-      toast.error("배송 방법을 선택해주세요.");
-      return;
+      setSendMethodError(true);
+      if (!firstError) firstError = "배송 방법을 선택해주세요.";
     }
     if (!courier) {
-      toast.error("운송사를 선택해주세요.");
-      return;
+      setCourierError(true);
+      if (!firstError) firstError = "운송사를 선택해주세요.";
     }
     if (selectedItemIds.size === 0) {
-      toast.error("재배송할 품목을 1개 이상 선택해주세요.");
+      setItemsError(true);
+      if (!firstError) firstError = "재배송할 품목을 1개 이상 선택해주세요.";
+    }
+    if (firstError) {
+      toast.error(firstError);
       return;
     }
     mutation.mutate();
@@ -606,6 +632,8 @@ function ResendInputSection({ send, onSuccess }: ResendInputSectionProps) {
       else next.delete(id);
       return next;
     });
+    // 사용자 상호작용 시 즉시 에러 해제 (다음 submit 에서 재검증)
+    setItemsError(false);
   };
 
   if (!open) {
@@ -623,11 +651,11 @@ function ResendInputSection({ send, onSuccess }: ResendInputSectionProps) {
       <div className="space-y-3 border border-gray-200 rounded p-3 bg-gray-50/50">
         {/* 사유 */}
         <div>
-          <Label className="text-xs text-gray-600">
+          <Label className={`text-xs ${reasonError ? "text-red-500" : "text-gray-600"}`}>
             사유 <span className="text-red-500 ml-0.5">*</span>
           </Label>
-          <Select value={reason} onValueChange={setReason}>
-            <SelectTrigger className="mt-1 h-8 text-xs">
+          <Select value={reason} onValueChange={(v) => { setReason(v); setReasonError(false); }}>
+            <SelectTrigger className={`mt-1 h-8 text-xs ${reasonError ? "border-red-500 focus:ring-red-500" : ""}`}>
               <SelectValue placeholder="선택 또는 직접 입력" />
             </SelectTrigger>
             <SelectContent>
@@ -639,17 +667,18 @@ function ResendInputSection({ send, onSuccess }: ResendInputSectionProps) {
             </SelectContent>
           </Select>
           <Input
-            className="mt-1 h-8 text-xs"
+            className={`mt-1 h-8 text-xs ${reasonError ? "border-red-500 focus:ring-red-500" : ""}`}
             placeholder="또는 직접 입력 (덮어쓰기)"
             value={reason}
-            onChange={(e) => setReason(e.target.value)}
+            onChange={(e) => { setReason(e.target.value); setReasonError(false); }}
           />
+          {reasonError && <p className="text-xs text-red-500 mt-1">재배송 사유를 입력해주세요.</p>}
         </div>
 
         {/* 배송 방법 / 운송사 */}
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <Label className="text-xs text-gray-600">
+            <Label className={`text-xs ${sendMethodError ? "text-red-500" : "text-gray-600"}`}>
               배송 방법 <span className="text-red-500 ml-0.5">*</span>
             </Label>
             <Select
@@ -657,11 +686,15 @@ function ResendInputSection({ send, onSuccess }: ResendInputSectionProps) {
               onValueChange={(v) => {
                 const sm = v as SendMethod;
                 setSendMethod(sm);
+                setSendMethodError(false);
                 const derived = SEND_METHOD_TO_COURIER[sm] as CourierCompany | undefined;
-                if (derived && !courier) setCourier(derived);
+                if (derived && !courier) {
+                  setCourier(derived);
+                  setCourierError(false);
+                }
               }}
             >
-              <SelectTrigger className="mt-1 h-8 text-xs">
+              <SelectTrigger className={`mt-1 h-8 text-xs ${sendMethodError ? "border-red-500 focus:ring-red-500" : ""}`}>
                 <SelectValue placeholder="선택" />
               </SelectTrigger>
               <SelectContent>
@@ -672,13 +705,14 @@ function ResendInputSection({ send, onSuccess }: ResendInputSectionProps) {
                 ))}
               </SelectContent>
             </Select>
+            {sendMethodError && <p className="text-xs text-red-500 mt-1">배송 방법을 선택해주세요.</p>}
           </div>
           <div>
-            <Label className="text-xs text-gray-600">
+            <Label className={`text-xs ${courierError ? "text-red-500" : "text-gray-600"}`}>
               운송사 <span className="text-red-500 ml-0.5">*</span>
             </Label>
-            <Select value={courier} onValueChange={(v) => setCourier(v as CourierCompany)}>
-              <SelectTrigger className="mt-1 h-8 text-xs">
+            <Select value={courier} onValueChange={(v) => { setCourier(v as CourierCompany); setCourierError(false); }}>
+              <SelectTrigger className={`mt-1 h-8 text-xs ${courierError ? "border-red-500 focus:ring-red-500" : ""}`}>
                 <SelectValue placeholder="선택" />
               </SelectTrigger>
               <SelectContent>
@@ -689,6 +723,7 @@ function ResendInputSection({ send, onSuccess }: ResendInputSectionProps) {
                 ))}
               </SelectContent>
             </Select>
+            {courierError && <p className="text-xs text-red-500 mt-1">운송사를 선택해주세요.</p>}
           </div>
         </div>
 
@@ -715,10 +750,10 @@ function ResendInputSection({ send, onSuccess }: ResendInputSectionProps) {
 
         {/* SendItem 다중 선택 */}
         <div>
-          <Label className="text-xs text-gray-600">
+          <Label className={`text-xs ${itemsError ? "text-red-500" : "text-gray-600"}`}>
             재배송 품목 <span className="text-red-500 ml-0.5">*</span> ({selectedItemIds.size}/{send.items.length})
           </Label>
-          <div className="mt-1 border border-gray-200 rounded divide-y divide-gray-100">
+          <div className={`mt-1 border rounded divide-y divide-gray-100 ${itemsError ? "border-red-500" : "border-gray-200"}`}>
             {send.items.map((it) => (
               <label
                 key={it.send_item_id}
@@ -735,6 +770,7 @@ function ResendInputSection({ send, onSuccess }: ResendInputSectionProps) {
               </label>
             ))}
           </div>
+          {itemsError && <p className="text-xs text-red-500 mt-1">재배송할 품목을 1개 이상 선택해주세요.</p>}
         </div>
 
         {/* 액션 */}
