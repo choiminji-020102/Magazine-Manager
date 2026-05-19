@@ -807,6 +807,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                       parts.push(`품목 ${d.send_item_ids.length}건`);
                     }
                     if (d.send_method) parts.push(d.send_method);
+                    if (d.courier_company) parts.push(d.courier_company);
                     if (d.tracking_no) parts.push(`운송장 ${d.tracking_no}`);
                     if (d.memo) parts.push(d.memo);
                     return (
