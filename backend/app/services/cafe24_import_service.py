@@ -51,6 +51,15 @@ ITEM_DISCOUNT_FIELDS = [
     "app_item_discount_amount",
 ]
 
+# 1/2/3년 옵션을 가진 YEARLY 상품 prefix. 그 외 YEARLY 는 1년 고정 — option_value 가
+# 어떤 값으로 오든(빈 문자열 / 임의 텍스트 / 잘못 박힌 "구독 기간=N년 연장") 무시하고 12개월 처리.
+# 꿀땅(HN) / 어린이 저학년(CL) / 어린이 고학년(CH) / 청소년(JN) 은 1년 정기구독만 판매.
+#
+# 주의 — dispatch_excel_service.GICHULYU_YEARLY_PREFIXES 와 현재 우연히 같은 집합이지만
+# 의미가 다른 차원이므로 별도 유지: 본 상수는 "Cafe24 옵션 존재 여부", 저쪽은 "발송 채널 분류".
+# 미래에 HN 에 2년 옵션이 붙거나 발송 채널이 재편되면 두 집합이 어긋날 수 있음.
+YEARLY_OPTIONABLE_PREFIXES = {"W0", "WB"}
+
 _PERIOD_YEAR_RE = re.compile(r"구독 (?:기간|연장)=(\d+)년 연장")
 _OPTION_PERIOD_RE = re.compile(r"기간:\s*(\d+)/(\d+)\s*~")
 
@@ -282,7 +291,10 @@ def _build_mapped_order(
         if product:
             sale_price = unit_price + to_int(it.get("option_price"))
             if product.product_kind == "YEARLY":
-                subscribe_period = parse_subscribe_period(option_value)
+                if product.product_code[:2] in YEARLY_OPTIONABLE_PREFIXES:
+                    subscribe_period = parse_subscribe_period(option_value)
+                else:
+                    subscribe_period = 12  # 1년 고정 상품군 — option_value 무시
             else:
                 subscribe_period = 1
             line_total = sale_price * quantity
@@ -517,11 +529,15 @@ async def _import_single_order(
                 f"product_price 불일치 (상품 {cafe24_code}): Cafe24={cafe24_price}, Product.sale_price={product.sale_price}"
             )
         if product.product_kind == "YEARLY":
-            period_months = parse_subscribe_period(it.get("option_value") or "")
-            if period_months is None:
-                raise ImportSkip(
-                    f"YEARLY 상품 {cafe24_code}의 option_value에서 구독 기간 파싱 실패: {(it.get('option_value') or '')!r}"
-                )
+            if product.product_code[:2] in YEARLY_OPTIONABLE_PREFIXES:
+                period_months = parse_subscribe_period(it.get("option_value") or "")
+                if period_months is None:
+                    raise ImportSkip(
+                        f"YEARLY 옵션 상품 {cafe24_code}의 option_value에서 구독 기간 파싱 실패: "
+                        f"{(it.get('option_value') or '')!r}"
+                    )
+            else:
+                period_months = 12  # 1년 고정 상품군 — option_value 무시
             item_subscribe_periods[it.get("order_item_code")] = period_months
         else:
             item_subscribe_periods[it.get("order_item_code")] = 1
