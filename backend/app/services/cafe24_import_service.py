@@ -51,8 +51,9 @@ ITEM_DISCOUNT_FIELDS = [
     "app_item_discount_amount",
 ]
 
-# 1/2/3년 옵션을 가진 YEARLY 상품 prefix. 그 외 YEARLY 는 1년 고정 — option_value 가
-# 어떤 값으로 오든(빈 문자열 / 임의 텍스트 / 잘못 박힌 "구독 기간=N년 연장") 무시하고 12개월 처리.
+# 1/2/3년 옵션을 가진 YEARLY 상품 prefix. 그 외 YEARLY 는 1년 고정 — Cafe24 옵션이
+# 단일 선택지("1년 구독" 같은 라벨) 로만 등록돼 있어 option_value 가 W0/WB 의
+# "구독 기간=N년 연장" 형식과 다름. 어떤 라벨이 와도 무시하고 12개월 처리.
 # 꿀땅(HN) / 어린이 저학년(CL) / 어린이 고학년(CH) / 청소년(JN) 은 1년 정기구독만 판매.
 #
 # 주의 — dispatch_excel_service.GICHULYU_YEARLY_PREFIXES 와 현재 우연히 같은 집합이지만
