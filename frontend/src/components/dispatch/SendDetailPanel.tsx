@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { X } from "lucide-react";
 import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
@@ -69,24 +70,31 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
   const send = sendData;
 
   return (
-    <SlidingPanel
-      open={open}
-      onClose={onClose}
-      title={send ? `발송 #${send.send_id}` : "발송 상세"}
-      width={520}
-    >
+    <SlidingPanel open={open} onClose={onClose} width={520}>
+      {/* 자체 헤더 — 다른 도메인 상세 패널(CustomerDetailPanel 등)과 동일 패턴.
+          SlidingPanel.title prop 대신 children 안에서 상태 배지·ID 까지 통합.
+          SlidingPanel 의 children 영역이 자체로 스크롤되므로 sticky top-0 으로 고정. */}
+      <div className="sticky top-0 z-10 px-5 py-4 border-b border-gray-200 bg-white flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          {send && <StatusBadge type="send_status" value={send.send_status} />}
+          <h2 className="text-base font-semibold text-gray-900 truncate">
+            {send ? `발송 #${send.send_id}` : "발송 상세"}
+          </h2>
+        </div>
+        <button
+          onClick={onClose}
+          className="rounded-md p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors flex-shrink-0 ml-2"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
       {isLoading || !send ? (
         <div className="flex items-center justify-center py-16">
           <LoadingSpinner size="lg" />
         </div>
       ) : (
-        <div className="p-4 space-y-5 text-sm">
-          {/* 상태 + ID */}
-          <div className="flex items-center gap-2">
-            <StatusBadge type="send_status" value={send.send_status} />
-            <span className="font-mono text-xs text-gray-400">#{send.send_id}</span>
-          </div>
-
+        <div className="p-4 space-y-3 text-sm">
           {/* 수령인 / 주소 */}
           <Section title="수령인">
             <Row label="이름">{send.recipient_name}</Row>
@@ -174,9 +182,25 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
             )}
           </Section>
 
-          {/* 재배송 이력 — 백엔드 활동 로그 API 는 created_at DESC 반환이라
-              그 순서 그대로 표시 (최신부터 위로). 백엔드 정렬 변경 시 깨짐. */}
-          <Section title={`재배송 이력 (${resendLogs.length}건)`}>
+          {/* 재배송 — 입력(추가 버튼/폼)과 이력 리스트를 한 섹션에 통합.
+              DELIVERED 박스만 입력 가능(ResendInputSection 내부 조건 아님 — 부모에서 분기).
+              이력은 PREPARING 박스에서도 표시될 수 있으나 정의상 항상 0건.
+              백엔드 활동 로그 API 는 created_at DESC 반환이라 그 순서 그대로 표시 (최신부터 위로).
+              백엔드 정렬 변경 시 깨짐. */}
+          <Section title={`재배송 (${resendLogs.length}건)`}>
+            {/* 입력 — DELIVERED 만. key 로 박스 바뀔 때 toggle/입력 state 초기화. */}
+            {send.send_status === "DELIVERED" && (
+              <ResendInputSection
+                key={send.send_id}
+                send={send}
+                onSuccess={() => {
+                  queryClient.invalidateQueries({ queryKey: ["send-resend-logs", sendId] });
+                  queryClient.invalidateQueries({ queryKey: ["delivered-resend-logs"] });
+                  queryClient.invalidateQueries({ queryKey: ["resendLogs"] });
+                }}
+              />
+            )}
+            {/* 이력 리스트 */}
             {resendLogs.length === 0 ? (
               <p className="text-xs text-gray-400">재배송 이력이 없습니다.</p>
             ) : (
@@ -228,20 +252,6 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
             )}
           </Section>
 
-          {/* 재배송 입력 — DELIVERED 박스만 노출.
-              key={send.send_id} 로 박스 바뀔 때 ResendInputSection 의 toggle/입력 state 초기화. */}
-          {send.send_status === "DELIVERED" && (
-            <ResendInputSection
-              key={send.send_id}
-              send={send}
-              onSuccess={() => {
-                queryClient.invalidateQueries({ queryKey: ["send-resend-logs", sendId] });
-                queryClient.invalidateQueries({ queryKey: ["delivered-resend-logs"] });
-                queryClient.invalidateQueries({ queryKey: ["resendLogs"] });
-              }}
-            />
-          )}
-
           {/* PREPARING 박스 강제 삭제 — PREPARING 박스만 노출, 위험 액션 (확인 모달) */}
           {send.send_status === "PREPARING" && (
             <PreparingDeleteSection
@@ -258,9 +268,9 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
 
           {/* 시스템 메타 */}
           <Section title="시스템">
-            <Row label="생성">{formatDateTime(send.created_at)}</Row>
-            <Row label="수정">{formatDateTime(send.updated_at)}</Row>
-            {send.delivered_at && <Row label="배송완료">{formatDateTime(send.delivered_at)}</Row>}
+            <Row label="생성일">{formatDateTime(send.created_at)}</Row>
+            <Row label="수정일">{formatDateTime(send.updated_at)}</Row>
+            {send.delivered_at && <Row label="배송완료일">{formatDateTime(send.delivered_at)}</Row>}
           </Section>
         </div>
       )}
@@ -311,102 +321,101 @@ function TrackingSection({ send, onSuccess }: TrackingSectionProps) {
     mutation.mutate();
   };
 
-  // read-only — DELIVERED 외 상태 OR 편집 닫힘
-  if (!editing) {
-    return (
+  // read-only Section 은 항상 표시. 편집 모드 진입 시 위에 파란 박스가 추가됨
+  // (CustomerDetailPanel 등 다른 도메인 패널과 동일한 패턴 — 현재값 비교하며 편집 가능).
+  return (
+    <>
+      {editing && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3.5 space-y-3">
+          <div className="text-xs font-semibold text-blue-700">운송장 수정</div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs text-gray-600">배송 방법</Label>
+              <Select
+                value={sendMethod}
+                onValueChange={(v) => {
+                  const sm = v as SendMethod;
+                  setSendMethod(sm);
+                  const derived = SEND_METHOD_TO_COURIER[sm] as CourierCompany | undefined;
+                  // 운영자가 courier 를 이미 다른 값으로 지정한 상태라면 덮지 않음
+                  if (derived && !courier) setCourier(derived);
+                }}
+              >
+                <SelectTrigger className="mt-1 h-8 text-xs bg-white">
+                  <SelectValue placeholder="선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SEND_METHOD_OPTIONS.map((m) => (
+                    <SelectItem key={m.value} value={m.value} className="text-xs">
+                      {m.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-gray-600">운송사</Label>
+              <Select value={courier} onValueChange={(v) => setCourier(v as CourierCompany)}>
+                <SelectTrigger className="mt-1 h-8 text-xs bg-white">
+                  <SelectValue placeholder="선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COURIER_COMPANY_OPTIONS.map((c) => (
+                    <SelectItem key={c.value} value={c.value} className="text-xs">
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs text-gray-600">송장 번호</Label>
+            <Input
+              className="mt-1 h-8 text-xs font-mono bg-white"
+              placeholder="숫자만 추출되어 저장됨"
+              value={tracking}
+              onChange={(e) => setTracking(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                // 편집 취소 — draft 를 현재 값으로 복원
+                setTracking(send.tracking_no ?? "");
+                setSendMethod((send.send_method as SendMethod | null) ?? "");
+                setCourier((send.courier_company as CourierCompany | null) ?? "");
+                setEditing(false);
+              }}
+              disabled={mutation.isPending}
+            >
+              취소
+            </Button>
+            <Button size="sm" onClick={handleSave} disabled={mutation.isPending}>
+              {mutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+              저장
+            </Button>
+          </div>
+        </div>
+      )}
+
       <Section title="운송장">
         <Row label="배송 방법">{send.send_method ?? "-"}</Row>
         <Row label="운송사">{send.courier_company ?? "-"}</Row>
         <Row label="송장 번호">
           <span className="font-mono">{send.tracking_no ?? "-"}</span>
         </Row>
-        {send.send_status === "DELIVERED" && (
-          <div className="mt-2">
+        {send.send_status === "DELIVERED" && !editing && (
+          <div className="pt-1">
             <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
               운송장 수정
             </Button>
           </div>
         )}
       </Section>
-    );
-  }
-
-  // 편집 모드 (DELIVERED 만 도달)
-  return (
-    <Section title="운송장 수정">
-      <div className="space-y-3 border border-gray-200 rounded p-3 bg-gray-50/50">
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <Label className="text-xs text-gray-600">배송 방법</Label>
-            <Select
-              value={sendMethod}
-              onValueChange={(v) => {
-                const sm = v as SendMethod;
-                setSendMethod(sm);
-                const derived = SEND_METHOD_TO_COURIER[sm] as CourierCompany | undefined;
-                // 운영자가 courier 를 이미 다른 값으로 지정한 상태라면 덮지 않음
-                if (derived && !courier) setCourier(derived);
-              }}
-            >
-              <SelectTrigger className="mt-1 h-8 text-xs">
-                <SelectValue placeholder="선택" />
-              </SelectTrigger>
-              <SelectContent>
-                {SEND_METHOD_OPTIONS.map((m) => (
-                  <SelectItem key={m.value} value={m.value} className="text-xs">
-                    {m.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs text-gray-600">운송사</Label>
-            <Select value={courier} onValueChange={(v) => setCourier(v as CourierCompany)}>
-              <SelectTrigger className="mt-1 h-8 text-xs">
-                <SelectValue placeholder="선택" />
-              </SelectTrigger>
-              <SelectContent>
-                {COURIER_COMPANY_OPTIONS.map((c) => (
-                  <SelectItem key={c.value} value={c.value} className="text-xs">
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div>
-          <Label className="text-xs text-gray-600">송장 번호</Label>
-          <Input
-            className="mt-1 h-8 text-xs font-mono"
-            placeholder="숫자만 추출되어 저장됨"
-            value={tracking}
-            onChange={(e) => setTracking(e.target.value)}
-          />
-        </div>
-        <div className="flex justify-end gap-2 pt-1">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              // 편집 취소 — draft 를 현재 값으로 복원
-              setTracking(send.tracking_no ?? "");
-              setSendMethod((send.send_method as SendMethod | null) ?? "");
-              setCourier((send.courier_company as CourierCompany | null) ?? "");
-              setEditing(false);
-            }}
-            disabled={mutation.isPending}
-          >
-            취소
-          </Button>
-          <Button size="sm" onClick={handleSave} disabled={mutation.isPending}>
-            {mutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-            저장
-          </Button>
-        </div>
-      </div>
-    </Section>
+    </>
   );
 }
 
@@ -442,11 +451,11 @@ function AdminMemoSection({ send, onSuccess }: AdminMemoSectionProps) {
     <Section title="관리자 메모">
       <textarea
         className={`w-full px-3 py-2 text-xs border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 ${
-          overLimit ? "border-red-300" : "border-gray-300"
+          overLimit ? "border-red-500" : "border-gray-300"
         }`}
         rows={3}
         maxLength={MAX_LEN}
-        placeholder="관리자 메모 (저장 시 빈 값이면 메모 삭제)"
+        placeholder="발송 관리자 메모"
         value={memo}
         onChange={(e) => setMemo(e.target.value)}
         disabled={mutation.isPending}
@@ -638,176 +647,177 @@ function ResendInputSection({ send, onSuccess }: ResendInputSectionProps) {
   };
 
   if (!open) {
+    // 부모 Section "재배송" 안에서 렌더 — 자체 wrapper 없이 버튼만
     return (
-      <Section title="재배송">
-        <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-          + 재배송 이력 추가
-        </Button>
-      </Section>
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        + 재배송 이력 추가
+      </Button>
     );
   }
 
+  // 토글 ON — 별도 파란 박스 (다른 도메인 패널의 편집 폼과 동일한 톤)
   return (
-    <Section title="재배송 입력">
-      <div className="space-y-3 border border-gray-200 rounded p-3 bg-gray-50/50">
-        {/* 사유 */}
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3.5 space-y-3">
+      <div className="text-xs font-semibold text-blue-700">재배송 입력</div>
+      {/* 사유 */}
+      <div>
+        <Label className={`text-xs ${reasonError ? "text-red-500" : "text-gray-600"}`}>
+          사유 <span className="text-red-500 ml-0.5">*</span>
+        </Label>
+        <Select value={reason} onValueChange={(v) => { setReason(v); setReasonError(false); }}>
+          <SelectTrigger className={`mt-1 h-8 text-xs bg-white ${reasonError ? "border-red-500 focus:ring-red-500" : ""}`}>
+            <SelectValue placeholder="선택 또는 직접 입력" />
+          </SelectTrigger>
+          <SelectContent>
+            {RESEND_REASON_OPTIONS.map((r) => (
+              <SelectItem key={r.value} value={r.value} className="text-xs">
+                {r.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Input
+          className={`mt-1 h-8 text-xs bg-white ${reasonError ? "border-red-500 focus:ring-red-500" : ""}`}
+          placeholder="또는 직접 입력 (덮어쓰기)"
+          value={reason}
+          onChange={(e) => { setReason(e.target.value); setReasonError(false); }}
+        />
+        {reasonError && <p className="text-xs text-red-500 mt-1">재배송 사유를 입력해주세요.</p>}
+      </div>
+
+      {/* 배송 방법 / 운송사 */}
+      <div className="grid grid-cols-2 gap-2">
         <div>
-          <Label className={`text-xs ${reasonError ? "text-red-500" : "text-gray-600"}`}>
-            사유 <span className="text-red-500 ml-0.5">*</span>
+          <Label className={`text-xs ${sendMethodError ? "text-red-500" : "text-gray-600"}`}>
+            배송 방법 <span className="text-red-500 ml-0.5">*</span>
           </Label>
-          <Select value={reason} onValueChange={(v) => { setReason(v); setReasonError(false); }}>
-            <SelectTrigger className={`mt-1 h-8 text-xs ${reasonError ? "border-red-500 focus:ring-red-500" : ""}`}>
-              <SelectValue placeholder="선택 또는 직접 입력" />
+          <Select
+            value={sendMethod}
+            onValueChange={(v) => {
+              const sm = v as SendMethod;
+              setSendMethod(sm);
+              setSendMethodError(false);
+              const derived = SEND_METHOD_TO_COURIER[sm] as CourierCompany | undefined;
+              if (derived && !courier) {
+                setCourier(derived);
+                setCourierError(false);
+              }
+            }}
+          >
+            <SelectTrigger className={`mt-1 h-8 text-xs bg-white ${sendMethodError ? "border-red-500 focus:ring-red-500" : ""}`}>
+              <SelectValue placeholder="선택" />
             </SelectTrigger>
             <SelectContent>
-              {RESEND_REASON_OPTIONS.map((r) => (
-                <SelectItem key={r.value} value={r.value} className="text-xs">
-                  {r.label}
+              {SEND_METHOD_OPTIONS.map((m) => (
+                <SelectItem key={m.value} value={m.value} className="text-xs">
+                  {m.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Input
-            className={`mt-1 h-8 text-xs ${reasonError ? "border-red-500 focus:ring-red-500" : ""}`}
-            placeholder="또는 직접 입력 (덮어쓰기)"
-            value={reason}
-            onChange={(e) => { setReason(e.target.value); setReasonError(false); }}
-          />
-          {reasonError && <p className="text-xs text-red-500 mt-1">재배송 사유를 입력해주세요.</p>}
-        </div>
-
-        {/* 배송 방법 / 운송사 */}
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <Label className={`text-xs ${sendMethodError ? "text-red-500" : "text-gray-600"}`}>
-              배송 방법 <span className="text-red-500 ml-0.5">*</span>
-            </Label>
-            <Select
-              value={sendMethod}
-              onValueChange={(v) => {
-                const sm = v as SendMethod;
-                setSendMethod(sm);
-                setSendMethodError(false);
-                const derived = SEND_METHOD_TO_COURIER[sm] as CourierCompany | undefined;
-                if (derived && !courier) {
-                  setCourier(derived);
-                  setCourierError(false);
-                }
-              }}
-            >
-              <SelectTrigger className={`mt-1 h-8 text-xs ${sendMethodError ? "border-red-500 focus:ring-red-500" : ""}`}>
-                <SelectValue placeholder="선택" />
-              </SelectTrigger>
-              <SelectContent>
-                {SEND_METHOD_OPTIONS.map((m) => (
-                  <SelectItem key={m.value} value={m.value} className="text-xs">
-                    {m.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {sendMethodError && <p className="text-xs text-red-500 mt-1">배송 방법을 선택해주세요.</p>}
-          </div>
-          <div>
-            <Label className={`text-xs ${courierError ? "text-red-500" : "text-gray-600"}`}>
-              운송사 <span className="text-red-500 ml-0.5">*</span>
-            </Label>
-            <Select value={courier} onValueChange={(v) => { setCourier(v as CourierCompany); setCourierError(false); }}>
-              <SelectTrigger className={`mt-1 h-8 text-xs ${courierError ? "border-red-500 focus:ring-red-500" : ""}`}>
-                <SelectValue placeholder="선택" />
-              </SelectTrigger>
-              <SelectContent>
-                {COURIER_COMPANY_OPTIONS.map((c) => (
-                  <SelectItem key={c.value} value={c.value} className="text-xs">
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {courierError && <p className="text-xs text-red-500 mt-1">운송사를 선택해주세요.</p>}
-          </div>
-        </div>
-
-        {/* 송장 / 메모 */}
-        <div>
-          <Label className="text-xs text-gray-600">송장 번호 (선택)</Label>
-          <Input
-            className="mt-1 h-8 text-xs font-mono"
-            placeholder="숫자만 추출되어 저장됨"
-            value={trackingNo}
-            onChange={(e) => setTrackingNo(e.target.value)}
-          />
+          {sendMethodError && <p className="text-xs text-red-500 mt-1">배송 방법을 선택해주세요.</p>}
         </div>
         <div>
-          <Label className="text-xs text-gray-600">메모 (선택)</Label>
-          <textarea
-            className="mt-1 w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            rows={2}
-            placeholder="추가 안내"
-            value={memo}
-            onChange={(e) => setMemo(e.target.value)}
-          />
-        </div>
-
-        {/* SendItem 다중 선택 */}
-        <div>
-          <Label className={`text-xs ${itemsError ? "text-red-500" : "text-gray-600"}`}>
-            재배송 품목 <span className="text-red-500 ml-0.5">*</span> ({selectedItemIds.size}/{send.items.length})
+          <Label className={`text-xs ${courierError ? "text-red-500" : "text-gray-600"}`}>
+            운송사 <span className="text-red-500 ml-0.5">*</span>
           </Label>
-          <div className={`mt-1 border rounded divide-y divide-gray-100 ${itemsError ? "border-red-500" : "border-gray-200"}`}>
-            {send.items.map((it) => (
-              <label
-                key={it.send_item_id}
-                className="flex items-center gap-2 px-2 py-1.5 text-xs cursor-pointer hover:bg-gray-50"
-              >
-                <Checkbox
-                  checked={selectedItemIds.has(it.send_item_id)}
-                  onCheckedChange={(c) => toggleItem(it.send_item_id, c === true)}
-                />
-                <span className="font-mono text-gray-600">{it.product_code}</span>
-                <span className="text-gray-400">·</span>
-                <span className="text-gray-600">{formatIssue(it.issue)}</span>
-                <span className="text-gray-400 ml-auto">× {it.send_num}</span>
-              </label>
-            ))}
-          </div>
-          {itemsError && <p className="text-xs text-red-500 mt-1">재배송할 품목을 1개 이상 선택해주세요.</p>}
-        </div>
-
-        {/* 액션 */}
-        <div className="flex justify-end gap-2 pt-1">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setOpen(false)}
-            disabled={mutation.isPending}
-          >
-            취소
-          </Button>
-          <Button size="sm" onClick={handleSubmit} disabled={mutation.isPending}>
-            {mutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-            기록 저장
-          </Button>
+          <Select value={courier} onValueChange={(v) => { setCourier(v as CourierCompany); setCourierError(false); }}>
+            <SelectTrigger className={`mt-1 h-8 text-xs bg-white ${courierError ? "border-red-500 focus:ring-red-500" : ""}`}>
+              <SelectValue placeholder="선택" />
+            </SelectTrigger>
+            <SelectContent>
+              {COURIER_COMPANY_OPTIONS.map((c) => (
+                <SelectItem key={c.value} value={c.value} className="text-xs">
+                  {c.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {courierError && <p className="text-xs text-red-500 mt-1">운송사를 선택해주세요.</p>}
         </div>
       </div>
-    </Section>
+
+      {/* 송장 / 메모 */}
+      <div>
+        <Label className="text-xs text-gray-600">송장 번호 (선택)</Label>
+        <Input
+          className="mt-1 h-8 text-xs font-mono bg-white"
+          placeholder="숫자만 추출되어 저장됨"
+          value={trackingNo}
+          onChange={(e) => setTrackingNo(e.target.value)}
+        />
+      </div>
+      <div>
+        <Label className="text-xs text-gray-600">메모 (선택)</Label>
+        <textarea
+          className="mt-1 w-full px-3 py-2 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          rows={2}
+          placeholder="추가 안내"
+          value={memo}
+          onChange={(e) => setMemo(e.target.value)}
+        />
+      </div>
+
+      {/* SendItem 다중 선택 */}
+      <div>
+        <Label className={`text-xs ${itemsError ? "text-red-500" : "text-gray-600"}`}>
+          재배송 품목 <span className="text-red-500 ml-0.5">*</span> ({selectedItemIds.size}/{send.items.length})
+        </Label>
+        <div className={`mt-1 border rounded divide-y divide-gray-100 bg-white ${itemsError ? "border-red-500" : "border-gray-200"}`}>
+          {send.items.map((it) => (
+            <label
+              key={it.send_item_id}
+              className="flex items-center gap-2 px-2 py-1.5 text-xs cursor-pointer hover:bg-gray-50"
+            >
+              <Checkbox
+                checked={selectedItemIds.has(it.send_item_id)}
+                onCheckedChange={(c) => toggleItem(it.send_item_id, c === true)}
+              />
+              <span className="font-mono text-gray-600">{it.product_code}</span>
+              <span className="text-gray-400">·</span>
+              <span className="text-gray-600">{formatIssue(it.issue)}</span>
+              <span className="text-gray-400 ml-auto">× {it.send_num}</span>
+            </label>
+          ))}
+        </div>
+        {itemsError && <p className="text-xs text-red-500 mt-1">재배송할 품목을 1개 이상 선택해주세요.</p>}
+      </div>
+
+      {/* 액션 */}
+      <div className="flex justify-end gap-2 pt-1">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setOpen(false)}
+          disabled={mutation.isPending}
+        >
+          취소
+        </Button>
+        <Button size="sm" onClick={handleSubmit} disabled={mutation.isPending}>
+          {mutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+          기록 저장
+        </Button>
+      </div>
+    </div>
   );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-1.5">
-      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{title}</h3>
-      <div>{children}</div>
-    </section>
+    <div className="border border-gray-100 rounded-lg overflow-hidden">
+      <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{title}</h3>
+      </div>
+      <div className="px-3.5 py-3 space-y-2.5">{children}</div>
+    </div>
   );
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-3 text-xs">
-      <span className="text-gray-400 w-20 shrink-0">{label}</span>
-      <span className="text-gray-700">{children}</span>
+    <div className="flex items-start gap-3">
+      <span className="text-xs text-gray-400 w-24 flex-shrink-0 pt-0.5">{label}</span>
+      <span className="text-sm text-gray-700 flex-1">{children}</span>
     </div>
   );
 }
