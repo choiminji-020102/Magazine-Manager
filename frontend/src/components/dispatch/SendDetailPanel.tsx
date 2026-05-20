@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { SlidingPanel } from "@/components/common/SlidingPanel";
@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { sendsApi } from "@/api/sendsApi";
+import { sendItemsApi } from "@/api/sendItemsApi";
 import { activityLogsApi } from "@/api/activityLogsApi";
 import { formatDateTime, formatPhone, formatIssue } from "@/utils/format";
 import { toast } from "@/hooks/use-toast";
@@ -156,31 +157,17 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
             }}
           />
 
-          {/* 박스 안 SendItem 목록 — #11 약점 보강 */}
-          <Section title={`박스 내용 (${send.items.length}건)`}>
-            {send.items.length === 0 ? (
-              <p className="text-xs text-gray-400">발송 품목이 없습니다.</p>
-            ) : (
-              <table className="w-full text-xs">
-                <thead className="text-gray-400 border-b border-gray-100">
-                  <tr>
-                    <th className="text-left py-1 pr-2 font-normal">상품코드</th>
-                    <th className="text-left py-1 pr-2 font-normal">발송호</th>
-                    <th className="text-right py-1 font-normal">수량</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {send.items.map((it) => (
-                    <tr key={it.send_item_id} className="border-b border-gray-50">
-                      <td className="py-1 pr-2 font-mono text-gray-700">{it.product_code}</td>
-                      <td className="py-1 pr-2 text-gray-600">{formatIssue(it.issue)}</td>
-                      <td className="py-1 text-right font-semibold text-gray-700">{it.send_num}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </Section>
+          {/* 박스 안 SendItem 목록 — 각 품목 admin_memo 인라인 편집 */}
+          <BoxContentsSection
+            key={`box-${send.send_id}`}
+            send={send}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
+              queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
+              queryClient.invalidateQueries({ queryKey: ["delivered-sends"] });
+              queryClient.invalidateQueries({ queryKey: ["order-sends"] });
+            }}
+          />
 
           {/* 재배송 — 입력(추가 버튼/폼)과 이력 리스트를 한 섹션에 통합.
               DELIVERED 박스만 입력 가능(ResendInputSection 내부 조건 아님 — 부모에서 분기).
@@ -473,6 +460,159 @@ function AdminMemoSection({ send, onSuccess }: AdminMemoSectionProps) {
           저장
         </Button>
       </div>
+    </Section>
+  );
+}
+
+
+// ── 박스 내용 섹션 — SendItem 목록 + 품목별 admin_memo 인라인 편집 ───────────
+// 상품 셀에 product_code + product_name inline (SendItemBox 와 동일 톤).
+// admin_memo 는 truthy 시 메모 텍스트 클릭으로 편집 진입, falsy 시 "+ 메모 추가" 버튼.
+// 한 번에 하나의 SendItem 만 편집 가능 (editingItemId 단일 state).
+
+interface BoxContentsSectionProps {
+  send: SendDetailResponse;
+  onSuccess: () => void;
+}
+
+function BoxContentsSection({ send, onSuccess }: BoxContentsSectionProps) {
+  const [editingItemId, setEditingItemId] = useState<number | null>(null);
+  const [memoDraft, setMemoDraft] = useState("");
+
+  const MAX_LEN = 1000;
+  const overLimit = memoDraft.length > MAX_LEN;
+
+  const mutation = useMutation({
+    mutationFn: ({ id, memo }: { id: number; memo: string | null }) =>
+      sendItemsApi.updateSendItem(id, { admin_memo: memo }).then((r) => r.data),
+    onSuccess: (res) => {
+      toast.success(res.message ?? "품목 메모가 수정되었습니다.");
+      setEditingItemId(null);
+      onSuccess();
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+
+  const startEdit = (itemId: number, current: string | null) => {
+    setEditingItemId(itemId);
+    setMemoDraft(current ?? "");
+  };
+
+  const cancelEdit = () => {
+    setEditingItemId(null);
+    setMemoDraft("");
+  };
+
+  const saveEdit = (itemId: number) => {
+    if (overLimit) return;
+    mutation.mutate({ id: itemId, memo: memoDraft.trim() || null });
+  };
+
+  return (
+    <Section title={`박스 내용 (${send.items.length}건)`}>
+      {send.items.length === 0 ? (
+        <p className="text-xs text-gray-400">발송 품목이 없습니다.</p>
+      ) : (
+        <table className="w-full text-xs">
+          <thead className="text-gray-400 border-b border-gray-100">
+            <tr>
+              <th className="text-left py-1 pr-2 font-normal">상품</th>
+              <th className="text-left py-1 pr-2 font-normal">발송호</th>
+              <th className="text-right py-1 font-normal">수량</th>
+            </tr>
+          </thead>
+          <tbody>
+            {send.items.map((it) => {
+              const isEditing = editingItemId === it.send_item_id;
+              // 편집 모드에서만 의미 있음 — 변경 없는 저장으로 인한 불필요 API 호출 방지
+              // (AdminMemoSection 의 dirty 패턴과 동일).
+              const isDirty =
+                isEditing && memoDraft.trim() !== (it.admin_memo ?? "").trim();
+              return (
+                <Fragment key={it.send_item_id}>
+                  {/* 데이터 행 — 상품 / 발송호 / 수량.
+                      편집 모드일 땐 메모 표시 줄을 숨기고(아래 별도 tr 의 textarea 가 대체),
+                      table border 도 다음 tr 로 미룬다 (편집 행과 데이터 행 사이엔 구분선 없음). */}
+                  <tr className={isEditing ? "align-top" : "border-b border-gray-50 align-top"}>
+                    <td className="py-1 pr-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-gray-700">{it.product_code}</span>
+                        <span className="text-gray-500 truncate">{it.product_name}</span>
+                      </div>
+                      {!isEditing && (
+                        it.admin_memo ? (
+                          <button
+                            onClick={() => startEdit(it.send_item_id, it.admin_memo)}
+                            disabled={mutation.isPending}
+                            className="block w-full text-left text-[11px] text-gray-500 truncate hover:bg-gray-50 rounded px-1 -mx-1 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+                            title={`${it.admin_memo}\n(클릭하여 편집)`}
+                          >
+                            📝 {it.admin_memo}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => startEdit(it.send_item_id, null)}
+                            disabled={mutation.isPending}
+                            className="text-[11px] text-gray-400 hover:text-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-gray-400"
+                          >
+                            + 메모 추가
+                          </button>
+                        )
+                      )}
+                    </td>
+                    <td className="py-1 pr-2 text-gray-600">{formatIssue(it.issue)}</td>
+                    <td className="py-1 text-right font-semibold text-gray-700">{it.send_num}</td>
+                  </tr>
+                  {/* 편집 행 — 전체 폭(colSpan=3) textarea. 데이터 행 바로 아래에 펼쳐짐. */}
+                  {isEditing && (
+                    <tr className="border-b border-gray-50">
+                      <td colSpan={3} className="pt-1 pb-2">
+                        <div className="space-y-1">
+                          <textarea
+                            className={`w-full px-2 py-1 text-[11px] border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 ${
+                              overLimit ? "border-red-500" : "border-gray-300"
+                            }`}
+                            rows={2}
+                            maxLength={MAX_LEN}
+                            placeholder="발송 품목 관리자 메모"
+                            value={memoDraft}
+                            onChange={(e) => setMemoDraft(e.target.value)}
+                            disabled={mutation.isPending}
+                            autoFocus
+                          />
+                          <div className="flex items-center justify-between">
+                            <span className={`text-[10px] ${overLimit ? "text-red-500" : "text-gray-400"}`}>
+                              {memoDraft.length} / {MAX_LEN}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={cancelEdit}
+                                disabled={mutation.isPending}
+                              >
+                                취소
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => saveEdit(it.send_item_id)}
+                                disabled={!isDirty || mutation.isPending || overLimit}
+                              >
+                                {mutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+                                저장
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
     </Section>
   );
 }
