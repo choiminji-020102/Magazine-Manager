@@ -619,7 +619,8 @@ function BoxContentsSection({ send, onSuccess }: BoxContentsSectionProps) {
 
 
 // ── PREPARING 박스 강제 삭제 섹션 ─────────────────────────────────────────────
-// PREPARING 박스만 노출. 위험 액션이라 ConfirmModal 한 번 더 확인.
+// PREPARING 박스만 노출. 위험 액션이라 ConfirmModal 2단계 (1차 일반 확인 → 2차 비가역성 강조).
+// 사유/메모는 받지 않음 — 운영자 직접 정리 흐름이라 입력 부담 줄이고 대신 실수 방지에 무게.
 // OrderItem 취소 시 자동 제거 흐름과 별개 — 운영자 직접 박스 단위 정리용.
 
 interface PreparingDeleteSectionProps {
@@ -628,13 +629,16 @@ interface PreparingDeleteSectionProps {
 }
 
 function PreparingDeleteSection({ send, onSuccess }: PreparingDeleteSectionProps) {
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  // 2단계 모달 — 1차/2차 독립 state. 1차 [삭제] 클릭 시 1차 닫고 2차 열기.
+  // 2차에서 취소 시 1차로 돌아가지 않고 그대로 닫힘 (모달 중첩 UX 단순화).
+  const [step1Open, setStep1Open] = useState(false);
+  const [step2Open, setStep2Open] = useState(false);
 
   const mutation = useMutation({
     mutationFn: () => sendsApi.deletePreparingSend(send.send_id).then((r) => r.data),
     onSuccess: (res) => {
       toast.success(res.message ?? "PREPARING 박스가 삭제되었습니다.");
-      setConfirmOpen(false);
+      setStep2Open(false);
       onSuccess();
     },
     onError: (err) => toast.error(getErrorMessage(err)),
@@ -649,25 +653,47 @@ function PreparingDeleteSection({ send, onSuccess }: PreparingDeleteSectionProps
       <Button
         size="sm"
         variant="destructive"
-        onClick={() => setConfirmOpen(true)}
+        onClick={() => setStep1Open(true)}
         disabled={mutation.isPending}
       >
         {mutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
         박스 강제 삭제
       </Button>
+
+      {/* 1차 — 일반 확인 (대상/규모 안내) */}
       <ConfirmModal
-        open={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
-        onConfirm={() => mutation.mutate()}
+        open={step1Open}
+        onClose={() => setStep1Open(false)}
+        onConfirm={() => {
+          setStep1Open(false);
+          setStep2Open(true);
+        }}
         title="박스 강제 삭제"
         description={
           <>
             발송 박스 <span className="font-mono">#{send.send_id}</span> 와 발송 품목{" "}
-            <strong>{send.items.length}건</strong>이 모두 삭제됩니다. 되돌릴 수 없습니다.
-            <br />계속하시겠습니까?
+            <strong>{send.items.length}건</strong>이 모두 삭제됩니다.
+            <br />주문 자체는 유지됩니다.
           </>
         }
-        confirmLabel="삭제"
+        confirmLabel="계속"
+        variant="destructive"
+      />
+
+      {/* 2차 — 비가역성 강조 (최종 확인) */}
+      <ConfirmModal
+        open={step2Open}
+        onClose={() => setStep2Open(false)}
+        onConfirm={() => mutation.mutate()}
+        title="정말 삭제하시겠습니까?"
+        description={
+          <>
+            이 작업은 <strong className="text-red-600">되돌릴 수 없습니다.</strong>
+            <br />박스 <span className="font-mono">#{send.send_id}</span> 와 품목{" "}
+            <strong>{send.items.length}건</strong>이 영구 삭제됩니다.
+          </>
+        }
+        confirmLabel="영구 삭제"
         variant="destructive"
         isLoading={mutation.isPending}
       />
