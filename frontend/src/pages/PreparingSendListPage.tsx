@@ -21,7 +21,7 @@ import { dispatchApi } from "@/api/dispatchApi";
 import { vipSlotsApi } from "@/api/vipSlotsApi";
 import type { DispatchScope, PaidNotPreparedCountResponse } from "@/types/dispatch";
 
-const LIMIT = 50;
+const LIMIT = 20;
 
 // scope 가 vipN 이면 슬롯 번호 반환, 그 외 null
 function vipSlotOf(scope: DispatchScope): number | null {
@@ -335,8 +335,8 @@ export default function PreparingSendListPage() {
       />
 
       {/* 페이지네이션 */}
-      {totalPages > 1 && (
-        <div className="px-5 py-2 bg-white border-t border-gray-200">
+      {sendsData && (
+        <div className="bg-white border-t border-gray-200">
           <Pagination
             page={page}
             totalPages={totalPages}

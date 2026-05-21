@@ -16,40 +16,35 @@ export function Pagination({
   limit,
   onPageChange,
 }: PaginationProps) {
-  const start = (page - 1) * limit + 1;
+  const start = total === 0 ? 0 : (page - 1) * limit + 1;
   const end = Math.min(page * limit, total);
+  const effectiveTotalPages = Math.max(1, totalPages);
 
-  // 페이지 번호 범위 계산 (최대 5개)
+  // 페이지 번호 범위 계산 (최대 5개). totalPages=1 이어도 "1" 버튼 한 개 노출.
   const getPageNumbers = () => {
     const delta = 2;
     const pages: (number | "...")[] = [];
     const left = Math.max(1, page - delta);
-    const right = Math.min(totalPages, page + delta);
+    const right = Math.min(effectiveTotalPages, page + delta);
 
     if (left > 1) {
       pages.push(1);
       if (left > 2) pages.push("...");
     }
     for (let i = left; i <= right; i++) pages.push(i);
-    if (right < totalPages) {
-      if (right < totalPages - 1) pages.push("...");
-      pages.push(totalPages);
+    if (right < effectiveTotalPages) {
+      if (right < effectiveTotalPages - 1) pages.push("...");
+      pages.push(effectiveTotalPages);
     }
     return pages;
   };
 
-  if (totalPages <= 1) {
-    return (
-      <div className="flex items-center justify-end px-3 py-2 text-xs text-gray-500">
-        총 {total.toLocaleString()}건
-      </div>
-    );
-  }
-
   return (
     <div className="flex items-center justify-between px-3 py-2.5 border-t border-gray-200">
       <span className="text-xs text-gray-500">
-        {start.toLocaleString()}–{end.toLocaleString()} / {total.toLocaleString()}건
+        {total === 0
+          ? "총 0건"
+          : `${start.toLocaleString()}–${end.toLocaleString()} / ${total.toLocaleString()}건`}
       </span>
       <div className="flex items-center gap-1">
         <Button
@@ -83,7 +78,7 @@ export function Pagination({
           variant="ghost"
           size="icon-sm"
           onClick={() => onPageChange(page + 1)}
-          disabled={page >= totalPages}
+          disabled={page >= effectiveTotalPages}
         >
           <ChevronRight className="h-4 w-4" />
         </Button>

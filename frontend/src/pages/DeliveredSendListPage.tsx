@@ -15,7 +15,7 @@ import { activityLogsApi } from "@/api/activityLogsApi";
 import type { DispatchScope } from "@/types/dispatch";
 import type { ActivityLogResponse } from "@/types/activityLog";
 
-const LIMIT = 50;
+const LIMIT = 20;
 
 function vipSlotOf(scope: DispatchScope): number | null {
   if (scope.startsWith("vip")) {
@@ -197,8 +197,8 @@ export default function DeliveredSendListPage() {
       />
 
       {/* 페이지네이션 */}
-      {totalPages > 1 && (
-        <div className="px-5 py-2 bg-white border-t border-gray-200">
+      {sendsData && (
+        <div className="bg-white border-t border-gray-200">
           <Pagination
             page={page}
             totalPages={totalPages}
