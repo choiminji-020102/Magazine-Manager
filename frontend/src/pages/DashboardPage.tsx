@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ShoppingCart, Package, TrendingUp, Users } from "lucide-react";
+import { ShoppingCart, Package, TrendingUp } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -54,11 +54,6 @@ export default function DashboardPage() {
     queryFn: () => statsApi.getCustomersByChannel().then((r) => r.data),
   });
 
-  const { data: activeSubRes } = useQuery({
-    queryKey: ["stats-active-subs"],
-    queryFn: () => statsApi.getActiveSubscriptions().then((r) => r.data),
-  });
-
   const { data: subsByIssueRes } = useQuery({
     queryKey: ["stats-subs-by-issue"],
     queryFn: () => statsApi.getSubscriptionsByIssue({}).then((r) => r.data),
@@ -94,7 +89,6 @@ export default function DashboardPage() {
   const summary = summaryRes?.data;
   const channelData = channelRes?.data;
   const channelOrderData = channelOrderRes?.data;
-  const activeSubData = activeSubRes?.data;
   const subsByIssue = subsByIssueRes?.data;
   const recentOrders = recentOrdersRes?.items ?? [];
   const periodData = periodRes?.data?.data ?? [];
@@ -222,32 +216,6 @@ export default function DashboardPage() {
               </ResponsiveContainer>
             </div>
           )}
-        </div>
-      )}
-
-      {/* 활성 구독 현황 */}
-      {activeSubData && (
-        <div>
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            활성 구독 현황
-          </h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <StatCard
-              icon={<Users className="h-4 w-4" />}
-              label="전체 활성 구독"
-              value={`${activeSubData.total.total_subscriptions ?? 0}건`}
-              color="blue"
-            />
-            {activeSubData.by_kind?.map((p) => (
-              <StatCard
-                key={p.product_kind}
-                icon={<Package className="h-4 w-4" />}
-                label={p.product_kind === "YEARLY" ? "정기구독" : "단품"}
-                value={`${p.count}건`}
-                color="green"
-              />
-            ))}
-          </div>
         </div>
       )}
 

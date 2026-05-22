@@ -4,7 +4,6 @@ import type {
   OrdersSummaryResponse,
   OrdersByChannelResponse,
   OrdersByPeriodResponse,
-  SubscriptionsActiveResponse,
   SubscriptionsByIssueResponse,
   CustomersByChannelResponse,
 } from "../types/stats";
@@ -29,13 +28,6 @@ export const statsApi = {
     end_date?: string;
   }) => {
     return api.get<ResponseModel<OrdersByPeriodResponse>>("/stats/orders/by-period", { params });
-  },
-
-  // GET /stats/subscriptions/active - 활성 구독 현황
-  getActiveSubscriptions: (params?: { issue?: string }) => {
-    return api.get<ResponseModel<SubscriptionsActiveResponse>>("/stats/subscriptions/active", {
-      params,
-    });
   },
 
   // GET /stats/subscriptions/by-issue - 호수별 구독자 수

@@ -53,23 +53,6 @@ class OrdersByPeriodResponse(BaseModel):
     data: List[PeriodStats]
 
 
-class SubscriptionByKind(BaseModel):
-    product_kind: str
-    count: int
-    unique_customers: int
-
-
-class SubscriptionTotal(BaseModel):
-    total_subscriptions: int
-    total_subscribers: int
-
-
-class SubscriptionsActiveResponse(BaseModel):
-    issue: str
-    total: SubscriptionTotal
-    by_kind: List[SubscriptionByKind]
-
-
 class IssueSubscription(BaseModel):
     issue: str
     subscription_count: int

@@ -46,7 +46,7 @@ from app.schemas.dispatch import (
 )
 from app.schemas.stats import (
     OrdersSummaryResponse, OrdersByChannelResponse, OrdersByPeriodResponse,
-    SubscriptionsActiveResponse, SubscriptionsByIssueResponse, CustomersByChannelResponse
+    SubscriptionsByIssueResponse, CustomersByChannelResponse
 )
 from app.schemas.activity_log import (
 	ActivityLogCreate, ActivityLogResponse

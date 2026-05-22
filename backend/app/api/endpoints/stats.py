@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case, or_
-from typing import Optional
 from datetime import datetime, date, timedelta
 
 from app.db.session import get_db
@@ -12,9 +11,9 @@ from app.models.order_item import OrderItem
 from app.models.customer import Customer
 from app.schemas.stats import (
     OrdersSummaryResponse, OrdersByChannelResponse, OrdersByPeriodResponse,
-    SubscriptionsActiveResponse, SubscriptionsByIssueResponse, CustomersByChannelResponse,
+    SubscriptionsByIssueResponse, CustomersByChannelResponse,
     DateRange, OrderSummary, DailyTrend, ChannelStats, PeriodStats,
-    SubscriptionByKind, SubscriptionTotal, IssueSubscription,
+    IssueSubscription,
     CustomerChannelStats, CustomerTotal
 )
 from app.schemas.common import ResponseModel
@@ -124,43 +123,6 @@ def get_orders_by_period(
         period_type=period,
         date_range=DateRange(start=start_date, end=end_date),
         data=[PeriodStats(period=str(r.period), total_orders=r.total_orders, valid_orders=r.valid_orders or 0, revenue=r.revenue or 0) for r in results]
-    ))
-
-
-@router.get("/subscriptions/active", response_model=ResponseModel[SubscriptionsActiveResponse])
-def get_active_subscriptions(
-    issue: str = Query(default_factory=lambda: datetime.now().strftime("%Y%m")),
-    db: Session = Depends(get_db),
-    current_admin: Admin = Depends(require_admin)
-):
-    """활성 구독 현황"""
-    # By kind
-    by_kind = db.query(
-        OrderItem.product_kind,
-        func.count().label("count"),
-        func.count(func.distinct(Order.customer_id)).label("unique_customers")
-    ).join(Order, OrderItem.order_id == Order.order_id).filter(
-        OrderItem.product_kind.in_(["YEARLY", "MONTHLY"]),
-        OrderItem.cancelled_at.is_(None),
-        OrderItem.subscribe_start_issue <= issue,
-        or_(OrderItem.final_subscribe_end_issue >= issue, OrderItem.final_subscribe_end_issue.is_(None))
-    ).group_by(OrderItem.product_kind).all()
-    
-    # Total
-    total = db.query(
-        func.count().label("total_subscriptions"),
-        func.count(func.distinct(Order.customer_id)).label("total_subscribers")
-    ).select_from(OrderItem).join(Order, OrderItem.order_id == Order.order_id).filter(
-        OrderItem.product_kind.in_(["YEARLY", "MONTHLY"]),
-        OrderItem.cancelled_at.is_(None),
-        OrderItem.subscribe_start_issue <= issue,
-        or_(OrderItem.final_subscribe_end_issue >= issue, OrderItem.final_subscribe_end_issue.is_(None))
-    ).first()
-    
-    return ResponseModel(data=SubscriptionsActiveResponse(
-        issue=issue,
-        total=SubscriptionTotal(total_subscriptions=total.total_subscriptions or 0, total_subscribers=total.total_subscribers or 0),
-        by_kind=[SubscriptionByKind(product_kind=r.product_kind, count=r.count, unique_customers=r.unique_customers) for r in by_kind]
     ))
 
 

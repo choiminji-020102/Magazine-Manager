@@ -50,23 +50,6 @@ export interface OrdersByPeriodResponse {
   data: PeriodStats[];
 }
 
-export interface SubscriptionByKind {
-  product_kind: string;
-  count: number;
-  unique_customers: number;
-}
-
-export interface SubscriptionTotal {
-  total_subscriptions: number;
-  total_subscribers: number;
-}
-
-export interface SubscriptionsActiveResponse {
-  issue: string;
-  total: SubscriptionTotal;
-  by_kind: SubscriptionByKind[];
-}
-
 export interface IssueSubscription {
   issue: string;
   subscription_count: number;
