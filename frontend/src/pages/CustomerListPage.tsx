@@ -422,7 +422,7 @@ export default function CustomerListPage() {
         </DialogContent>
       </Dialog>
 
-      <SlidingPanel open={panelOpen} onClose={handlePanelClose} width={480}>
+      <SlidingPanel open={panelOpen} onClose={handlePanelClose}>
         {selectedId && (
           <CustomerDetailPanel customerId={selectedId} onClose={handlePanelClose} />
         )}

@@ -15,7 +15,7 @@ export function SlidingPanel({
   open,
   onClose,
   title,
-  width = 480,
+  width = 600,
   children,
   className,
 }: SlidingPanelProps) {

@@ -363,7 +363,7 @@ export default function ProductListPage() {
         </div>
       )}
 
-      <SlidingPanel open={panelOpen} onClose={handlePanelClose} width={480}>
+      <SlidingPanel open={panelOpen} onClose={handlePanelClose}>
         {selectedId && (
           <ProductDetailPanel productId={selectedId} onClose={handlePanelClose} />
         )}

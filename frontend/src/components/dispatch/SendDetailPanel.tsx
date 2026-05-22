@@ -71,7 +71,7 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
   const send = sendData;
 
   return (
-    <SlidingPanel open={open} onClose={onClose} width={520}>
+    <SlidingPanel open={open} onClose={onClose}>
       {/* 자체 헤더 — 다른 도메인 상세 패널(CustomerDetailPanel 등)과 동일 패턴.
           SlidingPanel.title prop 대신 children 안에서 상태 배지·ID 까지 통합.
           SlidingPanel 의 children 영역이 자체로 스크롤되므로 sticky top-0 으로 고정. */}

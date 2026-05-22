@@ -282,7 +282,7 @@ export default function InquiryListPage() {
         </div>
       )}
 
-      <SlidingPanel open={panelOpen} onClose={handlePanelClose} width={520}>
+      <SlidingPanel open={panelOpen} onClose={handlePanelClose}>
         {selectedId && (
           <InquiryDetailPanel inquiryId={selectedId} onClose={handlePanelClose} />
         )}

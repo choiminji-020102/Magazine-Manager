@@ -619,7 +619,6 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
       <SlidingPanel
         open={selectedOrderId !== null}
         onClose={() => setSelectedOrderId(null)}
-        width={520}
       >
         {selectedOrderId !== null && (
           <OrderDetailPanel

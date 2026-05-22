@@ -330,11 +330,7 @@ export default function OrderListPage() {
       )}
 
       {/* 주문 상세 패널 */}
-      <SlidingPanel
-        open={panelOpen}
-        onClose={handlePanelClose}
-        width={520}
-      >
+      <SlidingPanel open={panelOpen} onClose={handlePanelClose}>
         {selectedOrderId && (
           <OrderDetailPanel
             orderId={selectedOrderId}
