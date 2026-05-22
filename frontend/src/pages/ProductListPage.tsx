@@ -240,20 +240,6 @@ export default function ProductListPage() {
       width: "w-20",
     },
     {
-      key: "stock",
-      header: "재고",
-      cell: (row) => (
-        <span
-          className={`text-[13px] ${
-            row.stock_quantity <= 0 ? "text-red-500" : "text-gray-700"
-          }`}
-        >
-          {row.stock_quantity.toLocaleString()}
-        </span>
-      ),
-      width: "w-20",
-    },
-    {
       key: "created_at",
       header: "생성일",
       cell: (row) => (
