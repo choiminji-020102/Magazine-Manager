@@ -366,7 +366,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
           <div className="flex gap-2 text-xs">
             <div className="flex-1 bg-gray-50 rounded-md px-2.5 py-2">
               <p className="text-gray-400 mb-0.5">구독 기간</p>
-              <p className="font-medium text-gray-800">{item.subscribe_period}개월</p>
+              <p className="font-medium text-gray-800">{detail?.subscribe_period ?? item.subscribe_period}개월</p>
             </div>
             <div className="flex-1 bg-gray-50 rounded-md px-2.5 py-2">
               <p className="text-gray-400 mb-0.5">마지막 발송</p>
