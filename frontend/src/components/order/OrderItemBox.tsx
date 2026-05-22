@@ -73,7 +73,7 @@ export default function OrderItemBox({ item }: { item: OrderItemResponse }) {
           ) : (
             <>
               구독 {item.subscribe_period}개월 ·{" "}
-              {formatIssueRange(item.subscribe_start_issue, item.subscribe_end_issue)}
+              {formatIssueRange(item.final_subscribe_start_issue, item.final_subscribe_end_issue)}
               {item.last_send_issue && (
                 <>
                   {" · "}
