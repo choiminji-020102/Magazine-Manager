@@ -77,6 +77,7 @@ export function OrderItemCancelModal({ open, onClose, item, onSuccess }: Props) 
       open={open}
       onClose={handleClose}
       onConfirm={handleConfirm}
+      maxWidth="lg"
       title="품목 취소"
       description={
         <div className="space-y-3">

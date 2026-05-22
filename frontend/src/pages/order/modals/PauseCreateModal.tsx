@@ -93,7 +93,7 @@ export function PauseCreateModal({ open, onClose, item, onSuccess }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>휴지 등록</DialogTitle>
         </DialogHeader>

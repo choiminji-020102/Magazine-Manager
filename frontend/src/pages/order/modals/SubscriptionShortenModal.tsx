@@ -116,7 +116,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>구독 단축</DialogTitle>
         </DialogHeader>

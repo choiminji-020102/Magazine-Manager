@@ -19,6 +19,7 @@ interface ConfirmModalProps {
   cancelLabel?: string;
   variant?: "default" | "destructive";
   isLoading?: boolean;
+  maxWidth?: "sm" | "md" | "lg" | "xl";
 }
 
 export function ConfirmModal({
@@ -31,10 +32,18 @@ export function ConfirmModal({
   cancelLabel = "취소",
   variant = "default",
   isLoading = false,
+  maxWidth = "sm",
 }: ConfirmModalProps) {
+  const maxWidthClass = {
+    sm: "max-w-sm",
+    md: "max-w-md",
+    lg: "max-w-lg",
+    xl: "max-w-xl",
+  }[maxWidth];
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className={maxWidthClass}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && (

@@ -72,7 +72,7 @@ export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Prop
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>구독 연장</DialogTitle>
         </DialogHeader>

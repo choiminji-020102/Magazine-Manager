@@ -554,7 +554,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
 
       {/* 마지막 발송 호 수정 모달 */}
       <Dialog open={lastSendOpen} onOpenChange={(o) => { if (!o) { setLastSendOpen(false); setLastSendIssueError(false); } }}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>마지막 발송 호 수정</DialogTitle></DialogHeader>
           <div className="space-y-3 py-1">
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs">

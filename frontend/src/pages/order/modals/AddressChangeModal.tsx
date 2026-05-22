@@ -105,7 +105,7 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>배송지 변경</DialogTitle>
         </DialogHeader>

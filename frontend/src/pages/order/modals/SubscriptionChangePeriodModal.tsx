@@ -58,7 +58,7 @@ export function SubscriptionChangePeriodModal({ open, onClose, item, onSuccess, 
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>기간 이동</DialogTitle>
         </DialogHeader>
