@@ -298,6 +298,11 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     queryClient.invalidateQueries({ queryKey: ["order", orderId] });
   };
 
+  // 모달에 전달할 fresh activeItem — order refetch 후 갱신된 items 에서 동일 ID 찾기
+  const freshActiveItem = activeItem
+    ? (order?.items?.find((i) => i.order_item_id === activeItem.order_item_id) as ActiveItem | undefined) ?? activeItem
+    : null;
+
   // 품목 추가
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ProductResponse | null>(null);
@@ -1169,32 +1174,32 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       />
 
       {/* 품목 취소 모달 */}
-      {activeItem && (
+      {freshActiveItem && (
         <OrderItemCancelModal
           open={activeModal === "cancelItem"}
           onClose={closeModal}
-          item={activeItem}
+          item={freshActiveItem}
           onSuccess={invalidateOrder}
         />
       )}
 
       {/* 배송지 변경 모달 */}
-      {activeItem && (
+      {freshActiveItem && (
         <AddressChangeModal
           open={activeModal === "addressChange"}
           onClose={closeModal}
-          item={activeItem}
+          item={freshActiveItem}
           customerId={customerId}
           onSuccess={invalidateOrder}
         />
       )}
 
       {/* 품목 수정 모달 */}
-      {activeItem && (
+      {freshActiveItem && (
         <OrderItemEditModal
           open={activeModal === "editItem"}
           onClose={closeModal}
-          item={activeItem}
+          item={freshActiveItem}
           orderId={orderId}
         />
       )}
