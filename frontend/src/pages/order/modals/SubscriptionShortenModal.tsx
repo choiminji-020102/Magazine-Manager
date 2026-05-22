@@ -54,8 +54,8 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
       const sentM = parseInt(item.last_send_issue.slice(4, 6));
       return (endY - sentY) * 12 + (endM - sentM);
     }
-    const startY = parseInt(item.subscribe_start_issue.slice(0, 4));
-    const startM = parseInt(item.subscribe_start_issue.slice(4, 6));
+    const startY = parseInt(item.final_subscribe_start_issue.slice(0, 4));
+    const startM = parseInt(item.final_subscribe_start_issue.slice(4, 6));
     return (endY - startY) * 12 + (endM - startM);
   };
   const maxShorten = calcMaxShorten();
