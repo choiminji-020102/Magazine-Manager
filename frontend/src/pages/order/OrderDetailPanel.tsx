@@ -1501,7 +1501,7 @@ function OrderItemCard({
             <div className="text-gray-400">원래 시작호</div>
             <div className="text-gray-700">{formatIssue(item.subscribe_start_issue)}</div>
 
-            <div className="text-gray-400">구독 기간</div>
+            <div className="text-gray-400">현재 구독 기간</div>
             <div className="text-gray-700">
               {formatIssue(item.final_subscribe_start_issue)} ~{" "}
               {formatIssue(item.final_subscribe_end_issue)}
