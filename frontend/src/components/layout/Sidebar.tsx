@@ -13,6 +13,7 @@ import {
   Settings,
   Store,
   Truck,
+  Star,
   ChevronLeft,
   ChevronRight,
   Link,
@@ -84,7 +85,9 @@ const navigation: NavGroup[] = [
     ],
   },
   {
+    group: "설정",
     items: [
+      { label: "VIP 슬롯", path: "/vip-slots", icon: Star },
       { label: "설정", path: "/settings", icon: Settings },
     ],
   },

@@ -1,16 +1,13 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Eye, EyeOff, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { authAPI } from "@/api/authApi";
 import { cafe24API } from "@/api/cafe24Api";
-import { vipSlotsApi } from "@/api/vipSlotsApi";
-import type { VipSlotResponse } from "@/types/vipSlot";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
 import { ADMIN_ROLE_LABEL } from "@/utils/constants";
@@ -45,10 +42,6 @@ export default function SettingsPage() {
 
         <Section title="Cafe24 연동">
           <Cafe24Settings />
-        </Section>
-
-        <Section title="VIP 슬롯 설정">
-          <VipSlotSettings />
         </Section>
       </div>
     </div>
@@ -353,97 +346,3 @@ function Cafe24Settings() {
   );
 }
 
-function VipSlotSettings() {
-  const queryClient = useQueryClient();
-
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["vip-slots"],
-    queryFn: () => vipSlotsApi.getVipSlots().then((res) => res.data.data ?? []),
-  });
-
-  if (isLoading) {
-    return <p className="text-sm text-gray-400">불러오는 중...</p>;
-  }
-  if (isError || !data) {
-    return <p className="text-sm text-red-500">VIP 슬롯을 불러오지 못했습니다.</p>;
-  }
-
-  return (
-    <div className="space-y-3">
-      <p className="text-xs text-gray-500">
-        배송지에 표시할 특수 케이스 슬롯입니다. 라벨을 지정하고 활성화하면 배송지 화면에 체크박스로 노출됩니다.
-        (예: 해외배송, 합포장, 평생무상 등)
-      </p>
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
-        <div className="grid grid-cols-[60px_1fr_100px] gap-3 px-4 py-2 bg-gray-50 text-xs font-medium text-gray-500">
-          <div>슬롯</div>
-          <div>라벨</div>
-          <div className="text-center">활성화</div>
-        </div>
-        {data.map((slot) => (
-          <VipSlotRow
-            key={slot.slot_number}
-            slot={slot}
-            onSaved={() => queryClient.invalidateQueries({ queryKey: ["vip-slots"] })}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function VipSlotRow({
-  slot,
-  onSaved,
-}: {
-  slot: VipSlotResponse;
-  onSaved: () => void;
-}) {
-  const [labelInput, setLabelInput] = useState(slot.label ?? "");
-
-  useEffect(() => {
-    setLabelInput(slot.label ?? "");
-  }, [slot.label]);
-
-  const mutation = useMutation({
-    mutationFn: (payload: { label?: string | null; is_enabled?: boolean }) =>
-      vipSlotsApi.updateVipSlot(slot.slot_number, payload),
-    onSuccess: () => {
-      onSaved();
-    },
-    onError: (err) => toast.error(getErrorMessage(err)),
-  });
-
-  const handleLabelBlur = () => {
-    const trimmed = labelInput.trim();
-    const current = slot.label ?? "";
-    if (trimmed === current) return;
-    mutation.mutate({ label: trimmed === "" ? null : trimmed });
-  };
-
-  const handleToggle = (checked: boolean) => {
-    if (checked === slot.is_enabled) return;
-    mutation.mutate({ is_enabled: checked });
-  };
-
-  return (
-    <div className="grid grid-cols-[60px_1fr_100px] gap-3 px-4 py-2.5 items-center border-t border-gray-100">
-      <div className="text-xs font-mono text-gray-500">vip{slot.slot_number}</div>
-      <Input
-        value={labelInput}
-        onChange={(e) => setLabelInput(e.target.value)}
-        onBlur={handleLabelBlur}
-        placeholder="라벨 미설정"
-        maxLength={50}
-        className="h-8 text-sm"
-      />
-      <div className="flex justify-center">
-        <Checkbox
-          checked={slot.is_enabled}
-          onCheckedChange={(c) => handleToggle(c === true)}
-          disabled={mutation.isPending}
-        />
-      </div>
-    </div>
-  );
-}
