@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { FilterBar } from "@/components/common/FilterBar";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Pagination } from "@/components/common/Pagination";
-import { Package, CheckSquare, Square } from "lucide-react";
+import { Package, CheckSquare, Square, RefreshCw } from "lucide-react";
 import RegeneratePreparingConfirmModal from "@/components/dispatch/RegeneratePreparingConfirmModal";
 import AddToPreparingYearlyModal from "@/components/dispatch/AddToPreparingYearlyModal";
 import TransitionToDeliveredModal from "@/components/dispatch/TransitionToDeliveredModal";
@@ -188,25 +188,26 @@ export default function PreparingSendListPage() {
         actions={
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => setRegenerateOpen(true)}>
+              <RefreshCw className="h-3.5 w-3.5 mr-1" />
               발송 생성
             </Button>
             {scope === "monthly" && (
-              <Button size="sm" variant="outline" onClick={() => setExcelOpen("monthly")}>
+              <Button size="sm" variant="success" onClick={() => setExcelOpen("monthly")}>
                 기출유택배 엑셀
               </Button>
             )}
             {scope === "yearly" && (
               <>
-                <Button size="sm" variant="outline" onClick={() => setExcelOpen("yearly-gichulyu")}>
+                <Button size="sm" variant="success" onClick={() => setExcelOpen("yearly-gichulyu")}>
                   기출유우편 엑셀
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setExcelOpen("yearly-postoffice")}>
+                <Button size="sm" variant="success" onClick={() => setExcelOpen("yearly-postoffice")}>
                   일반우편 엑셀
                 </Button>
               </>
             )}
             {isVip && (
-              <Button size="sm" variant="outline" onClick={() => setExcelOpen("vip")}>
+              <Button size="sm" variant="success" onClick={() => setExcelOpen("vip")}>
                 일반우편 엑셀
               </Button>
             )}
