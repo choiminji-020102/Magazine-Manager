@@ -38,7 +38,7 @@ export default function VipSlotsPage() {
       />
 
       {/* 안내 문구 */}
-      <div className="px-5 py-2.5 bg-white border-b border-gray-100 flex-shrink-0">
+      <div className="px-5 py-2.5 bg-white border-b border-gray-200 flex-shrink-0">
         <p className="text-xs text-gray-400 leading-relaxed">
           활성화된 슬롯에 속한 배송지의 주문은 일반 단품·정기 발송에서 자동으로 제외되고, VIP 탭에서 별도로 발송 처리해야 합니다.
           해외배송·합포장 등 일반 발송 흐름으로 처리할 수 없는 특수 케이스를 분리할 때 사용하세요.
@@ -52,13 +52,16 @@ export default function VipSlotsPage() {
               <LoadingSpinner size="lg" />
             </div>
           ) : isError || !data ? (
-            /* Warning 수정: EmptyState 컴포넌트 사용 */
-            <EmptyState message="VIP 슬롯을 불러오지 못했습니다." className="h-full" />
+            <div className="flex items-center justify-center h-full">
+              <p className="text-sm text-red-500">VIP 슬롯을 불러오지 못했습니다.</p>
+            </div>
+          ) : data.length === 0 ? (
+            <EmptyState message="슬롯 정보가 없습니다." className="h-full" />
           ) : (
             <table className="w-full">
               <thead>
                 {/* Warning 수정: 헤더 패딩 px-3 py-2.5 통일 (DataTable 기준) */}
-                <tr className="border-b border-gray-200 bg-white sticky top-0 z-10">
+                <tr className="border-b border-gray-200 bg-white">
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-36">
                     슬롯
                   </th>
