@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { FilterBar } from "@/components/common/FilterBar";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Pagination } from "@/components/common/Pagination";
-import { Package, CheckSquare, Square, RefreshCw } from "lucide-react";
+import { Package, RefreshCw } from "lucide-react";
 import RegeneratePreparingConfirmModal from "@/components/dispatch/RegeneratePreparingConfirmModal";
 import AddToPreparingYearlyModal from "@/components/dispatch/AddToPreparingYearlyModal";
 import TransitionToDeliveredModal from "@/components/dispatch/TransitionToDeliveredModal";
@@ -213,19 +213,6 @@ export default function PreparingSendListPage() {
             )}
             <Button
               size="sm"
-              variant="outline"
-              onClick={toggleAllOnPage}
-              disabled={sends.length === 0}
-            >
-              {allSelected ? (
-                <CheckSquare className="h-3.5 w-3.5" />
-              ) : (
-                <Square className="h-3.5 w-3.5" />
-              )}
-              {allSelected ? "페이지 해제" : "페이지 선택"} ({selectedIds.size}/{sends.length})
-            </Button>
-            <Button
-              size="sm"
               disabled={selectedIds.size === 0}
               onClick={() => setTransitionOpen(true)}
             >
@@ -262,6 +249,21 @@ export default function PreparingSendListPage() {
               onChange={(e) => { setRecipientPhone(e.target.value.replace(/\D/g, "")); setPage(1); }}
             />
           </>
+        }
+        actions={
+          <div className="flex items-center gap-2 text-xs text-gray-600">
+            <input
+              type="checkbox"
+              id="select-all-page"
+              className="h-4 w-4"
+              checked={allSelected}
+              disabled={sends.length === 0}
+              onChange={toggleAllOnPage}
+            />
+            <label htmlFor="select-all-page" className="cursor-pointer select-none">
+              페이지 전체 선택 ({selectedIds.size}/{sends.length})
+            </label>
+          </div>
         }
         hasActiveFilters={!!(issueInput || recipientName || recipientPhone)}
         onReset={() => { setIssueInput(""); setRecipientName(""); setRecipientPhone(""); setPage(1); }}
