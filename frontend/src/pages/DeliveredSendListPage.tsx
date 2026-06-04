@@ -29,6 +29,8 @@ export default function DeliveredSendListPage() {
   const queryClient = useQueryClient();
   const [scope, setScope] = useState<DispatchScope>("monthly");
   const [issueInput, setIssueInput] = useState("");
+  const [recipientName, setRecipientName] = useState("");
+  const [recipientPhone, setRecipientPhone] = useState("");
   const [page, setPage] = useState(1);
 
   // 박스 상세 패널 — 운송장/메모 편집은 패널에서 처리 (PR-C2 에서 신설)
@@ -53,12 +55,15 @@ export default function DeliveredSendListPage() {
     if (!slotMeta || !slotMeta.is_enabled) {
       setScope("monthly");
       setPage(1);
+      setIssueInput("");
+      setRecipientName("");
+      setRecipientPhone("");
     }
   }, [vipSlot, vipSlots]);
 
   // DELIVERED 박스 목록
   const { data: sendsData, isLoading } = useQuery({
-    queryKey: ["delivered-sends", scope, issueInput, page],
+    queryKey: ["delivered-sends", scope, issueInput, recipientName, recipientPhone, page],
     queryFn: () =>
       sendsApi
         .getSends({
@@ -68,6 +73,8 @@ export default function DeliveredSendListPage() {
           product_kind: isVip ? null : scope === "monthly" ? "MONTHLY" : "YEARLY",
           vip_slot_number: vipSlot,
           issue: issueValid ? issueInput : null,
+          recipient_name: recipientName || null,
+          recipient_phone: recipientPhone || null,
           sort_by: "delivered_at",
           sort_order: "desc",
         })
@@ -122,6 +129,9 @@ export default function DeliveredSendListPage() {
   const handleTabChange = (next: string) => {
     setScope(next as DispatchScope);
     setPage(1);
+    setIssueInput("");
+    setRecipientName("");
+    setRecipientPhone("");
   };
 
   return (
@@ -141,7 +151,7 @@ export default function DeliveredSendListPage() {
         </div>
       </Tabs>
 
-      {/* 호 필터 */}
+      {/* 필터 */}
       <div className="px-5 py-3 bg-white border-b border-gray-200 flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <Label className="text-xs text-gray-500">발송 호</Label>
@@ -159,6 +169,30 @@ export default function DeliveredSendListPage() {
             <span className="text-xs text-red-500">6자리 입력</span>
           )}
         </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-gray-500">수령인 이름</Label>
+          <Input
+            className="w-32"
+            placeholder="전체"
+            value={recipientName}
+            onChange={(e) => {
+              setRecipientName(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-gray-500">수령인 연락처</Label>
+          <Input
+            className="w-36 font-mono"
+            placeholder="전체"
+            value={recipientPhone}
+            onChange={(e) => {
+              setRecipientPhone(e.target.value.replace(/\D/g, ""));
+              setPage(1);
+            }}
+          />
+        </div>
       </div>
 
       {/* 박스 목록 — 카드 그리드 */}
@@ -171,7 +205,7 @@ export default function DeliveredSendListPage() {
           <EmptyState
             icon={<CheckCircle2 className="h-10 w-10 mb-2 opacity-40" />}
             message="배송 완료된 발송이 없습니다"
-            description="발송 처리 후 여기에 표시됩니다. 호 필터를 사용 중이라면 변경해 보세요."
+            description="발송 처리 후 여기에 표시됩니다. 필터를 사용 중이라면 변경해 보세요."
           />
         ) : (
           <div className="space-y-3">

@@ -36,6 +36,8 @@ export default function PreparingSendListPage() {
   const queryClient = useQueryClient();
   const [scope, setScope] = useState<DispatchScope>("monthly");
   const [issueInput, setIssueInput] = useState("");
+  const [recipientName, setRecipientName] = useState("");
+  const [recipientPhone, setRecipientPhone] = useState("");
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [regenerateOpen, setRegenerateOpen] = useState(false);
@@ -66,6 +68,9 @@ export default function PreparingSendListPage() {
       setScope("monthly");
       setSelectedIds(new Set());
       setPage(1);
+      setIssueInput("");
+      setRecipientName("");
+      setRecipientPhone("");
     }
   }, [vipSlot, vipSlots]);
 
@@ -73,7 +78,7 @@ export default function PreparingSendListPage() {
   // VIP 탭: vip_slot_number 필터 (product_kind 무관, 정기+단품 혼합 가능)
   // monthly/yearly: product_kind 필터 (KR 강제는 백엔드 그룹핑 단계에서 보장)
   const { data: sendsData, isLoading } = useQuery({
-    queryKey: ["preparing-sends", scope, issueInput, page],
+    queryKey: ["preparing-sends", scope, issueInput, recipientName, recipientPhone, page],
     queryFn: () =>
       sendsApi
         .getSends({
@@ -83,6 +88,8 @@ export default function PreparingSendListPage() {
           product_kind: isVip ? null : scope === "monthly" ? "MONTHLY" : "YEARLY",
           vip_slot_number: vipSlot,
           issue: issueValid ? issueInput : null,
+          recipient_name: recipientName || null,
+          recipient_phone: recipientPhone || null,
           sort_by: "created_at",
           sort_order: "desc",
         })
@@ -117,6 +124,9 @@ export default function PreparingSendListPage() {
     setScope(next as DispatchScope);
     setPage(1);
     setSelectedIds(new Set());
+    setIssueInput("");
+    setRecipientName("");
+    setRecipientPhone("");
   };
 
   // 체크박스 헬퍼
@@ -181,6 +191,30 @@ export default function PreparingSendListPage() {
           {issueInput && !issueValid && (
             <span className="text-xs text-red-500">6자리 입력</span>
           )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-gray-500">수령인 이름</Label>
+          <Input
+            className="w-32"
+            placeholder="전체"
+            value={recipientName}
+            onChange={(e) => {
+              setRecipientName(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-gray-500">수령인 연락처</Label>
+          <Input
+            className="w-36 font-mono"
+            placeholder="전체"
+            value={recipientPhone}
+            onChange={(e) => {
+              setRecipientPhone(e.target.value.replace(/\D/g, ""));
+              setPage(1);
+            }}
+          />
         </div>
 
         {/* 카운트 배너 — "총 N건" 은 다른 목록 페이지와 동일 (필터 적용된 PREPARING Send 박스 수).
@@ -308,7 +342,7 @@ export default function PreparingSendListPage() {
           <EmptyState
             icon={<Package className="h-10 w-10 mb-2 opacity-40" />}
             message="배송 준비 중인 발송이 없습니다"
-            description="결제 완료 시 자동으로 생성됩니다. 호 필터를 사용 중이라면 변경해 보세요."
+            description="결제 완료 시 자동으로 생성됩니다. 필터를 사용 중이라면 변경해 보세요."
           />
         ) : (
           <div className="space-y-3">

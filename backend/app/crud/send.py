@@ -70,6 +70,10 @@ def list_sends(db: Session, query: SendListQuery) -> Tuple[List[Send], int]:
             Send.recipient_name.like(f"%{query.recipient_search}%")
             | Send.recipient_phone.like(f"%{query.recipient_search}%")
         )
+    if query.recipient_name:
+        q = q.filter(Send.recipient_name.like(f"%{query.recipient_name}%"))
+    if query.recipient_phone:
+        q = q.filter(Send.recipient_phone.like(f"%{query.recipient_phone}%"))
     if query.postal_code:
         q = q.filter(Send.postal_code == query.postal_code)
     if query.issue:

@@ -192,7 +192,9 @@ class SendListQuery(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     is_cancelled: Optional[bool] = None
-    recipient_search: Optional[str] = None      # 수령인 이름/연락처
+    recipient_search: Optional[str] = None      # 수령인 이름/연락처 통합 검색 (레거시)
+    recipient_name: Optional[str] = None        # 수령인 이름
+    recipient_phone: Optional[str] = None       # 수령인 연락처
     postal_code: Optional[str] = None
     issue: Optional[str] = None                 # SendItem.issue 기준 필터 (YYYYMM)
     product_kind: Optional[str] = None          # YEARLY | MONTHLY (SendItem → OrderItem 조인)
@@ -215,6 +217,8 @@ class SendListQuery(BaseModel):
         end_date: Optional[str] = Query(None),
         is_cancelled: Optional[bool] = Query(None),
         recipient_search: Optional[str] = Query(None),
+        recipient_name: Optional[str] = Query(None),
+        recipient_phone: Optional[str] = Query(None),
         postal_code: Optional[str] = Query(None),
         issue: Optional[str] = Query(None),
         product_kind: Optional[str] = Query(None),
@@ -232,6 +236,8 @@ class SendListQuery(BaseModel):
             end_date=end_date,
             is_cancelled=is_cancelled,
             recipient_search=recipient_search,
+            recipient_name=recipient_name,
+            recipient_phone=recipient_phone,
             postal_code=postal_code,
             issue=issue,
             product_kind=product_kind,

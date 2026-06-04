@@ -89,6 +89,8 @@ export interface SendListQuery {
   end_date?: string | null;
   is_cancelled?: boolean | null;
   recipient_search?: string | null;
+  recipient_name?: string | null;
+  recipient_phone?: string | null;
   postal_code?: string | null;
   issue?: string | null;
   product_kind?: "YEARLY" | "MONTHLY" | null;
