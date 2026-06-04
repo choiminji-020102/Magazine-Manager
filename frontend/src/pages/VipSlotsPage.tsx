@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
+import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -29,11 +30,10 @@ export default function VipSlotsPage() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
+      {/* Nit 수정: 로딩 중에도 항상 렌더링 (다른 페이지와 동일하게 ?? 0 기본값 사용) */}
       <PageHeader
         left={
-          data ? (
-            <span className="text-sm text-gray-500">{enabledCount}개 활성</span>
-          ) : undefined
+          <span className="text-sm text-gray-500">{enabledCount}개 활성</span>
         }
       />
 
@@ -52,20 +52,20 @@ export default function VipSlotsPage() {
               <LoadingSpinner size="lg" />
             </div>
           ) : isError || !data ? (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-sm text-red-500">VIP 슬롯을 불러오지 못했습니다.</p>
-            </div>
+            /* Warning 수정: EmptyState 컴포넌트 사용 */
+            <EmptyState message="VIP 슬롯을 불러오지 못했습니다." className="h-full" />
           ) : (
             <table className="w-full">
               <thead>
+                {/* Warning 수정: 헤더 패딩 px-3 py-2.5 통일 (DataTable 기준) */}
                 <tr className="border-b border-gray-200 bg-white sticky top-0 z-10">
-                  <th className="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-36">
+                  <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-36">
                     슬롯
                   </th>
                   <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
                     라벨
                   </th>
-                  <th className="px-5 py-2.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wide w-28">
+                  <th className="px-3 py-2.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wide w-28">
                     활성화
                   </th>
                 </tr>
@@ -131,13 +131,14 @@ function VipSlotRows({
   return (
     <>
       {/* 슬롯 행 */}
+      {/* Warning 수정: 셀 패딩 px-3 py-2.5 통일, 행 높이 44px (DataTable 기준) */}
       <tr
         className={`border-b border-gray-100 transition-colors ${
           isEven ? "bg-gray-50/40 hover:bg-gray-100/60" : "hover:bg-gray-50"
         } ${isExpanded ? "border-b-0" : ""}`}
-        style={{ height: "52px" }}
+        style={{ height: "44px" }}
       >
-        <td className="px-5 py-2">
+        <td className="px-3 py-2.5">
           <button
             className="flex items-center gap-1.5 group"
             onClick={onToggleExpand}
@@ -153,7 +154,7 @@ function VipSlotRows({
             </span>
           </button>
         </td>
-        <td className="px-3 py-2">
+        <td className="px-3 py-2.5">
           <Input
             value={labelInput}
             onChange={(e) => setLabelInput(e.target.value)}
@@ -164,7 +165,7 @@ function VipSlotRows({
             disabled={mutation.isPending}
           />
         </td>
-        <td className="px-5 py-2 text-center">
+        <td className="px-3 py-2.5 text-center">
           {mutation.isPending ? (
             <div className="flex justify-center">
               <LoadingSpinner size="sm" />
@@ -199,11 +200,11 @@ function VipAddressList({ slotNumber }: { slotNumber: number }) {
         .then((r) => r.data),
   });
 
+  /* Nit 수정: 아코디언 로딩도 스피너만 (페이지 레벨과 동일 방식) */
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 px-10 py-3 text-xs text-gray-400">
+      <div className="flex items-center justify-center px-10 py-4">
         <LoadingSpinner size="sm" />
-        <span>불러오는 중...</span>
       </div>
     );
   }
