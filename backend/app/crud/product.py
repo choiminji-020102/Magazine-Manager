@@ -83,7 +83,7 @@ def check_code_duplicate(
     if query.first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"상품 코드 '{product_code}'는 이미 사용 중입니다.",
+            detail=f"상품 코드 '{product_code}'는 이미 있습니다.",
         )
 
 
