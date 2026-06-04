@@ -12,8 +12,11 @@ _KST = timezone(timedelta(hours=9))
 def _parse_dt(value: Optional[Union[str, datetime]]) -> Optional[datetime]:
     if not value:
         return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=_KST)
+        return value
     parsed = datetime.fromisoformat(value)
-
     if parsed.tzinfo is None:
         # Cafe24 타임존이 Asia/Seoul로 설정되어 있으므로 KST로 해석
         return parsed.replace(tzinfo=_KST)

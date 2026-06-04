@@ -204,6 +204,16 @@ function OrderCard({
           <InfoRow label="이름" value={order.customer_name || "-"} />
           <InfoRow label="연락처" value={formatPhone(order.customer_phone)} />
           <InfoRow label="이메일" value={order.customer_email || "-"} />
+          {order.admin_memo && (
+            <InfoRow
+              label="관리자메모"
+              value={
+                <span className="block truncate text-gray-500" title={order.admin_memo}>
+                  {order.admin_memo}
+                </span>
+              }
+            />
+          )}
         </div>
       </section>
 
