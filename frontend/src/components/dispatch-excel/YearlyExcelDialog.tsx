@@ -138,7 +138,6 @@ export default function YearlyExcelDialog({
   });
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
   const [downloading, setDownloading] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // 다이얼로그 오픈 시 입력 초기화
   useEffect(() => {
@@ -236,7 +235,6 @@ export default function YearlyExcelDialog({
         toast.warning(`${meta.skippedCount}건은 조건 불일치로 스킵됨`);
       }
       onSuccess?.();
-      setConfirmOpen(false);
       onClose();
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -246,13 +244,12 @@ export default function YearlyExcelDialog({
   };
 
   return (
-    <>
-      <Dialog
-        open={open}
-        onOpenChange={(o) => {
-          if (!o && !downloading) onClose();
-        }}
-      >
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o && !downloading) onClose();
+      }}
+    >
         <DialogContent className="max-w-5xl max-h-[92vh] flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{VARIANT_TITLE[variant]}</DialogTitle>
@@ -346,46 +343,15 @@ export default function YearlyExcelDialog({
               닫기
             </Button>
             <Button
-              onClick={() => setConfirmOpen(true)}
+              onClick={handleDownload}
               disabled={selectedIds.size === 0 || downloading || !searchTriggered}
             >
+              {downloading && <LoadingSpinner size="sm" className="mr-1" />}
               <Download className="h-4 w-4 mr-1" />
               다운로드 ({selectedIds.size}건)
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={confirmOpen}
-        onOpenChange={(o) => {
-          if (!downloading) setConfirmOpen(o);
-        }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>다운로드 확인</DialogTitle>
-          </DialogHeader>
-          <div className="py-2 text-sm text-gray-700 space-y-2">
-            <p>
-              선택된 <span className="font-semibold text-gray-900">{selectedIds.size}건</span>을{" "}
-              {variant === "gichulyu" ? "기출유우편 정기구독" : "일반우편 정기구독"} 엑셀로 다운로드합니다.
-            </p>
-            <p className="text-gray-500 text-xs">
-              박스 상태는 변경되지 않습니다. 배송완료 처리는 별도 [배송완료 처리] 단계에서.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setConfirmOpen(false)} disabled={downloading}>
-              취소
-            </Button>
-            <Button onClick={handleDownload} disabled={downloading}>
-              {downloading && <LoadingSpinner size="sm" className="mr-1" />}
-              다운로드 진행
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    </Dialog>
   );
 }
