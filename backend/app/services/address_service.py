@@ -31,6 +31,7 @@ def list_addresses(db: Session, query: AddressListQuery) -> Tuple[List[Address],
         customer_id=query.customer_id,
         postal_code=query.postal_code,
         country_code=query.country_code,
+        vip_slot_number=query.vip_slot_number,
         sort_by=query.sort_by,
         sort_order=query.sort_order,
     )

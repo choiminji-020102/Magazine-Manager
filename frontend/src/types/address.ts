@@ -27,6 +27,7 @@ export interface AddressListQuery {
   customer_id?: number | null;
   postal_code?: string | null;
   country_code?: string | null;
+  vip_slot_number?: number | null;
   sort_by?: string;
   sort_order?: string;
 }

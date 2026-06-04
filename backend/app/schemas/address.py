@@ -65,6 +65,7 @@ class AddressListQuery(BaseModel):
     customer_id: Optional[int] = None
     postal_code: Optional[str] = None
     country_code: Optional[str] = None
+    vip_slot_number: Optional[int] = Field(None, ge=1, le=6)  # Address.vipN=true 필터
     sort_by: str = "created_at"
     sort_order: str = "desc"
 
@@ -76,6 +77,7 @@ class AddressListQuery(BaseModel):
         customer_id: Optional[int] = Query(None),
         postal_code: Optional[str] = Query(None),
         country_code: Optional[str] = Query(None),
+        vip_slot_number: Optional[int] = Query(None, ge=1, le=6),
         sort_by: str = Query("created_at"),
         sort_order: str = Query("desc"),
     ):
@@ -85,6 +87,7 @@ class AddressListQuery(BaseModel):
             customer_id=customer_id,
             postal_code=postal_code,
             country_code=country_code,
+            vip_slot_number=vip_slot_number,
             sort_by=sort_by,
             sort_order=sort_order,
         )

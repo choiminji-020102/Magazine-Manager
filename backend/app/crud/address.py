@@ -36,6 +36,7 @@ def list_addresses(
     customer_id: Optional[int] = None,
     postal_code: Optional[str] = None,
     country_code: Optional[str] = None,
+    vip_slot_number: Optional[int] = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
 ) -> Tuple[List[Address], int]:
@@ -47,6 +48,9 @@ def list_addresses(
         query = query.filter(Address.postal_code == postal_code)
     if country_code:
         query = query.filter(Address.country_code == country_code)
+    if vip_slot_number is not None:
+        vip_col = getattr(Address, f"vip{vip_slot_number}")
+        query = query.filter(vip_col.is_(True))
 
     allowed_sort = {"created_at", "updated_at", "recipient_name", "postal_code"}
     sort_col = getattr(Address, sort_by if sort_by in allowed_sort else "created_at")
