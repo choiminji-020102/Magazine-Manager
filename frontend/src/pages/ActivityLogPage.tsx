@@ -193,12 +193,17 @@ export default function ActivityLogPage() {
                 ))}
               </SelectContent>
             </Select>
+          </>
+        }
+        advanced={
+          <>
             <Input
               type="date"
               className="w-36"
               value={startDate}
               onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
             />
+            <span className="text-xs text-gray-400">~</span>
             <Input
               type="date"
               className="w-36"
@@ -207,6 +212,7 @@ export default function ActivityLogPage() {
             />
           </>
         }
+        advancedActiveCount={(startDate ? 1 : 0) + (endDate ? 1 : 0)}
         hasActiveFilters={hasFilters}
         onReset={resetFilters}
         chips={chips}

@@ -3,9 +3,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { EmptyState } from "@/components/common/EmptyState";
+import { FilterBar } from "@/components/common/FilterBar";
+import { PageHeader } from "@/components/common/PageHeader";
 import { Pagination } from "@/components/common/Pagination";
 import { Package, CheckSquare, Square } from "lucide-react";
 import RegeneratePreparingConfirmModal from "@/components/dispatch/RegeneratePreparingConfirmModal";
@@ -173,108 +174,102 @@ export default function PreparingSendListPage() {
         </div>
       </Tabs>
 
-      {/* 카운트 배너 + 필터 / 액션 */}
-      <div className="px-5 py-3 bg-white border-b border-gray-200 flex items-center gap-4 flex-wrap">
-        {/* 호 필터 — 카드 목록 필터링만 담당. 발송 생성/엑셀 다운로드 시 호는 각 모달·다이얼로그 안에서 별도 입력 */}
-        <div className="flex items-center gap-2">
-          <Label className="text-xs text-gray-500">발송 호 필터</Label>
-          <Input
-            className="w-32 font-mono"
-            placeholder="YYYYMM (선택)"
-            value={issueInput}
-            maxLength={6}
-            onChange={(e) => {
-              setIssueInput(e.target.value.replace(/\D/g, ""));
-              setPage(1);
-            }}
-          />
-          {issueInput && !issueValid && (
-            <span className="text-xs text-red-500">6자리 입력</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <Label className="text-xs text-gray-500">수령인 이름</Label>
-          <Input
-            className="w-32"
-            placeholder="전체"
-            value={recipientName}
-            onChange={(e) => {
-              setRecipientName(e.target.value);
-              setPage(1);
-            }}
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Label className="text-xs text-gray-500">수령인 연락처</Label>
-          <Input
-            className="w-36 font-mono"
-            placeholder="전체"
-            value={recipientPhone}
-            onChange={(e) => {
-              setRecipientPhone(e.target.value.replace(/\D/g, ""));
-              setPage(1);
-            }}
-          />
-        </div>
-
-        {/* 카운트 배너 — "총 N건" 은 다른 목록 페이지와 동일 (필터 적용된 PREPARING Send 박스 수).
-            "발송 미생성 결제" 는 별도 라벨로 분리 — 단위(OrderItem)·필터(호 무관) 다르므로 괄호로 묶지 않음 */}
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-gray-500">총 {total}건</span>
-          <span className="text-gray-300">·</span>
-          <span className={counts.count > 0 ? "text-orange-600" : "text-gray-400"}>
-            🔔 발송 미생성 결제 {counts.count}건
-          </span>
-        </div>
-
-        {/* 액션 버튼 */}
-        <div className="flex items-center gap-2 ml-auto">
-          <Button size="sm" variant="outline" onClick={() => setRegenerateOpen(true)}>
-            발송 생성
-          </Button>
-          {scope === "monthly" && (
-            <Button size="sm" variant="outline" onClick={() => setExcelOpen("monthly")}>
-              기출유택배 엑셀
+      {/* 카운트 + 액션 */}
+      <PageHeader
+        left={
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">총 {total}건</span>
+            <span className="text-gray-300">·</span>
+            <span className={`text-sm ${counts.count > 0 ? "text-orange-600" : "text-gray-400"}`}>
+              🔔 발송 미생성 결제 {counts.count}건
+            </span>
+          </div>
+        }
+        actions={
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setRegenerateOpen(true)}>
+              발송 생성
             </Button>
-          )}
-          {scope === "yearly" && (
-            <>
-              <Button size="sm" variant="outline" onClick={() => setExcelOpen("yearly-gichulyu")}>
-                기출유우편 엑셀
+            {scope === "monthly" && (
+              <Button size="sm" variant="outline" onClick={() => setExcelOpen("monthly")}>
+                기출유택배 엑셀
               </Button>
-              <Button size="sm" variant="outline" onClick={() => setExcelOpen("yearly-postoffice")}>
+            )}
+            {scope === "yearly" && (
+              <>
+                <Button size="sm" variant="outline" onClick={() => setExcelOpen("yearly-gichulyu")}>
+                  기출유우편 엑셀
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setExcelOpen("yearly-postoffice")}>
+                  일반우편 엑셀
+                </Button>
+              </>
+            )}
+            {isVip && (
+              <Button size="sm" variant="outline" onClick={() => setExcelOpen("vip")}>
                 일반우편 엑셀
               </Button>
-            </>
-          )}
-          {isVip && (
-            <Button size="sm" variant="outline" onClick={() => setExcelOpen("vip")}>
-              일반우편 엑셀
-            </Button>
-          )}
-          {/* 페이지 전체 선택 토글 — 클릭 시 현재 페이지 박스만 토글 (다른 페이지 선택 보존) */}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={toggleAllOnPage}
-            disabled={sends.length === 0}
-          >
-            {allSelected ? (
-              <CheckSquare className="h-3.5 w-3.5" />
-            ) : (
-              <Square className="h-3.5 w-3.5" />
             )}
-            {allSelected ? "페이지 해제" : "페이지 선택"} ({selectedIds.size}/{sends.length})
-          </Button>
-          <Button
-            size="sm"
-            disabled={selectedIds.size === 0}
-            onClick={() => setTransitionOpen(true)}
-          >
-            배송완료 처리 ({selectedIds.size}건)
-          </Button>
-        </div>
-      </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={toggleAllOnPage}
+              disabled={sends.length === 0}
+            >
+              {allSelected ? (
+                <CheckSquare className="h-3.5 w-3.5" />
+              ) : (
+                <Square className="h-3.5 w-3.5" />
+              )}
+              {allSelected ? "페이지 해제" : "페이지 선택"} ({selectedIds.size}/{sends.length})
+            </Button>
+            <Button
+              size="sm"
+              disabled={selectedIds.size === 0}
+              onClick={() => setTransitionOpen(true)}
+            >
+              배송완료 처리 ({selectedIds.size}건)
+            </Button>
+          </div>
+        }
+      />
+
+      {/* 필터 — 호·수령인 필터링만 담당. 발송 생성/엑셀 다운로드 시 호는 각 모달·다이얼로그 안에서 별도 입력 */}
+      <FilterBar
+        basic={
+          <>
+            <Input
+              className="w-32 font-mono"
+              placeholder="발송 호 (YYYYMM)"
+              value={issueInput}
+              maxLength={6}
+              onChange={(e) => { setIssueInput(e.target.value.replace(/\D/g, "")); setPage(1); }}
+            />
+            {issueInput && !issueValid && (
+              <span className="text-xs text-red-500">6자리 입력</span>
+            )}
+            <Input
+              className="w-32"
+              placeholder="수령인 이름"
+              value={recipientName}
+              onChange={(e) => { setRecipientName(e.target.value); setPage(1); }}
+            />
+            <Input
+              className="w-36 font-mono"
+              placeholder="수령인 연락처"
+              value={recipientPhone}
+              onChange={(e) => { setRecipientPhone(e.target.value.replace(/\D/g, "")); setPage(1); }}
+            />
+          </>
+        }
+        hasActiveFilters={!!(issueInput || recipientName || recipientPhone)}
+        onReset={() => { setIssueInput(""); setRecipientName(""); setRecipientPhone(""); setPage(1); }}
+        chips={[
+          ...(issueInput && issueValid ? [{ label: `호: ${issueInput}`, onRemove: () => { setIssueInput(""); setPage(1); } }] : []),
+          ...(recipientName ? [{ label: `이름: ${recipientName}`, onRemove: () => { setRecipientName(""); setPage(1); } }] : []),
+          ...(recipientPhone ? [{ label: `연락처: ${recipientPhone}`, onRemove: () => { setRecipientPhone(""); setPage(1); } }] : []),
+        ]}
+      />
 
       {/* 발송 생성 모달 — 정기는 incremental(기존 박스 보존), 단품/VIP 는 전체 재계산.
           호 입력은 모달 안에서 직접 받음 (페이지 상단 '발송 호 필터'와 무관). */}

@@ -390,7 +390,7 @@ function SubscriptionListTab() {
               value={productKind || "_all"}
               onValueChange={(v) => { setProductKind(v === "_all" ? "" : v); setPage(1); }}
             >
-              <SelectTrigger className="h-8 w-32 text-xs">
+              <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -404,7 +404,7 @@ function SubscriptionListTab() {
               value={cancelledFilter || "_all"}
               onValueChange={(v) => { setCancelledFilter(v === "_all" ? "" : v); setPage(1); }}
             >
-              <SelectTrigger className="h-8 w-28 text-xs">
+              <SelectTrigger className="w-28">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -415,7 +415,7 @@ function SubscriptionListTab() {
             </Select>
 
             <Input
-              className="h-8 w-44 text-xs"
+              className="w-44"
               placeholder="고객명 / 연락처"
               value={customerSearch}
               onChange={(e) => { setCustomerSearch(e.target.value); setPage(1); }}
@@ -423,10 +423,10 @@ function SubscriptionListTab() {
           </>
         }
         advanced={
-          <div className="flex items-center gap-2">
+          <>
             <span className="text-xs text-gray-500 whitespace-nowrap">종료호</span>
             <Input
-              className="h-8 w-28 text-xs"
+              className="w-28"
               placeholder="202601"
               value={endIssueFrom}
               onChange={(e) => { setEndIssueFrom(e.target.value); setPage(1); }}
@@ -434,14 +434,15 @@ function SubscriptionListTab() {
             />
             <span className="text-xs text-gray-400">~</span>
             <Input
-              className="h-8 w-28 text-xs"
+              className="w-28"
               placeholder="202612"
               value={endIssueTo}
               onChange={(e) => { setEndIssueTo(e.target.value); setPage(1); }}
               maxLength={6}
             />
-          </div>
+          </>
         }
+        advancedActiveCount={(endIssueFrom ? 1 : 0) + (endIssueTo ? 1 : 0)}
         chips={activeChips}
         hasActiveFilters={activeChips.length > 0}
         onReset={resetFilters}

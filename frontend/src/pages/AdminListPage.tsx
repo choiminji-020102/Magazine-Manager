@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, MoreHorizontal, Shield } from "lucide-react";
+import { FilterBar } from "@/components/common/FilterBar";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import {
@@ -288,22 +289,34 @@ function AdminListContent() {
       <PageHeader
         left={<span className="text-sm text-gray-500">총 {data?.total ?? 0}명</span>}
         actions={
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant={showDeleted ? "default" : "outline"}
-              onClick={() => setShowDeleted((v) => !v)}
-              className="gap-1 text-xs"
-            >
-              {showDeleted ? "활성 관리자 보기" : "삭제된 관리자 보기"}
+          !showDeleted && (
+            <Button size="sm" onClick={() => setCreateOpen(true)} className="gap-1">
+              <Plus className="h-3.5 w-3.5" />
+              관리자 등록
             </Button>
-            {!showDeleted && (
-              <Button size="sm" onClick={() => setCreateOpen(true)} className="gap-1">
-                <Plus className="h-3.5 w-3.5" />
-                관리자 등록
-              </Button>
-            )}
-          </div>
+          )
+        }
+      />
+
+      <FilterBar
+        basic={
+          <button
+            onClick={() => setShowDeleted((v) => !v)}
+            className={`text-xs px-2.5 py-1.5 rounded border transition-colors whitespace-nowrap ${
+              showDeleted
+                ? "bg-gray-100 border-gray-300 text-gray-600 font-medium"
+                : "border-gray-200 text-gray-500 hover:bg-gray-50"
+            }`}
+          >
+            삭제된 관리자 포함
+          </button>
+        }
+        hasActiveFilters={showDeleted}
+        onReset={() => setShowDeleted(false)}
+        chips={
+          showDeleted
+            ? [{ label: "삭제된 관리자 포함", onRemove: () => setShowDeleted(false) }]
+            : []
         }
       />
 

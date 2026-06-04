@@ -182,7 +182,7 @@ export default function InquiryListPage() {
       <PageHeader
         left={<span className="text-sm text-gray-500">총 {data?.total ?? 0}건</span>}
         actions={
-          <Button variant="secondary" size="sm" onClick={() => setCreateOpen(true)}>
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
             <Plus className="h-3.5 w-3.5 mr-1" />
             문의 등록
           </Button>

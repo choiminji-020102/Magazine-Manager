@@ -2,9 +2,10 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { EmptyState } from "@/components/common/EmptyState";
+import { FilterBar } from "@/components/common/FilterBar";
+import { PageHeader } from "@/components/common/PageHeader";
 import { Pagination } from "@/components/common/Pagination";
 import { CheckCircle2 } from "lucide-react";
 import SendDetailPanel from "@/components/dispatch/SendDetailPanel";
@@ -151,49 +152,45 @@ export default function DeliveredSendListPage() {
         </div>
       </Tabs>
 
-      {/* 필터 */}
-      <div className="px-5 py-3 bg-white border-b border-gray-200 flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Label className="text-xs text-gray-500">발송 호</Label>
-          <Input
-            className="w-32 font-mono"
-            placeholder="YYYYMM (전체)"
-            value={issueInput}
-            maxLength={6}
-            onChange={(e) => {
-              setIssueInput(e.target.value.replace(/\D/g, ""));
-              setPage(1);
-            }}
-          />
-          {issueInput && !issueValid && (
-            <span className="text-xs text-red-500">6자리 입력</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <Label className="text-xs text-gray-500">수령인 이름</Label>
-          <Input
-            className="w-32"
-            placeholder="전체"
-            value={recipientName}
-            onChange={(e) => {
-              setRecipientName(e.target.value);
-              setPage(1);
-            }}
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Label className="text-xs text-gray-500">수령인 연락처</Label>
-          <Input
-            className="w-36 font-mono"
-            placeholder="전체"
-            value={recipientPhone}
-            onChange={(e) => {
-              setRecipientPhone(e.target.value.replace(/\D/g, ""));
-              setPage(1);
-            }}
-          />
-        </div>
-      </div>
+      <PageHeader
+        left={<span className="text-sm text-gray-500">총 {total}건</span>}
+      />
+
+      <FilterBar
+        basic={
+          <>
+            <Input
+              className="w-32 font-mono"
+              placeholder="발송 호 (YYYYMM)"
+              value={issueInput}
+              maxLength={6}
+              onChange={(e) => { setIssueInput(e.target.value.replace(/\D/g, "")); setPage(1); }}
+            />
+            {issueInput && !issueValid && (
+              <span className="text-xs text-red-500">6자리 입력</span>
+            )}
+            <Input
+              className="w-32"
+              placeholder="수령인 이름"
+              value={recipientName}
+              onChange={(e) => { setRecipientName(e.target.value); setPage(1); }}
+            />
+            <Input
+              className="w-36 font-mono"
+              placeholder="수령인 연락처"
+              value={recipientPhone}
+              onChange={(e) => { setRecipientPhone(e.target.value.replace(/\D/g, "")); setPage(1); }}
+            />
+          </>
+        }
+        hasActiveFilters={!!(issueInput || recipientName || recipientPhone)}
+        onReset={() => { setIssueInput(""); setRecipientName(""); setRecipientPhone(""); setPage(1); }}
+        chips={[
+          ...(issueInput && issueValid ? [{ label: `호: ${issueInput}`, onRemove: () => { setIssueInput(""); setPage(1); } }] : []),
+          ...(recipientName ? [{ label: `이름: ${recipientName}`, onRemove: () => { setRecipientName(""); setPage(1); } }] : []),
+          ...(recipientPhone ? [{ label: `연락처: ${recipientPhone}`, onRemove: () => { setRecipientPhone(""); setPage(1); } }] : []),
+        ]}
+      />
 
       {/* 박스 목록 — 카드 그리드 */}
       <div className="flex-1 overflow-auto bg-gray-50 px-5 py-4">

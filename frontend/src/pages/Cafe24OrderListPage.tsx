@@ -3,9 +3,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, XCircle, AlertTriangle, Info } from "lucide-react";
 import { cafe24API } from "@/api/cafe24Api";
 import { PageHeader } from "@/components/common/PageHeader";
+import { FilterBar } from "@/components/common/FilterBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import {
   Dialog,
@@ -531,48 +531,49 @@ export default function Cafe24OrderListPage() {
 
       <Cafe24ConnectionGate>
         {/* 필터 영역 */}
-        <div className="flex items-end gap-3 px-5 py-3 border-b border-gray-200 bg-white">
-          <div>
-            <Label className="text-xs text-gray-500">시작일</Label>
-            <Input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              disabled={filterLocked}
-              className="mt-1 w-36"
-            />
-          </div>
-          <div>
-            <Label className="text-xs text-gray-500">종료일</Label>
-            <Input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              disabled={filterLocked}
-              className="mt-1 w-36"
-            />
-          </div>
-          <Button size="sm" onClick={handleSearch} disabled={isLoading || filterLocked}>
-            조회
-          </Button>
-          <span className="text-xs text-gray-400">최대 3개월</span>
-          {filterLocked && (
-            <span className="text-xs text-amber-600">미리보기 중: 필터 변경 불가</span>
-          )}
-          <div className="ml-auto flex items-center gap-2 text-xs text-gray-600">
-            <input
-              type="checkbox"
-              checked={allSelected}
-              disabled={importableIds.length === 0 || filterLocked}
-              onChange={toggleSelectAll}
-              className="h-4 w-4"
-              id="select-all"
-            />
-            <label htmlFor="select-all" className="cursor-pointer select-none">
-              신규 전체 선택/해제
-            </label>
-          </div>
-        </div>
+        <FilterBar
+          basic={
+            <>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                disabled={filterLocked}
+                className="w-36"
+              />
+              <span className="text-xs text-gray-400">~</span>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                disabled={filterLocked}
+                className="w-36"
+              />
+              <Button size="sm" onClick={handleSearch} disabled={isLoading || filterLocked}>
+                조회
+              </Button>
+              <span className="text-xs text-gray-400">최대 3개월</span>
+              {filterLocked && (
+                <span className="text-xs text-amber-600">미리보기 중: 필터 변경 불가</span>
+              )}
+            </>
+          }
+          actions={
+            <div className="flex items-center gap-2 text-xs text-gray-600">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                disabled={importableIds.length === 0 || filterLocked}
+                onChange={toggleSelectAll}
+                className="h-4 w-4"
+                id="select-all"
+              />
+              <label htmlFor="select-all" className="cursor-pointer select-none">
+                신규 전체 선택/해제
+              </label>
+            </div>
+          }
+        />
 
         {/* 카드 목록 */}
         <div className="flex-1 min-h-0 overflow-auto p-3 space-y-2 bg-gray-50">
