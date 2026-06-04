@@ -34,7 +34,10 @@ export default function VipSlotsPage() {
         {/* 왼쪽: 슬롯 목록 */}
         <div className="w-64 flex-shrink-0 border-r border-gray-200 flex flex-col bg-gray-50">
           <div className="px-4 py-2.5 border-b border-gray-200">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">슬롯</span>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">슬롯</span>
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">활성</span>
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto">
             {isLoading ? (
@@ -50,6 +53,7 @@ export default function VipSlotsPage() {
                   slot={slot}
                   isSelected={selectedSlotNumber === slot.slot_number}
                   onClick={() => setSelectedSlotNumber(slot.slot_number)}
+                  onSaved={() => queryClient.invalidateQueries({ queryKey: ["vip-slots"] })}
                 />
               ))
             )}
@@ -80,32 +84,56 @@ function SlotListItem({
   slot,
   isSelected,
   onClick,
+  onSaved,
 }: {
   slot: VipSlotResponse;
   isSelected: boolean;
   onClick: () => void;
+  onSaved: () => void;
 }) {
+  const toggleMutation = useMutation({
+    mutationFn: (is_enabled: boolean) =>
+      vipSlotsApi.updateVipSlot(slot.slot_number, { is_enabled }),
+    onSuccess: () => onSaved(),
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+
   return (
-    <button
-      className={`w-full flex items-center gap-3 px-4 py-3 border-b border-gray-100 transition-colors text-left ${
+    <div
+      className={`flex items-center border-b border-gray-100 transition-colors ${
         isSelected
           ? "bg-blue-50 border-l-[3px] border-l-blue-600"
           : "hover:bg-gray-100 border-l-[3px] border-l-transparent"
       }`}
-      onClick={onClick}
     >
-      <span
-        className={`w-2 h-2 rounded-full flex-shrink-0 ${
-          slot.is_enabled ? "bg-green-500" : "bg-gray-300"
-        }`}
-      />
-      <span className="font-mono text-xs bg-white border border-gray-200 px-2 py-0.5 rounded text-gray-500 flex-shrink-0">
-        vip{slot.slot_number}
-      </span>
-      <span className={`text-sm truncate ${slot.label ? "text-gray-700" : "text-gray-400"}`}>
-        {slot.label ?? "미설정"}
-      </span>
-    </button>
+      {/* 클릭 영역 (슬롯 선택) */}
+      <button className="flex items-center gap-3 flex-1 min-w-0 px-4 py-3 text-left" onClick={onClick}>
+        <span
+          className={`w-2 h-2 rounded-full flex-shrink-0 ${
+            slot.is_enabled ? "bg-green-500" : "bg-gray-300"
+          }`}
+        />
+        <span className="font-mono text-xs bg-white border border-gray-200 px-2 py-0.5 rounded text-gray-500 flex-shrink-0">
+          vip{slot.slot_number}
+        </span>
+        <span className={`text-sm truncate ${slot.label ? "text-gray-700" : "text-gray-400"}`}>
+          {slot.label ?? "미설정"}
+        </span>
+      </button>
+      {/* 활성화 토글 (클릭 독립) */}
+      <div className="px-4 py-3 flex-shrink-0">
+        {toggleMutation.isPending ? (
+          <LoadingSpinner size="sm" />
+        ) : (
+          <Checkbox
+            checked={slot.is_enabled}
+            onCheckedChange={(c) => {
+              if ((c === true) !== slot.is_enabled) toggleMutation.mutate(c === true);
+            }}
+          />
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -123,8 +151,8 @@ function SlotDetail({
   }, [slot.slot_number, slot.label]);
 
   const mutation = useMutation({
-    mutationFn: (payload: { label?: string | null; is_enabled?: boolean }) =>
-      vipSlotsApi.updateVipSlot(slot.slot_number, payload),
+    mutationFn: (label: string | null) =>
+      vipSlotsApi.updateVipSlot(slot.slot_number, { label }),
     onSuccess: () => onSaved(),
     onError: (err) => toast.error(getErrorMessage(err)),
   });
@@ -133,12 +161,7 @@ function SlotDetail({
     const trimmed = labelInput.trim();
     const current = slot.label ?? "";
     if (trimmed === current) return;
-    mutation.mutate({ label: trimmed === "" ? null : trimmed });
-  };
-
-  const handleToggle = (checked: boolean) => {
-    if (checked === slot.is_enabled) return;
-    mutation.mutate({ is_enabled: checked });
+    mutation.mutate(trimmed === "" ? null : trimmed);
   };
 
   return (
@@ -159,21 +182,9 @@ function SlotDetail({
             disabled={mutation.isPending}
           />
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
-          {mutation.isPending ? (
-            <LoadingSpinner size="sm" />
-          ) : (
-            <>
-              <span className={`text-xs ${slot.is_enabled ? "text-green-600" : "text-gray-400"}`}>
-                {slot.is_enabled ? "활성" : "비활성"}
-              </span>
-              <Checkbox
-                checked={slot.is_enabled}
-                onCheckedChange={(c) => handleToggle(c === true)}
-              />
-            </>
-          )}
-        </div>
+        {mutation.isPending && (
+          <LoadingSpinner size="sm" className="flex-shrink-0" />
+        )}
       </div>
 
       {/* 배송지 목록 */}
