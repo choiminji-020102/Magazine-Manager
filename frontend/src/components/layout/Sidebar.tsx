@@ -64,7 +64,7 @@ const navigation: NavGroup[] = [
       { label: "고객 목록", path: "/customers", icon: Users },
       { label: "상품 목록", path: "/products", icon: Box },
       { label: "구독 목록", path: "/subscriptions", icon: BookOpen },
-      { label: "VIP 슬롯", path: "/vip-slots", icon: Star },
+      { label: "VIP 그룹", path: "/vip-slots", icon: Star },
     ],
   },
   {

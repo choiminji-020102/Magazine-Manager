@@ -16,7 +16,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/inquiries": "문의 목록",
   "/admins": "관리자 목록",
   "/activity-logs": "활동 로그",
-  "/vip-slots": "VIP 슬롯",
+  "/vip-slots": "VIP 그룹",
   "/settings": "설정",
 };
 

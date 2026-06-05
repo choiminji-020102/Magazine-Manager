@@ -24,7 +24,7 @@ import type { DispatchScope, PaidNotPreparedCountResponse } from "@/types/dispat
 
 const LIMIT = 20;
 
-// scope 가 vipN 이면 슬롯 번호 반환, 그 외 null
+// scope 가 vipN 이면 그룹 번호 반환, 그 외 null
 function vipSlotOf(scope: DispatchScope): number | null {
   if (scope.startsWith("vip")) {
     const n = Number(scope.slice(3));
@@ -52,7 +52,7 @@ export default function PreparingSendListPage() {
   const vipSlot = vipSlotOf(scope);
   const isVip = vipSlot !== null;
 
-  // 활성 VIP 슬롯 (동적 탭 렌더링용)
+  // 활성 VIP 그룹 (동적 탭 렌더링용)
   const { data: vipSlots = [] } = useQuery({
     queryKey: ["vip-slots"],
     queryFn: () => vipSlotsApi.getVipSlots().then((r) => r.data.data ?? []),
@@ -60,10 +60,10 @@ export default function PreparingSendListPage() {
   });
   const activeVipSlots = useMemo(() => vipSlots.filter((s) => s.is_enabled), [vipSlots]);
 
-  // 현재 scope 가 vipN 인데 그 슬롯이 비활성으로 바뀌었으면 monthly 로 fallback (탭 자체가 사라지므로).
+  // 현재 scope 가 vipN 인데 그 그룹이 비활성으로 바뀌었으면 monthly 로 fallback (탭 자체가 사라지므로).
   useEffect(() => {
     if (vipSlot === null) return;
-    if (vipSlots.length === 0) return; // 슬롯 데이터 로드 전엔 판단 보류
+    if (vipSlots.length === 0) return; // 그룹 데이터 로드 전엔 판단 보류
     const slotMeta = vipSlots.find((s) => s.slot_number === vipSlot);
     if (!slotMeta || !slotMeta.is_enabled) {
       setScope("monthly");
@@ -159,7 +159,7 @@ export default function PreparingSendListPage() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      {/* 탭 — 단품 / 정기 + 활성 VIP 슬롯만 동적 렌더링 */}
+      {/* 탭 — 단품 / 정기 + 활성 VIP 그룹만 동적 렌더링 */}
       <Tabs value={scope} onValueChange={handleTabChange}>
         <div className="px-5 py-3 bg-white border-b border-gray-200">
           <TabsList>

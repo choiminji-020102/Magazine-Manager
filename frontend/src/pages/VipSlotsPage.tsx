@@ -31,11 +31,11 @@ export default function VipSlotsPage() {
       />
 
       <div className="flex-1 min-h-0 flex overflow-hidden">
-        {/* 왼쪽: 슬롯 목록 */}
-        <div className="w-64 flex-shrink-0 border-r border-gray-200 flex flex-col bg-gray-50">
+        {/* 왼쪽: 그룹 목록 */}
+        <div className="w-72 flex-shrink-0 border-r border-gray-200 flex flex-col bg-gray-50">
           <div className="px-4 py-2.5 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">슬롯</span>
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">그룹</span>
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">활성</span>
             </div>
           </div>
@@ -60,7 +60,7 @@ export default function VipSlotsPage() {
           </div>
         </div>
 
-        {/* 오른쪽: 선택된 슬롯 상세 */}
+        {/* 오른쪽: 선택된 그룹 상세 */}
         <div className="flex-1 min-w-0 flex flex-col bg-white overflow-hidden">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
@@ -72,7 +72,7 @@ export default function VipSlotsPage() {
               onSaved={() => queryClient.invalidateQueries({ queryKey: ["vip-slots"] })}
             />
           ) : (
-            <EmptyState message="슬롯을 선택하세요." className="h-full" />
+            <EmptyState message="그룹을 선택하세요." className="h-full" />
           )}
         </div>
       </div>
@@ -106,7 +106,7 @@ function SlotListItem({
           : "hover:bg-gray-100 border-l-[3px] border-l-transparent"
       }`}
     >
-      {/* 클릭 영역 (슬롯 선택) */}
+      {/* 클릭 영역 (그룹 선택) */}
       <button className="flex items-center gap-3 flex-1 min-w-0 px-4 py-3 text-left" onClick={onClick}>
         <span
           className={`w-2 h-2 rounded-full flex-shrink-0 ${
@@ -166,7 +166,7 @@ function SlotDetail({
 
   return (
     <>
-      {/* 슬롯 설정 헤더 */}
+      {/* 그룹 설정 헤더 */}
       <div className="px-5 py-3.5 border-b border-gray-200 flex-shrink-0 flex items-center gap-4">
         <span className="font-mono text-sm bg-gray-100 px-2.5 py-1 rounded text-gray-600 flex-shrink-0">
           vip{slot.slot_number}
@@ -176,7 +176,7 @@ function SlotDetail({
             value={labelInput}
             onChange={(e) => setLabelInput(e.target.value)}
             onBlur={handleLabelBlur}
-            placeholder="라벨 미설정"
+            placeholder="이름 미설정"
             maxLength={50}
             className="h-8 text-sm"
             disabled={mutation.isPending}
@@ -226,13 +226,15 @@ function VipAddressList({ slotNumber }: { slotNumber: number }) {
   }
 
   return (
-    <table className="w-full">
+    <table className="w-full table-fixed">
       <thead>
         <tr className="border-b border-gray-200 bg-white">
           <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-28">이름</th>
           <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-36">연락처</th>
+          <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-16">국가</th>
           <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-24">우편번호</th>
           <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">주소</th>
+          <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-44">관리자 메모</th>
         </tr>
       </thead>
       <tbody>
@@ -240,12 +242,21 @@ function VipAddressList({ slotNumber }: { slotNumber: number }) {
           <tr
             key={addr.address_id}
             className={`border-b border-gray-100 ${i % 2 === 1 ? "bg-gray-50/40" : ""}`}
-            style={{ height: "44px" }}
           >
-            <td className="px-3 py-2.5 text-sm font-medium text-gray-900">{addr.recipient_name}</td>
+            <td className="px-3 py-2.5 text-sm font-medium text-gray-900 truncate">{addr.recipient_name}</td>
             <td className="px-3 py-2.5 text-sm font-mono text-gray-500">{addr.recipient_phone}</td>
-            <td className="px-3 py-2.5 text-xs font-mono text-gray-400">{addr.postal_code}</td>
-            <td className="px-3 py-2.5 text-sm text-gray-700">{addr.recipient_address}</td>
+            <td className="px-3 py-2.5">
+              {addr.country_code === "KR" ? (
+                <span className="text-sm font-mono text-gray-500">KR</span>
+              ) : (
+                <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-semibold">
+                  🌐 {addr.country_code}
+                </span>
+              )}
+            </td>
+            <td className="px-3 py-2.5 text-sm font-mono text-gray-500">{addr.postal_code}</td>
+            <td className="px-3 py-2.5 text-sm text-gray-700 truncate">{addr.recipient_address}</td>
+            <td className="px-3 py-2.5 text-sm text-gray-500 truncate">{addr.admin_memo ?? <span className="text-gray-300">—</span>}</td>
           </tr>
         ))}
       </tbody>

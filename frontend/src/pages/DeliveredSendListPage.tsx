@@ -41,7 +41,7 @@ export default function DeliveredSendListPage() {
   const vipSlot = vipSlotOf(scope);
   const isVip = vipSlot !== null;
 
-  // 활성 VIP 슬롯
+  // 활성 VIP 그룹
   const { data: vipSlots = [] } = useQuery({
     queryKey: ["vip-slots"],
     queryFn: () => vipSlotsApi.getVipSlots().then((r) => r.data.data ?? []),

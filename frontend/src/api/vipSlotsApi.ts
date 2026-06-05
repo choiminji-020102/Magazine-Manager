@@ -3,7 +3,7 @@ import type { ResponseModel } from "../types/api";
 import type { VipSlotResponse, VipSlotUpdate } from "../types/vipSlot";
 
 export const vipSlotsApi = {
-  // GET /vip-slots - 전체 슬롯 조회 (항상 6개)
+  // GET /vip-slots - 전체 그룹 조회 (항상 6개)
   getVipSlots: () => {
     return api.get<ResponseModel<VipSlotResponse[]>>("/vip-slots");
   },
