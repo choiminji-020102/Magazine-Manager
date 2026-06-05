@@ -37,6 +37,7 @@ import type { InquiryResponse } from "@/types/inquiry";
 const EMPTY_ADDRESS_FORM = {
   recipient_name: "",
   recipient_phone: "",
+  country_code: "KR",
   postal_code: "",
   recipient_address: "",
   customer_memo: "",
@@ -155,6 +156,7 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
         customer_id: customerId,
         recipient_name: addressForm.recipient_name,
         recipient_phone: addressForm.recipient_phone,
+        country_code: addressForm.country_code,
         postal_code: addressForm.postal_code,
         recipient_address: addressForm.recipient_address,
         customer_memo: addressForm.customer_memo || null,
@@ -196,7 +198,7 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
   });
 
   // VIP 라디오 — 한 PATCH 로 vip1~vip6 6개 필드 일괄 갱신.
-  // 단건만 보내면 백엔드 V-7 단일성 검증 시 잔존 슬롯 때문에 422.
+  // 단건만 보내면 백엔드 V-7 단일성 검증 시 잔존 그룹 때문에 422.
   const updateAddressVipMutation = useMutation({
     mutationFn: ({ addressId, slotNumber }: {
       addressId: number;
@@ -444,14 +446,81 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
                         />
                       </div>
                     </div>
-                    <AddressSearchField
-                      postalCode={addressForm.postal_code}
-                      address={addressForm.recipient_address}
-                      onChange={(postal_code, recipient_address) =>
-                        setAddressForm((f) => ({ ...f, postal_code, recipient_address }))
-                      }
-                      required
-                    />
+                    {/* 국내 / 해외 토글 */}
+                    <div className="flex gap-1">
+                      {(["KR", "해외"] as const).map((opt) => {
+                        const isKr = opt === "KR";
+                        const selected = isKr ? addressForm.country_code === "KR" : addressForm.country_code !== "KR";
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() =>
+                              setAddressForm((f) => ({
+                                ...f,
+                                country_code: isKr ? "KR" : "",
+                                postal_code: "",
+                                recipient_address: "",
+                              }))
+                            }
+                            className={`px-3 py-1 text-xs rounded border transition-colors ${
+                              selected
+                                ? "bg-blue-600 text-white border-blue-600"
+                                : "bg-white text-gray-500 border-gray-300 hover:border-gray-400"
+                            }`}
+                          >
+                            {opt === "KR" ? "국내" : "해외"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {addressForm.country_code === "KR" ? (
+                      <AddressSearchField
+                        postalCode={addressForm.postal_code}
+                        address={addressForm.recipient_address}
+                        onChange={(postal_code, recipient_address) =>
+                          setAddressForm((f) => ({ ...f, postal_code, recipient_address }))
+                        }
+                        required
+                      />
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="w-40">
+                          <Label className="text-xs text-gray-600">국가 <span className="text-red-500 ml-0.5">*</span></Label>
+                          <Select
+                            value={addressForm.country_code}
+                            onValueChange={(v) => setAddressForm((f) => ({ ...f, country_code: v }))}
+                          >
+                            <SelectTrigger className="mt-1 h-8 text-sm">
+                              <SelectValue placeholder="국가 선택" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="SG">싱가포르 (SG)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="w-28">
+                            <Label className="text-xs text-gray-600">우편번호 <span className="text-red-500 ml-0.5">*</span></Label>
+                            <Input
+                              className="mt-1 h-8 text-sm font-mono"
+                              placeholder="12345"
+                              value={addressForm.postal_code}
+                              onChange={(e) => setAddressForm((f) => ({ ...f, postal_code: e.target.value }))}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <Label className="text-xs text-gray-600">주소 <span className="text-red-500 ml-0.5">*</span></Label>
+                            <Input
+                              className="mt-1 h-8 text-sm"
+                              placeholder="123 Main St, City"
+                              value={addressForm.recipient_address}
+                              onChange={(e) => setAddressForm((f) => ({ ...f, recipient_address: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <div>
                       <Label className="text-xs text-gray-600">배송 메모</Label>
                       <Input
@@ -477,6 +546,7 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
                         disabled={
                           !addressForm.recipient_name ||
                           !addressForm.recipient_phone ||
+                          !addressForm.country_code ||
                           !addressForm.postal_code ||
                           !addressForm.recipient_address ||
                           createAddressMutation.isPending
