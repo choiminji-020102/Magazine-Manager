@@ -318,12 +318,6 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
               <span className="ml-1 text-xs text-gray-400">{customer.recent_orders.length}</span>
             ) : null}
           </TabsTrigger>
-          <TabsTrigger value="addresses">
-            배송지
-            {customer.addresses?.length ? (
-              <span className="ml-1 text-xs text-gray-400">{customer.addresses.length}</span>
-            ) : null}
-          </TabsTrigger>
           <TabsTrigger value="inquiries">
             문의내역
             {inquiries.length ? (
@@ -407,6 +401,120 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
               <InfoRow label="최근 주문" value={customer.last_order_at ? formatDate(customer.last_order_at) : "-"} />
               <InfoRow label="관리자 메모" value={customer.admin_memo || "-"} />
             </Section>
+            {/* 배송지 섹션 */}
+            <div className="border border-gray-100 rounded-lg overflow-hidden">
+              <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  배송지
+                  {customer.addresses?.length ? (
+                    <span className="ml-1 font-normal normal-case text-gray-400">({customer.addresses.length})</span>
+                  ) : null}
+                </h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 text-xs px-2 gap-1"
+                  onClick={() => setAddAddressMode((v) => !v)}
+                >
+                  <Plus className="h-3 w-3" />
+                  {addAddressMode ? "취소" : "배송지 추가"}
+                </Button>
+              </div>
+              <div className="px-3.5 py-3 space-y-2.5">
+                {addAddressMode && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3.5 space-y-2.5">
+                    <div className="text-xs font-semibold text-blue-700">새 배송지</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs text-gray-600">수령인 <span className="text-red-500">*</span></Label>
+                        <Input
+                          className="mt-1 h-8 text-sm"
+                          placeholder="홍길동"
+                          value={addressForm.recipient_name}
+                          onChange={(e) => setAddressForm((f) => ({ ...f, recipient_name: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-gray-600">연락처 <span className="text-red-500">*</span></Label>
+                        <Input
+                          className="mt-1 h-8 text-sm font-mono"
+                          placeholder="010-0000-0000"
+                          value={addressForm.recipient_phone}
+                          onChange={(e) => setAddressForm((f) => ({ ...f, recipient_phone: formatPhoneInput(e.target.value) }))}
+                        />
+                      </div>
+                    </div>
+                    <AddressSearchField
+                      postalCode={addressForm.postal_code}
+                      address={addressForm.recipient_address}
+                      onChange={(postal_code, recipient_address) =>
+                        setAddressForm((f) => ({ ...f, postal_code, recipient_address }))
+                      }
+                      required
+                    />
+                    <div>
+                      <Label className="text-xs text-gray-600">배송 메모</Label>
+                      <Input
+                        className="mt-1 h-8 text-sm"
+                        placeholder="문 앞에 놔주세요 (선택)"
+                        value={addressForm.customer_memo}
+                        onChange={(e) => setAddressForm((f) => ({ ...f, customer_memo: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-600">관리자 메모</Label>
+                      <Input
+                        className="mt-1 h-8 text-sm"
+                        placeholder="(선택)"
+                        value={addressForm.admin_memo}
+                        onChange={(e) => setAddressForm((f) => ({ ...f, admin_memo: e.target.value }))}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => createAddressMutation.mutate()}
+                        disabled={
+                          !addressForm.recipient_name ||
+                          !addressForm.recipient_phone ||
+                          !addressForm.postal_code ||
+                          !addressForm.recipient_address ||
+                          createAddressMutation.isPending
+                        }
+                      >
+                        {createAddressMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+                        저장
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => { setAddAddressMode(false); setAddressForm(EMPTY_ADDRESS_FORM); }}>
+                        취소
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {customer.addresses?.length ? (
+                  customer.addresses.map((address) => (
+                    <AddressCard
+                      key={address.address_id}
+                      address={address}
+                      vipSlots={vipSlots}
+                      onDelete={() => setDeleteAddressId(address.address_id)}
+                      onUpdateMemo={(memo) =>
+                        updateAddressMemoMutation.mutate({ addressId: address.address_id, memo })
+                      }
+                      onChangeVip={(slotNumber) =>
+                        updateAddressVipMutation.mutate({
+                          addressId: address.address_id,
+                          slotNumber,
+                        })
+                      }
+                      vipDisabled={updateAddressVipMutation.isPending}
+                    />
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-400 text-center py-4">등록된 배송지가 없습니다.</p>
+                )}
+              </div>
+            </div>
             <Section title="시스템">
               <InfoRow label="등록일" value={formatDate(customer.created_at)} />
               <InfoRow label="수정일" value={formatDate(customer.updated_at)} />
@@ -445,116 +553,6 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
               ))
             ) : (
               <p className="text-sm text-gray-400 text-center py-8">주문 내역이 없습니다.</p>
-            )}
-          </TabsContent>
-
-          {/* 배송지 탭 */}
-          <TabsContent value="addresses" className="m-0 p-5 space-y-3">
-            <div className="flex justify-end mb-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1"
-                onClick={() => setAddAddressMode((v) => !v)}
-              >
-                <Plus className="h-3 w-3" />
-                {addAddressMode ? "취소" : "배송지 추가"}
-              </Button>
-            </div>
-
-            {/* 배송지 추가 폼 */}
-            {addAddressMode && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3.5 space-y-2.5">
-                <div className="text-xs font-semibold text-blue-700">새 배송지</div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label className="text-xs text-gray-600">수령인 <span className="text-red-500">*</span></Label>
-                    <Input
-                      className="mt-1 h-8 text-sm"
-                      placeholder="홍길동"
-                      value={addressForm.recipient_name}
-                      onChange={(e) => setAddressForm((f) => ({ ...f, recipient_name: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-gray-600">연락처 <span className="text-red-500">*</span></Label>
-                    <Input
-                      className="mt-1 h-8 text-sm font-mono"
-                      placeholder="010-0000-0000"
-                      value={addressForm.recipient_phone}
-                      onChange={(e) => setAddressForm((f) => ({ ...f, recipient_phone: formatPhoneInput(e.target.value) }))}
-                    />
-                  </div>
-                </div>
-                <AddressSearchField
-                  postalCode={addressForm.postal_code}
-                  address={addressForm.recipient_address}
-                  onChange={(postal_code, recipient_address) =>
-                    setAddressForm((f) => ({ ...f, postal_code, recipient_address }))
-                  }
-                  required
-                />
-                <div>
-                  <Label className="text-xs text-gray-600">배송 메모</Label>
-                  <Input
-                    className="mt-1 h-8 text-sm"
-                    placeholder="문 앞에 놔주세요 (선택)"
-                    value={addressForm.customer_memo}
-                    onChange={(e) => setAddressForm((f) => ({ ...f, customer_memo: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-gray-600">관리자 메모</Label>
-                  <Input
-                    className="mt-1 h-8 text-sm"
-                    placeholder="(선택)"
-                    value={addressForm.admin_memo}
-                    onChange={(e) => setAddressForm((f) => ({ ...f, admin_memo: e.target.value }))}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => createAddressMutation.mutate()}
-                    disabled={
-                      !addressForm.recipient_name ||
-                      !addressForm.recipient_phone ||
-                      !addressForm.postal_code ||
-                      !addressForm.recipient_address ||
-                      createAddressMutation.isPending
-                    }
-                  >
-                    {createAddressMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-                    저장
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => { setAddAddressMode(false); setAddressForm(EMPTY_ADDRESS_FORM); }}>
-                    취소
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {customer.addresses?.length ? (
-              customer.addresses.map((address) => (
-                <AddressCard
-                  key={address.address_id}
-                  address={address}
-                  vipSlots={vipSlots}
-                  onDelete={() => setDeleteAddressId(address.address_id)}
-                  onUpdateMemo={(memo) =>
-                    updateAddressMemoMutation.mutate({ addressId: address.address_id, memo })
-                  }
-                  onChangeVip={(slotNumber) =>
-                    updateAddressVipMutation.mutate({
-                      addressId: address.address_id,
-                      slotNumber,
-                    })
-                  }
-                  vipDisabled={updateAddressVipMutation.isPending}
-                />
-              ))
-            ) : (
-              <p className="text-sm text-gray-400 text-center py-8">등록된 배송지가 없습니다.</p>
             )}
           </TabsContent>
 
