@@ -64,6 +64,7 @@ const navigation: NavGroup[] = [
       { label: "고객 목록", path: "/customers", icon: Users },
       { label: "상품 목록", path: "/products", icon: Box },
       { label: "구독 목록", path: "/subscriptions", icon: BookOpen },
+      { label: "VIP 슬롯", path: "/vip-slots", icon: Star },
     ],
   },
   {
@@ -82,12 +83,6 @@ const navigation: NavGroup[] = [
         requireSuperAdmin: true,
       },
       { label: "활동 로그", path: "/activity-logs", icon: Activity },
-    ],
-  },
-  {
-    group: "환경설정",
-    items: [
-      { label: "VIP 슬롯", path: "/vip-slots", icon: Star },
       { label: "설정", path: "/settings", icon: Settings },
     ],
   },
