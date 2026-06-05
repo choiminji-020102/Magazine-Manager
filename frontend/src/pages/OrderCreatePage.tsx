@@ -51,6 +51,7 @@ export default function OrderCreatePage() {
   const [newAddress, setNewAddress] = useState({
     recipient_name: "",
     recipient_phone: "",
+    country_code: "KR",
     postal_code: "",
     recipient_address: "",
     customer_memo: "",
@@ -223,6 +224,7 @@ export default function OrderCreatePage() {
       payload.address = {
         recipient_name: newAddress.recipient_name,
         recipient_phone: newAddress.recipient_phone,
+        country_code: newAddress.country_code,
         postal_code: newAddress.postal_code,
         recipient_address: newAddress.recipient_address,
         customer_memo: newAddress.customer_memo || null,
@@ -239,7 +241,7 @@ export default function OrderCreatePage() {
     }
     if (step === 1) {
       if (addressMode === "existing") return !!selectedAddress;
-      return !!newAddress.recipient_name && !!newAddress.recipient_phone && !!newAddress.postal_code && !!newAddress.recipient_address;
+      return !!newAddress.recipient_name && !!newAddress.recipient_phone && !!newAddress.country_code && !!newAddress.postal_code && !!newAddress.recipient_address;
     }
     if (step === 2) return orderItems.length > 0;
     if (step === 3) return !!paymentMethod;
@@ -470,14 +472,81 @@ export default function OrderCreatePage() {
                     />
                   </div>
                 </div>
-                <AddressSearchField
-                  postalCode={newAddress.postal_code}
-                  address={newAddress.recipient_address}
-                  onChange={(postal_code, recipient_address) =>
-                    setNewAddress((p) => ({ ...p, postal_code, recipient_address }))
-                  }
-                  required
-                />
+                {/* 국내 / 해외 토글 */}
+                <div className="flex gap-1">
+                  {(["KR", "해외"] as const).map((opt) => {
+                    const isKr = opt === "KR";
+                    const selected = isKr ? newAddress.country_code === "KR" : newAddress.country_code !== "KR";
+                    return (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() =>
+                          setNewAddress((p) => ({
+                            ...p,
+                            country_code: isKr ? "KR" : "",
+                            postal_code: "",
+                            recipient_address: "",
+                          }))
+                        }
+                        className={`px-3 py-1 text-xs rounded border transition-colors ${
+                          selected
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-white text-gray-500 border-gray-300 hover:border-gray-400"
+                        }`}
+                      >
+                        {isKr ? "국내" : "해외"}
+                      </button>
+                    );
+                  })}
+                </div>
+                {newAddress.country_code === "KR" ? (
+                  <AddressSearchField
+                    postalCode={newAddress.postal_code}
+                    address={newAddress.recipient_address}
+                    onChange={(postal_code, recipient_address) =>
+                      setNewAddress((p) => ({ ...p, postal_code, recipient_address }))
+                    }
+                    required
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    <div className="w-40">
+                      <Label>국가 <span className="text-red-500 ml-0.5">*</span></Label>
+                      <Select
+                        value={newAddress.country_code}
+                        onValueChange={(v) => setNewAddress((p) => ({ ...p, country_code: v }))}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="국가 선택" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SG">싱가포르 (SG)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="w-28">
+                        <Label>우편번호 <span className="text-red-500 ml-0.5">*</span></Label>
+                        <Input
+                          className="mt-1 font-mono"
+                          placeholder="12345"
+                          value={newAddress.postal_code}
+                          onChange={(e) => setNewAddress((p) => ({ ...p, postal_code: e.target.value }))}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label>주소 <span className="text-red-500 ml-0.5">*</span></Label>
+                        <Input
+                          className="mt-1"
+                          placeholder="123 Main St, City"
+                          value={newAddress.recipient_address}
+                          onChange={(e) => setNewAddress((p) => ({ ...p, recipient_address: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div>
                   <Label>배송 메모</Label>
                   <Input
