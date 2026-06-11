@@ -751,7 +751,9 @@ async def import_orders(
             continue
 
         try:
-            order_warnings = await _import_single_order(db, external_order_id, base)
+            order_warnings, yearly_items = await _import_single_order(db, external_order_id, base)
+            if not dry_run and yearly_items:
+                await post_standby_for_yearly_items(db, client, external_order_id, yearly_items)
             if dry_run:
                 db.rollback()   # 미리보기: 저장 취소
             else:
