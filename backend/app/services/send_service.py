@@ -341,7 +341,7 @@ async def transition_sends_to_delivered_batch(
         monthly_payload: List[dict] = []
         for ext_oid, item_codes in monthly_groups.items():
             if send_method == "기출유택배":
-                tracking_no_val = tracking_by_id.get(monthly_send_id_by_order[ext_oid]) or ""
+                tracking_no_val = tracking_by_id[monthly_send_id_by_order[ext_oid]]
                 shipping_co_code = "0006"
             else:
                 tracking_no_val = "자체배송"
@@ -357,10 +357,10 @@ async def transition_sends_to_delivered_batch(
             db=db, client=client, requests_payload=monthly_payload
         )
         for shipment in shipments:
-            ext_oid = shipment.get("order_id")
+            resp_order_id = shipment.get("order_id")
             shipping_code = shipment.get("shipping_code")
-            if ext_oid and shipping_code:
-                for oi in monthly_order_items_map.get(ext_oid, []):
+            if resp_order_id and shipping_code:
+                for oi in monthly_order_items_map.get(resp_order_id, []):
                     oi.cafe24_shipping_code = shipping_code
         db.flush()
 
