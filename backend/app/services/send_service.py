@@ -3,8 +3,9 @@ import re
 from typing import List, Optional, Tuple
 
 # 서드파티 라이브러리
+import httpx
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 # 로컬 애플리케이션
 from app.core import vip_slots
@@ -15,7 +16,7 @@ from app.models.send import Send
 from app.models.send_item import SendItem
 from app.schemas.send import SendListQuery
 from app.crud import send as send_crud
-from app.services import send_item_service
+from app.services import cafe24_admin_service, send_item_service
 from app.services.dispatch_grouping_service import (
     SendGroup,
     get_paid_order_items_for_dispatch,
@@ -241,11 +242,12 @@ def transition_send_to_delivered(
     return send
 
 
-def transition_sends_to_delivered_batch(
+async def transition_sends_to_delivered_batch(
     db: Session,
     sends_input: List[Tuple[int, Optional[str]]],
     send_method: str,
     courier_company: str,
+    client: httpx.AsyncClient,
 ) -> int:
     """선택된 PREPARING Send들을 일괄 DELIVERED 전환. 전환된 Send 수 반환.
 
@@ -276,6 +278,54 @@ def transition_sends_to_delivered_batch(
             detail=f"PREPARING 상태가 아닌 발송이 포함되어 있습니다: {non_preparing}. 페이지를 새로고침한 후 다시 시도해주세요.",
         )
 
+    # 0단계: 루프 전에 모든 send의 SendItem 한번에 미리 쿼리
+    # joinedload(order_item → order) 포함 → MONTHLY POST의 external_order_id 접근 시 추가 쿼리 없음
+    # transition_send_to_delivered 내부 재쿼리 시 SQLAlchemy identity map에서 캐시 반환됨 (DB 히트 없음)
+    all_send_items = (
+        db.query(SendItem)
+        .filter(SendItem.send_id.in_(send_ids), SendItem.cancelled_at.is_(None))
+        .options(joinedload(SendItem.order_item).joinedload(OrderItem.order))
+        .all()
+    )
+    items_by_send_id: dict = {}
+    for si in all_send_items:
+        items_by_send_id.setdefault(si.send_id, []).append(si)
+
+    # 1단계: Cafe24 정보 수집 (DB flush 전 — last_send_issue가 아직 null인 시점)
+    monthly_groups: dict = {}           # external_order_id → [order_item_code]
+    monthly_order_items_map: dict = {}  # external_order_id → [OrderItem]  (shipping_code 저장용)
+    monthly_send_id_by_order: dict = {} # external_order_id → send_id (tracking_no 조회용)
+    yearly_requests: List[dict] = []    # [{"shipping_code": ..., "status": "shipping"}]
+
+    for send in sends:
+        for si in items_by_send_id.get(send.send_id, []):
+            oi = si.order_item
+            if oi.external_order_item_id is None:
+                continue  # OFFLINE/GPMALL 품목 — Cafe24 연동 대상 아님
+            if oi.cancelled_at is not None:
+                continue
+            if oi.product_kind == "MONTHLY":
+                ext_oid = oi.order.external_order_id
+                if ext_oid is None:
+                    continue
+                monthly_groups.setdefault(ext_oid, []).append(oi.external_order_item_id)
+                monthly_order_items_map.setdefault(ext_oid, []).append(oi)
+                monthly_send_id_by_order[ext_oid] = send.send_id
+            elif (
+                oi.product_kind == "YEARLY"
+                and oi.last_send_issue is None      # 첫 발송 — flush 전이므로 올바른 체크
+                and oi.cafe24_shipping_code
+            ):
+                yearly_requests.append({"shipping_code": oi.cafe24_shipping_code, "status": "shipping"})
+
+    # shipping_code 중복 제거 (같은 주문 YEARLY 2종 → 동일 shipping_code)
+    seen: set = set()
+    yearly_requests = [
+        r for r in yearly_requests
+        if not (r["shipping_code"] in seen or seen.add(r["shipping_code"]))
+    ]
+
+    # 2단계: DB flush
     for send in sends:
         transition_send_to_delivered(
             db=db,
@@ -283,6 +333,41 @@ def transition_sends_to_delivered_batch(
             send_method=send_method,
             courier_company=courier_company,
             tracking_no=tracking_by_id[send.send_id],
+        )
+
+    # 3단계: Cafe24 API 호출 (DB commit 전)
+    # MONTHLY POST: N20 → N30 (shipping). order_id 필수.
+    if monthly_groups:
+        monthly_payload: List[dict] = []
+        for ext_oid, item_codes in monthly_groups.items():
+            if send_method == "기출유택배":
+                tracking_no_val = tracking_by_id.get(monthly_send_id_by_order[ext_oid]) or ""
+                shipping_co_code = "0006"
+            else:
+                tracking_no_val = "자체배송"
+                shipping_co_code = "0001"
+            monthly_payload.append({
+                "order_id": ext_oid,
+                "tracking_no": tracking_no_val,
+                "shipping_company_code": shipping_co_code,
+                "status": "shipping",
+                "order_item_code": item_codes,
+            })
+        shipments = await cafe24_admin_service.post_shipments(
+            db=db, client=client, requests_payload=monthly_payload
+        )
+        for shipment in shipments:
+            ext_oid = shipment.get("order_id")
+            shipping_code = shipment.get("shipping_code")
+            if ext_oid and shipping_code:
+                for oi in monthly_order_items_map.get(ext_oid, []):
+                    oi.cafe24_shipping_code = shipping_code
+        db.flush()
+
+    # YEARLY PUT: N21 → N30 (shipping). shipping_code 필수, order_id 불필요.
+    if yearly_requests:
+        await cafe24_admin_service.put_shipments(
+            db=db, client=client, requests_payload=yearly_requests
         )
 
     return len(sends)
