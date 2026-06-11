@@ -3,7 +3,7 @@ import re
 from typing import Dict, List, Literal, Optional
 
 # 서드파티 라이브러리
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class DispatchTarget(BaseModel):
@@ -77,35 +77,27 @@ class AddToPreparingYearlyResponse(BaseModel):
 class TransitionSendItem(BaseModel):
     """[배송완료 처리] 시 Send 1개에 대한 운송장 입력.
 
-    tracking_no는 입력에서 숫자만 추출해 저장 (공백·하이픈·문자 자동 제거).
-    None / 빈 문자열은 옵셔널로 허용 (우편·자체배송 등 운송장 없는 케이스).
-    문자만 있고 숫자가 0개인 입력은 422 (운영자 오타 방지).
-
-    cf. SendTrackingUpdate / SendResendRequest 는 DELIVERED 이후 수정·재발송 흐름이라
-    빈 문자열 입력도 422 로 거부 (이미 발송된 박스의 운송장을 실수로 비우는 것 차단).
-    배송완료 처리(이 스키마)는 PREPARING → DELIVERED 최초 전환이며 우편 케이스 자체가
-    운송장 없음이 정상이므로 빈 입력을 None 으로 통과시키는 점이 다르다.
+    tracking_no는 필수. 숫자가 포함된 문자열은 숫자만 추출해 저장 (공백·하이픈 자동 제거).
+    숫자가 없는 문자열("자체배송" 등)은 그대로 저장.
+    기출유택배는 TransitionToDeliveredRequest 에서 숫자 운송장 번호 필수 추가 검증.
     """
     send_id: int
-    tracking_no: Optional[str] = Field(
-        None,
+    tracking_no: str = Field(
+        ...,
         max_length=50,
-        description="운송장 번호 (선택, 숫자만 추출되어 저장. 비워두면 NULL 저장)",
+        description="운송장 번호 (필수. 기출유택배는 실제 운송장 번호, 나머지는 '자체배송' 등)",
     )
 
     @field_validator("tracking_no", mode="before")
     @classmethod
-    def _extract_digits(cls, v):
-        if v is None:
-            return None
+    def _normalize_tracking_no(cls, v):
+        if v is None or (isinstance(v, str) and v.strip() == ""):
+            raise ValueError("운송장 번호를 입력해주세요.")
         if isinstance(v, str):
             stripped = v.strip()
-            if stripped == "":
-                return None
-            digits = re.sub(r"\D", "", stripped)
-            if digits == "":
-                raise ValueError("tracking_no에서 숫자를 찾을 수 없습니다. 운송장 번호를 확인해주세요.")
-            return digits
+            if any(c.isdigit() for c in stripped):
+                return re.sub(r"\D", "", stripped)
+            return stripped  # "자체배송" 등 비숫자 문자열은 그대로
         return v
 
 
@@ -114,11 +106,19 @@ class TransitionToDeliveredRequest(BaseModel):
 
     여러 PREPARING Send를 한 번에 DELIVERED로 전환 ("보냈다 = 끝", SHIPPING 단계 없음).
     send_method/courier_company는 모든 Send에 공통 적용.
-    tracking_no는 박스(Send)마다 개별 입력 (선택 — courier_company 무관, 비워두면 NULL).
+    tracking_no는 박스(Send)마다 필수 입력. 기출유택배는 숫자 운송장 번호 필수.
     """
     sends: List[TransitionSendItem] = Field(..., min_length=1, description="전환할 Send 배열")
     send_method: Literal["기출유우편", "기출유택배", "일반우편", "찾아가기"] = Field(..., description="발송 방법")
     courier_company: Literal["CJ대한통운", "자체배송"] = Field(..., description="운송사 (send_method로부터 자동 도출되지만 수정 가능)")
+
+    @model_validator(mode="after")
+    def _check_courier_tracking_no(self) -> "TransitionToDeliveredRequest":
+        if self.send_method == "기출유택배":
+            invalid = [s.send_id for s in self.sends if not s.tracking_no.isdigit()]
+            if invalid:
+                raise ValueError(f"기출유택배는 숫자 운송장 번호가 필요합니다. 누락된 send_id: {invalid}")
+        return self
 
 
 class TransitionToDeliveredResponse(BaseModel):

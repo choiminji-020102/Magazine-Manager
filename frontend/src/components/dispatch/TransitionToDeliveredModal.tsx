@@ -53,6 +53,12 @@ export default function TransitionToDeliveredModal({
   // tracking_no by send_id (운송장 번호 입력값 — 표준화는 백엔드 책임)
   const [trackingMap, setTrackingMap] = useState<Record<number, string>>({});
 
+  const DEFAULT_TRACKING: Record<string, string> = {
+    "기출유우편": "자체배송",
+    "일반우편": "자체배송",
+    "찾아가기": "자체배송",
+  };
+
   // 모달 오픈 시 입력 초기화
   useEffect(() => {
     if (open) {
@@ -62,12 +68,20 @@ export default function TransitionToDeliveredModal({
     }
   }, [open]);
 
-  // send_method 선택 시 courier 자동 도출 (운영자가 수정 가능)
+  // send_method 선택 시 courier 자동 도출 + 비택배는 "자체배송" 기본값 세팅
   const handleSendMethodChange = (next: string) => {
     const sm = next as SendMethod;
     setSendMethod(sm);
     const derived = SEND_METHOD_TO_COURIER[sm] as CourierCompany | undefined;
     if (derived) setCourier(derived);
+    const defaultTracking = DEFAULT_TRACKING[sm];
+    if (defaultTracking) {
+      const prefilled: Record<number, string> = {};
+      sends.forEach((s) => { prefilled[s.send_id] = defaultTracking; });
+      setTrackingMap(prefilled);
+    } else {
+      setTrackingMap({});
+    }
   };
 
   // 박스 안 SendItem 정보 — 모달 열린 상태에서 박스마다 detail 병렬 조회 (운영자 박스 식별용).
@@ -92,13 +106,10 @@ export default function TransitionToDeliveredModal({
     mutationFn: () =>
       dispatchApi
         .transitionToDelivered({
-          sends: sends.map((s) => {
-            const raw = (trackingMap[s.send_id] ?? "").trim();
-            // 빈 입력은 tracking_no 키 자체를 생략 → 백엔드에서 NULL 저장
-            return raw.length > 0
-              ? { send_id: s.send_id, tracking_no: raw }
-              : { send_id: s.send_id };
-          }),
+          sends: sends.map((s) => ({
+            send_id: s.send_id,
+            tracking_no: (trackingMap[s.send_id] ?? "").trim(),
+          })),
           send_method: sendMethod as SendMethod,
           courier_company: courier as CourierCompany,
         })
@@ -120,6 +131,11 @@ export default function TransitionToDeliveredModal({
       toast.error("운송사를 선택해주세요.");
       return;
     }
+    const missingTracking = sends.filter((s) => !(trackingMap[s.send_id] ?? "").trim());
+    if (missingTracking.length > 0) {
+      toast.error(`운송장 번호를 모두 입력해주세요. (누락: ${missingTracking.length}건)`);
+      return;
+    }
     mutation.mutate();
   };
 
@@ -135,8 +151,8 @@ export default function TransitionToDeliveredModal({
           <DialogTitle>[배송완료 처리]</DialogTitle>
           <p className="text-xs text-gray-500 mt-1">
             선택된 <span className="font-medium">{sends.length}건</span>을 한
-            번에 배송완료로 처리합니다. 운송장 번호는 선택 입력입니다 —
-            우편·자체배송 등 운송장이 없는 경우 비워두면 됩니다. 이미
+            번에 배송완료로 처리합니다. 운송장 번호는 필수입니다 — 비택배(우편·자체배송 등)는
+            배송 방법 선택 시 "자체배송"으로 자동 채워지며 수정 가능합니다. 이미
             배송완료·취소된 박스가 섞여 있으면 전체가 처리되지 않으니, 선택을
             다시 확인해주세요.
           </p>
@@ -196,8 +212,7 @@ export default function TransitionToDeliveredModal({
                 <th className="px-2 py-2 text-left font-medium w-64">배송지</th>
                 <th className="px-2 py-2 text-left font-medium">상품</th>
                 <th className="px-2 py-2 text-left font-medium w-44">
-                  운송장 번호{" "}
-                  <span className="text-gray-400 font-normal">(선택)</span>
+                  운송장 번호 <span className="text-red-500 ml-0.5">*</span>
                 </th>
               </tr>
             </thead>
@@ -256,7 +271,7 @@ export default function TransitionToDeliveredModal({
                     <td className="px-2 py-2">
                       <Input
                         className="h-8 font-mono"
-                        placeholder="비워두면 운송장 없이 처리"
+                        placeholder="운송장 번호 입력"
                         value={value}
                         onChange={(e) =>
                           setTrackingMap((prev) => ({
