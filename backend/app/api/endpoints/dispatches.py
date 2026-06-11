@@ -242,7 +242,7 @@ def add_to_preparing_yearly_endpoint(
     response_model=ResponseModel[TransitionToDeliveredResponse],
     status_code=status.HTTP_200_OK,
 )
-def transition_to_delivered_endpoint(
+async def transition_to_delivered_endpoint(
     req: TransitionToDeliveredRequest,
     request: Request,
     db: Session = Depends(get_db),
@@ -253,14 +253,16 @@ def transition_to_delivered_endpoint(
     send_method, courier_company는 항상 필수.
     tracking_no는 박스(Send)마다 개별 입력 (선택 — 비워두면 NULL 저장. 우편·자체배송 등 운송장 없는 케이스 허용).
     한 건이라도 PREPARING이 아니면 전체 거부 (all-or-nothing).
+    Cafe24 주문 상태 동기화 포함 (MONTHLY POST / YEARLY PUT) — 실패 시 DB rollback.
     """
     sends_input = [(s.send_id, s.tracking_no) for s in req.sends]
 
-    transitioned_count = send_service.transition_sends_to_delivered_batch(
+    transitioned_count = await send_service.transition_sends_to_delivered_batch(
         db=db,
         sends_input=sends_input,
         send_method=req.send_method,
         courier_company=req.courier_company,
+        client=request.app.state.http_client,
     )
 
     db.commit()
