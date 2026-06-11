@@ -460,11 +460,12 @@ async def _import_single_order(
     db: Session,
     external_order_id: str,
     base_order: dict,
-) -> List[dict]:
+) -> Tuple[List[dict], List[OrderItem]]:
     """Cafe24 주문 1건 → 내부 DB(Customer/Address/Order/OrderItem) 변환·저장.
 
     검증 실패 시 ImportSkip 예외, 비치명적 이상은 warnings 리스트로 반환.
     트랜잭션 commit/rollback은 호출자 책임 (db.add/flush만 수행).
+    반환: (warnings, yearly_items) — yearly_items는 Cafe24 standby POST용.
     """
     warnings: List[dict] = []
 
@@ -607,6 +608,7 @@ async def _import_single_order(
     db.flush()  # order.order_id 확보
 
     # 13) OrderItem 생성 (sale_price = product_price + option_price, 옵션 추가금 포함)
+    created_order_items: List[OrderItem] = []
     for it in items:
         cafe24_code = it.get("product_code")
         product = product_map[cafe24_code]
@@ -652,6 +654,7 @@ async def _import_single_order(
             subscribe_period=subscribe_period,
         )
         db.add(order_item)
+        created_order_items.append(order_item)
 
     # 14) 고객 last_order_at 업데이트
     # Cafe24는 과거 주문을 나중에 import하는 패턴이므로 실제 주문 시각(order_at) 사용.
@@ -660,7 +663,43 @@ async def _import_single_order(
         customer.last_order_at = order_at
 
     db.flush()
-    return warnings
+    yearly_items = [oi for oi in created_order_items if oi.product_kind == "YEARLY"]
+    return warnings, yearly_items
+
+
+async def post_standby_for_yearly_items(
+    db: Session,
+    client: httpx.AsyncClient,
+    external_order_id: str,
+    yearly_items: List[OrderItem],
+) -> None:
+    """YEARLY 품목에 대해 Cafe24 standby 배송 레코드 생성 후 shipping_code 저장.
+    실패 시 ImportSkip 예외 → 호출자가 DB rollback 처리.
+    """
+    item_codes = [oi.external_order_item_id for oi in yearly_items if oi.external_order_item_id]
+    if not item_codes:
+        return
+
+    requests_payload = [{
+        "order_id": external_order_id,
+        "tracking_no": "자체배송",
+        "shipping_company_code": "0001",
+        "status": "standby",
+        "order_item_code": item_codes,
+    }]
+
+    try:
+        shipments = await cafe24_admin_service.post_shipments(
+            db=db, client=client, requests_payload=requests_payload
+        )
+    except HTTPException as e:
+        raise ImportSkip(f"Cafe24 standby POST 실패 ({external_order_id}): {e.detail}")
+
+    shipping_code = shipments[0].get("shipping_code") if shipments else None
+    if shipping_code:
+        for oi in yearly_items:
+            oi.cafe24_shipping_code = shipping_code
+        db.flush()
 
 
 # ── 메인 오케스트레이션 (실제 DB import) ─────────────────────────────────────
