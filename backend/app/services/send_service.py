@@ -292,9 +292,9 @@ async def transition_sends_to_delivered_batch(
         items_by_send_id.setdefault(si.send_id, []).append(si)
 
     # 1단계: Cafe24 정보 수집 (DB flush 전 — last_send_issue가 아직 null인 시점)
-    monthly_groups: dict = {}           # external_order_id → [order_item_code]
-    monthly_order_items_map: dict = {}  # external_order_id → [OrderItem]  (shipping_code 저장용)
-    monthly_send_id_by_order: dict = {} # external_order_id → send_id (tracking_no 조회용)
+    monthly_groups: dict = {}           # Cafe24 주문번호(external_order_id) → [order_item_code]
+    monthly_order_items_map: dict = {}  # Cafe24 주문번호(external_order_id) → [OrderItem]  (shipping_code 저장용)
+    monthly_send_id_by_order: dict = {} # Cafe24 주문번호(external_order_id) → send_id (tracking_no 조회용)
     yearly_requests: List[dict] = []    # [{"shipping_code": ..., "status": "shipping"}]
 
     for send in sends:
@@ -305,7 +305,7 @@ async def transition_sends_to_delivered_batch(
             if oi.cancelled_at is not None:
                 continue
             if oi.product_kind == "MONTHLY":
-                ext_oid = oi.order.external_order_id
+                ext_oid = oi.order.external_order_id  # Cafe24 주문번호
                 if ext_oid is None:
                     continue
                 monthly_groups.setdefault(ext_oid, []).append(oi.external_order_item_id)
