@@ -33,6 +33,8 @@ class OrderItem(Base):
 
     last_send_issue = Column(String(6), nullable=True, comment="마지막 발송 호(YYYYMM). YEARLY/MONTHLY 모두 기록. last_send_issue == final_subscribe_end_issue 이고 해당 Send.send_status == DELIVERED 이면 구독 완전 완료")
 
+    cafe24_shipping_code = Column(String(100), nullable=True, comment="Cafe24 배송번호 (YEARLY import 시 POST standby 응답의 shipping_code)")
+
     admin_memo = Column(Text, nullable=True, comment="관리자 메모")
 
     sended_at = Column(DateTime, nullable=True)
