@@ -1,7 +1,7 @@
 import asyncio
 import base64
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 from fastapi import HTTPException, status as http_status
@@ -12,6 +12,9 @@ from app.crud import cafe24_token as cafe24_token_crud
 from app.models.cafe24_token import Cafe24Token
 
 logger = logging.getLogger(__name__)
+
+MALL_ID = settings.CAFE24_MALL_ID
+BASE_URL = f"https://{MALL_ID}.cafe24api.com/api/v2/admin"
 
 # 동일 프로세스 내에서 refresh_token 재발급 요청을 직렬화하기 위한 락.
 # 여러 요청이 동시에 401을 받아 각자 같은 refresh_token으로 재발급을 시도하면
@@ -167,3 +170,93 @@ async def call_cafe24(
     return await client.request(
         method, url, headers=cafe24_api_headers(row.access_token), params=params, json=json_body
     )
+
+
+# ── Shipments API ─────────────────────────────────────────────────────────────
+
+async def _call_shipments(
+    *,
+    method: str,
+    db: Session,
+    client: httpx.AsyncClient,
+    requests_payload: List[Dict],
+) -> List[Dict]:
+    """POST 또는 PUT /api/v2/admin/shipments 배치 호출. 응답 shipments 배열 반환.
+
+    100건씩 나눠 호출. 배치 간 0.5초 지연으로 Bucket 소진 방지.
+    429 수신 시 X-Cafe24-Call-Remain 헤더만큼 대기 후 1회 재시도.
+    응답 errors 배열이 있으면 전체 실패로 처리 (HTTPException 400).
+    """
+    url = f"{BASE_URL}/shipments"
+    batch_size = 100
+    all_shipments: List[Dict] = []
+
+    for i in range(0, len(requests_payload), batch_size):
+        batch = requests_payload[i:i + batch_size]
+        req_body = {"shop_no": 1, "requests": batch}
+
+        r = await call_cafe24(method=method, url=url, db=db, client=client, json_body=req_body)
+
+        if r.status_code == 429:
+            wait = int(r.headers.get("X-Cafe24-Call-Remain", "2"))
+            await asyncio.sleep(wait)
+            r = await call_cafe24(method=method, url=url, db=db, client=client, json_body=req_body)
+
+        if r.is_error:
+            raise HTTPException(
+                status_code=http_status.HTTP_502_BAD_GATEWAY,
+                detail=f"Cafe24 Shipments API 오류 ({r.status_code}): {r.text[:200]}",
+            )
+
+        result = r.json()
+        errors = result.get("errors") or []
+        if errors:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail=f"Cafe24 Shipments API partial error: {errors}",
+            )
+
+        all_shipments.extend(result.get("shipments") or [])
+
+        if i + batch_size < len(requests_payload):
+            await asyncio.sleep(0.5)
+
+    return all_shipments
+
+
+async def post_shipments(
+    *,
+    db: Session,
+    client: httpx.AsyncClient,
+    requests_payload: List[Dict],
+) -> List[Dict]:
+    """POST /api/v2/admin/shipments — 배송 레코드 신규 생성. 응답 shipments 배열 반환.
+
+    requests_payload 항목 형식:
+      {
+        "order_id": str,
+        "tracking_no": str,
+        "shipping_company_code": str,   # "0001"(자체배송) / "0006"(CJ대한통운)
+        "status": "standby" | "shipping",
+        "order_item_code": [str, ...]   # 품목 지정 시 사용
+      }
+    """
+    return await _call_shipments(method="POST", db=db, client=client, requests_payload=requests_payload)
+
+
+async def put_shipments(
+    *,
+    db: Session,
+    client: httpx.AsyncClient,
+    requests_payload: List[Dict],
+) -> None:
+    """PUT /api/v2/admin/shipments — 기존 배송 레코드 상태 전환.
+
+    requests_payload 항목 형식:
+      {
+        "shipping_code": str,           # POST 응답으로 발급된 값 (필수)
+        "status": "standby" | "shipping" | "shipped"
+      }
+    ⚠️ status와 tracking_no/shipping_company_code 동시 사용 불가 (Cafe24 API 제약).
+    """
+    await _call_shipments(method="PUT", db=db, client=client, requests_payload=requests_payload)
