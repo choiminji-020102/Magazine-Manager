@@ -169,7 +169,7 @@ def delete_single_preparing_send(db: Session, send: Send) -> int:
     deleted_items = (
         db.query(SendItem)
         .filter(SendItem.send_id == send.send_id)
-        .delete(synchronize_session=False)
+        .delete()
     )
     db.delete(send)
     db.commit()
