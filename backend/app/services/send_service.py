@@ -341,7 +341,7 @@ async def transition_sends_to_delivered_batch(
         monthly_payload: List[dict] = []
         for ext_oid, item_codes in monthly_groups.items():
             tracking_no_val = tracking_by_id[monthly_send_id_by_order[ext_oid]]
-            shipping_co_code = "0006" if send_method == "기출유택배" else "0001"
+            shipping_co_code = "0006" if courier_company == "CJ대한통운" else "0001"
             monthly_payload.append({
                 "order_id": ext_oid,
                 "tracking_no": tracking_no_val,
