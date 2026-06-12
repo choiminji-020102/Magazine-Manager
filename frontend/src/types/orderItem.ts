@@ -130,6 +130,7 @@ export interface OrderItemResponse {
   final_subscribe_end_issue: string;
   subscribe_period: number;
   last_send_issue?: string | null;
+  cafe24_shipping_code?: string | null;
   admin_memo?: string | null;
   sended_at?: string | null;
   cancelled_at?: string | null;
