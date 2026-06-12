@@ -251,7 +251,7 @@ async def transition_sends_to_delivered_batch(
 ) -> int:
     """선택된 PREPARING Send들을 일괄 DELIVERED 전환. 전환된 Send 수 반환.
 
-    sends_input: (send_id, tracking_no) 페어 리스트. 박스마다 운송장 다를 수 있음. tracking_no 선택 (None 허용).
+    sends_input: (send_id, tracking_no) 페어 리스트. 박스마다 운송장 다를 수 있음. tracking_no 필수 (스키마 보장).
     send_method, courier_company는 모든 Send에 공통 적용.
 
     Upfront 검증: 모든 Send가 존재하고 PREPARING 상태여야 함.
@@ -313,7 +313,7 @@ async def transition_sends_to_delivered_batch(
                 monthly_send_id_by_order[ext_oid] = send.send_id
             elif (
                 oi.product_kind == "YEARLY"
-                and oi.last_send_issue is None      # 첫 발송 — flush 전이므로 올바른 체크
+                and oi.last_send_issue is None      # 첫 발송만 — 의도적 설계 (§3-2). flush 전이므로 올바른 체크
                 and oi.cafe24_shipping_code
             ):
                 yearly_requests.append({"shipping_code": oi.cafe24_shipping_code, "status": "shipping"})

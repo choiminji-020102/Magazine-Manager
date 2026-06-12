@@ -250,8 +250,8 @@ async def transition_to_delivered_endpoint(
 ):
     """선택된 PREPARING Send들을 DELIVERED로 일괄 전환 ("보냈다 = 끝", SHIPPING 단계 없음).
 
-    send_method, courier_company는 항상 필수.
-    tracking_no는 박스(Send)마다 개별 입력 (선택 — 비워두면 NULL 저장. 우편·자체배송 등 운송장 없는 케이스 허용).
+    send_method, courier_company, tracking_no는 항상 필수.
+    tracking_no는 박스(Send)마다 개별 입력. 비택배(우편·자체배송 등)는 UI에서 "자체배송" 기본값 자동 세팅.
     한 건이라도 PREPARING이 아니면 전체 거부 (all-or-nothing).
     Cafe24 주문 상태 동기화 포함 (MONTHLY POST / YEARLY PUT) — 실패 시 DB rollback.
     """
