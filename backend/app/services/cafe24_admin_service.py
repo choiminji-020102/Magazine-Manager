@@ -198,7 +198,9 @@ async def _call_shipments(
         r = await call_cafe24(method=method, url=url, db=db, client=client, json_body=req_body)
 
         if r.status_code == 429:
-            wait = int(r.headers.get("X-Cafe24-Call-Remain", "2"))
+            call_remain = int(r.headers.get("X-Cafe24-Call-Remain", "0"))
+            time_remain = int(r.headers.get("X-Cafe24-Time-Remain", "0"))
+            wait = max(call_remain, time_remain, 2)  # 호출 횟수/처리 시간 제한 중 큰 값, 최소 2초
             await asyncio.sleep(wait)
             r = await call_cafe24(method=method, url=url, db=db, client=client, json_body=req_body)
 
