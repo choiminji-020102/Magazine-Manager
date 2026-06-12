@@ -1516,10 +1516,10 @@ function OrderItemCard({
           </>
         )}
 
-        {item.sended_at && (
+        {item.delivered_at && (
           <>
             <div className="text-gray-400">발송일시</div>
-            <div className="text-gray-700">{formatDateTime(item.sended_at)}</div>
+            <div className="text-gray-700">{formatDateTime(item.delivered_at)}</div>
           </>
         )}
 

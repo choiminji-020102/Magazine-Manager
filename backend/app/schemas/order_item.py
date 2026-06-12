@@ -178,7 +178,7 @@ class OrderItemResponse(BaseModel):
     last_send_issue: Optional[str] = None
     cafe24_shipping_code: Optional[str] = None
     admin_memo: Optional[str] = None
-    sended_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
     cancelled_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime

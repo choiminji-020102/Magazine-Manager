@@ -132,7 +132,7 @@ export interface OrderItemResponse {
   last_send_issue?: string | null;
   cafe24_shipping_code?: string | null;
   admin_memo?: string | null;
-  sended_at?: string | null;
+  delivered_at?: string | null;
   cancelled_at?: string | null;
   created_at: string;
   updated_at: string;

@@ -330,8 +330,8 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
               value={<span className="text-red-600">{formatAmount(detail?.refund_amount ?? item.refund_amount)}</span>}
             />
           )}
-          {(detail?.sended_at ?? item.sended_at) && (
-            <InfoRow label="발송일시" value={formatDateTime(detail?.sended_at ?? item.sended_at!)} />
+          {(detail?.delivered_at ?? item.delivered_at) && (
+            <InfoRow label="발송일시" value={formatDateTime(detail?.delivered_at ?? item.delivered_at!)} />
           )}
           {(detail?.admin_memo ?? item.admin_memo) && (
             <div className="mt-2 pt-2 border-t border-gray-100">

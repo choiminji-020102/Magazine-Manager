@@ -5,7 +5,7 @@ import type { OrderItemResponse } from "@/types/orderItem";
 // 1. 식별  : product_kind 배지 + product_name + product_code + external_order_item_id
 // 2. 가격  : sale_price × order_num + (정가 list_price) + 환불 refund_amount
 // 3. 구독  : subscribe_period · start ~ end · final 변경 시 별도 줄 · last_send_issue   (정기만)
-// 4. 일시  : sended_at / cancelled_at  (둘 중 1개라도 값 있을 때)
+// 4. 일시  : delivered_at / cancelled_at  (둘 중 1개라도 값 있을 때)
 // 5. 메모  : admin_memo  (있을 때만)
 // 6. 시스템 메타: created_at · updated_at  (작은 회색)
 export default function OrderItemBox({ item }: { item: OrderItemResponse }) {
@@ -85,11 +85,11 @@ export default function OrderItemBox({ item }: { item: OrderItemResponse }) {
         </div>
       )}
 
-      {/* 그룹 4 — 일시 (sended_at / cancelled_at 둘 중 하나라도 있을 때) */}
-      {(item.sended_at || item.cancelled_at) && (
+      {/* 그룹 4 — 일시 (delivered_at / cancelled_at 둘 중 하나라도 있을 때) */}
+      {(item.delivered_at || item.cancelled_at) && (
         <div className="text-gray-600">
-          {item.sended_at && <>발송 {formatDate(item.sended_at)}</>}
-          {item.sended_at && item.cancelled_at && <span> / </span>}
+          {item.delivered_at && <>발송 {formatDate(item.delivered_at)}</>}
+          {item.delivered_at && item.cancelled_at && <span> / </span>}
           {item.cancelled_at && (
             <span className="text-red-500">취소 {formatDate(item.cancelled_at)}</span>
           )}

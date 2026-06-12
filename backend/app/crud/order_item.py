@@ -113,7 +113,7 @@ def cancel_order_item(db: Session, order_item: OrderItem) -> OrderItem:
 
 def update_last_send_issue(db: Session, order_item: OrderItem, issue: str) -> OrderItem:
     order_item.last_send_issue = issue
-    order_item.sended_at = now_kst()
+    order_item.delivered_at = now_kst()
     db.commit()
     db.refresh(order_item)
     return order_item

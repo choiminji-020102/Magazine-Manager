@@ -37,7 +37,7 @@ class OrderItem(Base):
 
     admin_memo = Column(Text, nullable=True, comment="관리자 메모")
 
-    sended_at = Column(DateTime, nullable=True)
+    delivered_at = Column(DateTime, nullable=True)
     cancelled_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, nullable=False, server_default=func.now())
@@ -79,5 +79,5 @@ class OrderItem(Base):
         Index("ix_order_items_final_subscribe_end_issue", "final_subscribe_end_issue"),
         Index("ix_order_items_last_send_issue", "last_send_issue"),
         Index("ix_order_items_cancelled_at", "cancelled_at"),
-        Index("ix_order_items_sended_at", "sended_at"),
+        Index("ix_order_items_delivered_at", "delivered_at"),
     )
