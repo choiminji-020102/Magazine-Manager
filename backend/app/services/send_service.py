@@ -233,7 +233,10 @@ def transition_send_to_delivered(
         }
         for si in send_items:
             oi = order_items_by_id.get(si.order_item_id)
-            if oi is None or oi.product_kind != "YEARLY":
+            if oi is None:
+                continue
+            oi.sended_at = now_kst()
+            if oi.product_kind != "YEARLY":
                 continue  # MONTHLY 는 last_send_issue 미사용 (정책 그대로)
             if not oi.last_send_issue or si.issue > oi.last_send_issue:
                 oi.last_send_issue = si.issue
