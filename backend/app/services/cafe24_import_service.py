@@ -695,11 +695,14 @@ async def post_standby_for_yearly_items(
     except HTTPException as e:
         raise ImportSkip(f"Cafe24 standby POST 실패 ({external_order_id}): {e.detail}")
 
-    shipping_code = shipments[0].get("shipping_code") if shipments else None
-    if shipping_code:
-        for oi in yearly_items:
-            oi.cafe24_shipping_code = shipping_code
-        db.flush()
+    if not shipments:
+        raise ImportSkip(f"Cafe24 standby POST 성공했으나 응답 비어있음 ({external_order_id})")
+    shipping_code = shipments[0].get("shipping_code")
+    if not shipping_code:
+        raise ImportSkip(f"Cafe24 standby POST 성공했으나 shipping_code 없음 ({external_order_id}): {shipments[0]}")
+    for oi in yearly_items:
+        oi.cafe24_shipping_code = shipping_code
+    db.flush()
 
 
 # ── 메인 오케스트레이션 (실제 DB import) ─────────────────────────────────────
