@@ -269,7 +269,7 @@ export default function TransitionToDeliveredModal({
                     <td className="px-2 py-2">
                       <Input
                         className="h-8 font-mono"
-                        placeholder="운송장 번호 입력"
+                        placeholder="'-'를 제외한 숫자만 입력"
                         value={value}
                         onChange={(e) =>
                           setTrackingMap((prev) => ({
