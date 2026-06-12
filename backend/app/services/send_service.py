@@ -316,7 +316,7 @@ async def transition_sends_to_delivered_batch(
                 and oi.last_send_issue is None      # 첫 발송만 — 의도적 설계 (§3-2). flush 전이므로 올바른 체크
                 and oi.cafe24_shipping_code
             ):
-                yearly_requests.append({"shipping_code": oi.cafe24_shipping_code, "status": "shipping"})
+                yearly_requests.append({"order_id": oi.order.external_order_id, "shipping_code": oi.cafe24_shipping_code, "status": "shipping"})
 
     # shipping_code 중복 제거 (같은 주문 YEARLY 2종 → 동일 shipping_code)
     seen: set = set()
