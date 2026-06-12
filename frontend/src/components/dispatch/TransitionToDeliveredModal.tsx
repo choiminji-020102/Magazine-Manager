@@ -53,12 +53,6 @@ export default function TransitionToDeliveredModal({
   // tracking_no by send_id (운송장 번호 입력값 — 표준화는 백엔드 책임)
   const [trackingMap, setTrackingMap] = useState<Record<number, string>>({});
 
-  const DEFAULT_TRACKING: Record<string, string> = {
-    "기출유우편": "자체배송",
-    "일반우편": "자체배송",
-    "찾아가기": "자체배송",
-  };
-
   // 모달 오픈 시 입력 초기화
   useEffect(() => {
     if (open) {
@@ -68,20 +62,24 @@ export default function TransitionToDeliveredModal({
     }
   }, [open]);
 
-  // send_method 선택 시 courier 자동 도출 + 비택배는 "자체배송" 기본값 세팅
-  const handleSendMethodChange = (next: string) => {
-    const sm = next as SendMethod;
-    setSendMethod(sm);
-    const derived = SEND_METHOD_TO_COURIER[sm] as CourierCompany | undefined;
-    if (derived) setCourier(derived);
-    const defaultTracking = DEFAULT_TRACKING[sm];
-    if (defaultTracking) {
+  // courier_company 변경 → tracking_no 자동 세팅
+  const handleCourierChange = (next: string) => {
+    const co = next as CourierCompany;
+    setCourier(co);
+    if (co === "자체배송") {
       const prefilled: Record<number, string> = {};
-      sends.forEach((s) => { prefilled[s.send_id] = defaultTracking; });
+      sends.forEach((s) => { prefilled[s.send_id] = "자체배송"; });
       setTrackingMap(prefilled);
     } else {
       setTrackingMap({});
     }
+  };
+
+  // send_method 변경 → courier_company 자동 도출 → handleCourierChange 위임
+  const handleSendMethodChange = (next: string) => {
+    setSendMethod(next as SendMethod);
+    const derived = SEND_METHOD_TO_COURIER[next] as CourierCompany | undefined;
+    if (derived) handleCourierChange(derived);
   };
 
   // 박스 안 SendItem 정보 — 모달 열린 상태에서 박스마다 detail 병렬 조회 (운영자 박스 식별용).
@@ -183,7 +181,7 @@ export default function TransitionToDeliveredModal({
             </Label>
             <Select
               value={courier}
-              onValueChange={(v) => setCourier(v as CourierCompany)}
+              onValueChange={handleCourierChange}
             >
               <SelectTrigger className="mt-1 h-9 text-sm">
                 <SelectValue placeholder="선택해주세요" />
