@@ -202,6 +202,11 @@ async def _call_shipments(
             await asyncio.sleep(wait)
             r = await call_cafe24(method=method, url=url, db=db, client=client, json_body=req_body)
 
+        if r.status_code == 429:
+            raise HTTPException(
+                status_code=http_status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Cafe24 Shipments API Rate Limit 초과 — 잠시 후 다시 시도해주세요.",
+            )
         if r.is_error:
             raise HTTPException(
                 status_code=http_status.HTTP_502_BAD_GATEWAY,
