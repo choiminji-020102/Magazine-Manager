@@ -244,7 +244,7 @@ def transition_send_to_delivered(
 
 async def transition_sends_to_delivered_batch(
     db: Session,
-    sends_input: List[Tuple[int, Optional[str]]],
+    sends_input: List[Tuple[int, str]],
     send_method: str,
     courier_company: str,
     client: httpx.AsyncClient,
