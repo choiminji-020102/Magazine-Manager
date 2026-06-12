@@ -37,7 +37,7 @@ class OrderItem(Base):
 
     admin_memo = Column(Text, nullable=True, comment="관리자 메모")
 
-    delivered_at = Column(DateTime, nullable=True)
+    delivered_at = Column(DateTime, nullable=True, comment="Send.delivered_at과 동일 시점의 비정규화 필드 — Send join 없이 품목 레벨에서 발송일 조회용")
     cancelled_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, nullable=False, server_default=func.now())
