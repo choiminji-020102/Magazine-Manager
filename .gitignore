@@ -7,3 +7,6 @@ DEPLOY_GUIDE.md
 
 # Cafe24 API 응답 디버깅용 로컬 테스트 파일
 sunmok129-test/
+
+# Claude Code 로컬 설정 (개인 설정 — 커밋 불필요)
+.claude/settings.local.json
