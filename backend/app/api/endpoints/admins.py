@@ -26,7 +26,7 @@ def get_admins(
     limit: int = Query(20, ge=1, le=100),
     admin_role: Optional[str] = None,
     is_active: Optional[bool] = None,
-    is_deleted: bool = False,
+    is_deleted: Optional[bool] = None,
     search: Optional[str] = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",

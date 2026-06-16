@@ -19,14 +19,14 @@ def list_admins(
     limit: int = 20,
     admin_role: Optional[str] = None,
     is_active: Optional[bool] = None,
-    is_deleted: bool = False,
+    is_deleted: Optional[bool] = None,
     search: Optional[str] = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
 ) -> Tuple[List[admin_model.Admin], int]:
-    query = db.query(admin_model.Admin).filter(
-        admin_model.Admin.is_deleted == is_deleted
-    )
+    query = db.query(admin_model.Admin)
+    if is_deleted is not None:
+        query = query.filter(admin_model.Admin.is_deleted == is_deleted)
     if admin_role:
         query = query.filter(admin_model.Admin.admin_role == admin_role)
     if is_active is not None:
@@ -86,11 +86,11 @@ def check_email_duplicate(admin_email: str, db: Session, exclude_admin_id: Optio
         if existing.is_deleted:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"이메일 {admin_email}은(는) 삭제된 관리자가 사용 중입니다. 해당 관리자를 복구하거나 다른 이메일을 사용해주세요."
+                detail="삭제된 계정에서 사용 중인 이메일입니다. 해당 관리자를 복구하거나 다른 이메일을 사용해주세요."
             )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"이메일 {admin_email}은(는) 이미 사용 중입니다."
+            detail="이미 사용 중인 이메일입니다."
         )
 
 

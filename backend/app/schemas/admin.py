@@ -48,7 +48,7 @@ class AdminListQuery(BaseModel):
     limit: int = Field(20, ge=1, le=100)
     admin_role: Optional[AdminRole] = None
     is_active: Optional[bool] = None
-    is_deleted: bool = False
+    is_deleted: Optional[bool] = None  # None = 전체, False = 활성만, True = 삭제만
     search: Optional[str] = None    # admin_name 검색
     sort_by: str = "created_at"
     sort_order: str = "desc"
