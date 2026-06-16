@@ -8,7 +8,6 @@ import {
   Box,
   BookOpen,
   MessageSquare,
-  Shield,
   Activity,
   Settings,
   Store,
@@ -19,7 +18,6 @@ import {
   Link,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
-import { useAuth } from "@/contexts/AuthContext";
 import { cafe24API } from "@/api/cafe24Api";
 import { toast } from "@/hooks/use-toast";
 
@@ -27,7 +25,6 @@ interface NavItem {
   label: string;
   path: string;
   icon: React.ComponentType<{ className?: string }>;
-  requireSuperAdmin?: boolean;
   // 활성화될 경로 목록(완전 일치). 미지정 시 [path]로 동작(=path와 정확히 일치할 때만 활성).
   activeOn?: string[];
 }
@@ -76,12 +73,6 @@ const navigation: NavGroup[] = [
   {
     group: "시스템",
     items: [
-      {
-        label: "관리자 목록",
-        path: "/admins",
-        icon: Shield,
-        requireSuperAdmin: true,
-      },
       { label: "활동 로그", path: "/activity-logs", icon: Activity },
       { label: "설정", path: "/settings", icon: Settings },
     ],
@@ -92,14 +83,12 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem("sidebar_collapsed") === "true";
   });
-  const { currentAdmin } = useAuth();
   const location = useLocation();
 
   useEffect(() => {
     localStorage.setItem("sidebar_collapsed", String(collapsed));
   }, [collapsed]);
 
-  const isSuperAdmin = currentAdmin?.admin_role === "SUPER_ADMIN";
 
   const { data: cafe24Status } = useQuery({
     queryKey: ["cafe24-status"],
@@ -154,9 +143,7 @@ export function Sidebar() {
       {/* 네비게이션 */}
       <nav className="flex-1 overflow-y-auto py-2">
         {navigation.map((group, gi) => {
-          const visibleItems = group.items.filter(
-            (item) => !item.requireSuperAdmin || isSuperAdmin
-          );
+          const visibleItems = group.items;
           if (visibleItems.length === 0) return null;
 
           return (

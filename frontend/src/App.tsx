@@ -10,7 +10,6 @@ import OrderCreatePage from "@/pages/OrderCreatePage";
 import CustomerListPage from "@/pages/CustomerListPage";
 import ProductListPage from "@/pages/ProductListPage";
 import InquiryListPage from "@/pages/InquiryListPage";
-import AdminListPage from "@/pages/AdminListPage";
 import ActivityLogPage from "@/pages/ActivityLogPage";
 import SettingsPage from "@/pages/SettingsPage";
 import VipSlotsPage from "@/pages/VipSlotsPage";
@@ -62,7 +61,6 @@ export default function App() {
           <Route path="/sends/preparing" element={<PreparingSendListPage />} />
           <Route path="/sends/delivered" element={<DeliveredSendListPage />} />
           <Route path="/inquiries" element={<InquiryListPage />} />
-          <Route path="/admins" element={<AdminListPage />} />
           <Route path="/activity-logs" element={<ActivityLogPage />} />
           <Route path="/cafe24/products" element={<Cafe24ProductListPage />} />
           <Route path="/cafe24/orders" element={<Cafe24OrderListPage />} />
