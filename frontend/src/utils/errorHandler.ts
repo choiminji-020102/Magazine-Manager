@@ -22,7 +22,11 @@ export const getErrorMessage = (error: unknown): string => {
   const detail = axiosError.response.data?.detail;
 
   if (detail) {
-    return detail;
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      const first = detail[0];
+      return typeof first === "string" ? first : (first?.msg ?? "입력값을 확인해주세요.");
+    }
   }
 
   // 상태 코드별 기본 메시지
