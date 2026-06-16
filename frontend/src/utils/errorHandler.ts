@@ -1,7 +1,13 @@
 import { AxiosError } from "axios";
 
+interface ValidationError {
+  msg: string;
+  loc?: (string | number)[];
+  type?: string;
+}
+
 interface ApiErrorResponse {
-  detail?: string;
+  detail?: string | ValidationError[];
 }
 
 /**
