@@ -9,6 +9,7 @@ Create Date: 2026-06-13
 """
 from typing import Sequence, Union
 
+import sqlalchemy as sa
 from alembic import op
 
 
@@ -18,14 +19,43 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _index_exists(conn, table: str, index: str) -> bool:
+    result = conn.execute(sa.text(
+        "SELECT COUNT(*) FROM information_schema.statistics "
+        "WHERE table_schema = DATABASE() AND table_name = :t AND index_name = :i"
+    ), {"t": table, "i": index})
+    return result.scalar() > 0
+
+
+def _column_exists(conn, table: str, column: str) -> bool:
+    result = conn.execute(sa.text(
+        "SELECT COUNT(*) FROM information_schema.columns "
+        "WHERE table_schema = DATABASE() AND table_name = :t AND column_name = :c"
+    ), {"t": table, "c": column})
+    return result.scalar() > 0
+
+
 def upgrade() -> None:
-    # 프로덕션 DB에서 첫 번째 실행 시 drop_index만 성공하고 alter_column 실패한 경우를 대비해 IF EXISTS 사용
-    op.execute("DROP INDEX IF EXISTS ix_order_items_sended_at ON order_items")
-    op.execute("ALTER TABLE order_items CHANGE sended_at delivered_at DATETIME NULL")
-    op.execute("CREATE INDEX IF NOT EXISTS ix_order_items_delivered_at ON order_items (delivered_at)")
+    conn = op.get_bind()
+
+    if _index_exists(conn, "order_items", "ix_order_items_sended_at"):
+        op.execute("DROP INDEX ix_order_items_sended_at ON order_items")
+
+    if _column_exists(conn, "order_items", "sended_at"):
+        op.execute("ALTER TABLE order_items CHANGE sended_at delivered_at DATETIME NULL")
+
+    if not _index_exists(conn, "order_items", "ix_order_items_delivered_at"):
+        op.execute("CREATE INDEX ix_order_items_delivered_at ON order_items (delivered_at)")
 
 
 def downgrade() -> None:
-    op.drop_index('ix_order_items_delivered_at', table_name='order_items')
-    op.alter_column('order_items', 'delivered_at', new_column_name='sended_at')
-    op.create_index('ix_order_items_sended_at', 'order_items', ['sended_at'])
+    conn = op.get_bind()
+
+    if _index_exists(conn, "order_items", "ix_order_items_delivered_at"):
+        op.execute("DROP INDEX ix_order_items_delivered_at ON order_items")
+
+    if _column_exists(conn, "order_items", "delivered_at"):
+        op.execute("ALTER TABLE order_items CHANGE delivered_at sended_at DATETIME NULL")
+
+    if not _index_exists(conn, "order_items", "ix_order_items_sended_at"):
+        op.execute("CREATE INDEX ix_order_items_sended_at ON order_items (sended_at)")
