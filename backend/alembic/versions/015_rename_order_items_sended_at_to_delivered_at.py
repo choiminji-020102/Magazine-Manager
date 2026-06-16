@@ -19,9 +19,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.drop_index('ix_order_items_sended_at', table_name='order_items')
-    op.alter_column('order_items', 'sended_at', new_column_name='delivered_at')
-    op.create_index('ix_order_items_delivered_at', 'order_items', ['delivered_at'])
+    # 프로덕션 DB에서 첫 번째 실행 시 drop_index만 성공하고 alter_column 실패한 경우를 대비해 IF EXISTS 사용
+    op.execute("DROP INDEX IF EXISTS ix_order_items_sended_at ON order_items")
+    op.execute("ALTER TABLE order_items CHANGE sended_at delivered_at DATETIME NULL")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_order_items_delivered_at ON order_items (delivered_at)")
 
 
 def downgrade() -> None:
