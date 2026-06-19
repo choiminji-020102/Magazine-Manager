@@ -67,7 +67,7 @@ def create_order(db: Session, order_in: OrderCreate) -> Order:
     customer_id = order_in.customer_id
 
     if not customer_id:
-        existing = customer_service.get_customer_by_phone(db, order_in.customer.customer_phone)
+        existing = customer_service.get_customer_by_phone_and_name(db, order_in.customer.customer_phone, order_in.customer.customer_name)
         if existing:
             customer_id = existing.customer_id
         else:

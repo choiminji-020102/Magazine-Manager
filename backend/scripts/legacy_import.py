@@ -78,13 +78,11 @@ def cell_str(value) -> Optional[str]:
     return s if s else None
 
 
-def parse_last_send_issue(value) -> Optional[str]:
-    """마지막발송호 파싱. 비면 None. float(202605.0) 대응 + 6자리 검증."""
-    if value is None:
-        return None
+def parse_last_send_issue(value) -> str:
+    """마지막발송호 파싱. 필수값. float(202605.0) 대응 + 6자리 검증."""
+    if value is None or str(value).strip() == "":
+        raise ValueError("'마지막발송호' 값 없음  (첫 발송 전이라면 직전 호 입력 불가 시 담당자 확인)")
     s = str(value).strip()
-    if not s:
-        return None
     # 엑셀 숫자 형식 대응: 202605.0 → "202605"
     try:
         s = str(int(float(s)))
@@ -163,7 +161,7 @@ def process_row(db: Session, row_num: int, row: dict, dry_run: bool) -> None:
         return
 
     # 고객 조회/생성 (내부 commit)
-    customer = customer_service.get_customer_by_phone(db=db, phone=formatted_phone)
+    customer = customer_service.get_customer_by_phone_and_name(db=db, phone=formatted_phone, name=customer_name)
     if not customer:
         customer = customer_service.create_customer(
             db=db,
@@ -262,6 +260,7 @@ def main() -> None:
     print()
 
     success = error = 0
+    error_rows: list[tuple[int, str]] = []
 
     with Session(engine) as db:
         for row_num, cells in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
@@ -275,13 +274,19 @@ def main() -> None:
                 success += 1
             except Exception as e:
                 db.rollback()  # 미커밋 order/order_item 롤백
-                print(f"  ❌ ROW {row_num}  {e}")
+                msg = str(e)
+                print(f"  ❌ ROW {row_num}  {msg}")
+                error_rows.append((row_num, msg))
                 error += 1
 
     icon = "📋" if args.dry_run else "✅"
     print(f"\n{icon} 완료: 성공 {success}행, 오류 {error}행")
-    if error:
-        print("   오류 행은 수정 후 재실행하세요 (고객/배송지는 멱등: 이미 생성된 것은 재사용)")
+    if error_rows:
+        print("\n── 오류 목록 ──────────────────────────────────────────")
+        for row_num, msg in error_rows:
+            print(f"  ROW {row_num:>4}  {msg}")
+        print("───────────────────────────────────────────────────────")
+        print("  오류 행은 수정 후 재실행하세요 (고객/배송지는 멱등: 이미 생성된 것은 재사용)")
 
 
 if __name__ == "__main__":
