@@ -1,7 +1,7 @@
 import re
 from enum import Enum as PyEnum
 
-from sqlalchemy import Column, BigInteger, String, DateTime, Text, CHAR, Enum, Boolean
+from sqlalchemy import Column, BigInteger, String, DateTime, Text, CHAR, Enum, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -16,11 +16,14 @@ class Channel(str, PyEnum):
 
 class Customer(Base):
     __tablename__ = "customers"
+    __table_args__ = (
+        UniqueConstraint("customer_phone", "customer_name", name="uq_customer_phone_name"),
+    )
 
     customer_id = Column(BigInteger, primary_key=True, autoincrement=True, comment="고객 ID")
     create_channel = Column(Enum("CAFE24", "GPMALL", "OFFLINE", name="create_channel_enum"), nullable=False, server_default="OFFLINE", comment="유입 경로")
 
-    customer_phone = Column(String(20), nullable=False, unique=True, comment="고객 연락처 (정규화 포맷 저장 권장)")
+    customer_phone = Column(String(20), nullable=False, comment="고객 연락처 (정규화 포맷 저장 권장)")
     customer_phone_num4 = Column(CHAR(4), nullable=False, server_default="", comment="연락처 뒤 4자리 (검색/확인용)")
 
     customer_email = Column(String(254), nullable=True, comment="고객 이메일")
