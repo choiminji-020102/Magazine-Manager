@@ -12,7 +12,7 @@ from app.schemas.order import OrderResponse
 
 
 class CustomerCreate(BaseModel):
-    customer_phone: str                         # 필수, unique
+    customer_phone: str                         # 필수, (customer_phone, customer_name) 복합 unique
     customer_name: str                          # 필수
     create_channel: Channel = Channel.OFFLINE   # 유입 경로, 기본 OFFLINE
     customer_email: Optional[str] = None
