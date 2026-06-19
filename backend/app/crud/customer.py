@@ -112,12 +112,22 @@ def read_customer_by_phone(phone: str, db: Session) -> Optional[Customer]:
     ).first()
 
 
-def check_phone_duplicate(
-    phone: str, db: Session, exclude_customer_id: Optional[int] = None
+def read_customer_by_phone_and_name(phone: str, name: str, db: Session) -> Optional[Customer]:
+    formatted_phone, _ = format_phone_number(phone)
+    return db.query(Customer).filter(
+        Customer.customer_phone == formatted_phone,
+        Customer.customer_name == name,
+        Customer.is_deleted == False,
+    ).first()
+
+
+def check_phone_name_duplicate(
+    phone: str, name: str, db: Session, exclude_customer_id: Optional[int] = None
 ) -> None:
     formatted_phone, _ = format_phone_number(phone)
     query = db.query(Customer).filter(
         Customer.customer_phone == formatted_phone,
+        Customer.customer_name == name,
         Customer.is_deleted == False,
     )
     if exclude_customer_id is not None:
@@ -125,12 +135,12 @@ def check_phone_duplicate(
     if query.first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 등록된 연락처입니다.",
+            detail="이미 등록된 연락처+이름 조합입니다.",
         )
 
 
 def create_customer(customer_in: CustomerCreate, db: Session) -> Customer:
-    check_phone_duplicate(phone=customer_in.customer_phone, db=db)
+    check_phone_name_duplicate(phone=customer_in.customer_phone, name=customer_in.customer_name, db=db)
 
     formatted_phone, phone_num4 = format_phone_number(customer_in.customer_phone)
     new_customer = Customer(
@@ -155,14 +165,14 @@ def update_customer(
     update_data = customer_in.model_dump(exclude_unset=True)
 
     if "customer_phone" in update_data and update_data["customer_phone"]:
-        check_phone_duplicate(
-            phone=update_data["customer_phone"],
-            db=db,
-            exclude_customer_id=customer_id,
-        )
         formatted_phone, phone_num4 = format_phone_number(update_data["customer_phone"])
         update_data["customer_phone"] = formatted_phone
         update_data["customer_phone_num4"] = phone_num4
+
+    if "customer_phone" in update_data or "customer_name" in update_data:
+        final_phone = update_data.get("customer_phone", customer.customer_phone)
+        final_name = update_data.get("customer_name", customer.customer_name)
+        check_phone_name_duplicate(phone=final_phone, name=final_name, db=db, exclude_customer_id=customer_id)
 
     for field, value in update_data.items():
         setattr(customer, field, value)

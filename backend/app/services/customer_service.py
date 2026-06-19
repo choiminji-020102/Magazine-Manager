@@ -45,6 +45,10 @@ def get_customer_by_phone(db: Session, phone: str) -> Optional[Customer]:
     return customer_crud.read_customer_by_phone(phone=phone, db=db)
 
 
+def get_customer_by_phone_and_name(db: Session, phone: str, name: str) -> Optional[Customer]:
+    return customer_crud.read_customer_by_phone_and_name(phone=phone, name=name, db=db)
+
+
 def create_customer(db: Session, customer_in: CustomerCreate) -> Customer:
     return customer_crud.create_customer(customer_in=customer_in, db=db)
 
