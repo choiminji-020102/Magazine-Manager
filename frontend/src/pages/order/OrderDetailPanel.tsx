@@ -801,7 +801,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                   {/* 타임스탬프 */}
                   {send.delivered_at && (
                     <div className="flex items-start gap-3">
-                      <span className="text-xs text-gray-400 w-24 flex-shrink-0">배송완료</span>
+                      <span className="text-xs text-gray-400 w-24 flex-shrink-0">발송 완료</span>
                       <span className="text-xs text-gray-700">{formatDateTime(send.delivered_at)}</span>
                     </div>
                   )}

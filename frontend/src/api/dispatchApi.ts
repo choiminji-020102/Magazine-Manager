@@ -38,7 +38,7 @@ export const dispatchApi = {
     );
   },
 
-  // POST /dispatches/transition-to-delivered - [배송완료 처리]: PREPARING → DELIVERED 일괄 전환
+  // POST /dispatches/transition-to-delivered - [발송 완료 처리]: PREPARING → DELIVERED 일괄 전환
   transitionToDelivered: (data: TransitionToDeliveredRequest) => {
     return api.post<ResponseModel<TransitionToDeliveredResponse>>(
       "/dispatches/transition-to-delivered",

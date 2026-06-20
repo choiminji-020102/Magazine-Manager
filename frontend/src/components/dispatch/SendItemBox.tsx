@@ -1,7 +1,7 @@
 import { formatIssueShort } from "@/utils/format";
 import type { SendItemResponse } from "@/types/sendItem";
 
-// SendItem 압축 박스 — 배송 준비 중 + 배송 완료 공통.
+// SendItem 압축 박스 — 발송 후보 + 발송 완료 공통.
 // product_code · product_name / issue × 수량 / admin_memo.
 export default function SendItemBox({ item }: { item: SendItemResponse }) {
   return (

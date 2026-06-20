@@ -51,8 +51,8 @@ const navigation: NavGroup[] = [
     group: "주문·발송",
     items: [
       { label: "전체 주문 조회", path: "/orders", icon: ShoppingCart, activeOn: ["/orders", "/orders/new"] },
-      { label: "배송 준비중", path: "/sends/preparing", icon: Truck },
-      { label: "배송 완료", path: "/sends/delivered", icon: Truck },
+      { label: "발송 후보", path: "/sends/preparing", icon: Truck },
+      { label: "발송 완료", path: "/sends/delivered", icon: Truck },
     ],
   },
   {

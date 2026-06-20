@@ -226,8 +226,8 @@ export default function VipExcelDialog({
           <DialogHeader>
             <DialogTitle>{dialogTitle}</DialogTitle>
             <p className="text-xs text-gray-500 mt-1">
-              선택된 PREPARING 박스를 엑셀로 출력합니다. 박스 상태는 유지되며, 배송완료 처리는
-              별도 [배송완료 처리] 단계에서 진행합니다. 한 박스에 정기·단품이 섞여 있을 수 있어
+              선택된 PREPARING 박스를 엑셀로 출력합니다. 박스 상태는 유지되며, 발송 완료 처리는
+              별도 [발송 완료 처리] 단계에서 진행합니다. 한 박스에 정기·단품이 섞여 있을 수 있어
               비고 컬럼에 구분 표시됩니다.
             </p>
           </DialogHeader>

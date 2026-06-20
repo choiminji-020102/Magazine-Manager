@@ -201,7 +201,7 @@ export default function DeliveredSendListPage() {
         ) : sends.length === 0 ? (
           <EmptyState
             icon={<CheckCircle2 className="h-10 w-10 mb-2 opacity-40" />}
-            message="배송 완료된 발송이 없습니다"
+            message="발송 완료 항목이 없습니다"
             description="발송 처리 후 여기에 표시됩니다. 필터를 사용 중이라면 변경해 보세요."
           />
         ) : (

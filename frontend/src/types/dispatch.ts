@@ -52,7 +52,7 @@ export interface AddToPreparingYearlyResponse {
   created_count: number;
 }
 
-// ── [배송완료 처리] (POST /dispatches/transition-to-delivered) ─────────────────
+// ── [발송 완료 처리] (POST /dispatches/transition-to-delivered) ─────────────────
 
 export interface TransitionSendItem {
   // tracking_no 필수. 기출유택배는 실제 운송장 번호(숫자 추출), 나머지는 "자체배송" 등.

@@ -19,8 +19,8 @@ export const ORDER_STATUS_COLOR: Record<string, string> = {
 // ── 발송 상태 (SHIPPING 폐기됨, 마이그레이션 011 — 3값) ──────────────────────
 
 export const SEND_STATUS_LABEL: Record<string, string> = {
-  PREPARING: "배송준비중",
-  DELIVERED: "배송완료",
+  PREPARING: "발송 후보",
+  DELIVERED: "발송 완료",
   CANCELLED: "취소",
 };
 

@@ -113,7 +113,7 @@ export default function TransitionToDeliveredModal({
         })
         .then((r) => r.data.data!),
     onSuccess: (data) => {
-      toast.success(`배송완료 처리 완료: ${data.transitioned_count}건`);
+      toast.success(`발송 완료 처리 완료: ${data.transitioned_count}건`);
       onSuccess?.(data.transitioned_count);
       onClose();
     },
@@ -146,12 +146,12 @@ export default function TransitionToDeliveredModal({
     >
       <DialogContent className="max-w-5xl max-h-[88vh] flex flex-col gap-4">
         <DialogHeader>
-          <DialogTitle>[배송완료 처리]</DialogTitle>
+          <DialogTitle>[발송 완료 처리]</DialogTitle>
           <p className="text-xs text-gray-500 mt-1">
             선택된 <span className="font-medium">{sends.length}건</span>을 한
-            번에 배송완료로 처리합니다. 운송장 번호는 필수입니다 — 비택배(우편·자체배송 등)는
+            번에 발송 완료로 처리합니다. 운송장 번호는 필수입니다 — 비택배(우편·자체배송 등)는
             배송 방법 선택 시 "자체배송"으로 자동 채워지며 수정 가능합니다. 이미
-            배송완료·취소된 박스가 섞여 있으면 전체가 처리되지 않으니, 선택을
+            발송 완료·취소된 박스가 섞여 있으면 전체가 처리되지 않으니, 선택을
             다시 확인해주세요.
           </p>
         </DialogHeader>
@@ -306,7 +306,7 @@ export default function TransitionToDeliveredModal({
             {mutation.isPending && (
               <LoadingSpinner size="sm" className="mr-1" />
             )}
-            배송완료 처리 ({sends.length}건)
+            발송 완료 처리 ({sends.length}건)
           </Button>
         </DialogFooter>
       </DialogContent>

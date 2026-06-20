@@ -51,9 +51,9 @@ const VARIANT_TITLE: Record<YearlyExcelVariant, string> = {
 
 const VARIANT_DESCRIPTION: Record<YearlyExcelVariant, string> = {
   gichulyu:
-    "기본판(W0) / 큰글자(WB) 2개 시트로 생성. 박스 상태는 유지되며, 배송완료 처리는 별도 [배송완료 처리] 단계에서 진행합니다.",
+    "기본판(W0) / 큰글자(WB) 2개 시트로 생성. 박스 상태는 유지되며, 발송 완료 처리는 별도 [발송 완료 처리] 단계에서 진행합니다.",
   postoffice:
-    "꿀땅/저학년/고학년/청소년 1개 시트로 생성. 박스 상태는 유지되며, 배송완료 처리는 별도 [배송완료 처리] 단계에서 진행합니다.",
+    "꿀땅/저학년/고학년/청소년 1개 시트로 생성. 박스 상태는 유지되며, 발송 완료 처리는 별도 [발송 완료 처리] 단계에서 진행합니다.",
 };
 
 const columns: ColumnDef<YearlyExcelCandidate>[] = [

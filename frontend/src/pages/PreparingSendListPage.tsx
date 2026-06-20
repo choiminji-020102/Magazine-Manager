@@ -216,7 +216,7 @@ export default function PreparingSendListPage() {
               disabled={selectedIds.size === 0}
               onClick={() => setTransitionOpen(true)}
             >
-              배송완료 처리 ({selectedIds.size}건)
+              발송 완료 처리 ({selectedIds.size}건)
             </Button>
           </div>
         }
@@ -318,7 +318,7 @@ export default function PreparingSendListPage() {
         />
       )}
 
-      {/* 배송완료 처리 모달 */}
+      {/* 발송 완료 처리 모달 */}
       <TransitionToDeliveredModal
         open={transitionOpen}
         onClose={() => setTransitionOpen(false)}
@@ -339,7 +339,7 @@ export default function PreparingSendListPage() {
         ) : sends.length === 0 ? (
           <EmptyState
             icon={<Package className="h-10 w-10 mb-2 opacity-40" />}
-            message="배송 준비 중인 발송이 없습니다"
+            message="발송 후보 항목이 없습니다"
             description="결제 완료 시 자동으로 생성됩니다. 필터를 사용 중이라면 변경해 보세요."
           />
         ) : (

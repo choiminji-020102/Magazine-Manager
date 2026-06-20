@@ -257,7 +257,7 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
           <Section title="시스템">
             <Row label="생성일">{formatDateTime(send.created_at)}</Row>
             <Row label="수정일">{formatDateTime(send.updated_at)}</Row>
-            {send.delivered_at && <Row label="배송완료일">{formatDateTime(send.delivered_at)}</Row>}
+            {send.delivered_at && <Row label="발송 완료일">{formatDateTime(send.delivered_at)}</Row>}
           </Section>
         </div>
       )}
