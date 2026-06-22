@@ -753,7 +753,7 @@ function ResendInputSection({ send, onSuccess }: ResendInputSectionProps) {
           send_method: sendMethod as SendMethod,
           courier_company: courier as CourierCompany,
           send_item_ids: Array.from(selectedItemIds),
-          tracking_no: trackingNo.trim() || null,
+          tracking_no: trackingNo.trim(),
           memo: memo.trim() || null,
         })
         .then((r) => r.data),

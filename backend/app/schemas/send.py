@@ -81,10 +81,9 @@ class SendResendRequest(BaseModel):
     """DELIVERED Send에 대한 재배송 이력 입력 (POST /sends/{send_id}/resend).
 
     Send 본체 변경 없음 — 활동 로그(action=RESEND) details에만 기록.
-    reason/send_method/courier_company/send_item_ids는 필수, tracking_no/memo는 선택.
+    reason/send_method/courier_company/send_item_ids/tracking_no는 필수, memo는 선택.
     send_method ↔ courier_company 자동 도출 안 함 (프론트에서 도출 + 운영자 수정).
-    tracking_no는 SendTrackingUpdate와 동일 정규화 — 입력에서 숫자만 추출해 저장.
-      - 추출 결과가 비면 422
+    tracking_no는 형식 검증 없음 — 자체배송은 "자체배송" 문자열 그대로 입력.
     send_item_ids는 재발송 대상 SendItem ID 배열 (최소 1개). 박스 통째 재발송 시
     UI가 모든 SendItem ID를 채워서 보냄 (해당 send_id에 속하지 않은 ID 포함 시 422).
 
@@ -117,7 +116,17 @@ class SendResendRequest(BaseModel):
             return v.strip()
         return v
 
-    @field_validator("memo", "tracking_no", mode="before")
+    @field_validator("tracking_no", mode="before")
+    @classmethod
+    def _strip_tracking(cls, v):
+        if isinstance(v, str):
+            stripped = v.strip()
+            if stripped == "":
+                raise ValueError("tracking_no는 비어있을 수 없습니다.")
+            return stripped
+        return v
+
+    @field_validator("memo", mode="before")
     @classmethod
     def _strip_or_none(cls, v):
         if isinstance(v, str):

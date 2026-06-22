@@ -37,7 +37,7 @@ export interface SendResendRequest {
   send_method: SendMethod;
   courier_company: CourierCompany;
   send_item_ids: number[];
-  tracking_no?: string | null;
+  tracking_no: string;
   memo?: string | null;
 }
 
