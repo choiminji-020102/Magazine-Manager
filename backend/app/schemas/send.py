@@ -96,7 +96,7 @@ class SendResendRequest(BaseModel):
     send_method: SendMethodLiteral
     courier_company: CourierCompanyLiteral
     send_item_ids: List[int] = Field(..., min_length=1, description="재발송 대상 SendItem ID 배열")
-    tracking_no: Optional[str] = None
+    tracking_no: str
     memo: Optional[str] = None
 
     @field_validator("reason", mode="before")
@@ -117,21 +117,11 @@ class SendResendRequest(BaseModel):
             return v.strip()
         return v
 
-    @field_validator("memo", mode="before")
+    @field_validator("memo", "tracking_no", mode="before")
     @classmethod
-    def _strip_memo_or_none(cls, v):
+    def _strip_or_none(cls, v):
         if isinstance(v, str):
             return v.strip() or None
-        return v
-
-    @field_validator("tracking_no", mode="before")
-    @classmethod
-    def _extract_digits(cls, v):
-        if isinstance(v, str):
-            digits = re.sub(r"\D", "", v)
-            if digits == "":
-                raise ValueError("tracking_no에서 숫자를 찾을 수 없습니다. 운송장 번호를 확인해주세요.")
-            return digits
         return v
 
 
