@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { X, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -182,172 +181,11 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
 
         {/* 액션 버튼 */}
         <div className="flex items-center gap-2 mt-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (!editMode) {
-                setEditForm({
-                  product_code: product.product_code,
-                  product_kind: product.product_kind as ProductKind,
-                  product_name: product.product_name,
-                  list_price: String(product.list_price),
-                  sale_price: String(product.sale_price),
-                  cost_price: String(product.cost_price),
-                  external_product_code_cafe24: product.external_product_code_cafe24 ?? "",
-                  external_product_code_gpmall: product.external_product_code_gpmall ?? "",
-                  unit_weight: product.unit_weight != null ? String(product.unit_weight) : "",
-                  unit_width: product.unit_width != null ? String(product.unit_width) : "",
-                  unit_length: product.unit_length != null ? String(product.unit_length) : "",
-                  unit_height: product.unit_height != null ? String(product.unit_height) : "",
-                });
-              }
-              setEditMode(!editMode);
-            }}
-            className={editMode ? "bg-blue-50 border-blue-300 text-blue-700" : ""}
-          >
-            {editMode ? "취소" : "수정"}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setToggleConfirm(true)}
-            className={
-              product.is_active
-                ? "text-amber-600 border-amber-200 hover:bg-amber-50"
-                : ""
-            }
-          >
-            {product.is_active ? "비활성화" : "활성화"}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setStockInput(String(product.stock_quantity));
-              setStockEditMode(true);
-            }}
-          >
-            재고 수정
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setDeleteConfirm(true)}
-            className="text-red-600 border-red-200 hover:bg-red-50"
-          >
-            삭제
-          </Button>
-        </div>
-      </div>
-
-      {/* 상세 정보 */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {/* 상품 수정 폼 */}
-        {editMode && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3.5 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="text-xs font-semibold text-blue-700">상품 수정</div>
-              {isCodeOrKindChanged && (
-                <div className="flex items-center gap-1 text-[11px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
-                  <AlertTriangle className="h-3 w-3" />
-                  코드/종류 변경됨 — 저장 시 확인 필요
-                </div>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs text-gray-600">상품 코드</Label>
-                <Input className="mt-1 h-8 text-sm font-mono" value={editForm.product_code}
-                  onChange={(e) => setEditForm((f) => ({ ...f, product_code: e.target.value }))} />
-                {/* 시작호 실시간 미리보기 */}
-                {editForm.product_code && (
-                  <p className="mt-1 text-[11px] text-gray-500">
-                    시작호:{" "}
-                    <span className={`font-medium ${
-                      previewStartIssue && previewStartIssue !== product?.subscribe_start_issue
-                        ? "text-amber-600"
-                        : "text-gray-700"
-                    }`}>
-                      {previewStartIssue
-                        ? `${previewStartIssue}${previewStartIssue !== product?.subscribe_start_issue ? " (변경됨)" : ""}`
-                        : "파싱 불가"}
-                    </span>
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label className="text-xs text-gray-600">상품 종류</Label>
-                <Select value={editForm.product_kind} onValueChange={(v) => setEditForm((f) => ({ ...f, product_kind: v as ProductKind }))}>
-                  <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="YEARLY">정기구독</SelectItem>
-                    <SelectItem value="MONTHLY">단품</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs text-gray-600">상품명</Label>
-              <Input className="mt-1 h-8 text-sm" value={editForm.product_name}
-                onChange={(e) => setEditForm((f) => ({ ...f, product_name: e.target.value }))} />
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <Label className="text-xs text-gray-600">정가</Label>
-                <Input className="mt-1 h-8 text-sm" type="number" min={0} value={editForm.list_price}
-                  onChange={(e) => setEditForm((f) => ({ ...f, list_price: e.target.value }))} />
-              </div>
-              <div>
-                <Label className="text-xs text-gray-600">판매가</Label>
-                <Input className="mt-1 h-8 text-sm" type="number" min={0} value={editForm.sale_price}
-                  onChange={(e) => setEditForm((f) => ({ ...f, sale_price: e.target.value }))} />
-              </div>
-              <div>
-                <Label className="text-xs text-gray-600">원가</Label>
-                <Input className="mt-1 h-8 text-sm" type="number" min={0} value={editForm.cost_price}
-                  onChange={(e) => setEditForm((f) => ({ ...f, cost_price: e.target.value }))} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs text-gray-600">카페24 상품코드</Label>
-                <Input className="mt-1 h-8 text-sm font-mono" value={editForm.external_product_code_cafe24}
-                  onChange={(e) => setEditForm((f) => ({ ...f, external_product_code_cafe24: e.target.value }))} />
-              </div>
-              <div>
-                <Label className="text-xs text-gray-600">갓피플몰 상품코드</Label>
-                <Input className="mt-1 h-8 text-sm font-mono" value={editForm.external_product_code_gpmall}
-                  onChange={(e) => setEditForm((f) => ({ ...f, external_product_code_gpmall: e.target.value }))} />
-              </div>
-            </div>
-            <div className="grid grid-cols-4 gap-2">
-              <div>
-                <Label className="text-xs text-gray-600">무게 (kg)</Label>
-                <Input className="mt-1 h-8 text-sm" type="number" min={0} step="0.1" value={editForm.unit_weight}
-                  onChange={(e) => setEditForm((f) => ({ ...f, unit_weight: e.target.value }))} />
-              </div>
-              <div>
-                <Label className="text-xs text-gray-600">가로 (mm)</Label>
-                <Input className="mt-1 h-8 text-sm" type="number" min={0} step="0.1" value={editForm.unit_width}
-                  onChange={(e) => setEditForm((f) => ({ ...f, unit_width: e.target.value }))} />
-              </div>
-              <div>
-                <Label className="text-xs text-gray-600">세로 (mm)</Label>
-                <Input className="mt-1 h-8 text-sm" type="number" min={0} step="0.1" value={editForm.unit_length}
-                  onChange={(e) => setEditForm((f) => ({ ...f, unit_length: e.target.value }))} />
-              </div>
-              <div>
-                <Label className="text-xs text-gray-600">높이 (mm)</Label>
-                <Input className="mt-1 h-8 text-sm" type="number" min={0} step="0.1" value={editForm.unit_height}
-                  onChange={(e) => setEditForm((f) => ({ ...f, unit_height: e.target.value }))} />
-              </div>
-            </div>
-            <div className="flex gap-2">
+          {editMode ? (
+            <>
               <Button
                 size="sm"
                 onClick={() => {
-                  // 상품 코드 또는 종류 변경 시 경고 모달 먼저 표시
                   if (isCodeOrKindChanged) {
                     setCodeChangeConfirm(true);
                   } else {
@@ -359,10 +197,144 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
                 {updateMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
                 저장
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setEditMode(false)}>취소</Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  updateMutation.reset();
+                  setEditMode(false);
+                  setEditForm({
+                    product_code: product.product_code,
+                    product_kind: product.product_kind as ProductKind,
+                    product_name: product.product_name,
+                    list_price: String(product.list_price),
+                    sale_price: String(product.sale_price),
+                    cost_price: String(product.cost_price),
+                    external_product_code_cafe24: product.external_product_code_cafe24 ?? "",
+                    external_product_code_gpmall: product.external_product_code_gpmall ?? "",
+                    unit_weight: product.unit_weight != null ? String(product.unit_weight) : "",
+                    unit_width: product.unit_width != null ? String(product.unit_width) : "",
+                    unit_length: product.unit_length != null ? String(product.unit_length) : "",
+                    unit_height: product.unit_height != null ? String(product.unit_height) : "",
+                  });
+                }}
+              >
+                취소
+              </Button>
+              {isCodeOrKindChanged && (
+                <div className="flex items-center gap-1 text-[11px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                  <AlertTriangle className="h-3 w-3" />
+                  코드/종류 변경됨
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                onClick={() => {
+                  setEditForm({
+                    product_code: product.product_code,
+                    product_kind: product.product_kind as ProductKind,
+                    product_name: product.product_name,
+                    list_price: String(product.list_price),
+                    sale_price: String(product.sale_price),
+                    cost_price: String(product.cost_price),
+                    external_product_code_cafe24: product.external_product_code_cafe24 ?? "",
+                    external_product_code_gpmall: product.external_product_code_gpmall ?? "",
+                    unit_weight: product.unit_weight != null ? String(product.unit_weight) : "",
+                    unit_width: product.unit_width != null ? String(product.unit_width) : "",
+                    unit_length: product.unit_length != null ? String(product.unit_length) : "",
+                    unit_height: product.unit_height != null ? String(product.unit_height) : "",
+                  });
+                  setEditMode(true);
+                }}
+              >
+                수정
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setToggleConfirm(true)}
+                className={product.is_active ? "text-amber-600 border-amber-200 hover:bg-amber-50" : ""}
+              >
+                {product.is_active ? "비활성화" : "활성화"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setStockInput(String(product.stock_quantity));
+                  setStockEditMode(true);
+                }}
+              >
+                재고 수정
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDeleteConfirm(true)}
+                className="text-red-600 border-red-200 hover:bg-red-50"
+              >
+                삭제
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* 상세 정보 */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {/* 기본 정보 */}
+        <Section title="기본 정보">
+          {editMode ? (
+            <EditRow label="상품명">
+              <Input className="h-7 text-xs flex-1" value={editForm.product_name}
+                onChange={(e) => setEditForm((f) => ({ ...f, product_name: e.target.value }))} />
+            </EditRow>
+          ) : (
+            <InfoRow label="상품명" value={product.product_name} />
+          )}
+          {editMode ? (
+            <div>
+              <EditRow label="상품 코드">
+                <Input className="h-7 text-xs flex-1 font-mono" value={editForm.product_code}
+                  onChange={(e) => setEditForm((f) => ({ ...f, product_code: e.target.value }))} />
+              </EditRow>
+              {editForm.product_code && (
+                <p className="mt-1 text-[11px] text-gray-500 pl-[6.75rem]">
+                  시작호:{" "}
+                  <span className={`font-medium ${
+                    previewStartIssue && previewStartIssue !== product.subscribe_start_issue
+                      ? "text-amber-600"
+                      : "text-gray-700"
+                  }`}>
+                    {previewStartIssue
+                      ? `${previewStartIssue}${previewStartIssue !== product.subscribe_start_issue ? " (변경됨)" : ""}`
+                      : "파싱 불가"}
+                  </span>
+                </p>
+              )}
             </div>
-          </div>
-        )}
+          ) : (
+            <InfoRow label="상품 코드" value={<span className="font-mono text-xs">{product.product_code}</span>} />
+          )}
+          {editMode ? (
+            <EditRow label="상품 종류">
+              <Select value={editForm.product_kind} onValueChange={(v) => setEditForm((f) => ({ ...f, product_kind: v as ProductKind }))}>
+                <SelectTrigger className="h-7 text-xs flex-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="YEARLY">정기구독</SelectItem>
+                  <SelectItem value="MONTHLY">단품</SelectItem>
+                </SelectContent>
+              </Select>
+            </EditRow>
+          ) : (
+            <InfoRow label="상품 종류" value={<StatusBadge type="product_kind" value={product.product_kind} />} />
+          )}
+        </Section>
 
         {/* 재고 수정 폼 */}
         {stockEditMode && (
@@ -393,11 +365,32 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
 
         {/* 가격 정보 */}
         <Section title="가격">
-          <InfoRow label="정가" value={formatAmount(product.list_price)} />
-          <InfoRow label="판매가" value={
-            <span className="font-semibold text-gray-900">{formatAmount(product.sale_price)}</span>
-          } />
-          <InfoRow label="원가" value={formatAmount(product.cost_price)} />
+          {editMode ? (
+            <EditRow label="정가">
+              <Input className="h-7 text-xs flex-1" type="number" min={0} value={editForm.list_price}
+                onChange={(e) => setEditForm((f) => ({ ...f, list_price: e.target.value }))} />
+            </EditRow>
+          ) : (
+            <InfoRow label="정가" value={formatAmount(product.list_price)} />
+          )}
+          {editMode ? (
+            <EditRow label="판매가">
+              <Input className="h-7 text-xs flex-1" type="number" min={0} value={editForm.sale_price}
+                onChange={(e) => setEditForm((f) => ({ ...f, sale_price: e.target.value }))} />
+            </EditRow>
+          ) : (
+            <InfoRow label="판매가" value={
+              <span className="font-semibold text-gray-900">{formatAmount(product.sale_price)}</span>
+            } />
+          )}
+          {editMode ? (
+            <EditRow label="원가">
+              <Input className="h-7 text-xs flex-1" type="number" min={0} value={editForm.cost_price}
+                onChange={(e) => setEditForm((f) => ({ ...f, cost_price: e.target.value }))} />
+            </EditRow>
+          ) : (
+            <InfoRow label="원가" value={formatAmount(product.cost_price)} />
+          )}
         </Section>
 
         {/* 재고 */}
@@ -420,35 +413,77 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
         )}
 
         {/* 물리 정보 */}
-        {!!(Number(product.unit_weight) || Number(product.unit_width) || Number(product.unit_length) || Number(product.unit_height)) && (
+        {(editMode || !!(Number(product.unit_weight) || Number(product.unit_width) || Number(product.unit_length) || Number(product.unit_height))) && (
           <Section title="물리 정보">
-            {Number(product.unit_weight) > 0 && (
-              <InfoRow label="무게" value={`${product.unit_weight}kg`} />
+            {editMode ? (
+              <EditRow label="무게 (kg)">
+                <Input className="h-7 text-xs flex-1" type="number" min={0} step="0.1" value={editForm.unit_weight}
+                  onChange={(e) => setEditForm((f) => ({ ...f, unit_weight: e.target.value }))} />
+              </EditRow>
+            ) : (
+              Number(product.unit_weight) > 0 && (
+                <InfoRow label="무게" value={`${product.unit_weight}kg`} />
+              )
             )}
-            {Number(product.unit_width) > 0 && (
-              <InfoRow label="가로" value={`${product.unit_width}mm`} />
+            {editMode ? (
+              <EditRow label="가로 (mm)">
+                <Input className="h-7 text-xs flex-1" type="number" min={0} step="0.1" value={editForm.unit_width}
+                  onChange={(e) => setEditForm((f) => ({ ...f, unit_width: e.target.value }))} />
+              </EditRow>
+            ) : (
+              Number(product.unit_width) > 0 && (
+                <InfoRow label="가로" value={`${product.unit_width}mm`} />
+              )
             )}
-            {Number(product.unit_length) > 0 && (
-              <InfoRow label="세로" value={`${product.unit_length}mm`} />
+            {editMode ? (
+              <EditRow label="세로 (mm)">
+                <Input className="h-7 text-xs flex-1" type="number" min={0} step="0.1" value={editForm.unit_length}
+                  onChange={(e) => setEditForm((f) => ({ ...f, unit_length: e.target.value }))} />
+              </EditRow>
+            ) : (
+              Number(product.unit_length) > 0 && (
+                <InfoRow label="세로" value={`${product.unit_length}mm`} />
+              )
             )}
-            {Number(product.unit_height) > 0 && (
-              <InfoRow label="높이" value={`${product.unit_height}mm`} />
+            {editMode ? (
+              <EditRow label="높이 (mm)">
+                <Input className="h-7 text-xs flex-1" type="number" min={0} step="0.1" value={editForm.unit_height}
+                  onChange={(e) => setEditForm((f) => ({ ...f, unit_height: e.target.value }))} />
+              </EditRow>
+            ) : (
+              Number(product.unit_height) > 0 && (
+                <InfoRow label="높이" value={`${product.unit_height}mm`} />
+              )
             )}
           </Section>
         )}
 
         {/* 외부 연동 */}
-        {(product.external_product_code_cafe24 || product.external_product_code_gpmall) && (
+        {(editMode || product.external_product_code_cafe24 || product.external_product_code_gpmall) && (
           <Section title="외부 연동">
-            {product.external_product_code_cafe24 && (
-              <InfoRow label="카페24 상품코드" value={
-                <span className="font-mono text-xs">{product.external_product_code_cafe24}</span>
-              } />
+            {editMode ? (
+              <EditRow label="카페24 코드">
+                <Input className="h-7 text-xs flex-1 font-mono" value={editForm.external_product_code_cafe24}
+                  onChange={(e) => setEditForm((f) => ({ ...f, external_product_code_cafe24: e.target.value }))} />
+              </EditRow>
+            ) : (
+              product.external_product_code_cafe24 && (
+                <InfoRow label="카페24 상품코드" value={
+                  <span className="font-mono text-xs">{product.external_product_code_cafe24}</span>
+                } />
+              )
             )}
-            {product.external_product_code_gpmall && (
-              <InfoRow label="갓피플몰 상품코드" value={
-                <span className="font-mono text-xs">{product.external_product_code_gpmall}</span>
-              } />
+            {editMode ? (
+              <EditRow label="갓피플몰 코드">
+                <Input className="h-7 text-xs flex-1 font-mono" value={editForm.external_product_code_gpmall}
+                  onChange={(e) => setEditForm((f) => ({ ...f, external_product_code_gpmall: e.target.value }))} />
+              </EditRow>
+            ) : (
+              product.external_product_code_gpmall && (
+                <InfoRow label="갓피플몰 상품코드" value={
+                  <span className="font-mono text-xs">{product.external_product_code_gpmall}</span>
+                } />
+              )
             )}
           </Section>
         )}
@@ -519,6 +554,15 @@ function Section({ title, children }: { title: string; children: React.ReactNode
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{title}</h3>
       </div>
       <div className="px-3.5 py-3 space-y-2.5">{children}</div>
+    </div>
+  );
+}
+
+function EditRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs text-gray-400 w-24 flex-shrink-0">{label}</span>
+      {children}
     </div>
   );
 }

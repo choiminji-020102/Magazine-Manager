@@ -134,48 +134,71 @@ export function AdminDetailPanel({ admin, onClose }: Props) {
         {/* 액션 버튼 */}
         {!isSelf && (
           <div className="flex items-center gap-2 mt-3">
-            {!admin.is_deleted && (
+            {editMode ? (
               <>
                 <Button
-                  variant="outline"
                   size="sm"
+                  onClick={() => updateMutation.mutate()}
+                  disabled={updateMutation.isPending || !editForm.admin_name || !editForm.email}
+                >
+                  저장
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
                   onClick={() => {
-                    if (!editMode) {
-                      setEditForm({ admin_name: admin.admin_name, email: admin.email });
-                    }
-                    setEditMode(!editMode);
+                    updateMutation.reset();
+                    setEditMode(false);
+                    setEditForm({ admin_name: admin.admin_name, email: admin.email });
                   }}
-                  className={`gap-1 ${editMode ? "bg-blue-50 border-blue-300 text-blue-700" : ""}`}
                 >
-                  <Edit2 className="h-3 w-3" />
-                  {editMode ? "취소" : "수정"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setToggleConfirm(true)}
-                  className={admin.is_active ? "text-amber-600 border-amber-200 hover:bg-amber-50" : ""}
-                >
-                  {admin.is_active ? "비활성화" : "활성화"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setDeleteConfirm(true)}
-                  className="text-red-600 border-red-200 hover:bg-red-50"
-                >
-                  삭제
+                  취소
                 </Button>
               </>
-            )}
-            {admin.is_deleted && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setRestoreConfirm(true)}
-              >
-                복구
-              </Button>
+            ) : (
+              <>
+                {!admin.is_deleted && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1"
+                      onClick={() => {
+                        setEditForm({ admin_name: admin.admin_name, email: admin.email });
+                        setEditMode(true);
+                      }}
+                    >
+                      <Edit2 className="h-3 w-3" />
+                      수정
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setToggleConfirm(true)}
+                      className={admin.is_active ? "text-amber-600 border-amber-200 hover:bg-amber-50" : ""}
+                    >
+                      {admin.is_active ? "비활성화" : "활성화"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDeleteConfirm(true)}
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                    >
+                      삭제
+                    </Button>
+                  </>
+                )}
+                {admin.is_deleted && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setRestoreConfirm(true)}
+                  >
+                    복구
+                  </Button>
+                )}
+              </>
             )}
           </div>
         )}
@@ -183,48 +206,31 @@ export function AdminDetailPanel({ admin, onClose }: Props) {
 
       {/* 콘텐츠 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {/* 수정 폼 */}
-        {editMode && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3.5 space-y-3">
-            <div className="text-xs font-semibold text-blue-700">관리자 정보 수정</div>
-            <div className="space-y-2">
-              <div>
-                <label className="text-xs text-gray-600">이름</label>
-                <Input
-                  className="mt-1 h-8 text-sm"
-                  value={editForm.admin_name}
-                  onChange={(e) => setEditForm((f) => ({ ...f, admin_name: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-gray-600">이메일</label>
-                <Input
-                  className="mt-1 h-8 text-sm"
-                  type="email"
-                  value={editForm.email}
-                  onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={() => updateMutation.mutate()}
-                disabled={updateMutation.isPending || !editForm.admin_name || !editForm.email}
-              >
-                저장
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setEditMode(false)}>
-                취소
-              </Button>
-            </div>
-          </div>
-        )}
-
         {/* 기본 정보 */}
         <Section title="기본 정보">
-          <InfoRow label="이름" value={admin.admin_name} />
-          <InfoRow label="이메일" value={admin.email} />
+          {editMode ? (
+            <EditRow label="이름">
+              <Input
+                className="h-7 text-xs flex-1"
+                value={editForm.admin_name}
+                onChange={(e) => setEditForm((f) => ({ ...f, admin_name: e.target.value }))}
+              />
+            </EditRow>
+          ) : (
+            <InfoRow label="이름" value={admin.admin_name} />
+          )}
+          {editMode ? (
+            <EditRow label="이메일">
+              <Input
+                className="h-7 text-xs flex-1"
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+              />
+            </EditRow>
+          ) : (
+            <InfoRow label="이메일" value={admin.email} />
+          )}
           <InfoRow label="권한" value={
             !isSelf && !admin.is_deleted ? (
               <Select
@@ -304,6 +310,16 @@ function Section({ title, children }: { title: string; children: React.ReactNode
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{title}</h3>
       </div>
       <div className="px-3.5 py-3 space-y-2.5">{children}</div>
+    </div>
+  );
+}
+
+// 편집 행 컴포넌트
+function EditRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs text-gray-400 w-24 flex-shrink-0">{label}</span>
+      {children}
     </div>
   );
 }

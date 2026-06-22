@@ -105,9 +105,9 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
 
   const order = res?.data;
 
-  // 주문 데이터 로드 시 editForm 초기화
+  // 주문 데이터 로드 시 editForm 초기화 (편집 중에는 덮어쓰지 않음)
   useEffect(() => {
-    if (order) {
+    if (order && !editMode) {
       setEditForm({
         order_channel: order.order_channel ?? "",
         payment_method: order.payment_method ?? "",
@@ -117,6 +117,12 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
         customer_memo: order.customer_memo ?? "",
         admin_memo: order.admin_memo ?? "",
       });
+    }
+  }, [order]);
+
+  // 결제완료 처리 모달용 — editMode와 무관하게 order 변경 시 항상 동기화
+  useEffect(() => {
+    if (order) {
       setPaymentMethodInput(order.payment_method ?? "");
     }
   }, [order]);
@@ -446,7 +452,38 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
               수정
             </Button>
           )}
-          {!["CANCELLED", "UNPAID_CANCELLED"].includes(order.order_status) && (
+          {editMode && (
+            <>
+              <Button
+                size="sm"
+                onClick={() => updateMutation.mutate()}
+                disabled={updateMutation.isPending}
+              >
+                {updateMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+                저장
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  updateMutation.reset();
+                  setEditMode(false);
+                  setEditForm({
+                    order_channel: order.order_channel ?? "",
+                    payment_method: order.payment_method ?? "",
+                    refund_amount: order.refund_amount,
+                    send_fee: order.send_fee,
+                    payment_at: order.payment_at ? order.payment_at.slice(0, 16) : "",
+                    customer_memo: order.customer_memo ?? "",
+                    admin_memo: order.admin_memo ?? "",
+                  });
+                }}
+              >
+                취소
+              </Button>
+            </>
+          )}
+          {!["CANCELLED", "UNPAID_CANCELLED"].includes(order.order_status) && !editMode && (
             <Button
               variant="outline"
               size="sm"
@@ -659,38 +696,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                   )}
                 </Section>
               )
-            )}
-
-            {/* 편집 모드 저장/취소 버튼 */}
-            {editMode && (
-              <div className="flex gap-2 pt-1">
-                <Button
-                  size="sm"
-                  onClick={() => updateMutation.mutate()}
-                  disabled={updateMutation.isPending}
-                >
-                  {updateMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-                  저장
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setEditMode(false);
-                    setEditForm({
-                      order_channel: order.order_channel ?? "",
-                      payment_method: order.payment_method ?? "",
-                      refund_amount: order.refund_amount,
-                      send_fee: order.send_fee,
-                      payment_at: order.payment_at ? order.payment_at.slice(0, 16) : "",
-                      customer_memo: order.customer_memo ?? "",
-                      admin_memo: order.admin_memo ?? "",
-                    });
-                  }}
-                >
-                  취소
-                </Button>
-              </div>
             )}
 
             {/* 시스템 */}
@@ -1417,7 +1422,7 @@ function Section({ title, children, action }: { title: string; children: React.R
   );
 }
 
-// 편집 행 컴포넌트 (InfoRow와 동일한 레이아웃)
+// 편집 행 컴포넌트
 function EditRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3">

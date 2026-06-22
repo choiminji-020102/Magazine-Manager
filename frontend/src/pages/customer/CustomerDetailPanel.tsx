@@ -88,9 +88,9 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
   const customer = res?.data;
   const inquiries = inquiryRes?.data ?? [];
 
-  // 수정 폼 초기화 (customer 로드 시)
+  // 수정 폼 초기화 (편집 중에는 덮어쓰지 않음)
   useEffect(() => {
-    if (customer && editMode) {
+    if (customer && !editMode) {
       setEditForm({
         customer_name: customer.customer_name,
         customer_phone: customer.customer_phone,
@@ -99,7 +99,7 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
         admin_memo: customer.admin_memo ?? "",
       });
     }
-  }, [customer, editMode]);
+  }, [customer]);
 
   const updateMutation = useMutation({
     mutationFn: () =>
@@ -267,46 +267,66 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
 
         {/* 액션 버튼 */}
         <div className="flex items-center gap-2 mt-3">
-          {!customer.is_deleted && (
+          {editMode ? (
             <>
               <Button
-                variant="outline"
                 size="sm"
-                onClick={() => {
-                  if (!editMode && customer) {
-                    setEditForm({
-                      customer_name: customer.customer_name,
-                      customer_phone: customer.customer_phone,
-                      customer_email: customer.customer_email ?? "",
-                      create_channel: customer.create_channel,
-                      admin_memo: customer.admin_memo ?? "",
-                    });
-                  }
-                  setEditMode(!editMode);
-                }}
-                className={`gap-1 ${editMode ? "bg-blue-50 border-blue-300 text-blue-700" : ""}`}
+                onClick={() => updateMutation.mutate()}
+                disabled={updateMutation.isPending}
               >
-                <Edit2 className="h-3 w-3" />
-                {editMode ? "취소" : "수정"}
+                저장
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  updateMutation.reset();
+                  setEditMode(false);
+                  setEditForm({
+                    customer_name: customer.customer_name,
+                    customer_phone: customer.customer_phone,
+                    customer_email: customer.customer_email ?? "",
+                    create_channel: customer.create_channel,
+                    admin_memo: customer.admin_memo ?? "",
+                  });
+                }}
+              >
+                취소
+              </Button>
+            </>
+          ) : (
+            <>
+              {!customer.is_deleted && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    onClick={() => setEditMode(true)}
+                  >
+                    <Edit2 className="h-3 w-3" />
+                    수정
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDeactivateConfirm(true)}
+                    className={customer.is_active ? "text-amber-600 border-amber-200 hover:bg-amber-50" : ""}
+                  >
+                    {customer.is_active ? "비활성화" : "활성화"}
+                  </Button>
+                </>
+              )}
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setDeactivateConfirm(true)}
-                className={customer.is_active ? "text-amber-600 border-amber-200 hover:bg-amber-50" : ""}
+                onClick={() => setDeleteConfirm(true)}
+                className={customer.is_deleted ? "" : "text-red-600 border-red-200 hover:bg-red-50"}
               >
-                {customer.is_active ? "비활성화" : "활성화"}
+                {customer.is_deleted ? "복구" : "삭제"}
               </Button>
             </>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setDeleteConfirm(true)}
-            className={customer.is_deleted ? "" : "text-red-600 border-red-200 hover:bg-red-50"}
-          >
-            {customer.is_deleted ? "복구" : "삭제"}
-          </Button>
         </div>
       </div>
 
@@ -331,77 +351,73 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
         <div className="flex-1 overflow-y-auto">
           {/* 기본정보 탭 */}
           <TabsContent value="info" className="m-0 p-4 space-y-3">
-            {/* 수정 폼 */}
-            {editMode && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3.5 space-y-3">
-                <div className="text-xs font-semibold text-blue-700">고객 정보 수정</div>
-                <div className="space-y-2">
-                  <div>
-                    <Label className="text-xs text-gray-600">이름</Label>
-                    <Input
-                      className="mt-1 h-8 text-sm"
-                      value={editForm.customer_name}
-                      onChange={(e) => setEditForm((f) => ({ ...f, customer_name: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-gray-600">연락처</Label>
-                    <Input
-                      className="mt-1 h-8 text-sm"
-                      value={editForm.customer_phone}
-                      onChange={(e) => setEditForm((f) => ({ ...f, customer_phone: formatPhoneInput(e.target.value) }))}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-gray-600">이메일</Label>
-                    <Input
-                      className="mt-1 h-8 text-sm"
-                      type="email"
-                      value={editForm.customer_email}
-                      onChange={(e) => setEditForm((f) => ({ ...f, customer_email: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-gray-600">유입 채널</Label>
-                    <Select
-                      value={editForm.create_channel}
-                      onValueChange={(v) => setEditForm((f) => ({ ...f, create_channel: v }))}
-                    >
-                      <SelectTrigger className="mt-1 h-8 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="OFFLINE">오프라인</SelectItem>
-                        <SelectItem value="CAFE24">Cafe24</SelectItem>
-                        <SelectItem value="GPMALL">갓피플몰</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-gray-600">관리자 메모</Label>
-                    <textarea
-                      className="mt-1 w-full border border-gray-300 rounded-md p-2 text-sm resize-none h-16 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                      value={editForm.admin_memo}
-                      onChange={(e) => setEditForm((f) => ({ ...f, admin_memo: e.target.value }))}
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}>
-                    {updateMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-                    저장
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setEditMode(false)}>취소</Button>
-                </div>
-              </div>
-            )}
             <Section title="고객 정보">
-              <InfoRow label="고객명" value={customer.customer_name} />
-              <InfoRow label="연락처" value={formatPhone(customer.customer_phone)} />
-              <InfoRow label="이메일" value={customer.customer_email || "-"} />
-              <InfoRow label="채널" value={<StatusBadge type="channel" value={customer.create_channel} />} />
+              {editMode ? (
+                <EditRow label="고객명">
+                  <Input
+                    className="h-7 text-xs flex-1"
+                    value={editForm.customer_name}
+                    onChange={(e) => setEditForm((f) => ({ ...f, customer_name: e.target.value }))}
+                  />
+                </EditRow>
+              ) : (
+                <InfoRow label="고객명" value={customer.customer_name} />
+              )}
+              {editMode ? (
+                <EditRow label="연락처">
+                  <Input
+                    className="h-7 text-xs flex-1 font-mono"
+                    value={editForm.customer_phone}
+                    onChange={(e) => setEditForm((f) => ({ ...f, customer_phone: formatPhoneInput(e.target.value) }))}
+                  />
+                </EditRow>
+              ) : (
+                <InfoRow label="연락처" value={formatPhone(customer.customer_phone)} />
+              )}
+              {editMode ? (
+                <EditRow label="이메일">
+                  <Input
+                    className="h-7 text-xs flex-1"
+                    type="email"
+                    value={editForm.customer_email}
+                    onChange={(e) => setEditForm((f) => ({ ...f, customer_email: e.target.value }))}
+                  />
+                </EditRow>
+              ) : (
+                <InfoRow label="이메일" value={customer.customer_email || "-"} />
+              )}
+              {editMode ? (
+                <EditRow label="채널">
+                  <Select
+                    value={editForm.create_channel}
+                    onValueChange={(v) => setEditForm((f) => ({ ...f, create_channel: v }))}
+                  >
+                    <SelectTrigger className="h-7 text-xs flex-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="OFFLINE">오프라인</SelectItem>
+                      <SelectItem value="CAFE24">Cafe24</SelectItem>
+                      <SelectItem value="GPMALL">갓피플몰</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </EditRow>
+              ) : (
+                <InfoRow label="채널" value={<StatusBadge type="channel" value={customer.create_channel} />} />
+              )}
               <InfoRow label="최근 주문" value={customer.last_order_at ? formatDate(customer.last_order_at) : "-"} />
-              <InfoRow label="관리자 메모" value={customer.admin_memo || "-"} />
+              {editMode ? (
+                <EditRow label="관리자 메모">
+                  <Input
+                    className="h-7 text-xs flex-1"
+                    value={editForm.admin_memo}
+                    onChange={(e) => setEditForm((f) => ({ ...f, admin_memo: e.target.value }))}
+                    placeholder="관리자 메모"
+                  />
+                </EditRow>
+              ) : (
+                <InfoRow label="관리자 메모" value={customer.admin_memo || "-"} />
+              )}
             </Section>
             {/* 배송지 섹션 */}
             <div className="border border-gray-100 rounded-lg overflow-hidden">
@@ -707,6 +723,16 @@ function Section({ title, children }: { title: string; children: React.ReactNode
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{title}</h3>
       </div>
       <div className="px-3.5 py-3 space-y-2.5">{children}</div>
+    </div>
+  );
+}
+
+// 편집 행 컴포넌트
+function EditRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs text-gray-400 w-24 flex-shrink-0">{label}</span>
+      {children}
     </div>
   );
 }
