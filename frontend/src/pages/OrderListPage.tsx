@@ -269,7 +269,7 @@ export default function OrderListPage() {
         actions={
           <Button size="sm" onClick={() => navigate("/orders/new")} className="gap-1">
             <Plus className="h-3.5 w-3.5" />
-            갓피플/오프라인 주문 추가
+            갓피플/오프라인 주문 등록
           </Button>
         }
         hasActiveFilters={!!(channel || status || customerSearch || recipientSearch || startDate || endDate || externalOrderId || paymentMethod || adminMemo)}
