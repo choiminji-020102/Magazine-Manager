@@ -91,4 +91,20 @@ export const orderItemsApi = {
   updateLastSendIssue: (orderItemId: number, data: OrderItemLastSendIssueUpdate) => {
     return api.patch<ResponseModel<OrderItemResponse>>(`/order-items/${orderItemId}/last-send-issue`, data);
   },
+
+  // GET /order-items/expiring-subscribers/excel - 재구독 안내 연락처 엑셀 다운로드
+  downloadExpiringSubscribersExcel: async (issue: string): Promise<void> => {
+    const response = await api.get<Blob>("/order-items/expiring-subscribers/excel", {
+      params: { issue },
+      responseType: "blob",
+    });
+    const url = window.URL.createObjectURL(response.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `재구독안내_${issue}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
 };

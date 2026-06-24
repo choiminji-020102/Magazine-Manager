@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/useDebounce";
-import { RefreshCw } from "lucide-react";
+import { FileDown, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -103,6 +103,11 @@ function SubscriptionListTab() {
   const [extendMonthsError, setExtendMonthsError] = useState(false);
   const [extendReasonError, setExtendReasonError] = useState(false);
 
+  const [expiringModalOpen, setExpiringModalOpen] = useState(false);
+  const [expiringIssue, setExpiringIssue] = useState("");
+  const [expiringIssueError, setExpiringIssueError] = useState(false);
+  const [isExpiringDownloading, setIsExpiringDownloading] = useState(false);
+
   const debouncedCustomerSearch = useDebounce(customerSearch, 300);
   const limit = 20;
 
@@ -166,6 +171,28 @@ function SubscriptionListTab() {
       return;
     }
     setBatchModalOpen(true);
+  };
+
+  const handleExpiringDownload = async () => {
+    if (!/^\d{6}$/.test(expiringIssue)) {
+      setExpiringIssueError(true);
+      toast.error("호를 6자리 숫자로 입력해주세요. (예: 202608)");
+      return;
+    }
+    setIsExpiringDownloading(true);
+    try {
+      await orderItemsApi.downloadExpiringSubscribersExcel(expiringIssue);
+      toast.success(
+        "재구독 안내 명단 다운로드 완료",
+        `${expiringIssue.slice(0, 4)}년 ${parseInt(expiringIssue.slice(4))}월 만기 구독자`,
+      );
+      setExpiringModalOpen(false);
+      setExpiringIssue("");
+    } catch {
+      toast.error("엑셀 다운로드에 실패했습니다.");
+    } finally {
+      setIsExpiringDownloading(false);
+    }
   };
 
   const handleBatchExtendConfirm = () => {
@@ -370,6 +397,14 @@ function SubscriptionListTab() {
             )}
             <Button
               size="sm"
+              variant="success"
+              onClick={() => setExpiringModalOpen(true)}
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              재구독 대상자
+            </Button>
+            <Button
+              size="sm"
               variant="outline"
               onClick={handleBatchExtendOpen}
               disabled={selectedIds.size === 0}
@@ -474,6 +509,54 @@ function SubscriptionListTab() {
           />
         </div>
       )}
+
+      {/* 재구독 대상자 추출 모달 */}
+      <Dialog
+        open={expiringModalOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setExpiringModalOpen(false);
+            setExpiringIssue("");
+            setExpiringIssueError(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>재구독 대상자 추출</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <p className="text-sm text-gray-500 leading-loose break-keep">
+              구독 종료 호{" "}
+              <Input
+                className={`!inline-block w-24 h-7 mx-1.5 text-sm text-center align-middle ${expiringIssueError ? "border-red-500" : ""}`}
+                placeholder="202608"
+                maxLength={6}
+                value={expiringIssue}
+                onChange={(e) => {
+                  setExpiringIssue(e.target.value.replace(/\D/g, ""));
+                  setExpiringIssueError(false);
+                }}
+              />{" "}
+              의 재구독 대상자 명단을 엑셀로 내려받습니다.
+            </p>
+            {expiringIssueError && (
+              <p className="text-xs text-red-500">호를 6자리 숫자로 입력해주세요. (예: 202608)</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setExpiringModalOpen(false); setExpiringIssue(""); setExpiringIssueError(false); }}
+            >
+              취소
+            </Button>
+            <Button onClick={handleExpiringDownload} disabled={isExpiringDownloading}>
+              {isExpiringDownloading ? "다운로드 중..." : "엑셀 다운로드"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 일괄 연장 모달 */}
       <Dialog
