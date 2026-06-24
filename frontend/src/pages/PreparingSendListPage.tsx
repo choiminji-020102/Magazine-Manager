@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { FilterBar } from "@/components/common/FilterBar";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Pagination } from "@/components/common/Pagination";
-import { Package, RefreshCw } from "lucide-react";
+import { FileDown, Package, RefreshCw } from "lucide-react";
 import RegeneratePreparingConfirmModal from "@/components/dispatch/RegeneratePreparingConfirmModal";
 import AddToPreparingYearlyModal from "@/components/dispatch/AddToPreparingYearlyModal";
 import TransitionToDeliveredModal from "@/components/dispatch/TransitionToDeliveredModal";
@@ -193,21 +193,25 @@ export default function PreparingSendListPage() {
             </Button>
             {scope === "monthly" && (
               <Button size="sm" variant="success" onClick={() => setExcelOpen("monthly")}>
+                <FileDown className="h-3.5 w-3.5" />
                 기출유택배 엑셀
               </Button>
             )}
             {scope === "yearly" && (
               <>
                 <Button size="sm" variant="success" onClick={() => setExcelOpen("yearly-gichulyu")}>
+                  <FileDown className="h-3.5 w-3.5" />
                   기출유우편 엑셀
                 </Button>
                 <Button size="sm" variant="success" onClick={() => setExcelOpen("yearly-postoffice")}>
+                  <FileDown className="h-3.5 w-3.5" />
                   일반우편 엑셀
                 </Button>
               </>
             )}
             {isVip && (
               <Button size="sm" variant="success" onClick={() => setExcelOpen("vip")}>
+                <FileDown className="h-3.5 w-3.5" />
                 일반우편 엑셀
               </Button>
             )}
