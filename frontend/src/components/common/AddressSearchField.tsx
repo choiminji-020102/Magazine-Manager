@@ -37,7 +37,8 @@ export function AddressSearchField({
       oncomplete: (data: any) => {
         const code = data.zonecode;
         const roadAddr = data.roadAddress || data.jibunAddress;
-        onChange(code, roadAddr);
+        const building = data.buildingName ? ` (${data.buildingName})` : "";
+        onChange(code, roadAddr + building);
       },
     }).open();
   };
