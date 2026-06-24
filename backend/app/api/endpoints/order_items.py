@@ -1,8 +1,13 @@
 # 표준 라이브러리
+import io
 from typing import List
+from urllib.parse import quote
 
 # 서드파티 라이브러리
-from fastapi import APIRouter, Depends, Request, status
+import openpyxl
+from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi.responses import StreamingResponse
+from openpyxl.styles import Alignment, Font, PatternFill
 from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
@@ -32,6 +37,7 @@ from app.schemas.order_item import (
     SubscriptionShortenCalculateResponse,
     SubscriptionShortenConfirmRequest,
 )
+from app.models.order_item import OrderItem as OrderItemModel
 from app.services import activity_log_service, order_item_service, order_service
 
 router = APIRouter(tags=["주문 품목"])
@@ -88,6 +94,123 @@ def get_items_by_order(
     return ResponseModel(
         message="주문별 품목 목록을 조회했습니다.",
         data=[_build_detail_response(db, item) for item in items],
+    )
+
+
+_XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+_SHEET1_PREFIXES = frozenset(("W0", "WB"))
+_SHEET2_PREFIXES = frozenset(("HN", "CL", "CH", "JN"))
+_SHEET2_LABELS = {"HN": "꿀땅", "CL": "어저", "CH": "어고", "JN": "청소년"}
+_SHEET2_SORT_ORDER = {"꿀땅": 0, "어저": 1, "어고": 2, "청소년": 3}
+
+
+def _build_expiring_excel(rows: list) -> io.BytesIO:
+    wb = openpyxl.Workbook()
+    h_fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+    h_font = Font(bold=True)
+    center = Alignment(horizontal="center")
+
+    def style_header(ws):
+        for cell in ws[1]:
+            cell.font = h_font
+            cell.fill = h_fill
+            cell.alignment = center
+
+    ws1 = wb.active
+    ws1.title = "말씀함께"
+    ws1.append(["수령인 이름", "수령인 연락처"])
+    ws1.column_dimensions["A"].width = 15
+    ws1.column_dimensions["B"].width = 22
+
+    seen_phones: set = set()
+    sheet1_rows = []
+    sheet2_rows = []
+
+    for item in rows:
+        prefix = (item.product_code or "")[:2]
+        name = item.address.recipient_name or "" if item.address else ""
+        phone = item.address.recipient_phone or "" if item.address else ""
+        if prefix in _SHEET1_PREFIXES:
+            if phone not in seen_phones:
+                seen_phones.add(phone)
+                sheet1_rows.append((name, phone))
+        elif prefix in _SHEET2_PREFIXES:
+            sheet2_rows.append((name, phone, _SHEET2_LABELS.get(prefix, prefix)))
+
+    sheet1_rows.sort(key=lambda r: r[0])
+    sheet2_rows.sort(key=lambda r: _SHEET2_SORT_ORDER.get(r[2], 99))
+
+    for name, phone in sheet1_rows:
+        ws1.append([name, phone])
+        for cell in ws1[ws1.max_row]:
+            cell.alignment = center
+
+    style_header(ws1)
+
+    ws2 = wb.create_sheet(title="교회학교")
+    ws2.append(["수령인 이름", "수령인 연락처", "상품 종류"])
+    ws2.column_dimensions["A"].width = 15
+    ws2.column_dimensions["B"].width = 22
+    ws2.column_dimensions["C"].width = 12
+    for row in sheet2_rows:
+        ws2.append(list(row))
+        for cell in ws2[ws2.max_row]:
+            cell.alignment = center
+    style_header(ws2)
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
+@router.get(
+    "/order-items/expiring-subscribers/excel",
+    response_class=StreamingResponse,
+)
+def download_expiring_subscribers_excel(
+    request: Request,
+    issue: str = Query(..., min_length=6, max_length=6, pattern=r"^\d{6}$", description="구독 종료 호 (YYYYMM)"),
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_manager),
+):
+    """재구독 안내 연락처 엑셀 다운로드 (2시트).
+    Sheet1 말씀함께(W0/WB): recipient_phone 기준 중복 제거.
+    Sheet2 교회학교(HN/CL/CH/JN): 중복 제거 없음, 상품 종류 열 포함.
+    """
+    rows = (
+        db.query(OrderItemModel)
+        .filter(
+            OrderItemModel.cancelled_at.is_(None),
+            OrderItemModel.product_kind == "YEARLY",
+            OrderItemModel.final_subscribe_end_issue == issue,
+        )
+        .all()
+    )
+
+    output = _build_expiring_excel(rows)
+
+    filename = f"재구독안내_{issue}.xlsx"
+    encoded = quote(filename)
+    content_disposition = f"attachment; filename=\"download.xlsx\"; filename*=UTF-8''{encoded}"
+
+    activity_log_service.create_log(
+        db=db,
+        action=ActivityAction.DISPATCH,
+        target_type=ActivityTargetType.ORDER_ITEM,
+        admin_id=current_admin.admin_id,
+        admin_name=current_admin.admin_name,
+        target_id=None,
+        target_name=f"재구독안내 엑셀 다운로드 / {issue} / {len(rows)}건",
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        details={"issue": issue, "total_count": len(rows)},
+    )
+
+    return StreamingResponse(
+        output,
+        media_type=_XLSX_MEDIA_TYPE,
+        headers={"Content-Disposition": content_disposition},
     )
 
 
