@@ -194,6 +194,17 @@ export default function OrderCreatePage() {
     setOrderItems((prev) => prev.filter((i) => i.product.product_id !== productId));
   };
 
+  // 신규 배송지 모드일 때 선택된 고객 정보를 수령인/연락처에 자동 반영
+  useEffect(() => {
+    if (addressMode !== "new") return;
+    setNewAddress((prev) => ({
+      ...prev,
+      recipient_name: selectedCustomer?.customer_name ?? newCustomer.name,
+      recipient_phone: selectedCustomer?.customer_phone ?? newCustomer.phone,
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addressMode, selectedCustomer, newCustomer.name, newCustomer.phone]);
+
   // 품목 변경 시 배송비 기본값 자동 설정 (수동 입력 안 했을 때만)
   useEffect(() => {
     if (!sendFeeManual) {
