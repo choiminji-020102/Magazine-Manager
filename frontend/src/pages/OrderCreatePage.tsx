@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { AddressSearchField } from "@/components/common/AddressSearchField";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
+import { Pagination } from "@/components/common/Pagination";
 import { customersApi } from "@/api/customersApi";
 import { productsApi } from "@/api/productsApi";
 import { ordersApi } from "@/api/ordersApi";
@@ -24,10 +25,30 @@ import { PAYMENT_METHOD_OPTIONS } from "@/utils/constants";
 import type { CustomerResponse } from "@/types/customer";
 import type { AddressResponse } from "@/types/address";
 import type { ProductResponse } from "@/types/product";
+import { ProductKind } from "@/types/product";
+
 import type { OrderCreate, OrderItemCreateInOrder } from "@/types/order";
 import { PaymentMethod } from "@/types/order";
 
+type ProductSeparator = "+" | "~" | "-";
+const SEPARATOR_META: Record<ProductSeparator, { label: string; kind: ProductKind }> = {
+  "~": { label: "연장구독", kind: ProductKind.YEARLY },
+  "+": { label: "정기구독", kind: ProductKind.YEARLY },
+  "-": { label: "단품",     kind: ProductKind.MONTHLY },
+};
+
 const STEPS = ["고객 선택", "배송지 선택", "상품 선택", "최종 확인"];
+
+const PRODUCT_PAGE_LIMIT = 6;
+
+const BOOK_PREFIXES = [
+  { prefix: "W0", label: "말씀함께\n[기본판]" },
+  { prefix: "WB", label: "말씀함께\n[큰글자판]" },
+  { prefix: "HN", label: "꿀땅\n[미취학부]" },
+  { prefix: "CL", label: "어린이 말씀함께\n[저학년]" },
+  { prefix: "CH", label: "어린이 말씀함께\n[고학년]" },
+  { prefix: "JN", label: "청소년\n말씀함께" },
+];
 
 interface OrderItem {
   product: ProductResponse;
@@ -78,7 +99,12 @@ export default function OrderCreatePage() {
   // 상품 카탈로그
   const [allProducts, setAllProducts] = useState<ProductResponse[]>([]);
   const [allProductsLoading, setAllProductsLoading] = useState(false);
-  const [productKindFilter, setProductKindFilter] = useState<"all" | "YEARLY" | "MONTHLY">("all");
+  const [productSeparator, setProductSeparator] = useState<ProductSeparator | null>(null);
+  const [selectedPrefix, setSelectedPrefix] = useState<string | null>(null);
+  const [productPage, setProductPage] = useState(1);
+
+  // 전체 상품 캐시 (step 2 진입 시 1회 로드, 이후 클라이언트 필터링)
+  const [productCache, setProductCache] = useState<ProductResponse[]>([]);
 
   const createMutation = useMutation({
     mutationFn: (data: OrderCreate) => ordersApi.createOrder(data),
@@ -119,17 +145,24 @@ export default function OrderCreatePage() {
     } catch {}
   };
 
-  // 상품 선택 단계 진입 시 전체 상품 자동 로드
+  // step 2 진입 시 전체 활성 상품 1회 로드
   useEffect(() => {
-    if (step === 2 && allProducts.length === 0 && !allProductsLoading) {
-      setAllProductsLoading(true);
-      productsApi
-        .getProducts({ page: 1, limit: 50, is_active: true })
-        .then((res) => setAllProducts(res.data.items))
-        .catch(() => toast.error("상품 목록 로드 실패"))
-        .finally(() => setAllProductsLoading(false));
-    }
-  }, [step]);
+    if (step !== 2 || productCache.length > 0) return;
+    setAllProductsLoading(true);
+    productsApi
+      .getProducts({ page: 1, limit: 500, is_active: true, sort_by: "created_at", sort_order: "desc" })
+      .then((res) => setProductCache(res.data.items))
+      .catch(() => toast.error("상품 목록 로드 실패"))
+      .finally(() => setAllProductsLoading(false));
+  }, [step, productCache.length]);
+
+  // 구분자 + prefix + 페이지 변경 시 클라이언트 필터링 (즉시, 네트워크 없음)
+  useEffect(() => {
+    if (!productSeparator || !selectedPrefix) { setAllProducts([]); return; }
+    const filtered = productCache.filter((p) => p.product_code.startsWith(selectedPrefix + productSeparator));
+    const start = (productPage - 1) * PRODUCT_PAGE_LIMIT;
+    setAllProducts(filtered.slice(start, start + PRODUCT_PAGE_LIMIT));
+  }, [productSeparator, selectedPrefix, productPage, productCache]);
 
   // 고객 상세 패널에서 "주문 등록" 클릭 시 고객 자동 선택
   useEffect(() => {
@@ -140,12 +173,10 @@ export default function OrderCreatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const addOrderItem = (product: ProductResponse) => {
+  const toggleOrderItem = (product: ProductResponse) => {
     setOrderItems((prev) => {
-      // 중복 체크를 updater 안에서 수행 (stale closure 방지)
       if (prev.some((i) => i.product.product_id === product.product_id)) {
-        toast.warning("이미 추가된 상품입니다.");
-        return prev;
+        return prev.filter((i) => i.product.product_id !== product.product_id);
       }
       return [
         ...prev,
@@ -170,6 +201,12 @@ export default function OrderCreatePage() {
       setSendFee(hasMonthly ? 3300 : 0);
     }
   }, [orderItems, sendFeeManual]);
+
+  const filteredProductTotal =
+    productSeparator && selectedPrefix
+      ? productCache.filter((p) => p.product_code.startsWith(selectedPrefix + productSeparator)).length
+      : 0;
+  const filteredProductTotalPages = Math.max(1, Math.ceil(filteredProductTotal / PRODUCT_PAGE_LIMIT));
 
   const totalAmount = orderItems.reduce(
     (sum, item) => sum + item.sale_price * item.order_num,
@@ -257,11 +294,7 @@ export default function OrderCreatePage() {
           <div key={i} className="flex items-center">
             <div
               className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-medium transition-colors ${
-                i < step
-                  ? "bg-blue-600 text-white"
-                  : i === step
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-500"
+                i <= step ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-500"
               }`}
             >
               {i < step ? <Check className="h-3.5 w-3.5" /> : i + 1}
@@ -566,73 +599,110 @@ export default function OrderCreatePage() {
         {/* 스텝 3: 상품 선택 */}
         {step === 2 && (
           <div className="space-y-4">
-            {/* 종류 필터 탭 */}
-            <div className="flex gap-1.5">
-              {(["all", "YEARLY", "MONTHLY"] as const).map((kind) => (
-                <button
-                  key={kind}
-                  onClick={() => setProductKindFilter(kind)}
-                  className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
-                    productKindFilter === kind
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-gray-600 border-gray-300 hover:border-gray-400"
-                  }`}
-                >
-                  {kind === "all" ? "전체" : kind === "YEARLY" ? "정기구독" : "단품"}
-                </button>
-              ))}
+            {/* 1단계: 종류 탭 */}
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-2">1. 구독 종류 선택</p>
+              <div className="flex gap-2">
+                {(Object.keys(SEPARATOR_META) as ProductSeparator[]).map((sep) => (
+                  <button
+                    key={sep}
+                    onClick={() => {
+                      setProductSeparator(sep);
+                      setSelectedPrefix(null);
+                      setProductPage(1);
+                    }}
+                    className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
+                      productSeparator === sep
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-white text-gray-600 border-gray-300 hover:border-gray-400"
+                    }`}
+                  >
+                    {SEPARATOR_META[sep].label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* 상품 카탈로그 그리드 */}
-            {allProductsLoading ? (
-              <div className="flex justify-center py-6">
-                <LoadingSpinner />
+            {/* 2단계: 책 종류 선택 */}
+            {productSeparator && (
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-2">2. 책 종류 선택</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {BOOK_PREFIXES.map(({ prefix, label }) => (
+                    <button
+                      key={prefix}
+                      onClick={() => {
+                        setSelectedPrefix(prefix);
+                        setProductPage(1);
+                      }}
+                      className={`px-2 py-2 text-xs rounded-md border transition-colors whitespace-pre-line leading-snug ${
+                        selectedPrefix === prefix
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-gray-600 border-gray-300 hover:border-gray-400"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {allProducts
-                  .filter((p) => productKindFilter === "all" || p.product_kind === productKindFilter)
-                  .map((p) => {
-                    const isAdded = orderItems.some((i) => i.product.product_id === p.product_id);
-                    return (
-                      <button
-                        key={p.product_id}
-                        onClick={() => addOrderItem(p)}
-                        className={`relative text-left border rounded-lg p-3 transition-all ${
-                          isAdded
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-gray-200 bg-white hover:border-blue-300 hover:bg-gray-50"
-                        }`}
-                      >
-                        {isAdded && (
-                          <span className="absolute top-2 right-2 flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white">
-                            <Check className="h-3 w-3" />
-                          </span>
-                        )}
-                        <div className="pr-6">
-                          <div
-                            className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded mb-1 ${
-                              p.product_kind === "YEARLY"
-                                ? "bg-purple-50 text-purple-700"
-                                : "bg-sky-50 text-sky-700"
-                            }`}
-                          >
-                            {p.product_kind === "YEARLY" ? "정기구독" : "단품"}
+            )}
+
+            {/* 3단계: 상품 목록 */}
+            {productSeparator && selectedPrefix && (
+              allProductsLoading ? (
+                <div className="flex justify-center py-6">
+                  <LoadingSpinner />
+                </div>
+              ) : allProducts.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-4">해당 상품이 없습니다.</p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    {allProducts.map((p) => {
+                      const isAdded = orderItems.some((i) => i.product.product_id === p.product_id);
+                      return (
+                        <button
+                          key={p.product_id}
+                          onClick={() => toggleOrderItem(p)}
+                          className={`relative text-left border rounded-lg p-3 transition-all ${
+                            isAdded
+                              ? "border-blue-500 bg-blue-50"
+                              : "border-gray-200 bg-white hover:bg-gray-50"
+                          }`}
+                        >
+                          {isAdded && (
+                            <span className="absolute top-2 right-2 flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white">
+                              <Check className="h-3 w-3" />
+                            </span>
+                          )}
+                          <div className="pr-6">
+                            <div className="text-sm font-medium text-gray-900 leading-snug">
+                              {p.product_name}
+                            </div>
+                            <div className="text-xs text-gray-400 font-mono mt-0.5">
+                              {p.product_code}
+                            </div>
+                            <div className="text-sm font-semibold text-blue-700 mt-1.5">
+                              {formatAmount(p.sale_price)}
+                            </div>
                           </div>
-                          <div className="text-sm font-medium text-gray-900 leading-snug">
-                            {p.product_name}
-                          </div>
-                          <div className="text-xs text-gray-400 font-mono mt-0.5">
-                            {p.product_code}
-                          </div>
-                          <div className="text-sm font-semibold text-blue-700 mt-1.5">
-                            {formatAmount(p.sale_price)}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-              </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {/* 페이지네이션 */}
+                  {filteredProductTotalPages > 1 && (
+                    <Pagination
+                      page={productPage}
+                      totalPages={filteredProductTotalPages}
+                      total={filteredProductTotal}
+                      limit={PRODUCT_PAGE_LIMIT}
+                      onPageChange={setProductPage}
+                    />
+                  )}
+                </div>
+              )
             )}
 
             {orderItems.length > 0 && (
