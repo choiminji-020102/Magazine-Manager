@@ -83,7 +83,7 @@ class ProductResponse(BaseModel):
 
 class ProductListQuery(BaseModel):
     page: int = Field(1, ge=1)
-    limit: int = Field(20, ge=1, le=100)
+    limit: int = Field(20, ge=1)
     product_kind: Optional[ProductKind] = None
     is_active: Optional[bool] = None
     search: Optional[str] = None                    # product_name 또는 product_code
@@ -95,7 +95,7 @@ class ProductListQuery(BaseModel):
     def as_query_params(
         cls,
         page: int = Query(1, ge=1),
-        limit: int = Query(20, ge=1, le=100),
+        limit: int = Query(20, ge=1),
         product_kind: Optional[ProductKind] = Query(None),
         is_active: Optional[bool] = Query(None),
         search: Optional[str] = Query(None),
