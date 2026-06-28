@@ -19,11 +19,10 @@ class OrderItem(Base):
     product_kind = Column(Enum("YEARLY", "MONTHLY", name="product_kind_enum"), nullable=False, comment="상품종류")
     product_name = Column(String(255), nullable=False, comment="상품명")
 
-    list_price = Column(Integer, nullable=False, server_default="0", comment="정가")
-    # 1세트 실제 지불액 (옵션 추가금 포함, 주문 시점 스냅샷). Cafe24 import 시 product_price + option_price.
-    sale_price = Column(Integer, nullable=False, server_default="0", comment="판매가")
-    refund_amount = Column(Integer, nullable=False, server_default="0", comment="환불액")
-    order_num = Column(Integer, nullable=False, server_default="1", comment="수량")
+    list_price = Column(Integer, nullable=False, server_default="0", comment="정가 (Product.list_price 스냅샷, 항상 1년 단가 — 구독 년수 무관)")
+    sale_price = Column(Integer, nullable=False, server_default="0", comment="1세트 실제 지불액 (= Product.sale_price × 구독 년수, 주문 시점 스냅샷 / Cafe24: product_price + option_price)")
+    refund_amount = Column(Integer, nullable=False, server_default="0", comment="환불액 (취소·단축 시 갱신)")
+    order_num = Column(Integer, nullable=False, server_default="1", comment="수량 (부수)")
 
     subscribe_start_issue = Column(String(6), nullable=False, comment="구독 시작 호(202604) — 주문 시 1회 설정 후 절대 수정 불가")
     subscribe_end_issue = Column(String(6), nullable=False, comment="구독 종료 호(202604) — 주문 시 1회 설정 후 절대 수정 불가")
