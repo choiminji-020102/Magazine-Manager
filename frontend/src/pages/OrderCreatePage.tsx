@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { ChevronRight, ChevronLeft, Check } from "lucide-react";
+import { ChevronRight, ChevronLeft, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -714,104 +714,131 @@ export default function OrderCreatePage() {
             )}
 
             {orderItems.length > 0 && (
-              <div className="space-y-2">
-                {orderItems.map((item) => (
-                  <div
-                    key={item.product.product_id}
-                    className="border border-gray-200 rounded-lg p-3"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <div className="text-sm font-medium">{item.product.product_name}</div>
-                        <div className="text-xs text-gray-400 font-mono">
-                          {item.product.product_code}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => removeOrderItem(item.product.product_id)}
-                        className="text-gray-300 hover:text-red-500 text-xs"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <Label className="text-xs">수량</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          className="mt-1 h-7 text-xs"
-                          value={item.order_num}
-                          onChange={(e) =>
-                            setOrderItems((prev) =>
-                              prev.map((i) =>
-                                i.product.product_id === item.product.product_id
-                                  ? { ...i, order_num: parseInt(e.target.value) || 1 }
-                                  : i
-                              )
-                            )
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">판매가</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          className="mt-1 h-7 text-xs"
-                          value={item.sale_price}
-                          onChange={(e) =>
-                            setOrderItems((prev) =>
-                              prev.map((i) =>
-                                i.product.product_id === item.product.product_id
-                                  ? { ...i, sale_price: parseInt(e.target.value) || 0 }
-                                  : i
-                              )
-                            )
-                          }
-                        />
-                      </div>
-                      {item.product.product_kind === "YEARLY" && (
-                        <div>
-                          <Label className="text-xs">구독기간(개월)</Label>
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="text-left px-3 py-2 text-gray-500 font-medium">상품</th>
+                      <th className="px-2 py-2 text-gray-500 font-medium w-14 text-center">수량</th>
+                      <th className="px-2 py-2 text-gray-500 font-medium w-24 text-center">판매가</th>
+                      {orderItems.some((i) => i.product.product_kind === "YEARLY") && (
+                        <th className="px-2 py-2 text-gray-500 font-medium w-20 text-center">구독기간(개월)</th>
+                      )}
+                      <th className="px-2 py-2 text-gray-500 font-medium text-left">메모</th>
+                      <th className="w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {orderItems.map((item) => (
+                      <tr key={item.product.product_id} className="align-middle">
+                        <td className="px-3 py-2">
+                          <div className="font-medium text-gray-900 leading-tight">{item.product.product_name}</div>
+                        </td>
+                        <td className="px-2 py-2">
+                          <div className="flex items-center justify-center">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOrderItems((prev) =>
+                                  prev.map((i) =>
+                                    i.product.product_id === item.product.product_id
+                                      ? { ...i, order_num: Math.max(1, i.order_num - 1) }
+                                      : i
+                                  )
+                                )
+                              }
+                              className="w-6 h-7 flex items-center justify-center border border-r-0 rounded-l-md bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
+                            >
+                              −
+                            </button>
+                            <span className="w-8 h-7 flex items-center justify-center text-xs border-y border-gray-200 text-gray-900 font-medium select-none">
+                              {item.order_num}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOrderItems((prev) =>
+                                  prev.map((i) =>
+                                    i.product.product_id === item.product.product_id
+                                      ? { ...i, order_num: i.order_num + 1 }
+                                      : i
+                                  )
+                                )
+                              }
+                              className="w-6 h-7 flex items-center justify-center border border-l-0 rounded-r-md bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-2 py-2">
                           <Input
-                            type="number"
-                            min={1}
-                            max={24}
-                            className="mt-1 h-7 text-xs"
-                            value={item.subscribe_period ?? 12}
+                            type="text"
+                            inputMode="numeric"
+                            className="h-7 text-xs text-center w-full [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                            value={item.sale_price}
                             onChange={(e) =>
                               setOrderItems((prev) =>
                                 prev.map((i) =>
                                   i.product.product_id === item.product.product_id
-                                    ? { ...i, subscribe_period: parseInt(e.target.value) || 12 }
+                                    ? { ...i, sale_price: parseInt(e.target.value.replace(/\D/g, "")) || 0 }
                                     : i
                                 )
                               )
                             }
                           />
-                        </div>
-                      )}
-                    </div>
-                    <div className="mt-2">
-                      <Label className="text-xs">품목 메모</Label>
-                      <Input
-                        className="mt-1 h-7 text-xs"
-                        placeholder="품목별 메모 (선택)"
-                        value={item.admin_memo ?? ""}
-                        onChange={(e) =>
-                          setOrderItems((prev) =>
-                            prev.map((i) =>
-                              i.product.product_id === item.product.product_id
-                                ? { ...i, admin_memo: e.target.value }
-                                : i
-                            )
-                          )
-                        }
-                      />
-                    </div>
-                  </div>
-                ))}
+                        </td>
+                        {orderItems.some((i) => i.product.product_kind === "YEARLY") && (
+                          <td className="px-2 py-2">
+                            {item.product.product_kind === "YEARLY" ? (
+                              <Input
+                                type="text"
+                                inputMode="numeric"
+                                className="h-7 text-xs text-center w-full [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
+                                value={item.subscribe_period ?? 12}
+                                onChange={(e) =>
+                                  setOrderItems((prev) =>
+                                    prev.map((i) =>
+                                      i.product.product_id === item.product.product_id
+                                        ? { ...i, subscribe_period: parseInt(e.target.value.replace(/\D/g, "")) || 12 }
+                                        : i
+                                    )
+                                  )
+                                }
+                              />
+                            ) : (
+                              <span className="block text-center text-gray-300">—</span>
+                            )}
+                          </td>
+                        )}
+                        <td className="px-2 py-2">
+                          <Input
+                            className="h-7 text-xs"
+                            placeholder="메모 (선택)"
+                            value={item.admin_memo ?? ""}
+                            onChange={(e) =>
+                              setOrderItems((prev) =>
+                                prev.map((i) =>
+                                  i.product.product_id === item.product.product_id
+                                    ? { ...i, admin_memo: e.target.value }
+                                    : i
+                                )
+                              )
+                            }
+                          />
+                        </td>
+                        <td className="px-2 py-2 text-center">
+                          <button
+                            onClick={() => removeOrderItem(item.product.product_id)}
+                            className="text-gray-300 hover:text-red-500 transition-colors"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
