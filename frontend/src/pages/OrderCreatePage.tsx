@@ -669,33 +669,30 @@ export default function OrderCreatePage() {
                 <p className="text-sm text-gray-400 text-center py-4">해당 상품이 없습니다.</p>
               ) : (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2">
                     {allProducts.map((p) => {
                       const isAdded = orderItems.some((i) => i.product.product_id === p.product_id);
                       return (
                         <button
                           key={p.product_id}
                           onClick={() => toggleOrderItem(p)}
-                          className={`relative text-left border rounded-lg p-3 transition-all ${
+                          className={`w-full text-left border rounded-lg p-3 transition-all ${
                             isAdded
                               ? "border-blue-500 bg-blue-50"
                               : "border-gray-200 bg-white hover:bg-gray-50"
                           }`}
                         >
-                          {isAdded && (
-                            <span className="absolute top-2 right-2 flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white">
-                              <Check className="h-3 w-3" />
-                            </span>
-                          )}
-                          <div className="pr-6">
-                            <div className="text-sm font-medium text-gray-900 leading-snug">
-                              {p.product_name}
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-gray-900 leading-snug">{p.product_name}</div>
                             </div>
-                            <div className="text-xs text-gray-400 font-mono mt-0.5">
-                              {p.product_code}
-                            </div>
-                            <div className="text-sm font-semibold text-blue-700 mt-1.5">
-                              {formatAmount(p.sale_price)}
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-sm font-semibold text-blue-700">{formatAmount(p.sale_price)}</span>
+                              {isAdded && (
+                                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white">
+                                  <Check className="h-3 w-3" />
+                                </span>
+                              )}
                             </div>
                           </div>
                         </button>
