@@ -54,7 +54,8 @@ interface OrderItem {
   product: ProductResponse;
   order_num: number;
   sale_price: number;
-  subscribe_period?: number;
+  base_sale_price: number;   // 1년 단가 기준 (년수 변경 시 재계산 기준)
+  subscribe_years?: number;  // UI 표현용 (년 단위), YEARLY만 사용
   admin_memo?: string;
 }
 
@@ -184,7 +185,8 @@ export default function OrderCreatePage() {
           product,
           order_num: 1,
           sale_price: product.sale_price,
-          subscribe_period: product.product_kind === "YEARLY" ? 12 : undefined,
+          base_sale_price: product.sale_price,
+          subscribe_years: product.product_kind === "YEARLY" ? 1 : undefined,
         },
       ];
     });
@@ -237,7 +239,7 @@ export default function OrderCreatePage() {
       product_code: item.product.product_code,
       order_num: item.order_num,
       sale_price: item.sale_price,
-      subscribe_period: item.subscribe_period,
+      subscribe_period: item.subscribe_years != null ? item.subscribe_years * 12 : undefined,
       admin_memo: item.admin_memo || null,
     }));
 
@@ -722,7 +724,7 @@ export default function OrderCreatePage() {
                       <th className="px-2 py-2 text-gray-500 font-medium w-14 text-center">수량</th>
                       <th className="px-2 py-2 text-gray-500 font-medium w-24 text-center">판매가</th>
                       {orderItems.some((i) => i.product.product_kind === "YEARLY") && (
-                        <th className="px-2 py-2 text-gray-500 font-medium w-20 text-center">구독기간(개월)</th>
+                        <th className="px-2 py-2 text-gray-500 font-medium w-20 text-center">구독기간(년)</th>
                       )}
                       <th className="px-2 py-2 text-gray-500 font-medium text-left">메모</th>
                       <th className="w-8"></th>
@@ -791,21 +793,41 @@ export default function OrderCreatePage() {
                         {orderItems.some((i) => i.product.product_kind === "YEARLY") && (
                           <td className="px-2 py-2">
                             {item.product.product_kind === "YEARLY" ? (
-                              <Input
-                                type="text"
-                                inputMode="numeric"
-                                className="h-7 text-xs text-center w-full [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden"
-                                value={item.subscribe_period ?? 12}
-                                onChange={(e) =>
-                                  setOrderItems((prev) =>
-                                    prev.map((i) =>
-                                      i.product.product_id === item.product.product_id
-                                        ? { ...i, subscribe_period: parseInt(e.target.value.replace(/\D/g, "")) || 12 }
-                                        : i
+                              <div className="flex items-center justify-center">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setOrderItems((prev) =>
+                                      prev.map((i) => {
+                                        if (i.product.product_id !== item.product.product_id) return i;
+                                        const years = Math.max(1, (i.subscribe_years ?? 1) - 1);
+                                        return { ...i, subscribe_years: years, sale_price: i.base_sale_price * years };
+                                      })
                                     )
-                                  )
-                                }
-                              />
+                                  }
+                                  className="w-6 h-7 flex items-center justify-center border border-r-0 rounded-l-md bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
+                                >
+                                  −
+                                </button>
+                                <span className="w-8 h-7 flex items-center justify-center text-xs border-y border-gray-200 text-gray-900 font-medium select-none">
+                                  {item.subscribe_years ?? 1}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setOrderItems((prev) =>
+                                      prev.map((i) => {
+                                        if (i.product.product_id !== item.product.product_id) return i;
+                                        const years = Math.min(10, (i.subscribe_years ?? 1) + 1);
+                                        return { ...i, subscribe_years: years, sale_price: i.base_sale_price * years };
+                                      })
+                                    )
+                                  }
+                                  className="w-6 h-7 flex items-center justify-center border border-l-0 rounded-r-md bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
+                                >
+                                  +
+                                </button>
+                              </div>
                             ) : (
                               <span className="block text-center text-gray-300">—</span>
                             )}
