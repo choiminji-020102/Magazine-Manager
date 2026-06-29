@@ -300,7 +300,7 @@ export default function OrderCreatePage() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-    <div className="max-w-2xl mx-auto p-6">
+    <div className="max-w-3xl mx-auto p-6">
       {/* 스텝 표시 */}
       <div className="flex items-center mb-8">
         {STEPS.map((s, i) => (
@@ -721,13 +721,14 @@ export default function OrderCreatePage() {
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200">
                       <th className="text-left px-3 py-2 text-gray-500 font-medium">상품</th>
-                      <th className="px-2 py-2 text-gray-500 font-medium w-14 text-center">수량</th>
                       <th className="px-2 py-2 text-gray-500 font-medium w-24 text-center">판매가</th>
                       {orderItems.some((i) => i.product.product_kind === "YEARLY") && (
                         <th className="px-2 py-2 text-gray-500 font-medium w-20 text-center">구독기간(년)</th>
                       )}
                       <th className="px-2 py-2 text-gray-500 font-medium text-left">메모</th>
-                      <th className="w-8"></th>
+                      <th className="px-2 py-2 text-gray-500 font-medium w-20 text-center">수량</th>
+                      <th className="px-2 py-2 text-gray-500 font-medium w-24 text-center">소계</th>
+                      <th className="w-6"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -735,43 +736,6 @@ export default function OrderCreatePage() {
                       <tr key={item.product.product_id} className="align-middle">
                         <td className="px-3 py-2">
                           <div className="font-medium text-gray-900 leading-tight">{item.product.product_name}</div>
-                        </td>
-                        <td className="px-2 py-2">
-                          <div className="flex items-center justify-center">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setOrderItems((prev) =>
-                                  prev.map((i) =>
-                                    i.product.product_id === item.product.product_id
-                                      ? { ...i, order_num: Math.max(1, i.order_num - 1) }
-                                      : i
-                                  )
-                                )
-                              }
-                              className="w-6 h-7 flex items-center justify-center border border-r-0 rounded-l-md bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
-                            >
-                              −
-                            </button>
-                            <span className="w-8 h-7 flex items-center justify-center text-xs border-y border-gray-200 text-gray-900 font-medium select-none">
-                              {item.order_num}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setOrderItems((prev) =>
-                                  prev.map((i) =>
-                                    i.product.product_id === item.product.product_id
-                                      ? { ...i, order_num: i.order_num + 1 }
-                                      : i
-                                  )
-                                )
-                              }
-                              className="w-6 h-7 flex items-center justify-center border border-l-0 rounded-r-md bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
-                            >
-                              +
-                            </button>
-                          </div>
                         </td>
                         <td className="px-2 py-2">
                           <Input
@@ -849,7 +813,49 @@ export default function OrderCreatePage() {
                             }
                           />
                         </td>
+                        <td className="px-2 py-2">
+                          <div className="flex items-center justify-center">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOrderItems((prev) =>
+                                  prev.map((i) =>
+                                    i.product.product_id === item.product.product_id
+                                      ? { ...i, order_num: Math.max(1, i.order_num - 1) }
+                                      : i
+                                  )
+                                )
+                              }
+                              className="w-6 h-7 flex items-center justify-center border border-r-0 rounded-l-md bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
+                            >
+                              −
+                            </button>
+                            <span className="w-8 h-7 flex items-center justify-center text-xs border-y border-gray-200 text-gray-900 font-medium select-none">
+                              {item.order_num}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOrderItems((prev) =>
+                                  prev.map((i) =>
+                                    i.product.product_id === item.product.product_id
+                                      ? { ...i, order_num: i.order_num + 1 }
+                                      : i
+                                  )
+                                )
+                              }
+                              className="w-6 h-7 flex items-center justify-center border border-l-0 rounded-r-md bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </td>
                         <td className="px-2 py-2 text-center">
+                          <span className="text-xs font-semibold text-blue-700 tabular-nums">
+                            {formatAmount(item.sale_price * item.order_num)}
+                          </span>
+                        </td>
+                        <td className="px-1 py-2 text-center">
                           <button
                             onClick={() => removeOrderItem(item.product.product_id)}
                             className="text-gray-300 hover:text-red-500 transition-colors"
