@@ -59,11 +59,11 @@ export default function SubscriptionListPage() {
             <TabsTrigger value="pauses">휴지 내역</TabsTrigger>
           </TabsList>
         </div>
-        <div className="flex-1 overflow-hidden">
-          <TabsContent value="subscriptions" className="h-full m-0 overflow-hidden flex flex-col">
+        <div className="flex-1 min-h-0 relative">
+          <TabsContent value="subscriptions" className="absolute inset-0 m-0 overflow-hidden flex flex-col">
             <SubscriptionListTab />
           </TabsContent>
-          <TabsContent value="pauses" className="h-full m-0 overflow-hidden flex flex-col">
+          <TabsContent value="pauses" className="absolute inset-0 m-0 overflow-hidden flex flex-col">
             <PauseListTab />
           </TabsContent>
         </div>
