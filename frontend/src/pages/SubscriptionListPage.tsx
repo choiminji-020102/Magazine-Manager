@@ -306,26 +306,33 @@ function SubscriptionListTab() {
     },
     {
       key: "customer",
-      header: "고객",
+      header: "고객명",
       cell: (row) => (
-        <div>
-          <div className="font-medium text-gray-900 text-[13px] flex items-center gap-1.5 flex-wrap">
-            <span>{row.customer_name ?? "-"}</span>
-            {row.address && <VipFlagsDisplay address={row.address} slots={vipSlots} compact />}
-          </div>
-          <div className="text-xs text-gray-400">{formatPhone(row.customer_phone)}</div>
+        <div className="font-medium text-gray-900 text-[13px] flex items-center gap-1.5">
+          <span>{row.customer_name ?? "-"}</span>
+          {row.address && <VipFlagsDisplay address={row.address} slots={vipSlots} compact />}
         </div>
       ),
+      width: "w-28",
+    },
+    {
+      key: "customer_phone",
+      header: "연락처",
+      cell: (row) => (
+        <span className="text-[13px] text-gray-700 font-mono">{formatPhone(row.customer_phone)}</span>
+      ),
+      width: "w-32",
     },
     {
       key: "product",
       header: "상품",
       cell: (row) => (
         <div>
-          <div className="text-[13px] font-medium text-gray-900">{row.product_name}</div>
+          <div className="text-[13px] font-medium text-gray-900 truncate">{row.product_name}</div>
           <div className="text-xs text-gray-400">{row.product_code}</div>
         </div>
       ),
+      width: "w-56",
     },
     {
       key: "kind",
@@ -493,6 +500,7 @@ function SubscriptionListTab() {
             emptyMessage="구독 내역이 없습니다."
             onRowClick={handleRowClick}
             activeRowId={selectedItem?.order_item_id}
+            tableFixed
             rowClassName={(row) => row.cancelled_at ? "opacity-50" : undefined}
           />
         </div>
@@ -701,20 +709,27 @@ function PauseListTab() {
   const sharedColumns = {
     customer: {
       key: "customer",
-      header: "고객",
+      header: "고객명",
       cell: (row: PauseListItem | PauseByIssueResponse) => (
-        <div>
-          <div className="text-[13px] font-medium text-gray-900">{row.customer_name ?? "-"}</div>
-          <div className="text-xs text-gray-400">{formatPhone(row.customer_phone)}</div>
-        </div>
+        <span className="text-[13px] font-medium text-gray-900">{row.customer_name ?? "-"}</span>
       ),
+      width: "w-28",
+    },
+    customer_phone: {
+      key: "customer_phone",
+      header: "연락처",
+      cell: (row: PauseListItem | PauseByIssueResponse) => (
+        <span className="text-[13px] text-gray-700 font-mono">{formatPhone(row.customer_phone)}</span>
+      ),
+      width: "w-32",
     },
     product_name: {
       key: "product_name",
       header: "상품",
       cell: (row: PauseListItem | PauseByIssueResponse) => (
-        <span className="text-[13px] text-gray-700">{row.product_name ?? "-"}</span>
+        <span className="text-[13px] text-gray-700 truncate block">{row.product_name ?? "-"}</span>
       ),
+      width: "w-56",
     },
     pause_issue: {
       key: "pause_issue",
@@ -730,8 +745,9 @@ function PauseListTab() {
       key: "reason",
       header: "사유",
       cell: (row: PauseListItem | PauseByIssueResponse) => (
-        <span className="text-xs text-gray-500">{row.reason ?? "-"}</span>
+        <span className="text-xs text-gray-500 truncate block">{row.reason ?? "-"}</span>
       ),
+      width: "w-36",
     },
     created_at: {
       key: "created_at",
@@ -745,6 +761,7 @@ function PauseListTab() {
 
   const listColumns: ColumnDef<PauseListItem>[] = [
     sharedColumns.customer as ColumnDef<PauseListItem>,
+    sharedColumns.customer_phone as ColumnDef<PauseListItem>,
     sharedColumns.product_name as ColumnDef<PauseListItem>,
     sharedColumns.pause_issue as ColumnDef<PauseListItem>,
     sharedColumns.reason as ColumnDef<PauseListItem>,
@@ -753,6 +770,7 @@ function PauseListTab() {
 
   const byIssueColumns: ColumnDef<PauseByIssueResponse>[] = [
     sharedColumns.customer as ColumnDef<PauseByIssueResponse>,
+    sharedColumns.customer_phone as ColumnDef<PauseByIssueResponse>,
     sharedColumns.product_name as ColumnDef<PauseByIssueResponse>,
     sharedColumns.pause_issue as ColumnDef<PauseByIssueResponse>,
     sharedColumns.reason as ColumnDef<PauseByIssueResponse>,
@@ -782,7 +800,7 @@ function PauseListTab() {
         basic={
           <Input
             className="w-36"
-            placeholder="호 검색 (YYYYMM)"
+            placeholder="휴지호 (YYYYMM)"
             maxLength={6}
             value={issueFilter}
             onChange={(e) => { setIssueFilter(e.target.value.replace(/\D/g, "")); setPage(1); }}
@@ -804,6 +822,7 @@ function PauseListTab() {
               emptyMessage={`${formatIssue(debouncedIssue)} 호 휴지 내역이 없습니다.`}
               onRowClick={handleRowClick}
               activeRowId={selectedPauseId ?? undefined}
+              tableFixed
             />
           ) : (
             <DataTable
@@ -814,6 +833,7 @@ function PauseListTab() {
               emptyMessage="휴지 내역이 없습니다."
               onRowClick={handleRowClick}
               activeRowId={selectedPauseId ?? undefined}
+              tableFixed
             />
           )}
         </div>

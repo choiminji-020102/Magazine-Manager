@@ -36,6 +36,8 @@ interface DataTableProps<T> {
   sortOrder?: "asc" | "desc";
   /** 정렬 변경 콜백 */
   onSortChange?: (sortBy: string, sortOrder: "asc" | "desc") => void;
+  /** table-fixed 레이아웃 적용 여부 (열 너비 강제 고정) */
+  tableFixed?: boolean;
 }
 
 /** 로딩 중 표시할 shimmer 스켈레톤 행 */
@@ -82,6 +84,7 @@ export function DataTable<T>({
   sortBy,
   sortOrder,
   onSortChange,
+  tableFixed,
 }: DataTableProps<T>) {
   const hasSelection = !!onSelectionChange;
   const selectableRows = isRowSelectable
@@ -131,7 +134,7 @@ export function DataTable<T>({
 
   return (
     <div className="w-full overflow-x-auto">
-      <table className="w-full">
+      <table className={cn("w-full", tableFixed && "table-fixed")}>
         <thead>
           <tr className="border-b border-gray-200 bg-white">
             {hasSelection && (
