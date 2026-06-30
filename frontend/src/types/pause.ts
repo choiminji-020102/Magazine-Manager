@@ -24,9 +24,9 @@ export interface PauseResponse {
   reason?: string | null;
   admin_id: number;
   is_deleted: boolean;
-  deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
 }
 
 export interface PauseBatchCreateResponse {
@@ -36,9 +36,17 @@ export interface PauseBatchCreateResponse {
   next_send_issue?: string | null;
 }
 
-export interface PauseByIssueResponse extends PauseResponse {
+export interface PauseListItem extends PauseResponse {
+  order_channel?: string | null;
   product_name?: string | null;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+}
+
+export interface PauseByIssueResponse extends PauseResponse {
   customer_id?: number | null;
+  order_channel?: string | null;
+  product_name?: string | null;
   customer_name?: string | null;
   customer_phone?: string | null;
 }

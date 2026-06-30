@@ -51,10 +51,19 @@ class PauseBatchCreateResponse(BaseModel):
     next_send_issue: Optional[str] = None      # 다음 발송 예정 호
 
 
+class PauseListResponse(PauseResponse):
+    """전체 목록 조회 시 고객/상품 정보 포함"""
+    order_channel: Optional[str] = None
+    product_name: Optional[str] = None
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
+
+
 class PauseByIssueResponse(PauseResponse):
     """호별 조회 시 고객/상품 정보 포함"""
-    product_name: Optional[str] = None
     customer_id: Optional[int] = None
+    order_channel: Optional[str] = None
+    product_name: Optional[str] = None
     customer_name: Optional[str] = None
     customer_phone: Optional[str] = None
 
@@ -66,7 +75,6 @@ class PauseListQuery(BaseModel):
     limit: int = Field(20, ge=1, le=100)
     order_item_id: Optional[int] = None
     pause_issue: Optional[str] = None
-    is_deleted: bool = False
     admin_id: Optional[int] = None
     sort_by: str = "created_at"
     sort_order: str = "desc"
@@ -78,7 +86,6 @@ class PauseListQuery(BaseModel):
         limit: int = Query(20, ge=1, le=100),
         order_item_id: Optional[int] = Query(None),
         pause_issue: Optional[str] = Query(None),
-        is_deleted: bool = Query(False),
         admin_id: Optional[int] = Query(None),
         sort_by: str = Query("created_at"),
         sort_order: str = Query("desc"),
@@ -88,7 +95,6 @@ class PauseListQuery(BaseModel):
             limit=limit,
             order_item_id=order_item_id,
             pause_issue=pause_issue,
-            is_deleted=is_deleted,
             admin_id=admin_id,
             sort_by=sort_by,
             sort_order=sort_order,

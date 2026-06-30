@@ -58,14 +58,13 @@ def get_pauses_by_order_item(db: Session, order_item_id: int) -> List[Pause]:
     return pause_crud.read_pauses_by_order_item_id(db=db, order_item_id=order_item_id)
 
 
-def list_pauses(db: Session, query: PauseListQuery) -> Tuple[List[Pause], int]:
+def list_pauses(db: Session, query: PauseListQuery) -> Tuple[List[dict], int]:
     return pause_crud.list_pauses(
         db=db,
         page=query.page,
         limit=query.limit,
         order_item_id=query.order_item_id,
         pause_issue=query.pause_issue,
-        is_deleted=query.is_deleted,
         admin_id=query.admin_id,
         sort_by=query.sort_by,
         sort_order=query.sort_order,
@@ -79,6 +78,7 @@ def get_pauses_by_issue(db: Session, issue: str) -> List[dict]:
             Pause,
             OrderItem.product_name,
             Order.customer_id,
+            Order.order_channel,
             Customer.customer_name,
             Customer.customer_phone,
         )
@@ -102,10 +102,11 @@ def get_pauses_by_issue(db: Session, issue: str) -> List[dict]:
             "deleted_at": p.deleted_at,
             "product_name": product_name,
             "customer_id": customer_id,
+            "order_channel": order_channel,
             "customer_name": customer_name,
             "customer_phone": customer_phone,
         }
-        for p, product_name, customer_id, customer_name, customer_phone in results
+        for p, product_name, customer_id, order_channel, customer_name, customer_phone in results
     ]
 
 

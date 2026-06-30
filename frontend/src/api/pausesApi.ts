@@ -5,6 +5,7 @@ import type {
   PauseBatchCreate,
   PauseUpdate,
   PauseResponse,
+  PauseListItem,
   PauseBatchCreateResponse,
   PauseByIssueResponse,
 } from "../types/pause";
@@ -16,12 +17,11 @@ export const pausesApi = {
     limit?: number;
     order_item_id?: number | null;
     pause_issue?: string | null;
-    is_deleted?: boolean;
     admin_id?: number | null;
     sort_by?: string;
     sort_order?: string;
   }) => {
-    return api.get<PaginatedResponse<PauseResponse>>("/pauses", { params });
+    return api.get<PaginatedResponse<PauseListItem>>("/pauses", { params });
   },
 
   // GET /order-items/{order_item_id}/pauses - 품목별 휴지 목록

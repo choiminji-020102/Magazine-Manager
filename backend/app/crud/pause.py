@@ -7,6 +7,9 @@ from sqlalchemy.orm import Session
 
 # 로컬 애플리케이션
 from app.core.utils import now_kst
+from app.models.customer import Customer
+from app.models.order import Order
+from app.models.order_item import OrderItem
 from app.models.pause import Pause
 from app.schemas.pause import PauseUpdate
 
@@ -40,30 +43,56 @@ def list_pauses(
     limit: int = 20,
     order_item_id: Optional[int] = None,
     pause_issue: Optional[str] = None,
-    is_deleted: bool = False,
     admin_id: Optional[int] = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
-) -> Tuple[List[Pause], int]:
-    query = db.query(Pause)
+) -> Tuple[List[dict], int]:
+    query = (
+        db.query(
+            Pause,
+            OrderItem.product_name,
+            Customer.customer_name,
+            Customer.customer_phone,
+            Order.order_channel,
+        )
+        .join(OrderItem, Pause.order_item_id == OrderItem.order_item_id)
+        .join(Order, OrderItem.order_id == Order.order_id)
+        .join(Customer, Order.customer_id == Customer.customer_id)
+        .filter(Pause.deleted_at.is_(None))
+    )
 
     if order_item_id is not None:
         query = query.filter(Pause.order_item_id == order_item_id)
     if pause_issue:
         query = query.filter(Pause.pause_issue == pause_issue)
-    if is_deleted:
-        query = query.filter(Pause.deleted_at.isnot(None))
-    else:
-        query = query.filter(Pause.deleted_at.is_(None))
     if admin_id is not None:
         query = query.filter(Pause.admin_id == admin_id)
 
-    allowed_sort = {"created_at", "updated_at", "pause_issue", "deleted_at"}
+    allowed_sort = {"created_at", "updated_at", "pause_issue"}
     sort_col = getattr(Pause, sort_by if sort_by in allowed_sort else "created_at")
     query = query.order_by(sort_col.asc() if sort_order == "asc" else sort_col.desc())
 
     total = query.count()
-    items = query.offset((page - 1) * limit).limit(limit).all()
+    rows = query.offset((page - 1) * limit).limit(limit).all()
+
+    items = [
+        {
+            "pause_id": p.pause_id,
+            "order_item_id": p.order_item_id,
+            "pause_issue": p.pause_issue,
+            "reason": p.reason,
+            "admin_id": p.admin_id,
+            "is_deleted": p.is_deleted,
+            "created_at": p.created_at,
+            "updated_at": p.updated_at,
+            "deleted_at": p.deleted_at,
+            "product_name": product_name,
+            "customer_name": customer_name,
+            "customer_phone": customer_phone,
+            "order_channel": order_channel,
+        }
+        for p, product_name, customer_name, customer_phone, order_channel in rows
+    ]
     return items, total
 
 

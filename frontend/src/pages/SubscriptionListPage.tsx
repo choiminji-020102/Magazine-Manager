@@ -35,7 +35,7 @@ import { formatAmount, formatDate, formatPhone, formatIssue } from "@/utils/form
 import { PRODUCT_KIND_LABEL } from "@/utils/constants";
 import { VipFlagsDisplay } from "@/components/common/VipFlags";
 import type { SubscriptionListItem } from "@/types/orderItem";
-import type { PauseResponse, PauseByIssueResponse } from "@/types/pause";
+import type { PauseListItem, PauseByIssueResponse } from "@/types/pause";
 
 const PRODUCT_KIND_OPTIONS = [
   { value: "_all", label: "전체 종류" },
@@ -646,11 +646,35 @@ function SubscriptionListTab() {
 function PauseListTab() {
   const [page, setPage] = useState(1);
   const [issueFilter, setIssueFilter] = useState("");
-  const [showDeleted, setShowDeleted] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<SubscriptionListItem | null>(null);
+  const [selectedPauseId, setSelectedPauseId] = useState<number | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
   const limit = 20;
 
   const debouncedIssue = useDebounce(issueFilter, 300);
   const isIssueMode = debouncedIssue.length === 6;
+
+  const handlePanelClose = useCallback(() => {
+    setPanelOpen(false);
+    setTimeout(() => { setSelectedItem(null); setSelectedPauseId(null); }, 250);
+  }, []);
+
+  const handleRowClick = useCallback(async (pause: PauseListItem | PauseByIssueResponse) => {
+    try {
+      const res = await orderItemsApi.getOrderItem(pause.order_item_id);
+      const orderItem = res.data.data!;
+      setSelectedItem({
+        ...orderItem,
+        customer_name: pause.customer_name,
+        customer_phone: pause.customer_phone,
+        order_channel: pause.order_channel,
+      } as SubscriptionListItem);
+      setSelectedPauseId(pause.pause_id);
+      setPanelOpen(true);
+    } catch {
+      toast.error("구독 상세 정보를 불러오지 못했습니다.");
+    }
+  }, []);
 
   // 호별 조회 (YYYYMM 정확히 입력 시)
   const { data: byIssueRes, isLoading: byIssueLoading } = useQuery({
@@ -661,125 +685,82 @@ function PauseListTab() {
 
   // 전체 목록 조회 (기본)
   const { data: listRes, isLoading: listLoading } = useQuery({
-    queryKey: ["pauses", page, limit, debouncedIssue, showDeleted],
+    queryKey: ["pauses", page, limit, debouncedIssue],
     queryFn: () =>
       pausesApi.getPauses({
         page,
         limit,
         pause_issue: debouncedIssue || null,
-        is_deleted: showDeleted ? undefined : false,
       }).then((r) => r.data),
     enabled: !isIssueMode,
   });
 
   const isLoading = isIssueMode ? byIssueLoading : listLoading;
 
-  // 호별 조회 컬럼 (고객 정보 포함)
-  const byIssueColumns: ColumnDef<PauseByIssueResponse>[] = [
-    {
+  // 공통 컬럼 셀 (전체 목록 / 호별 조회 모두 동일한 구성)
+  const sharedColumns = {
+    customer: {
       key: "customer",
       header: "고객",
-      cell: (row) => (
+      cell: (row: PauseListItem | PauseByIssueResponse) => (
         <div>
           <div className="text-[13px] font-medium text-gray-900">{row.customer_name ?? "-"}</div>
-          <div className="text-xs text-gray-400 font-mono">{formatPhone(row.customer_phone)}</div>
+          <div className="text-xs text-gray-400">{formatPhone(row.customer_phone)}</div>
         </div>
       ),
     },
-    {
+    product_name: {
       key: "product_name",
       header: "상품",
-      cell: (row) => (
-        <span className="text-xs text-gray-700">{row.product_name ?? "-"}</span>
+      cell: (row: PauseListItem | PauseByIssueResponse) => (
+        <span className="text-[13px] text-gray-700">{row.product_name ?? "-"}</span>
       ),
     },
-    {
+    pause_issue: {
       key: "pause_issue",
       header: "휴지 호",
-      cell: (row) => (
-        <span className="text-xs font-mono text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
-          {formatIssue(row.pause_issue)}
-        </span>
-      ),
-      width: "w-24",
-    },
-    {
-      key: "reason",
-      header: "사유",
-      cell: (row) => (
-        <span className="text-xs text-gray-500">{row.reason ?? "-"}</span>
-      ),
-    },
-    {
-      key: "status",
-      header: "상태",
-      cell: (row) => (
-        row.is_deleted
-          ? <span className="text-[11px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">복구됨</span>
-          : <span className="text-[11px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">휴지</span>
-      ),
-      width: "w-20",
-    },
-    {
-      key: "created_at",
-      header: "등록일",
-      cell: (row) => (
-        <span className="text-xs text-gray-400">{formatDate(row.created_at)}</span>
-      ),
-      width: "w-24",
-    },
-  ];
-
-  // 전체 목록 컬럼
-  const listColumns: ColumnDef<PauseResponse>[] = [
-    {
-      key: "order_item_id",
-      header: "품목 ID",
-      cell: (row) => (
-        <span className="text-xs font-mono text-gray-400">#{row.order_item_id}</span>
-      ),
-      width: "w-24",
-    },
-    {
-      key: "pause_issue",
-      header: "휴지 호",
-      cell: (row) => (
+      cell: (row: PauseListItem | PauseByIssueResponse) => (
         <span className="text-xs font-mono text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
           {formatIssue(row.pause_issue)}
         </span>
       ),
       width: "w-28",
     },
-    {
+    reason: {
       key: "reason",
       header: "사유",
-      cell: (row) => (
+      cell: (row: PauseListItem | PauseByIssueResponse) => (
         <span className="text-xs text-gray-500">{row.reason ?? "-"}</span>
       ),
     },
-    {
-      key: "status",
-      header: "상태",
-      cell: (row) => (
-        row.is_deleted
-          ? <span className="text-[11px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">복구됨</span>
-          : <span className="text-[11px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">휴지</span>
-      ),
-      width: "w-20",
-    },
-    {
+    created_at: {
       key: "created_at",
       header: "등록일",
-      cell: (row) => (
+      cell: (row: PauseListItem | PauseByIssueResponse) => (
         <span className="text-xs text-gray-400">{formatDate(row.created_at)}</span>
       ),
-      width: "w-24",
+      width: "w-28",
     },
+  };
+
+  const listColumns: ColumnDef<PauseListItem>[] = [
+    sharedColumns.customer as ColumnDef<PauseListItem>,
+    sharedColumns.product_name as ColumnDef<PauseListItem>,
+    sharedColumns.pause_issue as ColumnDef<PauseListItem>,
+    sharedColumns.reason as ColumnDef<PauseListItem>,
+    sharedColumns.created_at as ColumnDef<PauseListItem>,
+  ];
+
+  const byIssueColumns: ColumnDef<PauseByIssueResponse>[] = [
+    sharedColumns.customer as ColumnDef<PauseByIssueResponse>,
+    sharedColumns.product_name as ColumnDef<PauseByIssueResponse>,
+    sharedColumns.pause_issue as ColumnDef<PauseByIssueResponse>,
+    sharedColumns.reason as ColumnDef<PauseByIssueResponse>,
+    sharedColumns.created_at as ColumnDef<PauseByIssueResponse>,
   ];
 
   const byIssueItems = byIssueRes?.data ?? [];
   const listItems = listRes?.items ?? [];
-
   const totalCount = isIssueMode ? byIssueItems.length : (listRes?.total ?? 0);
 
   return (
@@ -799,34 +780,17 @@ function PauseListTab() {
 
       <FilterBar
         basic={
-          <>
-            <Input
-              className="w-36"
-              placeholder="호 검색 (YYYYMM)"
-              maxLength={6}
-              value={issueFilter}
-              onChange={(e) => { setIssueFilter(e.target.value.replace(/\D/g, "")); setPage(1); }}
-            />
-            {!isIssueMode && (
-              <button
-                onClick={() => { setShowDeleted((v) => !v); setPage(1); }}
-                className={`text-xs px-2.5 py-1.5 rounded border transition-colors whitespace-nowrap ${
-                  showDeleted
-                    ? "bg-gray-100 border-gray-300 text-gray-600 font-medium"
-                    : "border-gray-200 text-gray-500 hover:bg-gray-50"
-                }`}
-              >
-                복구된 휴지 포함
-              </button>
-            )}
-          </>
+          <Input
+            className="w-36"
+            placeholder="호 검색 (YYYYMM)"
+            maxLength={6}
+            value={issueFilter}
+            onChange={(e) => { setIssueFilter(e.target.value.replace(/\D/g, "")); setPage(1); }}
+          />
         }
-        hasActiveFilters={!!(issueFilter || showDeleted)}
-        onReset={() => { setIssueFilter(""); setShowDeleted(false); setPage(1); }}
-        chips={[
-          ...(issueFilter ? [{ label: `호: ${issueFilter}`, onRemove: () => { setIssueFilter(""); setPage(1); } }] : []),
-          ...(showDeleted ? [{ label: "복구된 휴지 포함", onRemove: () => { setShowDeleted(false); setPage(1); } }] : []),
-        ]}
+        hasActiveFilters={!!issueFilter}
+        onReset={() => { setIssueFilter(""); setPage(1); }}
+        chips={issueFilter ? [{ label: `호: ${issueFilter}`, onRemove: () => { setIssueFilter(""); setPage(1); } }] : []}
       />
 
       <div className="flex-1 overflow-hidden bg-white">
@@ -838,6 +802,8 @@ function PauseListTab() {
               getRowId={(row) => row.pause_id}
               isLoading={isLoading}
               emptyMessage={`${formatIssue(debouncedIssue)} 호 휴지 내역이 없습니다.`}
+              onRowClick={handleRowClick}
+              activeRowId={selectedPauseId ?? undefined}
             />
           ) : (
             <DataTable
@@ -846,6 +812,8 @@ function PauseListTab() {
               getRowId={(row) => row.pause_id}
               isLoading={isLoading}
               emptyMessage="휴지 내역이 없습니다."
+              onRowClick={handleRowClick}
+              activeRowId={selectedPauseId ?? undefined}
             />
           )}
         </div>
@@ -862,6 +830,12 @@ function PauseListTab() {
           />
         </div>
       )}
+
+      <SlidingPanel open={panelOpen} onClose={handlePanelClose}>
+        {selectedItem && (
+          <SubscriptionDetailPanel item={selectedItem} onClose={handlePanelClose} />
+        )}
+      </SlidingPanel>
     </>
   );
 }

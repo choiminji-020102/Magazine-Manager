@@ -17,6 +17,7 @@ from app.schemas.pause import (
     PauseByIssueResponse,
     PauseCreate,
     PauseListQuery,
+    PauseListResponse,
     PauseResponse,
     PauseUpdate,
 )
@@ -32,7 +33,7 @@ require_manager = require_roles(["SUPER_ADMIN", "ADMIN", "MANAGER"])
 
 @router.get(
     "/pauses",
-    response_model=PaginatedResponse[PauseResponse],
+    response_model=PaginatedResponse[PauseListResponse],
 )
 def list_pauses(
     query: PauseListQuery = Depends(PauseListQuery.as_query_params),
@@ -48,7 +49,7 @@ def list_pauses(
         page=query.page,
         limit=query.limit,
         total_pages=total_pages,
-        items=[PauseResponse.model_validate(p) for p in items],
+        items=[PauseListResponse(**p) for p in items],
     )
 
 
