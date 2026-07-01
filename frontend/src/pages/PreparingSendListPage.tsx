@@ -10,7 +10,6 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { Pagination } from "@/components/common/Pagination";
 import { FileDown, Package, RefreshCw } from "lucide-react";
 import RegeneratePreparingConfirmModal from "@/components/dispatch/RegeneratePreparingConfirmModal";
-import AddToPreparingYearlyModal from "@/components/dispatch/AddToPreparingYearlyModal";
 import TransitionToDeliveredModal from "@/components/dispatch/TransitionToDeliveredModal";
 import SendDetailPanel from "@/components/dispatch/SendDetailPanel";
 import PreparingSendCard from "@/components/dispatch/PreparingSendCard";
@@ -278,30 +277,19 @@ export default function PreparingSendListPage() {
         ]}
       />
 
-      {/* 발송 생성 모달 — 정기는 incremental(기존 박스 보존), 단품/VIP 는 전체 재계산.
+      {/* 발송 생성 모달 — 단품/정기/VIP 모두 전체 재계산(해당 scope+issue의 PREPARING만 삭제 후 재생성).
           호 입력은 모달 안에서 직접 받음 (페이지 상단 '발송 호 필터'와 무관). */}
-      {scope === "yearly" ? (
-        <AddToPreparingYearlyModal
-          open={regenerateOpen}
-          onClose={() => setRegenerateOpen(false)}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
-            queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
-            setSelectedIds(new Set());
-          }}
-        />
-      ) : (
-        <RegeneratePreparingConfirmModal
-          open={regenerateOpen}
-          onClose={() => setRegenerateOpen(false)}
-          scope={scope}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
-            queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
-            setSelectedIds(new Set());
-          }}
-        />
-      )}
+      <RegeneratePreparingConfirmModal
+        open={regenerateOpen}
+        onClose={() => setRegenerateOpen(false)}
+        scope={scope}
+        slotLabel={activeVipSlots.find((s) => s.slot_number === vipSlotOf(scope))?.label ?? null}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
+          queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
+          setSelectedIds(new Set());
+        }}
+      />
 
       {/* 엑셀 다운로드 다이얼로그 — 호 입력은 다이얼로그 안에서 직접 받음 */}
       <MonthlyExcelDialog

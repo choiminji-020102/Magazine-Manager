@@ -13,6 +13,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   scope: DispatchScope;
+  slotLabel?: string | null;
   onSuccess?: (created: number, deleted: number) => void;
 }
 
@@ -36,9 +37,12 @@ export default function RegeneratePreparingConfirmModal({
   open,
   onClose,
   scope,
+  slotLabel,
   onSuccess,
 }: Props) {
   const requiresIssue = scopeRequiresIssue(scope);
+  // VIP 슬롯은 커스텀 라벨(예: "해외배송")이 있으면 그걸 쓰고, 없으면 "VIP N" 기본값
+  const displayLabel = slotLabel || SCOPE_LABEL[scope];
   const [issue, setIssue] = useState("");
   const [issueError, setIssueError] = useState(false);
   const [preview, setPreview] = useState<PreviewSkippedIssuesResponse | null>(null);
@@ -112,18 +116,26 @@ export default function RegeneratePreparingConfirmModal({
         if (!mutation.isPending) onClose();
       }}
       onConfirm={handleConfirm}
-      title={`[발송 생성] ${SCOPE_LABEL[scope]}`}
+      title={`[발송 생성] ${displayLabel}`}
       description={
         <div className="space-y-3">
-          {scope === "monthly" ? (
+          {scope === "monthly" && (
             <p>
               결제 완료된 단품을 우편번호별로 묶어 발송 박스로 만들어요.
               <br />
               같은 주소에 들어갈 단품들이 한 박스에 모입니다.
             </p>
-          ) : (
+          )}
+          {scope === "yearly" && (
             <p>
-              <span className="font-medium text-gray-900">{SCOPE_LABEL[scope]}</span>로 지정된
+              결제 완료된 정기구독을 입력한 호 기준으로 발송 박스로 만들어요.
+              <br />
+              정기구독은 한 건당 박스 하나로 만들어지고, 단품은 포함되지 않습니다.
+            </p>
+          )}
+          {scope.startsWith("vip") && (
+            <p>
+              <span className="font-medium text-gray-900">{displayLabel}</span>로 지정된
               주소의 결제를 모아 발송 박스로 만들어요.
               <br />
               결제 완료된 주문이면 정기·단품 가리지 않고 모두 포함됩니다.
@@ -180,7 +192,11 @@ export default function RegeneratePreparingConfirmModal({
             </div>
           )}
           <p className="text-xs text-amber-700 leading-relaxed">
-            ⚠️ 기존에 있던 박스는 새로 그려지므로, 박스에 적어둔 메모는 사라집니다.
+            {scope === "yearly"
+              ? "⚠️ 입력한 호에 해당하는 기존 박스만 새로 그려져요 (다른 호의 준비중 박스는 그대로 유지됩니다). 그 박스에 적어둔 메모는 사라집니다."
+              : scope.startsWith("vip")
+              ? "⚠️ 이 슬롯의 정기구독은 입력한 호의 박스만 새로 그려지지만, 단품은 호와 무관하게 이 슬롯의 기존 박스가 모두 새로 그려져요. 그 박스에 적어둔 메모는 사라집니다."
+              : "⚠️ 기존에 있던 박스는 모두 새로 그려지므로, 박스에 적어둔 메모는 사라집니다."}
           </p>
         </div>
       }
