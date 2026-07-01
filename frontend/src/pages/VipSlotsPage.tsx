@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -24,20 +24,40 @@ export default function VipSlotsPage() {
   const enabledCount = data?.filter((s) => s.is_enabled).length ?? 0;
   const selectedSlot = data?.find((s) => s.slot_number === selectedSlotNumber) ?? null;
 
+  // 슬롯별 배정 배송지 건수 — 목록 헤더의 "총 N건"과 각 행의 건수 표시가 같은 값을 공유
+  const countQueries = useQueries({
+    queries: (data ?? []).map((slot) => ({
+      queryKey: ["vip-slot-address-count", slot.slot_number],
+      queryFn: () =>
+        addressesApi
+          .getAddresses({ vip_slot_number: slot.slot_number, limit: 1 })
+          .then((r) => r.data.total ?? 0),
+    })),
+  });
+  const countBySlot = new Map(
+    (data ?? []).map((slot, i) => [slot.slot_number, countQueries[i]?.data ?? 0]),
+  );
+  const totalCount = countQueries.reduce((sum, q) => sum + (q.data ?? 0), 0);
+
   return (
     <div className="flex-1 min-h-0 flex flex-col">
       <PageHeader
-        left={<span className="text-sm text-gray-500">{enabledCount}개 활성</span>}
+        left={
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">총 {totalCount}건</span>
+            <span className="text-gray-300">·</span>
+            <span className="text-sm text-gray-500">{enabledCount}개 활성</span>
+          </div>
+        }
       />
 
       <div className="flex-1 min-h-0 flex overflow-hidden">
         {/* 왼쪽: 그룹 목록 */}
         <div className="w-72 flex-shrink-0 border-r border-gray-200 flex flex-col bg-gray-50">
-          <div className="px-4 py-2.5 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">그룹</span>
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">활성</span>
-            </div>
+          <div className="grid grid-cols-[1fr_2.5rem_2.5rem] items-center gap-3 px-4 py-2.5 border-b border-gray-200">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">그룹</span>
+            <span className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">건수</span>
+            <span className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">활성</span>
           </div>
           <div className="flex-1 overflow-y-auto">
             {isLoading ? (
@@ -51,6 +71,7 @@ export default function VipSlotsPage() {
                 <SlotListItem
                   key={slot.slot_number}
                   slot={slot}
+                  count={countBySlot.get(slot.slot_number) ?? 0}
                   isSelected={selectedSlotNumber === slot.slot_number}
                   onClick={() => setSelectedSlotNumber(slot.slot_number)}
                   onSaved={() => queryClient.invalidateQueries({ queryKey: ["vip-slots"] })}
@@ -82,11 +103,13 @@ export default function VipSlotsPage() {
 
 function SlotListItem({
   slot,
+  count,
   isSelected,
   onClick,
   onSaved,
 }: {
   slot: VipSlotResponse;
+  count: number;
   isSelected: boolean;
   onClick: () => void;
   onSaved: () => void;
@@ -100,14 +123,15 @@ function SlotListItem({
 
   return (
     <div
-      className={`flex items-center border-b border-gray-100 transition-colors ${
+      onClick={onClick}
+      className={`grid grid-cols-[1fr_2.5rem_2.5rem] items-center gap-3 px-4 py-2.5 border-b border-gray-100 transition-colors cursor-pointer ${
         isSelected
           ? "bg-blue-50 border-l-[3px] border-l-blue-600"
           : "hover:bg-gray-100 border-l-[3px] border-l-transparent"
       }`}
     >
-      {/* 클릭 영역 (그룹 선택) */}
-      <button className="flex items-center gap-3 flex-1 min-w-0 px-4 py-2.5 text-left" onClick={onClick}>
+      {/* 그룹 정보 (행 전체 클릭으로 선택) */}
+      <div className="flex items-center gap-3 min-w-0">
         <span
           className={`w-2 h-2 rounded-full flex-shrink-0 ${
             slot.is_enabled ? "bg-green-500" : "bg-gray-300"
@@ -116,12 +140,14 @@ function SlotListItem({
         <span className="font-mono text-xs bg-white border border-gray-200 px-2 py-0.5 rounded text-gray-500 flex-shrink-0">
           vip{slot.slot_number}
         </span>
-        <span className={`text-[13px] truncate ${slot.label ? "text-gray-700" : "text-gray-400"}`}>
+        <span className={`flex-1 min-w-0 truncate text-[13px] ${slot.label ? "text-gray-700" : "text-gray-400"}`}>
           {slot.label ?? "미설정"}
         </span>
-      </button>
-      {/* 활성화 토글 (클릭 독립) */}
-      <div className="px-4 py-3 flex-shrink-0">
+      </div>
+      {/* 배정 배송지 건수 */}
+      <span className="text-right text-xs font-medium tabular-nums text-gray-900">{count}건</span>
+      {/* 활성화 토글 (클릭 독립 — 행 선택과 분리) */}
+      <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
         {toggleMutation.isPending ? (
           <LoadingSpinner size="sm" />
         ) : (
