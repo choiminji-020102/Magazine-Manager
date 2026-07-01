@@ -176,19 +176,36 @@ def delete_single_preparing_send(db: Session, send: Send) -> int:
     return deleted_items
 
 
-def delete_preparing_sends(db: Session, scope: str) -> int:
+def delete_preparing_sends(db: Session, scope: str, issue: Optional[str] = None) -> int:
     """PREPARING Send + SendItem 일괄 삭제. 삭제된 Send 수 반환.
 
     scope:
-      - "monthly" : MONTHLY + 활성 vipN 모두 false 인 OrderItem 의 PREPARING Send만
-      - "yearly"  : YEARLY + 활성 vipN 모두 false 인 OrderItem 의 PREPARING Send만
-      - "vip1".."vip6" : 해당 슬롯(Address.vipN=true)의 PREPARING Send만 (kind 무관)
+      - "monthly" : MONTHLY + 활성 vipN 모두 false 인 OrderItem 의 PREPARING Send 전체.
+                    issue 는 받아도 사용하지 않음 (MONTHLY는 호 개념이 없어 항상 전체 삭제).
+      - "yearly"  : YEARLY + 활성 vipN 모두 false 인 OrderItem 의 PREPARING Send만.
+                    **issue 필수** — 그 호(SendItem.issue)의 Send만 삭제한다. YEARLY는
+                    Send:SendItem 이 항상 1:1이라 박스째 삭제와 동일하게 안전함.
+                    issue 없이 호출 시 ValueError (다른 호의 미배송 PREPARING을 실수로
+                    통째 날리는 사고 방지 — 예전엔 issue 없으면 전체 삭제했었음).
+      - "vip1".."vip6" : 해당 슬롯(Address.vipN=true)의 PREPARING SendItem.
+                    **issue 필수.** 한 Send 에 정기+단품이 섞여 있을 수 있어 SendItem
+                    단위로 골라 지운다. MONTHLY SendItem 은 issue 무관 전량 대상
+                    (scope=monthly와 동일 정책), YEARLY SendItem 은 그 호만 대상.
+                    삭제 후 SendItem 이 0개가 된 Send 만 함께 삭제 — 다른 호/종류가 남은
+                    박스는 그대로 보존한다.
 
     각 scope 는 자기 영역만 삭제 — 다른 탭의 PREPARING 절대 건드리지 않음 (격리).
     DELIVERED/CANCELLED Send 는 모든 scope 에서 절대 건드리지 않음.
-    Bulk DELETE 사용 (SendItem 먼저 → Send 나중, FK 순서 준수).
     호출자가 db.commit() 책임.
     """
+    is_vip = scope.startswith("vip") and scope[3:].isdigit() and 1 <= int(scope[3:]) <= 6
+    if scope not in ("monthly", "yearly") and not is_vip:
+        raise ValueError(f"잘못된 scope: {scope}")
+    if scope == "yearly" and not issue:
+        raise ValueError("scope=yearly 는 issue가 필수입니다.")
+    if is_vip and not issue:
+        raise ValueError(f"scope={scope} 는 issue가 필수입니다.")
+
     if scope in ("monthly", "yearly"):
         kind = "MONTHLY" if scope == "monthly" else "YEARLY"
         active_slots = [s.slot_number for s in vip_slots.list_slots() if s.is_enabled]
@@ -201,6 +218,8 @@ def delete_preparing_sends(db: Session, scope: str) -> int:
                 OrderItem.product_kind == kind,
             )
         )
+        if kind == "YEARLY":
+            target_ids_query = target_ids_query.filter(SendItem.issue == issue)
         if active_slots:
             vip_columns = [getattr(Address, f"vip{n}") for n in active_slots]
             target_ids_query = (
@@ -209,35 +228,53 @@ def delete_preparing_sends(db: Session, scope: str) -> int:
                 .filter(not_(or_(*vip_columns)))
             )
         target_ids_query = target_ids_query.distinct()
-    elif scope.startswith("vip") and scope[3:].isdigit() and 1 <= int(scope[3:]) <= 6:
-        slot_number = int(scope[3:])
-        vip_col = getattr(Address, f"vip{slot_number}")
-        target_ids_query = (
-            db.query(Send.send_id)
-            .join(SendItem, SendItem.send_id == Send.send_id)
-            .join(OrderItem, OrderItem.order_item_id == SendItem.order_item_id)
-            .join(Address, Address.address_id == OrderItem.address_id)
-            .filter(
-                Send.send_status == "PREPARING",
-                vip_col.is_(True),
-            )
-            .distinct()
-        )
-    else:
-        raise ValueError(f"잘못된 scope: {scope}")
 
-    target_send_ids = [row[0] for row in target_ids_query.all()]
-    if not target_send_ids:
+        target_send_ids = [row[0] for row in target_ids_query.all()]
+        if not target_send_ids:
+            return 0
+
+        # SendItem 먼저 삭제 (FK) → Send 삭제. 여기서 걸린 target_send_ids 는
+        # "이 kind(+issue) 만 담긴 Send" 이므로 통째 삭제해도 다른 데이터 유실 없음.
+        db.query(SendItem).filter(
+            SendItem.send_id.in_(target_send_ids)
+        ).delete(synchronize_session=False)
+        deleted = db.query(Send).filter(
+            Send.send_id.in_(target_send_ids)
+        ).delete(synchronize_session=False)
+        return deleted
+
+    # vip1..vip6
+    slot_number = int(scope[3:])
+    vip_col = getattr(Address, f"vip{slot_number}")
+
+    target_si_query = (
+        db.query(SendItem.send_item_id, SendItem.send_id)
+        .join(Send, SendItem.send_id == Send.send_id)
+        .join(OrderItem, OrderItem.order_item_id == SendItem.order_item_id)
+        .join(Address, Address.address_id == OrderItem.address_id)
+        .filter(
+            Send.send_status == "PREPARING",
+            vip_col.is_(True),
+            # MONTHLY는 issue 무관 전량, YEARLY는 그 호만 대상
+            or_(OrderItem.product_kind == "MONTHLY", SendItem.issue == issue),
+        )
+    )
+    rows = target_si_query.distinct().all()
+    if not rows:
         return 0
 
-    # SendItem 먼저 삭제 (FK)
+    target_si_ids = [r[0] for r in rows]
+    affected_send_ids = {r[1] for r in rows}
+
     db.query(SendItem).filter(
-        SendItem.send_id.in_(target_send_ids)
+        SendItem.send_item_id.in_(target_si_ids)
     ).delete(synchronize_session=False)
 
-    # Send 삭제
-    deleted = db.query(Send).filter(
-        Send.send_id.in_(target_send_ids)
-    ).delete(synchronize_session=False)
-
+    # 잔여 SendItem 이 0개가 된 Send 만 추가 삭제 (다른 호/종류가 남아있으면 박스 보존)
+    deleted = 0
+    for send_id in affected_send_ids:
+        remaining = db.query(SendItem).filter(SendItem.send_id == send_id).count()
+        if remaining == 0:
+            db.query(Send).filter(Send.send_id == send_id).delete(synchronize_session=False)
+            deleted += 1
     return deleted

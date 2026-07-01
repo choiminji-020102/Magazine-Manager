@@ -419,13 +419,13 @@ def regenerate_preparing_sends(
                 detail="VIP 발송 생성 시 issue 를 입력해야 합니다 (정기 SendItem 처리용).",
             )
 
-        deleted_count = send_crud.delete_preparing_sends(db=db, scope=scope)
+        deleted_count = send_crud.delete_preparing_sends(db=db, scope=scope, issue=issue)
         groups: List[SendGroup] = group_vip_for_send(db, slot_number, issue)
         created_sends = create_preparing_sends_from_groups(db, groups, issue=issue)
         return deleted_count, len(created_sends)
 
-    # 1. 삭제 (monthly / yearly)
-    deleted_count = send_crud.delete_preparing_sends(db=db, scope=scope)
+    # 1. 삭제 (monthly / yearly) — yearly는 이미 위에서 issue 필수 검증됨
+    deleted_count = send_crud.delete_preparing_sends(db=db, scope=scope, issue=issue)
 
     # 2. PAID OrderItem 조회
     yearly_items, monthly_items = get_paid_order_items_for_dispatch(db)
