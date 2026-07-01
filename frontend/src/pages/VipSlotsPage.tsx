@@ -145,7 +145,7 @@ function SlotListItem({
         </span>
       </div>
       {/* 배정 배송지 건수 */}
-      <span className="text-right text-xs font-medium tabular-nums text-gray-900">{count}건</span>
+      <span className="text-right text-xs tabular-nums text-gray-600">{count}건</span>
       {/* 활성화 토글 (클릭 독립 — 행 선택과 분리) */}
       <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
         {toggleMutation.isPending ? (
