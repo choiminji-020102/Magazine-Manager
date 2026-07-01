@@ -306,22 +306,30 @@ function SubscriptionListTab() {
     },
     {
       key: "customer",
-      header: "고객명",
+      header: "고객",
       cell: (row) => (
-        <div className="font-medium text-gray-900 text-[13px] flex items-center gap-1.5">
-          <span>{row.customer_name ?? "-"}</span>
-          {row.address && <VipFlagsDisplay address={row.address} slots={vipSlots} compact />}
+        <div>
+          <div className="font-medium text-gray-900 text-[13px] flex items-center gap-1.5 flex-wrap">
+            <span>{row.customer_name ?? "-"}</span>
+            {row.address && <VipFlagsDisplay address={row.address} slots={vipSlots} compact />}
+          </div>
+          <div className="text-xs text-gray-400 font-mono">{formatPhone(row.customer_phone)}</div>
         </div>
       ),
-      width: "w-28",
+      width: "w-40",
     },
     {
-      key: "customer_phone",
-      header: "연락처",
+      key: "recipient",
+      header: "수령인",
       cell: (row) => (
-        <span className="text-[13px] text-gray-700 font-mono">{formatPhone(row.customer_phone)}</span>
+        <div>
+          <div className="text-[13px] font-medium text-gray-900">{row.address?.recipient_name ?? "-"}</div>
+          <div className="text-xs text-gray-400 font-mono">
+            {row.address?.recipient_phone ? formatPhone(row.address.recipient_phone) : "-"}
+          </div>
+        </div>
       ),
-      width: "w-32",
+      width: "w-40",
     },
     {
       key: "product",
