@@ -119,6 +119,15 @@ export default function PreparingSendListPage() {
 
   const counts = useMemo(() => extractCounts(countData, scope), [countData, scope]);
 
+  // 정기(yearly): 카운트 신뢰 불가(첫 발송 이후엔 갱신 안 됨) → 고정 안내 문구로 대체
+  // 단품/VIP: 카운트는 정확하지만 "건" 단위가 품목 수인지 박스 수인지 모호 → 존재 여부만 표시
+  const noticeBanner = useMemo(() => {
+    if (scope === "yearly") {
+      return { text: "🔔 기출유에 명단을 보내기 전에 발송 생성을 먼저 해주세요", active: true };
+    }
+    return { text: `🔔 미생성 결제건 ${counts.count > 0 ? "있음" : "없음"}`, active: counts.count > 0 };
+  }, [scope, counts.count]);
+
   // 탭 전환 시 페이지·선택 초기화
   const handleTabChange = (next: string) => {
     setScope(next as DispatchScope);
@@ -179,8 +188,8 @@ export default function PreparingSendListPage() {
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-500">총 {total}건</span>
             <span className="text-gray-300">·</span>
-            <span className={`text-sm ${counts.count > 0 ? "text-orange-600" : "text-gray-400"}`}>
-              🔔 발송 미생성 결제 {counts.count}건
+            <span className={`text-sm ${noticeBanner.active ? "text-orange-600" : "text-gray-400"}`}>
+              {noticeBanner.text}
             </span>
           </div>
         }

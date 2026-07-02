@@ -96,7 +96,9 @@ export interface PreviewSkippedIssuesResponse {
 // 단일성 제약(V-7) 덕에 8키 합계 = 묶음별 total.
 // 프론트 표시:
 // - 카운트 배너 "총 N건" = sendsApi 응답의 total (Send 박스 단위, 필터 적용)
-// - 별도 알림 "🔔 발송 미생성 결제 M건" = total_count (OrderItem 단위, 호 무관) — 단위/필터 달라 괄호 패턴 안 씀
+// - 별도 알림(PreparingSendListPage noticeBanner): yearly는 카운트 신뢰 불가(첫 발송 이후 갱신 안 됨)라
+//   고정 안내문 노출, monthly/vip는 "건" 단위(품목 vs 박스) 모호성 때문에 *_count > 0 여부만 보고
+//   "미생성 결제건 있음/없음"으로 표시 — 숫자는 화면에 노출하지 않음
 export interface PaidNotPreparedCountResponse {
   // 신규 결제 (PAID 미반영)
   monthly_count: number;
