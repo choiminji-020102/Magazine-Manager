@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/useDebounce";
-import { X, Edit2, Plus } from "lucide-react";
+import { X, Edit2, Plus, MapPin } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -551,6 +551,17 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             <Button
               variant="outline"
               size="sm"
+              className="gap-1"
+              onClick={() => setAddressChangeOpen(true)}
+            >
+              <MapPin className="h-3 w-3" />
+              배송지 변경
+            </Button>
+          )}
+          {!["CANCELLED", "UNPAID_CANCELLED"].includes(order.order_status) && !editMode && (
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setCancelConfirm(true)}
               className="text-red-600 border-red-200 hover:bg-red-50"
             >
@@ -597,11 +608,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             </Section>
 
             {/* 배송지 정보 */}
-            <Section title="배송지" action={editMode ? (
-              <Button variant="outline" size="sm" className="h-6 text-xs px-2" onClick={() => setAddressChangeOpen(true)}>
-                배송지 변경
-              </Button>
-            ) : undefined}>
+            <Section title="배송지">
               <InfoRow label="수령인" value={order.address?.recipient_name} />
               <InfoRow label="연락처" value={formatPhone(order.address?.recipient_phone)} />
               <InfoRow
