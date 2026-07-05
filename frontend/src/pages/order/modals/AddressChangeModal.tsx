@@ -8,16 +8,22 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { AddressSearchField } from "@/components/common/AddressSearchField";
+import { AddressList } from "@/components/common/AddressList";
+import {
+  NewAddressForm,
+  EMPTY_NEW_ADDRESS,
+  EMPTY_NEW_ADDRESS_ERRORS,
+  validateNewAddress,
+  type NewAddressValue,
+  type NewAddressErrors,
+} from "@/components/common/NewAddressForm";
+import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { addressesApi } from "@/api/addressesApi";
 import { orderItemsApi } from "@/api/orderItemsApi";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
-import { formatPhone, formatPhoneInput } from "@/utils/format";
+import { formatPhone, formatIssue } from "@/utils/format";
 import type { OrderItemResponse } from "@/types/orderItem";
-import type { AddressResponse } from "@/types/address";
 
 interface Props {
   open: boolean;
@@ -30,14 +36,8 @@ interface Props {
 export function AddressChangeModal({ open, onClose, item, customerId, onSuccess }: Props) {
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
-  const [newAddr, setNewAddr] = useState({
-    recipient_name: "",
-    recipient_phone: "",
-    postal_code: "",
-    recipient_address: "",
-    customer_memo: "",
-    admin_memo: "",
-  });
+  const [newAddr, setNewAddr] = useState<NewAddressValue>(EMPTY_NEW_ADDRESS);
+  const [newAddrErrors, setNewAddrErrors] = useState<NewAddressErrors>(EMPTY_NEW_ADDRESS_ERRORS);
 
   // 고객 배송지 목록
   const { data: addrRes } = useQuery({
@@ -74,7 +74,15 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
         toast.error(result?.message ?? "배송지를 변경할 수 없습니다.");
         return;
       }
-      toast.success("배송지가 변경되었습니다.");
+      if (result.already_shipped_issues.length > 0) {
+        const issues = result.already_shipped_issues.map(formatIssue).join(", ");
+        toast.warning(
+          "배송지가 변경되었습니다.",
+          `이미 발송 완료된 ${issues}는 기존 배송지가 유지됩니다.`
+        );
+      } else {
+        toast.success("배송지가 변경되었습니다.");
+      }
       onSuccess();
       handleClose();
     },
@@ -83,25 +91,30 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
 
   const handleClose = () => {
     setSelectedAddressId(null);
-    setNewAddr({
-      recipient_name: "",
-      recipient_phone: "",
-      postal_code: "",
-      recipient_address: "",
-      customer_memo: "",
-      admin_memo: "",
-    });
+    setNewAddr(EMPTY_NEW_ADDRESS);
+    setNewAddrErrors(EMPTY_NEW_ADDRESS_ERRORS);
     setMode("existing");
     onClose();
   };
 
-  const canSubmit =
-    mode === "existing"
-      ? !!selectedAddressId
-      : !!newAddr.recipient_name &&
-        !!newAddr.recipient_phone &&
-        !!newAddr.postal_code &&
-        !!newAddr.recipient_address;
+  const handleSubmit = () => {
+    if (mode === "existing") {
+      if (!selectedAddressId) {
+        toast.error("변경할 배송지를 선택해주세요.");
+        return;
+      }
+      mutation.mutate();
+      return;
+    }
+
+    const { errors, firstMessage } = validateNewAddress(newAddr);
+    setNewAddrErrors(errors);
+    if (firstMessage) {
+      toast.error(firstMessage);
+      return;
+    }
+    mutation.mutate();
+  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
@@ -153,103 +166,33 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
 
           {/* 기존 배송지 목록 */}
           {mode === "existing" && (
-            <div className="space-y-1.5 max-h-52 overflow-y-auto">
-              {addresses.map((addr: AddressResponse) => (
-                <button
-                  key={addr.address_id}
-                  onClick={() => setSelectedAddressId(addr.address_id)}
-                  className={`w-full text-left border rounded-lg p-2.5 text-xs transition-colors ${
-                    selectedAddressId === addr.address_id
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-200 hover:bg-gray-50"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="font-medium text-gray-900">{addr.recipient_name}</span>
-                    <span className="font-mono text-gray-500">{formatPhone(addr.recipient_phone)}</span>
-                  </div>
-                  <div className="text-gray-500">
-                    ({addr.postal_code}) {addr.recipient_address}
-                  </div>
-                  {addr.customer_memo && (
-                    <div className="text-gray-400 mt-0.5">{addr.customer_memo}</div>
-                  )}
-                </button>
-              ))}
-            </div>
+            <AddressList
+              addresses={addresses}
+              selectedAddressId={selectedAddressId}
+              onSelect={setSelectedAddressId}
+              currentAddressId={item.address?.address_id}
+            />
           )}
 
           {/* 신규 배송지 입력 */}
           {mode === "new" && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs">수령인 *</Label>
-                  <Input
-                    className="mt-1"
-                    value={newAddr.recipient_name}
-                    onChange={(e) =>
-                      setNewAddr((p) => ({ ...p, recipient_name: e.target.value }))
-                    }
-                    placeholder="수령인"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">연락처 *</Label>
-                  <Input
-                    className="mt-1"
-                    value={newAddr.recipient_phone}
-                    onChange={(e) =>
-                      setNewAddr((p) => ({ ...p, recipient_phone: formatPhoneInput(e.target.value) }))
-                    }
-                    placeholder="010-0000-0000"
-                  />
-                </div>
-              </div>
-              <AddressSearchField
-                postalCode={newAddr.postal_code}
-                address={newAddr.recipient_address}
-                onChange={(postal_code, recipient_address) =>
-                  setNewAddr((p) => ({ ...p, postal_code, recipient_address }))
-                }
-                required
-              />
-              <div>
-                <Label className="text-xs">배송 메모</Label>
-                <Input
-                  className="mt-1"
-                  value={newAddr.customer_memo}
-                  onChange={(e) =>
-                    setNewAddr((p) => ({ ...p, customer_memo: e.target.value }))
-                  }
-                  placeholder="(선택)"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">관리자 메모</Label>
-                <Input
-                  className="mt-1"
-                  value={newAddr.admin_memo}
-                  onChange={(e) =>
-                    setNewAddr((p) => ({ ...p, admin_memo: e.target.value }))
-                  }
-                  placeholder="(선택)"
-                />
-              </div>
-            </div>
+            <NewAddressForm
+              value={newAddr}
+              onChange={setNewAddr}
+              errors={newAddrErrors}
+              onErrorsChange={setNewAddrErrors}
+            />
           )}
 
           <p className="text-xs text-gray-400">
-            ※ 이미 발송 완료된 경우 변경이 제한됩니다.
+            ※ 이미 발송 완료된 회차는 기존 배송지가 유지되고, 남은 회차만 변경됩니다. (전 회차 발송 완료 시 변경 불가)
           </p>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>취소</Button>
-          <Button
-            onClick={() => mutation.mutate()}
-            disabled={!canSubmit || mutation.isPending}
-          >
+          <Button variant="outline" onClick={handleClose} disabled={mutation.isPending}>취소</Button>
+          <Button onClick={handleSubmit} disabled={mutation.isPending}>
+            {mutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
             변경
           </Button>
         </DialogFooter>
