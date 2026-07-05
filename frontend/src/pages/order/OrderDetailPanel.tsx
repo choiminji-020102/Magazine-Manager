@@ -31,12 +31,20 @@ import { getLogDisplay } from "@/utils/activityLogDisplay";
 import { productsApi } from "@/api/productsApi";
 import type { ProductResponse } from "@/types/product";
 import { toast } from "@/hooks/use-toast";
-import { formatAmount, formatDate, formatDateTime, formatPhone, formatPhoneInput, formatIssue } from "@/utils/format";
+import { formatAmount, formatDate, formatDateTime, formatPhone, formatIssue } from "@/utils/format";
 import { getErrorMessage } from "@/utils/errorHandler";
 import { PAYMENT_METHOD_LABEL, PAYMENT_METHOD_OPTIONS, CHANNEL_LABEL, CHANNEL_OPTIONS } from "@/utils/constants";
 import { addressesApi } from "@/api/addressesApi";
 import { vipSlotsApi } from "@/api/vipSlotsApi";
-import { AddressSearchField } from "@/components/common/AddressSearchField";
+import { AddressList } from "@/components/common/AddressList";
+import {
+  NewAddressForm,
+  EMPTY_NEW_ADDRESS,
+  EMPTY_NEW_ADDRESS_ERRORS,
+  validateNewAddress,
+  type NewAddressValue,
+  type NewAddressErrors,
+} from "@/components/common/NewAddressForm";
 import { VipFlagsDisplay } from "@/components/common/VipFlags";
 import type { OrderItemDetailResponse } from "@/types/orderItem";
 import { PaymentMethod } from "@/types/order";
@@ -80,15 +88,9 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
   const [addressChangeOpen, setAddressChangeOpen] = useState(false);
   const [addressMode, setAddressMode] = useState<"existing" | "new">("existing");
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
-  const [newAddr, setNewAddr] = useState({
-    recipient_name: "",
-    recipient_phone: "",
-    postal_code: "",
-    recipient_address: "",
-    customer_memo: "",
-    admin_memo: "",
-  });
+  const [newAddr, setNewAddr] = useState<NewAddressValue>(EMPTY_NEW_ADDRESS);
   const [addressConfirmOpen, setAddressConfirmOpen] = useState(false);
+  const [newAddrErrors, setNewAddrErrors] = useState<NewAddressErrors>(EMPTY_NEW_ADDRESS_ERRORS);
 
   // 품목별 모달 상태
   const [activeModal, setActiveModal] = useState<ModalType>(null);
@@ -239,11 +241,54 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
         });
         addressId = res.data.data!.address_id;
       }
-      return ordersApi.updateOrder(orderId, { address_id: addressId });
+
+      // 변경 전 활성 품목의 배송지 스냅샷 — 백엔드가 이미 발송 완료(DELIVERED)된 품목은
+      // 건드리지 않고 스킵하므로, 실제 반영 결과와 비교해 스킵된 품목을 가려낸다.
+      const beforeAddressByItemId = new Map(
+        (order?.items ?? [])
+          .filter((item) => !item.cancelled_at)
+          .map((item) => [item.order_item_id, item.address_id])
+      );
+
+      // 주소 변경 자체는 여기서 이미 완료됨 — 이후 단계는 결과 안내용 부가 정보 수집일 뿐이다.
+      await ordersApi.updateOrder(orderId, { address_id: addressId });
+
+      let skippedItems: OrderItemDetailResponse[] = [];
+      try {
+        // fetchQuery로 캐시를 직접 채워 이후 invalidateQueries 로 인한 중복 재조회를 방지
+        const freshRes = await queryClient.fetchQuery({
+          queryKey: ["order", orderId],
+          queryFn: () => ordersApi.getOrder(orderId).then((r) => r.data),
+        });
+        skippedItems = (freshRes?.data?.items ?? []).filter(
+          (item) =>
+            !item.cancelled_at &&
+            beforeAddressByItemId.get(item.order_item_id) !== addressId &&
+            item.address_id === beforeAddressByItemId.get(item.order_item_id)
+        );
+      } catch {
+        // 안내 문구용 부가 정보 수집 실패 — 배송지 변경 자체는 성공했으므로 화면만 최신화
+        queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+      }
+
+      return { skippedItems, activeItemCount: beforeAddressByItemId.size };
     },
-    onSuccess: () => {
-      toast.success("배송지가 변경되었습니다. (모든 품목 일괄 변경)");
-      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+    onSuccess: ({ skippedItems, activeItemCount }) => {
+      if (skippedItems.length > 0 && skippedItems.length >= activeItemCount) {
+        const names = skippedItems.map((i) => i.product_name).join(", ");
+        toast.warning(
+          "배송지가 변경되지 않았습니다.",
+          `선택한 품목(${names})이 모두 이미 발송 완료되어 기존 배송지가 유지됩니다.`
+        );
+      } else if (skippedItems.length > 0) {
+        const names = skippedItems.map((i) => i.product_name).join(", ");
+        toast.warning(
+          "배송지가 변경되었습니다.",
+          `이미 발송 완료된 ${skippedItems.length}건(${names})은 기존 배송지가 유지됩니다.`
+        );
+      } else {
+        toast.success("배송지가 변경되었습니다. (모든 품목 일괄 변경)");
+      }
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       handleAddressClose();
     },
@@ -255,13 +300,32 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     setAddressConfirmOpen(false);
     setSelectedAddressId(null);
     setAddressMode("existing");
-    setNewAddr({ recipient_name: "", recipient_phone: "", postal_code: "", recipient_address: "", customer_memo: "", admin_memo: "" });
+    setNewAddr(EMPTY_NEW_ADDRESS);
+    setNewAddrErrors(EMPTY_NEW_ADDRESS_ERRORS);
   };
 
-  const canSubmitAddress =
-    addressMode === "existing"
-      ? !!selectedAddressId && selectedAddressId !== order?.address_id
-      : !!newAddr.recipient_name && !!newAddr.recipient_phone && !!newAddr.postal_code && !!newAddr.recipient_address;
+  const handleAddressSubmit = () => {
+    if (addressMode === "existing") {
+      if (!selectedAddressId) {
+        toast.error("변경할 배송지를 선택해주세요.");
+        return;
+      }
+      if (selectedAddressId === order?.address_id) {
+        toast.error("현재 배송지와 동일합니다. 다른 배송지를 선택해주세요.");
+        return;
+      }
+      setAddressConfirmOpen(true);
+      return;
+    }
+
+    const { errors, firstMessage } = validateNewAddress(newAddr);
+    setNewAddrErrors(errors);
+    if (firstMessage) {
+      toast.error(firstMessage);
+      return;
+    }
+    setAddressConfirmOpen(true);
+  };
 
   // 취소 환불 계산 미리보기
   const cancelCalcQuery = useQuery({
@@ -879,7 +943,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
 
       {/* 배송지 변경 다이얼로그 */}
       <Dialog open={addressChangeOpen} onOpenChange={(o) => { if (!o) handleAddressClose(); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>배송지 변경</DialogTitle>
           </DialogHeader>
@@ -907,8 +971,12 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                     : "bg-white text-gray-600 border-gray-300"
                 }`}
                 onClick={() => setAddressMode("existing")}
+                disabled={(customerAddresses?.data?.length ?? 0) === 0}
               >
                 기존 배송지
+                {(customerAddresses?.data?.length ?? 0) === 0 && (
+                  <span className="ml-1 opacity-70">(없음)</span>
+                )}
               </button>
               <button
                 className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
@@ -924,99 +992,32 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
 
             {/* 기존 배송지 목록 */}
             {addressMode === "existing" && (
-              <div className="space-y-1.5 max-h-52 overflow-y-auto">
-                {customerAddresses?.data?.length ? (
-                  customerAddresses.data.map((addr) => (
-                    <button
-                      key={addr.address_id}
-                      onClick={() => setSelectedAddressId(addr.address_id)}
-                      className={`w-full text-left border rounded-lg p-2.5 text-xs transition-colors ${
-                        selectedAddressId === addr.address_id
-                          ? "border-blue-500 bg-blue-50"
-                          : addr.address_id === order?.address_id
-                          ? "border-gray-300 bg-gray-50"
-                          : "border-gray-200 hover:bg-gray-50"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="font-medium text-gray-900">{addr.recipient_name}</span>
-                        <span className="font-mono text-gray-500">{formatPhone(addr.recipient_phone)}</span>
-                      </div>
-                      <div className="text-gray-500">
-                        ({addr.postal_code}) {addr.recipient_address}
-                      </div>
-                      {addr.customer_memo && (
-                        <div className="text-gray-400 mt-0.5">{addr.customer_memo}</div>
-                      )}
-                      {addr.address_id === order?.address_id && (
-                        <span className="text-xs text-blue-600 mt-1 inline-block">현재 배송지</span>
-                      )}
-                    </button>
-                  ))
-                ) : (
-                  <p className="text-sm text-gray-500 text-center py-4">등록된 배송지가 없습니다.</p>
-                )}
-              </div>
+              <AddressList
+                addresses={customerAddresses?.data ?? []}
+                selectedAddressId={selectedAddressId}
+                onSelect={setSelectedAddressId}
+                currentAddressId={order?.address_id}
+              />
             )}
 
             {/* 신규 배송지 입력 */}
             {addressMode === "new" && (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label className="text-xs">수령인 *</Label>
-                    <Input
-                      className="mt-1"
-                      value={newAddr.recipient_name}
-                      onChange={(e) => setNewAddr((p) => ({ ...p, recipient_name: e.target.value }))}
-                      placeholder="수령인"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">연락처 *</Label>
-                    <Input
-                      className="mt-1"
-                      value={newAddr.recipient_phone}
-                      onChange={(e) => setNewAddr((p) => ({ ...p, recipient_phone: formatPhoneInput(e.target.value) }))}
-                      placeholder="010-0000-0000"
-                    />
-                  </div>
-                </div>
-                <AddressSearchField
-                  postalCode={newAddr.postal_code}
-                  address={newAddr.recipient_address}
-                  onChange={(postal_code, recipient_address) =>
-                    setNewAddr((p) => ({ ...p, postal_code, recipient_address }))
-                  }
-                  required
-                />
-                <div>
-                  <Label className="text-xs">배송 메모</Label>
-                  <Input
-                    className="mt-1"
-                    value={newAddr.customer_memo}
-                    onChange={(e) => setNewAddr((p) => ({ ...p, customer_memo: e.target.value }))}
-                    placeholder="(선택)"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">관리자 메모</Label>
-                  <Input
-                    className="mt-1"
-                    value={newAddr.admin_memo}
-                    onChange={(e) => setNewAddr((p) => ({ ...p, admin_memo: e.target.value }))}
-                    placeholder="(선택)"
-                  />
-                </div>
-              </div>
+              <NewAddressForm
+                value={newAddr}
+                onChange={setNewAddr}
+                errors={newAddrErrors}
+                onErrorsChange={setNewAddrErrors}
+              />
             )}
+
+            <p className="text-xs text-gray-400">
+              ※ 발송이 모두 완료된 품목은 기존 배송지가 유지되고, 발송 예정이 남은 품목은 새 배송지로 변경됩니다.
+            </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={handleAddressClose}>취소</Button>
-            <Button
-              disabled={!canSubmitAddress}
-              onClick={() => setAddressConfirmOpen(true)}
-            >
+            <Button variant="outline" onClick={handleAddressClose} disabled={addressChangeMutation.isPending}>취소</Button>
+            <Button onClick={handleAddressSubmit} disabled={addressChangeMutation.isPending}>
+              {addressChangeMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
               변경
             </Button>
           </DialogFooter>
@@ -1029,7 +1030,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
         onClose={() => setAddressConfirmOpen(false)}
         onConfirm={() => addressChangeMutation.mutate()}
         title="배송지 일괄 변경"
-        description="이 주문의 모든 품목 배송지가 선택한 배송지로 일괄 변경됩니다. 계속하시겠습니까?"
+        description="이 주문의 발송 예정 품목 배송지가 선택한 배송지로 일괄 변경됩니다. 이미 발송 완료된 품목은 기존 배송지가 유지됩니다. 계속하시겠습니까?"
         confirmLabel="일괄 변경"
         variant="destructive"
         isLoading={addressChangeMutation.isPending}
