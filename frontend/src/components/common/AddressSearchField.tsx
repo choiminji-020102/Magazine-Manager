@@ -8,6 +8,7 @@ interface AddressSearchFieldProps {
   address: string;
   onChange: (postalCode: string, address: string) => void;
   required?: boolean;
+  error?: boolean;
 }
 
 // 다음 우편번호 스크립트 동적 로드
@@ -30,6 +31,7 @@ export function AddressSearchField({
   address,
   onChange,
   required,
+  error,
 }: AddressSearchFieldProps) {
   const handleSearch = async () => {
     await loadDaumPostcode();
@@ -57,27 +59,29 @@ export function AddressSearchField({
           주소 검색
         </Button>
         {required && !postalCode && (
-          <span className="text-xs text-gray-400">주소 검색을 먼저 진행해 주세요</span>
+          <span className={`text-xs ${error ? "text-red-500" : "text-gray-400"}`}>
+            주소 검색을 먼저 진행해 주세요
+          </span>
         )}
       </div>
       <div className="flex gap-2">
         <div className="w-28">
-          <Label className="text-xs text-gray-600">
+          <Label className={`text-xs ${error ? "text-red-500" : "text-gray-600"}`}>
             우편번호{required && <span className="text-red-500 ml-0.5">*</span>}
           </Label>
           <Input
-            className="mt-1 h-8 text-sm bg-gray-50 font-mono"
+            className={`mt-1 h-8 text-sm bg-gray-50 font-mono ${error ? "border-red-500" : ""}`}
             placeholder="12345"
             value={postalCode}
             readOnly
           />
         </div>
         <div className="flex-1">
-          <Label className="text-xs text-gray-600">
+          <Label className={`text-xs ${error ? "text-red-500" : "text-gray-600"}`}>
             주소{required && <span className="text-red-500 ml-0.5">*</span>}
           </Label>
           <Input
-            className="mt-1 h-8 text-sm"
+            className={`mt-1 h-8 text-sm ${error ? "border-red-500 focus:ring-red-500" : ""}`}
             placeholder="상세주소를 직접 입력하세요"
             value={address}
             onChange={(e) => onChange(postalCode, e.target.value)}
