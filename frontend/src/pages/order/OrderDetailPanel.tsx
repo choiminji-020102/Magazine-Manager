@@ -552,7 +552,14 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
               variant="outline"
               size="sm"
               className="gap-1"
-              onClick={() => setAddressChangeOpen(true)}
+              onClick={() => {
+                setNewAddr({
+                  ...EMPTY_NEW_ADDRESS,
+                  recipient_name: order.address?.recipient_name ?? "",
+                  recipient_phone: order.address?.recipient_phone ?? "",
+                });
+                setAddressChangeOpen(true);
+              }}
             >
               <MapPin className="h-3 w-3" />
               배송지 변경

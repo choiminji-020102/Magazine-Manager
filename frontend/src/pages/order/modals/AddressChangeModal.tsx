@@ -33,10 +33,18 @@ interface Props {
   onSuccess: () => void;
 }
 
+function buildPrefilledNewAddress(item: OrderItemResponse): NewAddressValue {
+  return {
+    ...EMPTY_NEW_ADDRESS,
+    recipient_name: item.address?.recipient_name ?? "",
+    recipient_phone: item.address?.recipient_phone ?? "",
+  };
+}
+
 export function AddressChangeModal({ open, onClose, item, customerId, onSuccess }: Props) {
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
-  const [newAddr, setNewAddr] = useState<NewAddressValue>(EMPTY_NEW_ADDRESS);
+  const [newAddr, setNewAddr] = useState<NewAddressValue>(() => buildPrefilledNewAddress(item));
   const [newAddrErrors, setNewAddrErrors] = useState<NewAddressErrors>(EMPTY_NEW_ADDRESS_ERRORS);
 
   // 고객 배송지 목록
@@ -91,7 +99,7 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
 
   const handleClose = () => {
     setSelectedAddressId(null);
-    setNewAddr(EMPTY_NEW_ADDRESS);
+    setNewAddr(buildPrefilledNewAddress(item));
     setNewAddrErrors(EMPTY_NEW_ADDRESS_ERRORS);
     setMode("existing");
     onClose();
