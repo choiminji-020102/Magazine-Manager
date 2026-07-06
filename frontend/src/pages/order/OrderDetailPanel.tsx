@@ -1574,39 +1574,34 @@ function OrderItemCard({
                 </button>
               )}
             </div>
-            <div className="flex items-start gap-3">
-              <span className="text-xs text-gray-400 w-24 flex-shrink-0">수령인</span>
-              <span className="text-xs text-gray-700">
+            <div className="space-y-0.5">
+              <div className="text-xs text-gray-700">
                 {item.address.recipient_name} / {formatPhone(item.address.recipient_phone)}
-              </span>
-            </div>
-            <div className="flex items-start gap-3">
-              <span className="text-xs text-gray-400 w-24 flex-shrink-0">주소</span>
-              <span className="text-xs text-gray-700">
-                ({item.address.postal_code}) {item.address.recipient_address}
-              </span>
-            </div>
-            {item.address.customer_memo && (
-              <div className="flex items-start gap-3">
-                <span className="text-xs text-gray-400 w-24 flex-shrink-0">배송메모</span>
-                <span className="text-xs text-gray-700">{item.address.customer_memo}</span>
               </div>
-            )}
+              <div className="text-xs text-gray-700">
+                ({item.address.postal_code}) {item.address.recipient_address}
+              </div>
+              {item.address.customer_memo && (
+                <div className="text-xs text-gray-400">{item.address.customer_memo}</div>
+              )}
+            </div>
           </div>
         )}
 
         {/* 휴지 목록 */}
         {isYearly && item.pauses && item.pauses.length > 0 && (
-          <div className="pt-2 border-t border-gray-100 space-y-1">
-            <div className="text-xs font-medium text-gray-500">휴지 내역</div>
-            {item.pauses.map((pause) => (
-              <div key={pause.pause_id} className="flex items-center justify-between text-xs">
-                <span className="text-gray-700">{formatIssue(pause.pause_issue)}</span>
-                {pause.reason && (
-                  <span className="text-gray-400 truncate ml-2 max-w-[160px]">{pause.reason}</span>
-                )}
-              </div>
-            ))}
+          <div>
+            <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">휴지 내역</div>
+            <div className="space-y-0.5">
+              {item.pauses.map((pause) => (
+                <div key={pause.pause_id} className="flex items-center justify-between text-xs">
+                  <span className="text-gray-700">{formatIssue(pause.pause_issue)}</span>
+                  {pause.reason && (
+                    <span className="text-gray-400 truncate ml-2 max-w-[160px]">{pause.reason}</span>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -1615,9 +1610,9 @@ function OrderItemCard({
 
         {/* 관리자 메모 */}
         {item.admin_memo && (
-          <div className="pt-2 border-t border-gray-100">
-            <div className="text-xs font-medium text-gray-500 mb-1">관리자 메모</div>
-            <div className="text-xs text-gray-600 whitespace-pre-line">{item.admin_memo}</div>
+          <div>
+            <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">관리자 메모</div>
+            <div className="text-xs text-gray-700 whitespace-pre-line">{item.admin_memo}</div>
           </div>
         )}
       </div>
@@ -1643,18 +1638,20 @@ function OrderItemChangeLogs({ orderItemId }: { orderItemId: number }) {
   if (logs.length === 0) return null;
 
   return (
-    <div className="pt-2 border-t border-gray-100 space-y-1">
-      <div className="text-xs font-medium text-gray-500 mb-1">변경 이력</div>
-      {logs.map((log) => {
-        const { label, color, summary } = getLogDisplay(log);
-        return (
-          <div key={log.log_id} className="text-xs text-gray-500 flex items-start gap-1.5">
-            <span className="text-gray-400 flex-shrink-0">{formatDate(log.created_at).slice(5)}</span>
-            <span className={`font-medium ${color}`}>{label}</span>
-            {summary && <span className="text-gray-400">{summary}</span>}
-          </div>
-        );
-      })}
+    <div>
+      <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">변경 이력</div>
+      <div className="space-y-0.5">
+        {logs.map((log) => {
+          const { label, color, summary } = getLogDisplay(log);
+          return (
+            <div key={log.log_id} className="text-xs flex items-start gap-1.5">
+              <span className="text-gray-700 flex-shrink-0">{formatDate(log.created_at).slice(5)}</span>
+              <span className={`font-medium ${color}`}>{label}</span>
+              {summary && <span className="text-gray-700">{summary}</span>}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
