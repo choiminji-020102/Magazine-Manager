@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/useDebounce";
-import { X, Edit2, Plus, MapPin } from "lucide-react";
+import { X, Edit2, Plus, MapPin, BookOpen, Calendar, Truck } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1479,13 +1479,14 @@ function OrderItemCard({
 
   return (
     <div className={`border border-gray-100 rounded-lg overflow-hidden ${isCancelled ? "bg-gray-50/60" : "bg-white"}`}>
-      {/* 헤더: 상품 배지 + 구독 상세/수정/취소 버튼 */}
+      {/* 헤더: 상품 배지 + 상품명 + 구독 상세/수정/취소 버튼 */}
       <div className="flex items-center justify-between px-3.5 py-2 bg-gray-50 border-b border-gray-100">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <StatusBadge type="product_kind" value={item.product_kind} />
           {isCancelled && (
-            <span className="text-[11px] text-red-500 bg-red-50 px-1.5 py-0.5 rounded">취소됨</span>
+            <span className="text-[11px] text-red-500 bg-red-50 px-1.5 py-0.5 rounded flex-shrink-0">취소됨</span>
           )}
+          <span className="text-xs text-gray-900 truncate">{item.product_name}</span>
         </div>
         {!isCancelled && (
           <div className="flex items-center gap-3 flex-shrink-0">
@@ -1514,43 +1515,34 @@ function OrderItemCard({
       </div>
 
       <div className="px-3.5 py-3 space-y-3">
-        {/* 상품명 */}
-        <div className="font-medium text-sm text-gray-900">{item.product_name}</div>
-
-        {/* 핵심 지표: 수량 / 구독기간(or 발송상태) 가로 배치 */}
-        <div className="flex items-stretch gap-2">
-          <div className="rounded-md bg-gray-50 px-2.5 py-2">
-            <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">수량</div>
-            <div className="text-xs font-medium text-gray-900">{item.order_num}개</div>
-          </div>
-          <div className="flex-1 rounded-md bg-gray-50 px-2.5 py-2">
-            {isYearly ? (
-              <>
-                <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">현재 구독 기간</div>
-                <div className="text-xs font-medium text-gray-900">
-                  {formatIssue(item.final_subscribe_start_issue)} ~{" "}
-                  {formatIssue(item.final_subscribe_end_issue)}
-                  <span className="text-gray-500 font-normal ml-1">({item.subscribe_period}개월)</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">발송 상태</div>
-                <div className="flex items-center gap-2">
-                  {item.delivered_at ? (
-                    <StatusBadge type="send_status" value="DELIVERED" />
-                  ) : (
-                    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium bg-white text-gray-500">
-                      미발송
-                    </span>
-                  )}
-                  {item.delivered_at && (
-                    <span className="text-xs text-gray-500">{formatDateTime(item.delivered_at)}</span>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
+        {/* 핵심 지표: 수량 / 구독기간(or 발송상태) - 아이콘 기반, 박스 없음 */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-gray-900">
+          <span className="inline-flex items-center gap-1.5">
+            <BookOpen className="h-3.5 w-3.5 text-gray-400" />
+            {item.order_num}개
+          </span>
+          {isYearly ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-gray-400" />
+              {formatIssue(item.final_subscribe_start_issue)} ~{" "}
+              {formatIssue(item.final_subscribe_end_issue)}
+              <span className="text-gray-500">({item.subscribe_period}개월)</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5">
+              <Truck className="h-3.5 w-3.5 text-gray-400" />
+              {item.delivered_at ? (
+                <StatusBadge type="send_status" value="DELIVERED" />
+              ) : (
+                <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium bg-gray-100 text-gray-500">
+                  미발송
+                </span>
+              )}
+              {item.delivered_at && (
+                <span className="text-gray-500">{formatDateTime(item.delivered_at)}</span>
+              )}
+            </span>
+          )}
         </div>
 
         {(isYearly && (item.last_send_issue || item.delivered_at)) || (isCancelled && item.refund_amount > 0) ? (
