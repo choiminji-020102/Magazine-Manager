@@ -1550,8 +1550,8 @@ function OrderItemCard({
           </div>
         )}
 
-        {/* 구독 상세 링크 (YEARLY만) */}
-        {isYearly && !isCancelled && onSubscriptionDetail && (
+        {/* 구독 상세 링크 */}
+        {!isCancelled && onSubscriptionDetail && (
           <button
             className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
             onClick={() => onSubscriptionDetail(item)}
