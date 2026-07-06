@@ -1472,7 +1472,7 @@ function OrderItemCard({
 
   return (
     <div className={`border border-gray-100 rounded-lg overflow-hidden ${isCancelled ? "bg-gray-50/60" : "bg-white"}`}>
-      {/* 헤더: 상품 배지 + 수정/취소 버튼 */}
+      {/* 헤더: 상품 배지 + 구독 상세/수정/취소 버튼 */}
       <div className="flex items-center justify-between px-3.5 py-2 bg-gray-50 border-b border-gray-100">
         <div className="flex items-center gap-2">
           <StatusBadge type="product_kind" value={item.product_kind} />
@@ -1481,7 +1481,15 @@ function OrderItemCard({
           )}
         </div>
         {!isCancelled && (
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-3 flex-shrink-0">
+            {onSubscriptionDetail && (
+              <button
+                className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                onClick={() => onSubscriptionDetail(item)}
+              >
+                구독 상세
+              </button>
+            )}
             <button
               className="text-xs text-gray-500 hover:text-gray-700 hover:underline"
               onClick={() => onAction("editItem", item)}
@@ -1498,73 +1506,65 @@ function OrderItemCard({
         )}
       </div>
 
-      <div className="px-3.5 py-3 space-y-2">
-        {/* 상품 정보 */}
-        <div>
-          <div className="font-medium text-sm text-gray-900">{item.product_name}</div>
-          <div className="text-xs text-gray-400 font-mono">{item.product_code}</div>
-        </div>
+      <div className="px-3.5 py-3 space-y-3">
+        {/* 상품명 */}
+        <div className="font-medium text-sm text-gray-900">{item.product_name}</div>
 
-        {/* 품목 정보 */}
-        <div className="flex items-start gap-3">
-          <span className="text-xs text-gray-400 w-24 flex-shrink-0">수량 / 판매가</span>
-          <span className="text-xs text-gray-700">
-            {item.order_num}개 / {formatAmount(item.sale_price)}
-          </span>
-        </div>
-
-        {isYearly && (
-          <>
-            <div className="flex items-start gap-3">
-              <span className="text-xs text-gray-400 w-24 flex-shrink-0">원래 시작호</span>
-              <span className="text-xs text-gray-700">{formatIssue(item.subscribe_start_issue)}</span>
-            </div>
-            <div className="flex items-start gap-3">
-              <span className="text-xs text-gray-400 w-24 flex-shrink-0">현재 구독 기간</span>
-              <span className="text-xs text-gray-700">
-                {formatIssue(item.final_subscribe_start_issue)} ~{" "}
-                {formatIssue(item.final_subscribe_end_issue)}
-                <span className="text-gray-400 ml-1">({item.subscribe_period}개월)</span>
-              </span>
-            </div>
-            {item.last_send_issue && (
-              <div className="flex items-start gap-3">
-                <span className="text-xs text-gray-400 w-24 flex-shrink-0">마지막 발송</span>
-                <span className="text-xs text-gray-700">{formatIssue(item.last_send_issue)}</span>
-              </div>
+        {/* 핵심 지표: 수량 / 구독기간(or 발송상태) 가로 배치 */}
+        <div className="flex items-stretch gap-2">
+          <div className="rounded-md bg-gray-50 px-2.5 py-2">
+            <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">수량</div>
+            <div className="text-xs font-medium text-gray-900">{item.order_num}개</div>
+          </div>
+          <div className="flex-1 rounded-md bg-gray-50 px-2.5 py-2">
+            {isYearly ? (
+              <>
+                <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">현재 구독 기간</div>
+                <div className="text-xs font-medium text-gray-900">
+                  {formatIssue(item.final_subscribe_start_issue)} ~{" "}
+                  {formatIssue(item.final_subscribe_end_issue)}
+                  <span className="text-gray-500 font-normal ml-1">({item.subscribe_period}개월)</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">발송 상태</div>
+                <div className="flex items-center gap-2">
+                  {item.delivered_at ? (
+                    <StatusBadge type="send_status" value="DELIVERED" />
+                  ) : (
+                    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium bg-white text-gray-500">
+                      미발송
+                    </span>
+                  )}
+                  {item.delivered_at && (
+                    <span className="text-xs text-gray-500">{formatDateTime(item.delivered_at)}</span>
+                  )}
+                </div>
+              </>
             )}
-          </>
-        )}
-
-        {item.delivered_at && (
-          <div className="flex items-start gap-3">
-            <span className="text-xs text-gray-400 w-24 flex-shrink-0">발송일시</span>
-            <span className="text-xs text-gray-700">{formatDateTime(item.delivered_at)}</span>
           </div>
-        )}
+        </div>
 
-        {isCancelled && item.refund_amount > 0 && (
-          <div className="flex items-start gap-3">
-            <span className="text-xs text-gray-400 w-24 flex-shrink-0">환불금액</span>
-            <span className="text-xs text-red-600">-{formatAmount(item.refund_amount)}</span>
+        {(isYearly && (item.last_send_issue || item.delivered_at)) || (isCancelled && item.refund_amount > 0) ? (
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+            {isYearly && item.last_send_issue && (
+              <span>마지막 발송 {formatIssue(item.last_send_issue)}</span>
+            )}
+            {isYearly && item.delivered_at && (
+              <span>발송일시 {formatDateTime(item.delivered_at)}</span>
+            )}
+            {isCancelled && item.refund_amount > 0 && (
+              <span className="font-medium text-red-600">환불금액 -{formatAmount(item.refund_amount)}</span>
+            )}
           </div>
-        )}
-
-        {/* 구독 상세 링크 */}
-        {!isCancelled && onSubscriptionDetail && (
-          <button
-            className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
-            onClick={() => onSubscriptionDetail(item)}
-          >
-            구독 상세 →
-          </button>
-        )}
+        ) : null}
 
         {/* 품목별 배송지 */}
         {item.address && (
-          <div className="pt-2 border-t border-gray-100 space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-gray-500">배송지</span>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">배송지</span>
               {!isCancelled && (
                 <button
                   className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
