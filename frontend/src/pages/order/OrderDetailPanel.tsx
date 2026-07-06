@@ -1471,18 +1471,14 @@ function OrderItemCard({
   const isCancelled = !!item.cancelled_at;
 
   return (
-    <div className={`border rounded-lg p-3.5 ${isCancelled ? "border-gray-100 bg-gray-50/60" : "border-gray-200"}`}>
-      {/* 상단: 상품 정보 + 수정/취소 버튼 */}
-      <div className="flex items-start justify-between mb-2.5">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <StatusBadge type="product_kind" value={item.product_kind} />
-            {isCancelled && (
-              <span className="text-[11px] text-red-500 bg-red-50 px-1.5 py-0.5 rounded">취소됨</span>
-            )}
-          </div>
-          <div className="font-medium text-sm text-gray-900">{item.product_name}</div>
-          <div className="text-xs text-gray-400 font-mono">{item.product_code}</div>
+    <div className={`border border-gray-100 rounded-lg overflow-hidden ${isCancelled ? "bg-gray-50/60" : "bg-white"}`}>
+      {/* 헤더: 상품 배지 + 수정/취소 버튼 */}
+      <div className="flex items-center justify-between px-3.5 py-2 bg-gray-50 border-b border-gray-100">
+        <div className="flex items-center gap-2">
+          <StatusBadge type="product_kind" value={item.product_kind} />
+          {isCancelled && (
+            <span className="text-[11px] text-red-500 bg-red-50 px-1.5 py-0.5 rounded">취소됨</span>
+          )}
         </div>
         {!isCancelled && (
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -1502,112 +1498,129 @@ function OrderItemCard({
         )}
       </div>
 
-      {/* 품목 정보 */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-        <div className="text-gray-400">수량 / 판매가</div>
-        <div className="text-gray-700">
-          {item.order_num}개 / {formatAmount(item.sale_price)}
+      <div className="px-3.5 py-3 space-y-2">
+        {/* 상품 정보 */}
+        <div>
+          <div className="font-medium text-sm text-gray-900">{item.product_name}</div>
+          <div className="text-xs text-gray-400 font-mono">{item.product_code}</div>
+        </div>
+
+        {/* 품목 정보 */}
+        <div className="flex items-start gap-3">
+          <span className="text-xs text-gray-400 w-24 flex-shrink-0">수량 / 판매가</span>
+          <span className="text-xs text-gray-700">
+            {item.order_num}개 / {formatAmount(item.sale_price)}
+          </span>
         </div>
 
         {isYearly && (
           <>
-            <div className="text-gray-400">원래 시작호</div>
-            <div className="text-gray-700">{formatIssue(item.subscribe_start_issue)}</div>
-
-            <div className="text-gray-400">현재 구독 기간</div>
-            <div className="text-gray-700">
-              {formatIssue(item.final_subscribe_start_issue)} ~{" "}
-              {formatIssue(item.final_subscribe_end_issue)}
-              <span className="text-gray-400 ml-1">({item.subscribe_period}개월)</span>
+            <div className="flex items-start gap-3">
+              <span className="text-xs text-gray-400 w-24 flex-shrink-0">원래 시작호</span>
+              <span className="text-xs text-gray-700">{formatIssue(item.subscribe_start_issue)}</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-xs text-gray-400 w-24 flex-shrink-0">현재 구독 기간</span>
+              <span className="text-xs text-gray-700">
+                {formatIssue(item.final_subscribe_start_issue)} ~{" "}
+                {formatIssue(item.final_subscribe_end_issue)}
+                <span className="text-gray-400 ml-1">({item.subscribe_period}개월)</span>
+              </span>
             </div>
             {item.last_send_issue && (
-              <>
-                <div className="text-gray-400">마지막 발송</div>
-                <div className="text-gray-700">{formatIssue(item.last_send_issue)}</div>
-              </>
+              <div className="flex items-start gap-3">
+                <span className="text-xs text-gray-400 w-24 flex-shrink-0">마지막 발송</span>
+                <span className="text-xs text-gray-700">{formatIssue(item.last_send_issue)}</span>
+              </div>
             )}
           </>
         )}
 
         {item.delivered_at && (
-          <>
-            <div className="text-gray-400">발송일시</div>
-            <div className="text-gray-700">{formatDateTime(item.delivered_at)}</div>
-          </>
+          <div className="flex items-start gap-3">
+            <span className="text-xs text-gray-400 w-24 flex-shrink-0">발송일시</span>
+            <span className="text-xs text-gray-700">{formatDateTime(item.delivered_at)}</span>
+          </div>
         )}
 
         {isCancelled && item.refund_amount > 0 && (
-          <>
-            <div className="text-gray-400">환불금액</div>
-            <div className="text-red-600">-{formatAmount(item.refund_amount)}</div>
-          </>
+          <div className="flex items-start gap-3">
+            <span className="text-xs text-gray-400 w-24 flex-shrink-0">환불금액</span>
+            <span className="text-xs text-red-600">-{formatAmount(item.refund_amount)}</span>
+          </div>
         )}
-      </div>
 
-      {/* 구독 상세 링크 (YEARLY만) */}
-      {isYearly && !isCancelled && onSubscriptionDetail && (
-        <div className="mt-2">
+        {/* 구독 상세 링크 (YEARLY만) */}
+        {isYearly && !isCancelled && onSubscriptionDetail && (
           <button
             className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
             onClick={() => onSubscriptionDetail(item)}
           >
             구독 상세 →
           </button>
-        </div>
-      )}
+        )}
 
-      {/* 품목별 배송지 */}
-      {item.address && (
-        <div className="mt-2.5 pt-2.5 border-t border-gray-100 text-xs space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="font-medium text-gray-500">배송지</span>
-            {!isCancelled && (
-              <button
-                className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                onClick={() => onAction("addressChange", item)}
-              >
-                변경
-              </button>
-            )}
-          </div>
-          <div className="text-gray-700">
-            {item.address.recipient_name} / {formatPhone(item.address.recipient_phone)}
-          </div>
-          <div className="text-gray-700">
-            ({item.address.postal_code}) {item.address.recipient_address}
-          </div>
-          {item.address.customer_memo && (
-            <div className="text-gray-400">배송메모: {item.address.customer_memo}</div>
-          )}
-        </div>
-      )}
-
-      {/* 휴지 목록 */}
-      {isYearly && item.pauses && item.pauses.length > 0 && (
-        <div className="mt-2.5 pt-2.5 border-t border-gray-100 space-y-1">
-          <div className="text-xs font-medium text-gray-500">휴지 내역</div>
-          {item.pauses.map((pause) => (
-            <div key={pause.pause_id} className="flex items-center justify-between text-xs">
-              <span className="text-gray-700">{formatIssue(pause.pause_issue)}</span>
-              {pause.reason && (
-                <span className="text-gray-400 truncate ml-2 max-w-[160px]">{pause.reason}</span>
+        {/* 품목별 배송지 */}
+        {item.address && (
+          <div className="pt-2 border-t border-gray-100 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-gray-500">배송지</span>
+              {!isCancelled && (
+                <button
+                  className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                  onClick={() => onAction("addressChange", item)}
+                >
+                  변경
+                </button>
               )}
             </div>
-          ))}
-        </div>
-      )}
+            <div className="flex items-start gap-3">
+              <span className="text-xs text-gray-400 w-24 flex-shrink-0">수령인</span>
+              <span className="text-xs text-gray-700">
+                {item.address.recipient_name} / {formatPhone(item.address.recipient_phone)}
+              </span>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-xs text-gray-400 w-24 flex-shrink-0">주소</span>
+              <span className="text-xs text-gray-700">
+                ({item.address.postal_code}) {item.address.recipient_address}
+              </span>
+            </div>
+            {item.address.customer_memo && (
+              <div className="flex items-start gap-3">
+                <span className="text-xs text-gray-400 w-24 flex-shrink-0">배송메모</span>
+                <span className="text-xs text-gray-700">{item.address.customer_memo}</span>
+              </div>
+            )}
+          </div>
+        )}
 
-      {/* 변경 이력 (활동 로그) */}
-      <OrderItemChangeLogs orderItemId={item.order_item_id} />
+        {/* 휴지 목록 */}
+        {isYearly && item.pauses && item.pauses.length > 0 && (
+          <div className="pt-2 border-t border-gray-100 space-y-1">
+            <div className="text-xs font-medium text-gray-500">휴지 내역</div>
+            {item.pauses.map((pause) => (
+              <div key={pause.pause_id} className="flex items-center justify-between text-xs">
+                <span className="text-gray-700">{formatIssue(pause.pause_issue)}</span>
+                {pause.reason && (
+                  <span className="text-gray-400 truncate ml-2 max-w-[160px]">{pause.reason}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
-      {/* 관리자 메모 */}
-      {item.admin_memo && (
-        <div className="mt-2.5 pt-2.5 border-t border-gray-100">
-          <div className="text-xs font-medium text-gray-500 mb-1">관리자 메모</div>
-          <div className="text-xs text-gray-600 whitespace-pre-line">{item.admin_memo}</div>
-        </div>
-      )}
+        {/* 변경 이력 (활동 로그) */}
+        <OrderItemChangeLogs orderItemId={item.order_item_id} />
 
+        {/* 관리자 메모 */}
+        {item.admin_memo && (
+          <div className="pt-2 border-t border-gray-100">
+            <div className="text-xs font-medium text-gray-500 mb-1">관리자 메모</div>
+            <div className="text-xs text-gray-600 whitespace-pre-line">{item.admin_memo}</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1630,7 +1643,7 @@ function OrderItemChangeLogs({ orderItemId }: { orderItemId: number }) {
   if (logs.length === 0) return null;
 
   return (
-    <div className="mt-2.5 pt-2.5 border-t border-gray-100 space-y-1">
+    <div className="pt-2 border-t border-gray-100 space-y-1">
       <div className="text-xs font-medium text-gray-500 mb-1">변경 이력</div>
       {logs.map((log) => {
         const { label, color, summary } = getLogDisplay(log);
