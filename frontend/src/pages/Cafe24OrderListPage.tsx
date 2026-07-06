@@ -81,7 +81,7 @@ function ItemBox({ item }: { item: Cafe24MappedOrderItem }) {
       <div className="text-gray-600">
         {matched && item.sale_price !== null ? (
           <>
-            {formatAmount(item.sale_price)} × {item.order_num}개
+            {formatAmount(item.sale_price)} × {item.order_num}권
             {isYearly && years !== null && (
               <span className="text-gray-400">
                 {" "}(1년단가 {formatAmount(item.unit_price)} × {years}년)
@@ -90,7 +90,7 @@ function ItemBox({ item }: { item: Cafe24MappedOrderItem }) {
           </>
         ) : (
           <>
-            {formatAmount(item.unit_price)} × {item.order_num}개
+            {formatAmount(item.unit_price)} × {item.order_num}권
             <span className="text-red-600"> (상품 미매칭)</span>
           </>
         )}

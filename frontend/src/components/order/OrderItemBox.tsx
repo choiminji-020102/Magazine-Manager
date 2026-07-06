@@ -41,7 +41,7 @@ export default function OrderItemBox({ item }: { item: OrderItemResponse }) {
 
       {/* 그룹 2 — 가격 */}
       <div className="text-gray-600">
-        {formatAmount(item.sale_price)} × {item.order_num}개
+        {formatAmount(item.sale_price)} × {item.order_num}권
         {item.list_price !== item.sale_price && (
           <span className="text-gray-400"> (정가 {formatAmount(item.list_price)})</span>
         )}

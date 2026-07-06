@@ -322,7 +322,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
         <Section title="상품">
           <InfoRow label="상품명" value={item.product_name} />
           <InfoRow label="코드" value={<span className="font-mono text-xs">{item.product_code}</span>} />
-          <InfoRow label="수량" value={`${item.order_num}부`} />
+          <InfoRow label="수량" value={`${item.order_num}권`} />
           <InfoRow label="판매가" value={formatAmount(item.sale_price)} />
           {(detail?.refund_amount ?? item.refund_amount) > 0 && (
             <InfoRow

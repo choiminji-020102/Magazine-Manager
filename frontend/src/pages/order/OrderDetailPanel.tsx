@@ -1086,7 +1086,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                         <StatusBadge type="product_kind" value={item.product_kind} />
                         <span className="text-gray-800 truncate">{item.product_name}</span>
                       </div>
-                      <span className="text-gray-500 flex-shrink-0 ml-2">{item.order_num}개</span>
+                      <span className="text-gray-500 flex-shrink-0 ml-2">{item.order_num}권</span>
                     </div>
                   ))}
                 </div>
@@ -1105,7 +1105,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                       <div key={item.order_item_id} className="space-y-0.5">
                         {item.product_kind === "MONTHLY" ? (
                           <div className="flex justify-between">
-                            <span>{item.product_name} ({item.order_num}개)</span>
+                            <span>{item.product_name} ({item.order_num}권)</span>
                             <span>{formatAmount(item.item_refund)}</span>
                           </div>
                         ) : (
@@ -1519,7 +1519,7 @@ function OrderItemCard({
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-gray-900">
           <span className="inline-flex items-center gap-1.5">
             <BookOpen className="h-3.5 w-3.5 text-gray-400" />
-            {item.order_num}개
+            {item.order_num}권
           </span>
           {isYearly ? (
             <span className="inline-flex items-center gap-1.5">

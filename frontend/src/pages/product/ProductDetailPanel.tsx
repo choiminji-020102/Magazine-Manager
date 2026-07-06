@@ -399,7 +399,7 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
             label="현재 재고"
             value={
               <span className={product.stock_quantity <= 0 ? "text-red-500 font-medium" : ""}>
-                {product.stock_quantity.toLocaleString()}개
+                {product.stock_quantity.toLocaleString()}권
               </span>
             }
           />

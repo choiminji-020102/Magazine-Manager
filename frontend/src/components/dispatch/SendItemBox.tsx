@@ -11,7 +11,7 @@ export default function SendItemBox({ item }: { item: SendItemResponse }) {
         <span className="text-gray-700 truncate">{item.product_name}</span>
       </div>
       <div className="text-gray-600">
-        {formatIssueShort(item.issue)} × {item.send_num}부
+        {formatIssueShort(item.issue)} × {item.send_num}권
       </div>
       {item.admin_memo && (
         <div className="block truncate text-gray-500" title={item.admin_memo}>

@@ -93,7 +93,7 @@ export function OrderItemCancelModal({ open, onClose, item, onSuccess }: Props) 
                   <StatusBadge type="product_kind" value={item.product_kind} />
                   <span className="text-gray-800 truncate">{item.product_name}</span>
                 </div>
-                <span className="text-gray-500 flex-shrink-0 ml-2">{item.order_num}개</span>
+                <span className="text-gray-500 flex-shrink-0 ml-2">{item.order_num}권</span>
               </div>
             </div>
           </div>
