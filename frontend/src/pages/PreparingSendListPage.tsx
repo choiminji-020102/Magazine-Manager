@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,14 @@ import VipExcelDialog from "@/components/dispatch-excel/VipExcelDialog";
 import { sendsApi } from "@/api/sendsApi";
 import { dispatchApi } from "@/api/dispatchApi";
 import { vipSlotsApi } from "@/api/vipSlotsApi";
+import { toast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/utils/errorHandler";
 import type { DispatchScope, PaidNotPreparedCountResponse } from "@/types/dispatch";
+import type { SendListQuery, SendResponse } from "@/types/send";
 
 const LIMIT = 20;
+// 필터 결과 전체 선택 시 페이지 순회에 쓰는 조회 건수 (백엔드 SendListQuery.limit 상한)
+const SELECT_ALL_FETCH_LIMIT = 100;
 
 // scope 가 vipN 이면 그룹 번호 반환, 그 외 null
 function vipSlotOf(scope: DispatchScope): number | null {
@@ -39,7 +44,18 @@ export default function PreparingSendListPage() {
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
   const [page, setPage] = useState(1);
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  // send_id → 선택된 항목의 전체 데이터. "필터 결과 전체 선택"으로 다른 페이지의 항목이
+  // 선택될 수 있어, 현재 페이지에 로드된 sends 배열만으로는 선택 항목 전체를 복원할 수 없음
+  // (id만 저장하면 모달에 넘길 때 현재 페이지에 없는 선택 항목이 누락됨).
+  const [selectedItems, setSelectedItems] = useState<Map<number, SendResponse>>(new Map());
+  const [isSelectingAll, setIsSelectingAll] = useState(false);
+  // selectAllFiltered 진행 중 탭 전환/선택 해제 등으로 세대가 바뀌면, 뒤늦게 도착한
+  // stale 결과가 setSelectedItems를 덮어쓰지 않도록 막는 가드 (아래 filterLocked로
+  // 탭·필터 조작 자체를 막지만, 방어적으로 이중 체크).
+  const selectionGenerationRef = useRef(0);
+  // "필터 결과 전체 선택" 진행 중엔 탭/필터/선택 조작을 잠금 (Cafe24OrderListPage의
+  // filterLocked 컨벤션과 동일) — 스코프가 바뀌면 진행 중이던 순회가 엉뚱한 결과를 만듦.
+  const filterLocked = isSelectingAll;
   const [regenerateOpen, setRegenerateOpen] = useState(false);
   const [excelOpen, setExcelOpen] = useState<
     null | "monthly" | "yearly-gichulyu" | "yearly-postoffice" | "vip"
@@ -66,7 +82,7 @@ export default function PreparingSendListPage() {
     const slotMeta = vipSlots.find((s) => s.slot_number === vipSlot);
     if (!slotMeta || !slotMeta.is_enabled) {
       setScope("monthly");
-      setSelectedIds(new Set());
+      setSelectedItems(new Map());
       setPage(1);
       setIssueInput("");
       setRecipientName("");
@@ -77,23 +93,25 @@ export default function PreparingSendListPage() {
   // 발송 박스 목록 (PREPARING).
   // VIP 탭: vip_slot_number 필터 (product_kind 무관, 정기+단품 혼합 가능)
   // monthly/yearly: product_kind 필터 (KR 강제는 백엔드 그룹핑 단계에서 보장)
+  // 페이지네이션(page/limit)을 제외한 필터 조건 — 메인 목록 쿼리와 "필터 결과 전체 선택" 순회 조회가 공유
+  const baseParams: Omit<SendListQuery, "page" | "limit"> = useMemo(
+    () => ({
+      send_status: "PREPARING",
+      product_kind: isVip ? null : scope === "monthly" ? "MONTHLY" : "YEARLY",
+      vip_slot_number: vipSlot,
+      issue: issueValid ? issueInput : null,
+      recipient_name: recipientName || null,
+      recipient_phone: recipientPhone || null,
+      sort_by: "created_at",
+      sort_order: "desc",
+    }),
+    [isVip, scope, vipSlot, issueValid, issueInput, recipientName, recipientPhone],
+  );
+
   const { data: sendsData, isLoading } = useQuery({
     queryKey: ["preparing-sends", scope, issueInput, recipientName, recipientPhone, page],
     queryFn: () =>
-      sendsApi
-        .getSends({
-          page,
-          limit: LIMIT,
-          send_status: "PREPARING",
-          product_kind: isVip ? null : scope === "monthly" ? "MONTHLY" : "YEARLY",
-          vip_slot_number: vipSlot,
-          issue: issueValid ? issueInput : null,
-          recipient_name: recipientName || null,
-          recipient_phone: recipientPhone || null,
-          sort_by: "created_at",
-          sort_order: "desc",
-        })
-        .then((r) => r.data),
+      sendsApi.getSends({ ...baseParams, page, limit: LIMIT }).then((r) => r.data),
   });
 
   const sends = sendsData?.items ?? [];
@@ -130,38 +148,74 @@ export default function PreparingSendListPage() {
 
   // 탭 전환 시 페이지·선택 초기화
   const handleTabChange = (next: string) => {
+    selectionGenerationRef.current += 1;
     setScope(next as DispatchScope);
     setPage(1);
-    setSelectedIds(new Set());
+    setSelectedItems(new Map());
     setIssueInput("");
     setRecipientName("");
     setRecipientPhone("");
   };
 
   // 체크박스 헬퍼
-  const toggleOne = (sendId: number) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(sendId)) next.delete(sendId);
-      else next.add(sendId);
+  const toggleOne = (item: SendResponse) => {
+    setSelectedItems((prev) => {
+      const next = new Map(prev);
+      if (next.has(item.send_id)) next.delete(item.send_id);
+      else next.set(item.send_id, item);
       return next;
     });
   };
-  const allSelected = sends.length > 0 && sends.every((s) => selectedIds.has(s.send_id));
+  const allSelected = sends.length > 0 && sends.every((s) => selectedItems.has(s.send_id));
   const toggleAllOnPage = () => {
     if (allSelected) {
       // 현재 페이지 박스만 해제 (다른 페이지 선택은 보존)
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
+      setSelectedItems((prev) => {
+        const next = new Map(prev);
         sends.forEach((s) => next.delete(s.send_id));
         return next;
       });
     } else {
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        sends.forEach((s) => next.add(s.send_id));
+      setSelectedItems((prev) => {
+        const next = new Map(prev);
+        sends.forEach((s) => next.set(s.send_id, s));
         return next;
       });
+    }
+  };
+
+  // 필터 결과 전체 선택 — 현재 탭+필터 조건에 맞는 전체 항목을 페이지 순회로 모아 한 번에 선택.
+  // 백엔드 GET /sends의 limit 상한(100)만큼씩 조회하며, 각 항목을 send-detail 캐시에도 시딩해
+  // 발송완료 처리 모달에서 개별 상세 재조회 없이 즉시 표시되게 함.
+  // 전체 데이터를 selectedItems에 직접 저장 — 현재 페이지(sends)에 없는 항목도 모달에 전달 가능해야 함.
+  const selectAllFiltered = async () => {
+    const myGeneration = ++selectionGenerationRef.current;
+    setIsSelectingAll(true);
+    try {
+      const collected = new Map<number, SendResponse>();
+      let currentPage = 1;
+      let totalPages = 1;
+      do {
+        const { data } = await sendsApi.getSends({
+          ...baseParams,
+          page: currentPage,
+          limit: SELECT_ALL_FETCH_LIMIT,
+        });
+        data.items.forEach((item) => {
+          collected.set(item.send_id, item);
+          queryClient.setQueryData(["send-detail", item.send_id], item);
+        });
+        totalPages = data.total_pages;
+        currentPage += 1;
+      } while (currentPage <= totalPages);
+      // 순회 도중 탭 전환 등으로 세대가 바뀌었으면 이 결과는 stale — 반영하지 않음
+      if (selectionGenerationRef.current !== myGeneration) return;
+      setSelectedItems(collected);
+      toast.success(`${collected.size}건 선택되었습니다.`);
+    } catch (err) {
+      if (selectionGenerationRef.current === myGeneration) toast.error(getErrorMessage(err));
+    } finally {
+      setIsSelectingAll(false);
     }
   };
 
@@ -171,10 +225,10 @@ export default function PreparingSendListPage() {
       <Tabs value={scope} onValueChange={handleTabChange}>
         <div className="px-5 py-3 bg-white border-b border-gray-200">
           <TabsList>
-            <TabsTrigger value="monthly">단품</TabsTrigger>
-            <TabsTrigger value="yearly">정기</TabsTrigger>
+            <TabsTrigger value="monthly" disabled={filterLocked}>단품</TabsTrigger>
+            <TabsTrigger value="yearly" disabled={filterLocked}>정기</TabsTrigger>
             {activeVipSlots.map((s) => (
-              <TabsTrigger key={s.slot_number} value={`vip${s.slot_number}`}>
+              <TabsTrigger key={s.slot_number} value={`vip${s.slot_number}`} disabled={filterLocked}>
                 {s.label || `VIP ${s.slot_number}`}
               </TabsTrigger>
             ))}
@@ -225,10 +279,10 @@ export default function PreparingSendListPage() {
             )}
             <Button
               size="sm"
-              disabled={selectedIds.size === 0}
+              disabled={selectedItems.size === 0}
               onClick={() => setTransitionOpen(true)}
             >
-              발송 완료 처리 ({selectedIds.size}건)
+              발송 완료 처리 ({selectedItems.size}건)
             </Button>
           </div>
         }
@@ -243,6 +297,7 @@ export default function PreparingSendListPage() {
               placeholder="발송 호 (YYYYMM)"
               value={issueInput}
               maxLength={6}
+              disabled={filterLocked}
               onChange={(e) => { setIssueInput(e.target.value.replace(/\D/g, "")); setPage(1); }}
             />
             {issueInput && !issueValid && (
@@ -252,29 +307,58 @@ export default function PreparingSendListPage() {
               className="w-32"
               placeholder="수령인 이름"
               value={recipientName}
+              disabled={filterLocked}
               onChange={(e) => { setRecipientName(e.target.value); setPage(1); }}
             />
             <Input
               className="w-36 font-mono"
               placeholder="수령인 연락처"
               value={recipientPhone}
+              disabled={filterLocked}
               onChange={(e) => { setRecipientPhone(e.target.value.replace(/\D/g, "")); setPage(1); }}
             />
+            {filterLocked && (
+              <span className="text-xs text-amber-600">전체 선택 중: 필터/탭 변경 불가</span>
+            )}
           </>
         }
         actions={
-          <div className="flex items-center gap-2 text-xs text-gray-600">
-            <input
-              type="checkbox"
-              id="select-all-page"
-              className="h-4 w-4"
-              checked={allSelected}
-              disabled={sends.length === 0}
-              onChange={toggleAllOnPage}
-            />
-            <label htmlFor="select-all-page" className="cursor-pointer select-none">
-              페이지 전체 선택 ({selectedIds.size}/{sends.length})
-            </label>
+          <div className="flex items-center gap-3 text-xs text-gray-600">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="select-all-page"
+                className="h-4 w-4"
+                checked={allSelected}
+                disabled={sends.length === 0 || filterLocked}
+                onChange={toggleAllOnPage}
+              />
+              <label htmlFor="select-all-page" className="cursor-pointer select-none">
+                페이지 전체 선택 ({selectedItems.size}/{sends.length})
+              </label>
+            </div>
+            <span className="text-gray-300">·</span>
+            <button
+              type="button"
+              className="text-blue-600 hover:underline disabled:text-gray-300 disabled:no-underline disabled:cursor-not-allowed"
+              disabled={isSelectingAll || total === 0}
+              onClick={selectAllFiltered}
+            >
+              {isSelectingAll ? "불러오는 중…" : `필터 결과 전체 선택 (총 ${total}건)`}
+            </button>
+            {selectedItems.size > 0 && (
+              <button
+                type="button"
+                className="text-gray-500 hover:underline disabled:text-gray-300 disabled:no-underline disabled:cursor-not-allowed"
+                disabled={filterLocked}
+                onClick={() => {
+                  selectionGenerationRef.current += 1;
+                  setSelectedItems(new Map());
+                }}
+              >
+                선택 해제
+              </button>
+            )}
           </div>
         }
         hasActiveFilters={!!(issueInput || recipientName || recipientPhone)}
@@ -296,7 +380,7 @@ export default function PreparingSendListPage() {
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
           queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
-          setSelectedIds(new Set());
+          setSelectedItems(new Map());
         }}
       />
 
@@ -323,11 +407,12 @@ export default function PreparingSendListPage() {
       <TransitionToDeliveredModal
         open={transitionOpen}
         onClose={() => setTransitionOpen(false)}
-        sends={sends.filter((s) => selectedIds.has(s.send_id))}
-        onSuccess={() => {
+        sends={Array.from(selectedItems.values())}
+        onSuccess={(_count, allSucceeded) => {
           queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
           queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
-          setSelectedIds(new Set());
+          // 일부 실패가 남아 모달이 재시도 대기 중으로 열려있으면 선택 상태를 비우지 않음
+          if (allSucceeded) setSelectedItems(new Map());
         }}
       />
 
@@ -351,8 +436,8 @@ export default function PreparingSendListPage() {
                 send={s}
                 detail={s}
                 detailError={false}
-                checked={selectedIds.has(s.send_id)}
-                onToggleCheck={() => toggleOne(s.send_id)}
+                checked={selectedItems.has(s.send_id)}
+                onToggleCheck={() => toggleOne(s)}
                 onCardClick={() => setDetailSendId(s.send_id)}
               />
             ))}

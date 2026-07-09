@@ -1,4 +1,5 @@
 import api from "./axios";
+import type { AxiosRequestConfig } from "axios";
 import type { ResponseModel } from "../types/api";
 import type {
   DispatchSummaryResponse,
@@ -39,10 +40,12 @@ export const dispatchApi = {
   },
 
   // POST /dispatches/transition-to-delivered - [발송 완료 처리]: PREPARING → DELIVERED 일괄 전환
-  transitionToDelivered: (data: TransitionToDeliveredRequest) => {
+  // config: 대량 처리 시 청크별 호출에 타임아웃을 상향하기 위해 선택적으로 전달 가능
+  transitionToDelivered: (data: TransitionToDeliveredRequest, config?: AxiosRequestConfig) => {
     return api.post<ResponseModel<TransitionToDeliveredResponse>>(
       "/dispatches/transition-to-delivered",
       data,
+      config,
     );
   },
 
