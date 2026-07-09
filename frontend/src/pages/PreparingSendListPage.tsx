@@ -3,12 +3,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
+import { ProgressBar } from "@/components/common/ProgressBar";
 import { EmptyState } from "@/components/common/EmptyState";
 import { FilterBar } from "@/components/common/FilterBar";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Pagination } from "@/components/common/Pagination";
-import { FileDown, Package, RefreshCw } from "lucide-react";
+import { FileDown, Package, RefreshCw, X } from "lucide-react";
 import RegeneratePreparingConfirmModal from "@/components/dispatch/RegeneratePreparingConfirmModal";
 import TransitionToDeliveredModal from "@/components/dispatch/TransitionToDeliveredModal";
 import SendDetailPanel from "@/components/dispatch/SendDetailPanel";
@@ -48,7 +50,11 @@ export default function PreparingSendListPage() {
   // 선택될 수 있어, 현재 페이지에 로드된 sends 배열만으로는 선택 항목 전체를 복원할 수 없음
   // (id만 저장하면 모달에 넘길 때 현재 페이지에 없는 선택 항목이 누락됨).
   const [selectedItems, setSelectedItems] = useState<Map<number, SendResponse>>(new Map());
-  const [isSelectingAll, setIsSelectingAll] = useState(false);
+  // 전체 선택 순회 진행 상태 — 실 데이터(수천 건)는 페이지당 왕복이 눈에 띄게 걸릴 수 있어
+  // "불러오는 중…" 정적 텍스트만으로는 멈춘 것처럼 보임. 모달로 몇 건째인지 표시.
+  // null이 아니면 곧 "진행 중" — isSelectingAll을 별도 state로 두지 않고 이 값에서 파생.
+  const [selectAllProgress, setSelectAllProgress] = useState<{ done: number; total: number } | null>(null);
+  const isSelectingAll = selectAllProgress !== null;
   // selectAllFiltered 진행 중 탭 전환/선택 해제 등으로 세대가 바뀌면, 뒤늦게 도착한
   // stale 결과가 setSelectedItems를 덮어쓰지 않도록 막는 가드 (아래 filterLocked로
   // 탭·필터 조작 자체를 막지만, 방어적으로 이중 체크).
@@ -167,6 +173,10 @@ export default function PreparingSendListPage() {
     });
   };
   const allSelected = sends.length > 0 && sends.every((s) => selectedItems.has(s.send_id));
+  // "페이지 전체 선택 (N/20)" 라벨용 — selectedItems.size(전체 선택 건수, 필터 결과 전체
+  // 선택 시 수천 건일 수 있음)를 그대로 쓰면 "(2924/20)" 처럼 말이 안 되는 표시가 되므로
+  // 반드시 현재 페이지에 실제로 표시된 항목 중 선택된 것만 센다.
+  const selectedOnPageCount = sends.filter((s) => selectedItems.has(s.send_id)).length;
   const toggleAllOnPage = () => {
     if (allSelected) {
       // 현재 페이지 박스만 해제 (다른 페이지 선택은 보존)
@@ -190,7 +200,7 @@ export default function PreparingSendListPage() {
   // 전체 데이터를 selectedItems에 직접 저장 — 현재 페이지(sends)에 없는 항목도 모달에 전달 가능해야 함.
   const selectAllFiltered = async () => {
     const myGeneration = ++selectionGenerationRef.current;
-    setIsSelectingAll(true);
+    setSelectAllProgress({ done: 0, total });
     try {
       const collected = new Map<number, SendResponse>();
       let currentPage = 1;
@@ -207,6 +217,10 @@ export default function PreparingSendListPage() {
         });
         totalPages = data.total_pages;
         currentPage += 1;
+        // 실제 백엔드 total(정확도 우선) 기준으로 진행 건수 갱신 — 페이지별 왕복마다 즉시 반영
+        if (selectionGenerationRef.current === myGeneration) {
+          setSelectAllProgress({ done: collected.size, total: data.total });
+        }
       } while (currentPage <= totalPages);
       // 순회 도중 탭 전환 등으로 세대가 바뀌었으면 이 결과는 stale — 반영하지 않음
       if (selectionGenerationRef.current !== myGeneration) return;
@@ -215,7 +229,7 @@ export default function PreparingSendListPage() {
     } catch (err) {
       if (selectionGenerationRef.current === myGeneration) toast.error(getErrorMessage(err));
     } finally {
-      setIsSelectingAll(false);
+      setSelectAllProgress(null);
     }
   };
 
@@ -323,41 +337,53 @@ export default function PreparingSendListPage() {
           </>
         }
         actions={
-          <div className="flex items-center gap-3 text-xs text-gray-600">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5 text-xs text-gray-600">
+            {/* 주 동작: 전체 선택 — 실사용 빈도가 훨씬 높아 기본으로 승격. 네트워크 순회(수 초)가
+                걸리는 "동작"이라 체크박스가 아니라 버튼으로 (기존 뮤테이션 버튼과 동일한
+                로딩 스피너+비활성화+라벨 전환 패턴). */}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isSelectingAll || total === 0}
+              onClick={selectAllFiltered}
+            >
+              {isSelectingAll && <LoadingSpinner size="sm" className="mr-1" />}
+              {isSelectingAll ? "불러오는 중…" : `전체 선택 (총 ${total.toLocaleString()}건)`}
+            </Button>
+
+            {/* 보조 동작: 이 페이지만 선택 — 로컬 즉시 토글이라 체크박스 문법이 맞는 드문 케이스 */}
+            <div className="flex items-center gap-1.5">
               <input
                 type="checkbox"
                 id="select-all-page"
                 className="h-4 w-4"
                 checked={allSelected}
+                ref={(el) => { if (el) el.indeterminate = !allSelected && selectedOnPageCount > 0; }}
                 disabled={sends.length === 0 || filterLocked}
                 onChange={toggleAllOnPage}
               />
-              <label htmlFor="select-all-page" className="cursor-pointer select-none">
-                페이지 전체 선택 ({selectedItems.size}/{sends.length})
+              <label htmlFor="select-all-page" className="cursor-pointer select-none text-gray-500">
+                이 페이지만 선택
               </label>
             </div>
-            <span className="text-gray-300">·</span>
-            <button
-              type="button"
-              className="text-blue-600 hover:underline disabled:text-gray-300 disabled:no-underline disabled:cursor-not-allowed"
-              disabled={isSelectingAll || total === 0}
-              onClick={selectAllFiltered}
-            >
-              {isSelectingAll ? "불러오는 중…" : `필터 결과 전체 선택 (총 ${total}건)`}
-            </button>
+
+            {/* 선택 현황 — 개수의 유일한 표시처(단일 소스). FilterBar의 활성 필터 칩과 동일한 스타일로 통일 */}
             {selectedItems.size > 0 && (
-              <button
-                type="button"
-                className="text-gray-500 hover:underline disabled:text-gray-300 disabled:no-underline disabled:cursor-not-allowed"
-                disabled={filterLocked}
-                onClick={() => {
-                  selectionGenerationRef.current += 1;
-                  setSelectedItems(new Map());
-                }}
-              >
-                선택 해제
-              </button>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium border border-blue-200">
+                {selectedItems.size.toLocaleString()}건 선택됨
+                <button
+                  type="button"
+                  className="hover:text-blue-900 flex-shrink-0 disabled:text-blue-300 disabled:cursor-not-allowed"
+                  disabled={filterLocked}
+                  onClick={() => {
+                    selectionGenerationRef.current += 1;
+                    setSelectedItems(new Map());
+                  }}
+                  aria-label="선택 해제"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
             )}
           </div>
         }
@@ -370,6 +396,29 @@ export default function PreparingSendListPage() {
         ]}
       />
 
+      {/* 전체 선택 진행 상태 모달 — 실 데이터는 페이지 왕복이 눈에 띄게 걸릴 수 있어
+          정적 "불러오는 중…" 텍스트만으로는 멈춘 것처럼 보임. 몇 건째인지 실시간으로 표시.
+          onOpenChange를 넘기지 않아 controlled 상태로 고정 — Radix는 onChange 없는 controlled
+          컴포넌트에서 ESC/바깥클릭/닫기버튼 클릭을 이미 no-op 처리하므로 별도 방어 불필요
+          (TransitionToDeliveredModal의 처리-중-닫기-방지와 동일한 원리, 공용 Dialog 컴포넌트는 무변경). */}
+      <Dialog open={isSelectingAll}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>전체 선택 중…</DialogTitle>
+            <DialogDescription>완료될 때까지 잠시 기다려주세요.</DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            {selectAllProgress && (
+              <ProgressBar
+                done={selectAllProgress.done}
+                total={selectAllProgress.total}
+                label="불러오는 중"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* 발송 생성 모달 — 단품/정기/VIP 모두 전체 재계산(해당 scope+issue의 PREPARING만 삭제 후 재생성).
           호 입력은 모달 안에서 직접 받음 (페이지 상단 '발송 호 필터'와 무관). */}
       <RegeneratePreparingConfirmModal
@@ -380,6 +429,7 @@ export default function PreparingSendListPage() {
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
           queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
+          selectionGenerationRef.current += 1;
           setSelectedItems(new Map());
         }}
       />
@@ -412,7 +462,10 @@ export default function PreparingSendListPage() {
           queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
           queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
           // 일부 실패가 남아 모달이 재시도 대기 중으로 열려있으면 선택 상태를 비우지 않음
-          if (allSucceeded) setSelectedItems(new Map());
+          if (allSucceeded) {
+            selectionGenerationRef.current += 1;
+            setSelectedItems(new Map());
+          }
         }}
       />
 

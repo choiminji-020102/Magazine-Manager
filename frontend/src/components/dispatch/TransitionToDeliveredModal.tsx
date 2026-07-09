@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
+import { ProgressBar } from "@/components/common/ProgressBar";
 import { ImportStatCard, ImportDetailCard } from "@/components/common/ImportResultCards";
 import { dispatchApi } from "@/api/dispatchApi";
 import { sendsApi } from "@/api/sendsApi";
@@ -49,6 +50,9 @@ interface Props {
 // 대량 선택 시 한 번의 API 호출에 담을 최대 건수.
 // 카페24 연동 건이 섞이면 백엔드가 내부적으로 100건씩 다시 쪼개 호출하므로(0.5초 간격),
 // 200건이면 최악의 경우도 서브배치 2개로 끝나 axios 타임아웃(아래 60초) 안에 안정적으로 마무리됨.
+// "필터 결과 전체 선택"의 페이지 순회 단위(100, GET /sends limit 상한)와는 다르지만 —
+// 그쪽은 백엔드가 강제하는 읽기 상한이고 이쪽은 우리가 고르는 쓰기 배치 크기라 성격이 다름.
+// 100으로 맞춰본 적 있으나 왕복 횟수·거대 테이블 리렌더가 2배로 늘어 실익이 없어 되돌림.
 const CHUNK_SIZE = 200;
 
 interface TransitionResult {
@@ -224,6 +228,13 @@ export default function TransitionToDeliveredModal({
             다시 확인해주세요.
           </p>
         </DialogHeader>
+
+        {/* 처리 진행 상태 — "필터 결과 전체 선택" 진행 모달과 동일한 공용 ProgressBar */}
+        {progress && (
+          <div className="pb-2 border-b border-gray-100">
+            <ProgressBar done={progress.done} total={progress.total} label="처리 중" />
+          </div>
+        )}
 
         {/* 처리 결과 요약 — 일부 실패 시에만 표시 (전체 성공이면 모달이 바로 닫힘) */}
         {result && result.failed.length > 0 && (
@@ -406,7 +417,7 @@ export default function TransitionToDeliveredModal({
               <LoadingSpinner size="sm" className="mr-1" />
             )}
             {mutation.isPending
-              ? `처리 중… (완료 ${progress?.done ?? 0}/${progress?.total ?? items.length}건)`
+              ? "처리 중…"
               : isRetry
               ? `실패 건 재시도 (${items.length}건)`
               : `발송 완료 처리 (${items.length}건)`}
