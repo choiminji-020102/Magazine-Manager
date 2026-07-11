@@ -121,8 +121,24 @@ class TransitionToDeliveredRequest(BaseModel):
         return self
 
 
+class TransitionFailedItem(BaseModel):
+    """[배송완료 처리] 실패 건 — 성공/실패가 한 응답 안에 섞여서 나올 수 있음(부분 성공 허용)."""
+    send_id: int
+    # validation: 카페24를 시도하기도 전에 걸림(존재 안 함/이미 처리됨) — 카페24도 당연히 반영 안 됨
+    # cafe24: 우리 시스템 검증은 통과했으나 카페24 API 호출이 실패함 — 이 경우도 우리 시스템 반영은 함께 취소됨
+    category: Literal["validation", "cafe24"]
+    recipient_name: str
+    recipient_phone: str
+    reason: str
+
+
 class TransitionToDeliveredResponse(BaseModel):
     transitioned_count: int
+    # transitioned_count 중 실제로 카페24 API 연동이 성공한 건수.
+    # 오프라인/지마켓 채널이거나, YEARLY 재발송(2회차 이후)이면 카페24 연동 대상이 아니라
+    # 이 수보다 transitioned_count가 더 클 수 있음 (그 차이는 "카페24 대상 아님"을 뜻함).
+    cafe24_synced_count: int
+    failed: List[TransitionFailedItem] = []
 
 
 class PreviewSkippedIssuesRequest(BaseModel):

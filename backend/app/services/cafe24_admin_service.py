@@ -1,7 +1,7 @@
 import asyncio
 import base64
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 from fastapi import HTTPException, status as http_status
@@ -174,6 +174,43 @@ async def call_cafe24(
 
 # ── Shipments API ─────────────────────────────────────────────────────────────
 
+async def _call_shipments_batch_once(
+    *,
+    method: str,
+    db: Session,
+    client: httpx.AsyncClient,
+    batch: List[Dict],
+) -> Tuple[Optional[List[Dict]], Optional[str], Optional[int]]:
+    """batch(최대 100건) 1회 호출 — 429는 1회 재시도까지 포함.
+    성공: (shipments, None, None). 실패: (None, 사유 문구, http 상태코드).
+    _call_shipments(기존, 실패 시 raise)와 _call_shipments_tolerant(신규, 실패해도 계속 진행) 둘 다
+    이 함수를 공유해서 카페24 호출/재시도 로직이 두 곳에 따로 구현되지 않도록 함.
+    """
+    url = f"{BASE_URL}/shipments"
+    req_body = {"shop_no": 1, "requests": batch}
+
+    r = await call_cafe24(method=method, url=url, db=db, client=client, json_body=req_body)
+
+    if r.status_code == 429:
+        call_remain = int(r.headers.get("X-Cafe24-Call-Remain", "0"))
+        time_remain = int(r.headers.get("X-Cafe24-Time-Remain", "0"))
+        wait = max(call_remain, time_remain, 2)  # 호출 횟수/처리 시간 제한 중 큰 값, 최소 2초
+        await asyncio.sleep(wait)
+        r = await call_cafe24(method=method, url=url, db=db, client=client, json_body=req_body)
+
+    if r.status_code == 429:
+        return None, "Cafe24 Shipments API Rate Limit 초과 — 잠시 후 다시 시도해주세요.", http_status.HTTP_429_TOO_MANY_REQUESTS
+    if r.is_error:
+        return None, f"Cafe24 Shipments API 오류 ({r.status_code}): {r.text[:200]}", http_status.HTTP_502_BAD_GATEWAY
+
+    result = r.json()
+    errors = result.get("errors") or []
+    if errors:
+        return None, f"Cafe24 Shipments API partial error: {errors}", http_status.HTTP_400_BAD_REQUEST
+
+    return result.get("shipments") or [], None, None
+
+
 async def _call_shipments(
     *,
     method: str,
@@ -185,50 +222,58 @@ async def _call_shipments(
 
     100건씩 나눠 호출. 배치 간 0.5초 지연으로 Bucket 소진 방지.
     429 수신 시 X-Cafe24-Call-Remain 헤더만큼 대기 후 1회 재시도.
-    응답 errors 배열이 있으면 전체 실패로 처리 (HTTPException 400).
+    응답 errors 배열이 있으면 전체 실패로 처리 (HTTPException). 기존 소비자(Cafe24 주문
+    가져오기 등)가 "실패하면 예외로 전체 중단"을 기대하므로 이 동작은 절대 바꾸지 않음 —
+    부분 성공을 허용해야 하는 새 소비자는 아래 _call_shipments_tolerant를 사용할 것.
     """
-    url = f"{BASE_URL}/shipments"
     batch_size = 100
     all_shipments: List[Dict] = []
 
     for i in range(0, len(requests_payload), batch_size):
         batch = requests_payload[i:i + batch_size]
-        req_body = {"shop_no": 1, "requests": batch}
-
-        r = await call_cafe24(method=method, url=url, db=db, client=client, json_body=req_body)
-
-        if r.status_code == 429:
-            call_remain = int(r.headers.get("X-Cafe24-Call-Remain", "0"))
-            time_remain = int(r.headers.get("X-Cafe24-Time-Remain", "0"))
-            wait = max(call_remain, time_remain, 2)  # 호출 횟수/처리 시간 제한 중 큰 값, 최소 2초
-            await asyncio.sleep(wait)
-            r = await call_cafe24(method=method, url=url, db=db, client=client, json_body=req_body)
-
-        if r.status_code == 429:
-            raise HTTPException(
-                status_code=http_status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Cafe24 Shipments API Rate Limit 초과 — 잠시 후 다시 시도해주세요.",
-            )
-        if r.is_error:
-            raise HTTPException(
-                status_code=http_status.HTTP_502_BAD_GATEWAY,
-                detail=f"Cafe24 Shipments API 오류 ({r.status_code}): {r.text[:200]}",
-            )
-
-        result = r.json()
-        errors = result.get("errors") or []
-        if errors:
-            raise HTTPException(
-                status_code=http_status.HTTP_400_BAD_REQUEST,
-                detail=f"Cafe24 Shipments API partial error: {errors}",
-            )
-
-        all_shipments.extend(result.get("shipments") or [])
+        shipments, reason, status_code = await _call_shipments_batch_once(
+            method=method, db=db, client=client, batch=batch
+        )
+        if reason:
+            raise HTTPException(status_code=status_code, detail=reason)
+        all_shipments.extend(shipments or [])
 
         if i + batch_size < len(requests_payload):
             await asyncio.sleep(0.5)
 
     return all_shipments
+
+
+async def _call_shipments_tolerant(
+    *,
+    method: str,
+    db: Session,
+    client: httpx.AsyncClient,
+    requests_payload: List[Dict],
+) -> Tuple[List[Dict], List[Dict]]:
+    """_call_shipments와 동일하게 100건씩 호출하지만, 배치 하나가 실패해도 예외를 던지지 않고
+    나머지 배치를 계속 진행함. 반환: (성공한 shipments 응답 리스트, 실패 배치 목록).
+    실패 배치 목록 항목 형식: {"items": 원본 payload 항목들, "reason": str}
+    발송완료 처리처럼 "일부 성공은 그대로 반영하고 실패분만 알려줘야" 하는 소비자용.
+    """
+    batch_size = 100
+    all_shipments: List[Dict] = []
+    failed_batches: List[Dict] = []
+
+    for i in range(0, len(requests_payload), batch_size):
+        batch = requests_payload[i:i + batch_size]
+        shipments, reason, _status_code = await _call_shipments_batch_once(
+            method=method, db=db, client=client, batch=batch
+        )
+        if reason:
+            failed_batches.append({"items": batch, "reason": reason})
+        else:
+            all_shipments.extend(shipments or [])
+
+        if i + batch_size < len(requests_payload):
+            await asyncio.sleep(0.5)
+
+    return all_shipments, failed_batches
 
 
 async def post_shipments(
@@ -267,3 +312,23 @@ async def put_shipments(
     ⚠️ status와 tracking_no/shipping_company_code 동시 사용 불가 (Cafe24 API 제약).
     """
     await _call_shipments(method="PUT", db=db, client=client, requests_payload=requests_payload)
+
+
+async def post_shipments_tolerant(
+    *,
+    db: Session,
+    client: httpx.AsyncClient,
+    requests_payload: List[Dict],
+) -> Tuple[List[Dict], List[Dict]]:
+    """post_shipments의 부분성공 허용 버전. 반환: (성공 shipments, 실패 배치 목록)."""
+    return await _call_shipments_tolerant(method="POST", db=db, client=client, requests_payload=requests_payload)
+
+
+async def put_shipments_tolerant(
+    *,
+    db: Session,
+    client: httpx.AsyncClient,
+    requests_payload: List[Dict],
+) -> Tuple[List[Dict], List[Dict]]:
+    """put_shipments의 부분성공 허용 버전. 반환: (성공 shipments, 실패 배치 목록)."""
+    return await _call_shipments_tolerant(method="PUT", db=db, client=client, requests_payload=requests_payload)

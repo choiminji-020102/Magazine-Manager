@@ -1,6 +1,6 @@
 # 표준 라이브러리
 import re
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 # 서드파티 라이브러리
 import httpx
@@ -251,42 +251,70 @@ async def transition_sends_to_delivered_batch(
     send_method: str,
     courier_company: str,
     client: httpx.AsyncClient,
-) -> int:
-    """선택된 PREPARING Send들을 일괄 DELIVERED 전환. 전환된 Send 수 반환.
+) -> Tuple[int, int, List[Dict]]:
+    """선택된 PREPARING Send들을 DELIVERED 전환 시도. (전환 성공 수, 카페24 연동 성공 수, 실패 목록) 반환.
 
     sends_input: (send_id, tracking_no) 페어 리스트. 박스마다 운송장 다를 수 있음. tracking_no 필수 (스키마 보장).
     send_method, courier_company는 모든 Send에 공통 적용.
 
-    Upfront 검증: 모든 Send가 존재하고 PREPARING 상태여야 함.
-    한 건이라도 실패 시 HTTPException 400으로 전체 거부 (all-or-nothing).
+    all-or-nothing 아님 — 존재하지 않거나 이미 처리된 Send, 카페24 연동에 실패한 Send는
+    예외를 던지는 대신 failed 목록에 담기고, 나머지는 계속 진행되어 정상 반영됨.
+    failed 항목 형식: {"send_id": int, "recipient_name": str, "recipient_phone": str,
+                       "reason": str, "category": "validation" | "cafe24"}
+    - "validation": 카페24를 아예 시도하기도 전에 걸림 (존재 안 함 / 이미 처리됨)
+    - "cafe24": 우리 시스템 검증은 통과했지만 카페24 API 호출이 실패함
+                (이 경우도 해당 Send의 우리 시스템 반영은 함께 취소됨 — 부분 성공 없음)
+
+    한 Send에 카페24 대상 주문이 여러 건 섞여 있을 수 있음(같은 주소면 다른 고객 주문도
+    한 Send로 묶임 — group_monthly_for_send 참고). 이 경우 Send는 그 안의 카페24 대상
+    주문이 "전부" 성공해야만 DELIVERED로 전환됨 (하나라도 실패하면 Send 전체 보류).
+    단, 이미 성공한 개별 주문 건은 재시도 시 다시 카페24로 보내지 않음(MONTHLY는
+    oi.cafe24_shipping_code 존재 여부로 판별) — Send 전체의 성패 판정과는 별개로,
+    카페24 쪽에서 이미 확정된 사실을 다시 흔들지 않기 위함.
+
     호출자가 db.commit() + 활동 로그 책임.
     """
     send_ids = [sid for sid, _ in sends_input]
     tracking_by_id = dict(sends_input)
+    failed: List[Dict] = []
 
     sends = db.query(Send).filter(Send.send_id.in_(send_ids)).all()
     sends_by_id = {s.send_id: s for s in sends}
 
     missing = sorted(set(send_ids) - set(sends_by_id.keys()))
-    if missing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"존재하지 않는 발송: {missing}. 페이지를 새로고침한 후 다시 시도해주세요.",
-        )
+    for send_id in missing:
+        failed.append({
+            "send_id": send_id,
+            "recipient_name": "-",
+            "recipient_phone": "-",
+            "reason": "존재하지 않는 발송입니다. 새로고침 후 다시 확인해주세요.",
+            "category": "validation",
+        })
 
-    non_preparing = [s.send_id for s in sends if s.send_status != "PREPARING"]
-    if non_preparing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"PREPARING 상태가 아닌 발송이 포함되어 있습니다: {non_preparing}. 페이지를 새로고침한 후 다시 시도해주세요.",
-        )
+    valid_sends: List[Send] = []
+    for s in sends:
+        if s.send_status != "PREPARING":
+            failed.append({
+                "send_id": s.send_id,
+                "recipient_name": s.recipient_name,
+                "recipient_phone": s.recipient_phone,
+                "reason": "이미 처리(발송완료 또는 취소)되어 있어 다시 처리할 수 없습니다. 새로고침 후 다시 확인해주세요.",
+                "category": "validation",
+            })
+        else:
+            valid_sends.append(s)
+
+    if not valid_sends:
+        return 0, 0, failed
+
+    valid_send_ids = [s.send_id for s in valid_sends]
 
     # 0단계: 루프 전에 모든 send의 SendItem 한번에 미리 쿼리
     # joinedload(order_item → order) 포함 → MONTHLY POST의 external_order_id 접근 시 추가 쿼리 없음
     # transition_send_to_delivered 내부 재쿼리 시 SQLAlchemy identity map에서 캐시 반환됨 (DB 히트 없음)
     all_send_items = (
         db.query(SendItem)
-        .filter(SendItem.send_id.in_(send_ids), SendItem.cancelled_at.is_(None))
+        .filter(SendItem.send_id.in_(valid_send_ids), SendItem.cancelled_at.is_(None))
         .options(joinedload(SendItem.order_item).joinedload(OrderItem.order))
         .all()
     )
@@ -295,12 +323,14 @@ async def transition_sends_to_delivered_batch(
         items_by_send_id.setdefault(si.send_id, []).append(si)
 
     # 1단계: Cafe24 정보 수집 (DB flush 전 — last_send_issue가 아직 null인 시점)
-    monthly_groups: dict = {}           # Cafe24 주문번호(external_order_id) → [order_item_code]
-    monthly_order_items_map: dict = {}  # Cafe24 주문번호(external_order_id) → [OrderItem]  (shipping_code 저장용)
-    monthly_send_id_by_order: dict = {} # Cafe24 주문번호(external_order_id) → send_id (tracking_no 조회용)
-    yearly_requests: List[dict] = []    # [{"shipping_code": ..., "status": "shipping"}]
+    monthly_groups: dict = {}                    # ext_oid → [order_item_code]
+    monthly_order_items_map: dict = {}           # ext_oid → [OrderItem] (shipping_code 저장용)
+    monthly_send_ids_by_order: dict = {}         # ext_oid → {send_id, ...} (실패 시 역추적용)
+    yearly_requests: List[dict] = []
+    yearly_send_ids_by_shipping_code: dict = {}  # shipping_code → {send_id, ...}
+    cafe24_synced_send_ids: set = set()          # 카페24 연동 "대상"이었던 Send (성공분은 3단계에서 걸러냄)
 
-    for send in sends:
+    for send in valid_sends:
         for si in items_by_send_id.get(send.send_id, []):
             oi = si.order_item
             if oi.external_order_item_id is None:
@@ -308,18 +338,26 @@ async def transition_sends_to_delivered_batch(
             if oi.cancelled_at is not None:
                 continue
             if oi.product_kind == "MONTHLY":
+                if oi.cafe24_shipping_code:
+                    continue  # 이전 시도(재시도)에서 이미 카페24 연동 성공 — 재전송 방지(idempotency).
+                    # 같은 Send에 섞인 다른 주문이 실패해 이 Send가 재시도 대상이 되더라도,
+                    # 이미 성공한 이 주문은 다시 카페24로 보내지 않음. Send 자체는 이 주문이
+                    # 속한 것과 무관하게, 여전히 남은 미동기화 주문까지 전부 성공해야 DELIVERED 전환됨.
                 ext_oid = oi.order.external_order_id  # Cafe24 주문번호
                 if ext_oid is None:
                     continue
                 monthly_groups.setdefault(ext_oid, []).append(oi.external_order_item_id)
                 monthly_order_items_map.setdefault(ext_oid, []).append(oi)
-                monthly_send_id_by_order[ext_oid] = send.send_id
+                monthly_send_ids_by_order.setdefault(ext_oid, set()).add(send.send_id)
+                cafe24_synced_send_ids.add(send.send_id)
             elif (
                 oi.product_kind == "YEARLY"
                 and oi.last_send_issue is None      # 첫 발송만 — 의도적 설계 (§3-2). flush 전이므로 올바른 체크
                 and oi.cafe24_shipping_code
             ):
                 yearly_requests.append({"order_id": oi.order.external_order_id, "shipping_code": oi.cafe24_shipping_code, "status": "shipping"})
+                yearly_send_ids_by_shipping_code.setdefault(oi.cafe24_shipping_code, set()).add(send.send_id)
+                cafe24_synced_send_ids.add(send.send_id)
 
     # shipping_code 중복 제거 (같은 주문 YEARLY 2종 → 동일 shipping_code)
     seen: set = set()
@@ -328,22 +366,14 @@ async def transition_sends_to_delivered_batch(
         if not (r["shipping_code"] in seen or seen.add(r["shipping_code"]))
     ]
 
-    # 2단계: DB flush
-    for send in sends:
-        transition_send_to_delivered(
-            db=db,
-            send=send,
-            send_method=send_method,
-            courier_company=courier_company,
-            tracking_no=tracking_by_id[send.send_id],
-        )
+    # 2단계: Cafe24 API 호출 (부분 성공 허용 — _tolerant 버전은 실패한 100건 묶음만 배제하고 계속 진행)
+    cafe24_failed_send_ids: set = set()
 
-    # 3단계: Cafe24 API 호출 (DB commit 전)
     # MONTHLY POST: N20 → N30 (shipping). order_id 필수.
     if monthly_groups:
         monthly_payload: List[dict] = []
         for ext_oid, item_codes in monthly_groups.items():
-            tracking_no_val = tracking_by_id[monthly_send_id_by_order[ext_oid]]
+            tracking_no_val = tracking_by_id[next(iter(monthly_send_ids_by_order[ext_oid]))]
             shipping_co_code = "0006" if courier_company == "CJ대한통운" else "0001"
             monthly_payload.append({
                 "order_id": ext_oid,
@@ -352,7 +382,7 @@ async def transition_sends_to_delivered_batch(
                 "status": "shipping",
                 "order_item_code": item_codes,
             })
-        shipments = await cafe24_admin_service.post_shipments(
+        shipments, monthly_failed_batches = await cafe24_admin_service.post_shipments_tolerant(
             db=db, client=client, requests_payload=monthly_payload
         )
         for shipment in shipments:
@@ -362,14 +392,50 @@ async def transition_sends_to_delivered_batch(
                 for oi in monthly_order_items_map.get(resp_order_id, []):
                     oi.cafe24_shipping_code = shipping_code
         db.flush()
+        for fb in monthly_failed_batches:
+            for item in fb["items"]:
+                affected = monthly_send_ids_by_order.get(item["order_id"], set())
+                cafe24_failed_send_ids |= affected
+                for send_id in affected:
+                    failed.append({
+                        "send_id": send_id,
+                        "recipient_name": sends_by_id[send_id].recipient_name,
+                        "recipient_phone": sends_by_id[send_id].recipient_phone,
+                        "reason": fb["reason"],
+                        "category": "cafe24",
+                    })
 
     # YEARLY PUT: N21 → N30 (shipping). shipping_code 필수, order_id 불필요.
     if yearly_requests:
-        await cafe24_admin_service.put_shipments(
+        _yearly_shipments, yearly_failed_batches = await cafe24_admin_service.put_shipments_tolerant(
             db=db, client=client, requests_payload=yearly_requests
         )
+        for fb in yearly_failed_batches:
+            for item in fb["items"]:
+                affected = yearly_send_ids_by_shipping_code.get(item["shipping_code"], set())
+                cafe24_failed_send_ids |= affected
+                for send_id in affected:
+                    failed.append({
+                        "send_id": send_id,
+                        "recipient_name": sends_by_id[send_id].recipient_name,
+                        "recipient_phone": sends_by_id[send_id].recipient_phone,
+                        "reason": fb["reason"],
+                        "category": "cafe24",
+                    })
 
-    return len(sends)
+    # 3단계: 카페24까지 성공한(또는 애초에 대상이 아니었던) Send만 실제로 DB 반영
+    succeeded_sends = [s for s in valid_sends if s.send_id not in cafe24_failed_send_ids]
+    for send in succeeded_sends:
+        transition_send_to_delivered(
+            db=db,
+            send=send,
+            send_method=send_method,
+            courier_company=courier_company,
+            tracking_no=tracking_by_id[send.send_id],
+        )
+
+    cafe24_synced_count = len(cafe24_synced_send_ids - cafe24_failed_send_ids)
+    return len(succeeded_sends), cafe24_synced_count, failed
 
 
 # ── [발송 생성] 오케스트레이션 ─────────────────────────────────────────────────

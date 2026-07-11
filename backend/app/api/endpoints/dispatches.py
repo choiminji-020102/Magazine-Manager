@@ -252,12 +252,14 @@ async def transition_to_delivered_endpoint(
 
     send_method, courier_company, tracking_no는 항상 필수.
     tracking_no는 박스(Send)마다 개별 입력. 비택배(우편·자체배송 등)는 UI에서 "자체배송" 기본값 자동 세팅.
-    한 건이라도 PREPARING이 아니면 전체 거부 (all-or-nothing).
-    Cafe24 주문 상태 동기화 포함 (MONTHLY POST / YEARLY PUT) — 실패 시 DB rollback.
+
+    더 이상 all-or-nothing이 아님 — 존재하지 않거나 이미 처리된 Send, 카페24 연동에 실패한
+    Send는 응답의 failed 목록에 담기고, 나머지는 정상적으로 DELIVERED 전환됨 (부분 성공 허용).
+    Cafe24 주문 상태 동기화 포함 (MONTHLY POST / YEARLY PUT).
     """
     sends_input = [(s.send_id, s.tracking_no) for s in req.sends]
 
-    transitioned_count = await send_service.transition_sends_to_delivered_batch(
+    transitioned_count, cafe24_synced_count, failed = await send_service.transition_sends_to_delivered_batch(
         db=db,
         sends_input=sends_input,
         send_method=req.send_method,
@@ -282,12 +284,18 @@ async def transition_to_delivered_endpoint(
             "courier_company": req.courier_company,
             "sends": [{"send_id": s.send_id, "tracking_no": s.tracking_no} for s in req.sends],
             "transitioned_count": transitioned_count,
+            "cafe24_synced_count": cafe24_synced_count,
+            "failed": failed,
         },
     )
 
     return ResponseModel(
-        message=f"배송완료 처리 완료: {transitioned_count}건",
-        data=TransitionToDeliveredResponse(transitioned_count=transitioned_count),
+        message=f"배송완료 처리 완료: {transitioned_count}건" + (f" (실패 {len(failed)}건)" if failed else ""),
+        data=TransitionToDeliveredResponse(
+            transitioned_count=transitioned_count,
+            cafe24_synced_count=cafe24_synced_count,
+            failed=failed,
+        ),
     )
 
 
