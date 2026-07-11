@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueries } from "@tanstack/react-query";
 import { CheckCircle2, XCircle } from "lucide-react";
 import {
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { ProgressBar } from "@/components/common/ProgressBar";
-import { ImportStatCard, ImportDetailCard } from "@/components/common/ImportResultCards";
+import { ImportStatCard } from "@/components/common/ImportResultCards";
 import { dispatchApi } from "@/api/dispatchApi";
 import { sendsApi } from "@/api/sendsApi";
 import { toast } from "@/hooks/use-toast";
@@ -50,14 +50,48 @@ interface Props {
 // 대량 선택 시 한 번의 API 호출에 담을 최대 건수.
 // 카페24 연동 건이 섞이면 백엔드가 내부적으로 100건씩 다시 쪼개 호출하므로(0.5초 간격),
 // 200건이면 최악의 경우도 서브배치 2개로 끝나 axios 타임아웃(아래 60초) 안에 안정적으로 마무리됨.
-// "필터 결과 전체 선택"의 페이지 순회 단위(100, GET /sends limit 상한)와는 다르지만 —
-// 그쪽은 백엔드가 강제하는 읽기 상한이고 이쪽은 우리가 고르는 쓰기 배치 크기라 성격이 다름.
-// 100으로 맞춰본 적 있으나 왕복 횟수·거대 테이블 리렌더가 2배로 늘어 실익이 없어 되돌림.
 const CHUNK_SIZE = 200;
+
+// 실패 사유 분류 — 백엔드가 직접 내려주는 값(문자열 추측 아님).
+// validation: 카페24를 시도하기도 전에 걸림(존재 안 함/이미 처리됨) — 카페24도 당연히 반영 안 됨
+// cafe24: 우리 시스템 검증은 통과했으나 카페24 API 호출이 실패함 — 이 경우도 우리 시스템 반영은 함께 취소됨
+// unknown: 백엔드에 아예 도달 못한 예외(네트워크/타임아웃/401 등) — 백엔드가 분류해줄 수 없는 경우
+type FailureCategory = "validation" | "cafe24" | "unknown";
+
+const CATEGORY_LABEL: Record<FailureCategory, string> = {
+  validation: "사전 검증 실패",
+  cafe24: "카페24 연동 실패",
+  unknown: "원인 불명확",
+};
+const CATEGORY_BADGE_CLASS: Record<FailureCategory, string> = {
+  validation: "bg-blue-100 text-blue-700",
+  cafe24: "bg-orange-100 text-orange-700",
+  unknown: "bg-gray-200 text-gray-600",
+};
+
+interface ChunkFailedItem {
+  sendId: number;
+  recipientName: string;
+  recipientPhone: string;
+  reason: string;
+  category: FailureCategory;
+}
 
 interface TransitionResult {
   succeededCount: number;
-  failed: { sendId: number; recipientName: string; reason: string }[];
+  cafe24SyncedCount: number;
+  failed: ChunkFailedItem[];
+}
+
+// 한 번의 API 호출(=한 그룹, 최대 CHUNK_SIZE건) 처리 결과 — 성공/실패가 한 그룹 안에 섞여서
+// 나올 수 있음(부분 성공 허용). 성공분은 건수만, 실패분은 건별로 이름·전화번호·사유·원인구분을 표시.
+interface ChunkLogEntry {
+  index: number; // 1-based 그룹 순번
+  totalChunks: number;
+  rangeStart: number; // 1-based 전체 대상 중 몇 번째부터
+  rangeEnd: number;
+  succeededCount: number;
+  failedItems: ChunkFailedItem[];
 }
 
 export default function TransitionToDeliveredModal({
@@ -76,6 +110,8 @@ export default function TransitionToDeliveredModal({
   const [items, setItems] = useState<SendResponse[]>([]);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [result, setResult] = useState<TransitionResult | null>(null);
+  const [chunkLog, setChunkLog] = useState<ChunkLogEntry[]>([]);
+  const chunkLogRef = useRef<HTMLDivElement>(null);
 
   // 모달 오픈 시 입력 초기화 + 대상 스냅샷
   useEffect(() => {
@@ -86,9 +122,17 @@ export default function TransitionToDeliveredModal({
       setItems(sends);
       setProgress(null);
       setResult(null);
+      setChunkLog([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 오픈 시점 스냅샷만 필요 (sends 변경 추적 안 함)
   }, [open]);
+
+  // 청크 로그가 늘어날 때마다 최신 항목이 보이도록 자동 스크롤
+  useEffect(() => {
+    if (chunkLogRef.current) {
+      chunkLogRef.current.scrollTop = chunkLogRef.current.scrollHeight;
+    }
+  }, [chunkLog]);
 
   // courier_company 변경 → tracking_no 자동 세팅
   const handleCourierChange = (next: string) => {
@@ -130,8 +174,8 @@ export default function TransitionToDeliveredModal({
   }, [detailQueries, items]);
 
   // 선택된 대상을 CHUNK_SIZE 단위로 나눠 순차 제출. 카페24 API 레이트리밋 버킷이 몰 단위로
-  // 공유되므로 병렬 호출은 하지 않음. 청크 하나가 실패해도 (all-or-nothing 특성상 청크 전체를
-  // 실패로 기록하고) 나머지 청크는 계속 진행 — 대량 처리 중 일부 실패가 전체를 막지 않도록 함.
+  // 공유되므로 병렬 호출은 하지 않음. 백엔드가 더 이상 all-or-nothing이 아니라 그룹 하나 안에서도
+  // 성공/실패가 섞여서 돌아오므로, 그룹이 실패해도 나머지 그룹은 계속 진행.
   const runTransition = async (targets: SendResponse[]): Promise<TransitionResult> => {
     const payloadSends = targets.map((s) => ({
       send_id: s.send_id,
@@ -139,11 +183,16 @@ export default function TransitionToDeliveredModal({
     }));
 
     let succeededCount = 0;
-    const failed: TransitionResult["failed"] = [];
+    let cafe24SyncedCount = 0;
+    const failed: ChunkFailedItem[] = [];
+    const totalChunks = Math.ceil(payloadSends.length / CHUNK_SIZE);
     setProgress({ done: 0, total: targets.length });
+    setChunkLog([]);
 
     for (let i = 0; i < payloadSends.length; i += CHUNK_SIZE) {
       const chunk = payloadSends.slice(i, i + CHUNK_SIZE);
+      const chunkIndex = i / CHUNK_SIZE + 1;
+      const range = { rangeStart: i + 1, rangeEnd: i + chunk.length };
       try {
         const { data } = await dispatchApi.transitionToDelivered(
           {
@@ -153,18 +202,38 @@ export default function TransitionToDeliveredModal({
           },
           { timeout: 60_000 },
         );
-        succeededCount += data.data!.transitioned_count;
+        const body = data.data!;
+        succeededCount += body.transitioned_count;
+        cafe24SyncedCount += body.cafe24_synced_count;
+        const failedItems: ChunkFailedItem[] = body.failed.map((f) => ({
+          sendId: f.send_id,
+          recipientName: f.recipient_name,
+          recipientPhone: f.recipient_phone,
+          reason: f.reason,
+          category: f.category,
+        }));
+        failed.push(...failedItems);
+        setChunkLog((prev) => [...prev, { index: chunkIndex, totalChunks, ...range, succeededCount: body.transitioned_count, failedItems }]);
       } catch (err) {
+        // 백엔드에 아예 도달 못한 예외(네트워크/타임아웃/401 등) — 이 그룹 전체를 "원인 불명확"으로 기록
         const reason = getErrorMessage(err);
-        chunk.forEach((c) => {
+        const failedItems: ChunkFailedItem[] = chunk.map((c) => {
           const target = targets.find((t) => t.send_id === c.send_id);
-          failed.push({ sendId: c.send_id, recipientName: target?.recipient_name ?? "-", reason });
+          return {
+            sendId: c.send_id,
+            recipientName: target?.recipient_name ?? "-",
+            recipientPhone: target?.recipient_phone ?? "-",
+            reason,
+            category: "unknown" as const,
+          };
         });
+        failed.push(...failedItems);
+        setChunkLog((prev) => [...prev, { index: chunkIndex, totalChunks, ...range, succeededCount: 0, failedItems }]);
       }
       setProgress((prev) => ({ done: (prev?.done ?? 0) + chunk.length, total: targets.length }));
     }
 
-    return { succeededCount, failed };
+    return { succeededCount, cafe24SyncedCount, failed };
   };
 
   const mutation = useMutation({
@@ -210,6 +279,14 @@ export default function TransitionToDeliveredModal({
 
   const isRetry = result !== null && result.failed.length > 0;
 
+  // 카페24 연동이 "필요했던" 건수 — 성공(cafe24SyncedCount) + 카페24 단계에서 실패한 건.
+  // 사전 검증 실패(validation) 건은 카페24 시도 자체를 안 해봤으니 대상 여부를 알 수 없어 제외.
+  // 이 값과 비교해야 "연동 대상 대비 성공률"이 되고, 전체 성공 건수(succeededCount)와 비교하면
+  // 오프라인 채널 등 애초에 대상이 아니었던 건까지 섞여서 마치 실패가 있는 것처럼 오해를 준다.
+  const cafe24FailedCount =
+    result?.failed.filter((f) => f.category === "cafe24").length ?? 0;
+  const cafe24TargetCount = (result?.cafe24SyncedCount ?? 0) + cafe24FailedCount;
+
   return (
     <Dialog
       open={open}
@@ -224,8 +301,7 @@ export default function TransitionToDeliveredModal({
             선택된 <span className="font-medium">{items.length}건</span>을 한
             번에 발송 완료로 처리합니다. 운송장 번호는 필수입니다 — 비택배(우편·자체배송 등)는
             배송 방법 선택 시 "자체배송"으로 자동 채워지며 수정 가능합니다. 이미
-            발송 완료·취소된 박스가 섞여 있으면 전체가 처리되지 않으니, 선택을
-            다시 확인해주세요.
+            발송 완료·취소된 박스가 섞여 있으면 그 건만 제외되고 나머지는 정상 처리됩니다.
           </p>
         </DialogHeader>
 
@@ -236,9 +312,10 @@ export default function TransitionToDeliveredModal({
           </div>
         )}
 
-        {/* 처리 결과 요약 — 일부 실패 시에만 표시 (전체 성공이면 모달이 바로 닫힘) */}
-        {result && result.failed.length > 0 && (
-          <div className="space-y-2 pb-2 border-b border-gray-100">
+        {/* 완료 후 최종 요약 — 처리 중엔 숨김(청크 로그가 실시간 상태를 대신 보여줌), 실패가
+            있을 때만 표시 (전체 성공이면 모달이 바로 닫힘) */}
+        {!progress && result && result.failed.length > 0 && (
+          <div className="space-y-1.5 pb-2 border-b border-gray-100">
             <div className="grid grid-cols-2 gap-2">
               <ImportStatCard
                 label="성공"
@@ -253,16 +330,57 @@ export default function TransitionToDeliveredModal({
                 tone="danger"
               />
             </div>
-            <div className="space-y-1.5 max-h-32 overflow-auto pr-1">
-              {result.failed.map((f) => (
-                <ImportDetailCard
-                  key={f.sendId}
-                  itemKey={`#${f.sendId} ${f.recipientName}`}
-                  message={f.reason}
-                  tone="danger"
-                />
-              ))}
-            </div>
+            {cafe24TargetCount > 0 ? (
+              <p className="text-xs text-gray-500">
+                카페24 연동 대상 {cafe24TargetCount}건 중{" "}
+                <span className={cafe24FailedCount > 0 ? "text-orange-600 font-medium" : undefined}>
+                  {result.cafe24SyncedCount}건 성공
+                </span>
+                {cafe24FailedCount > 0 && `, ${cafe24FailedCount}건 실패(아래 목록 참고)`}
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500">
+                이번에 처리된 건 중 카페24 연동이 필요한 건은 없습니다 (오프라인 채널이거나 정기구독 재발송).
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* 그룹별 실시간 처리 로그 — 그룹 하나가 끝날 때마다 쌓임. 성공은 건수만, 실패는 건별로
+            이름·전화번호·사유·원인구분(사전검증/카페24/원인불명확)까지 표시 (처리 중·완료 후 모두 유지). */}
+        {chunkLog.length > 0 && (
+          <div
+            ref={chunkLogRef}
+            className="space-y-1 max-h-56 overflow-auto pr-1 pb-2 border-b border-gray-100 text-xs"
+          >
+            {chunkLog.map((c) => (
+              <div key={c.index} className="space-y-1">
+                {c.succeededCount > 0 && (
+                  <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-green-50 text-green-700">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                    {c.rangeStart.toLocaleString()}~{c.rangeEnd.toLocaleString()}번째 중{" "}
+                    {c.succeededCount.toLocaleString()}건 성공
+                  </div>
+                )}
+                {c.failedItems.map((f) => (
+                  <div
+                    key={f.sendId}
+                    className="flex items-start gap-1.5 px-2 py-1.5 rounded bg-red-50 text-red-700"
+                  >
+                    <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <div className="font-medium">
+                        ❌ 처리되지 않음 — {f.recipientName}({formatPhone(f.recipientPhone)})
+                        <span className={`ml-1.5 px-1 py-0.5 rounded text-[10px] font-normal ${CATEGORY_BADGE_CLASS[f.category]}`}>
+                          {CATEGORY_LABEL[f.category]}
+                        </span>
+                      </div>
+                      <div className="break-all">{f.reason}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
         )}
 
@@ -315,7 +433,7 @@ export default function TransitionToDeliveredModal({
           <table className="w-full text-xs">
             <thead className="bg-gray-50 text-gray-500 sticky top-0">
               <tr>
-                <th className="px-2 py-2 text-left font-medium w-20">발송ID</th>
+                <th className="px-2 py-2 text-left font-medium w-20">발송 번호</th>
                 <th className="px-2 py-2 text-left font-medium w-32">수령인</th>
                 <th className="px-2 py-2 text-left font-medium w-64">배송지</th>
                 <th className="px-2 py-2 text-left font-medium">상품</th>

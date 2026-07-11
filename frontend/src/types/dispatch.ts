@@ -66,8 +66,23 @@ export interface TransitionToDeliveredRequest {
   courier_company: CourierCompany;
 }
 
+// [배송완료 처리] 실패 건 — 성공/실패가 한 응답 안에 섞여서 나올 수 있음 (부분 성공 허용).
+export interface TransitionFailedItem {
+  send_id: number;
+  // validation: 카페24를 시도하기도 전에 걸림(존재 안 함/이미 처리됨) — 카페24도 당연히 반영 안 됨
+  // cafe24: 우리 시스템 검증은 통과했으나 카페24 API 호출이 실패함 — 이 경우도 우리 시스템 반영은 함께 취소됨
+  category: "validation" | "cafe24";
+  recipient_name: string;
+  recipient_phone: string;
+  reason: string;
+}
+
 export interface TransitionToDeliveredResponse {
   transitioned_count: number;
+  // transitioned_count 중 실제로 카페24 API 연동이 성공한 건수 (오프라인 채널/YEARLY 재발송은
+  // 카페24 대상이 아니라서 transitioned_count보다 작을 수 있음 — "카페24 대상 아님"을 뜻함).
+  cafe24_synced_count: number;
+  failed: TransitionFailedItem[];
 }
 
 // ── [발송 생성 사전 미리보기] (POST /dispatches/preview-skipped-issues) ───────
