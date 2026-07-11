@@ -368,6 +368,14 @@ async def transition_sends_to_delivered_batch(
 
     # 2단계: Cafe24 API 호출 (부분 성공 허용 — _tolerant 버전은 실패한 100건 묶음만 배제하고 계속 진행)
     cafe24_failed_send_ids: set = set()
+    # send_id → [reason, ...] — VIP처럼 한 Send에 MONTHLY+YEARLY가 섞여 있으면 두 실패
+    # 루프(아래) 모두에서 같은 send_id가 걸릴 수 있음. failed에 send_id당 한 번만
+    # 등록하기 위해 사유를 여기 모아뒀다가 두 루프가 끝난 뒤 한꺼번에 만든다.
+    cafe24_failure_reasons: dict = {}
+
+    def _record_cafe24_failure(send_id: int, reason: str) -> None:
+        cafe24_failed_send_ids.add(send_id)
+        cafe24_failure_reasons.setdefault(send_id, []).append(reason)
 
     # MONTHLY POST: N20 → N30 (shipping). order_id 필수.
     if monthly_groups:
@@ -395,15 +403,8 @@ async def transition_sends_to_delivered_batch(
         for fb in monthly_failed_batches:
             for item in fb["items"]:
                 affected = monthly_send_ids_by_order.get(item["order_id"], set())
-                cafe24_failed_send_ids |= affected
                 for send_id in affected:
-                    failed.append({
-                        "send_id": send_id,
-                        "recipient_name": sends_by_id[send_id].recipient_name,
-                        "recipient_phone": sends_by_id[send_id].recipient_phone,
-                        "reason": fb["reason"],
-                        "category": "cafe24",
-                    })
+                    _record_cafe24_failure(send_id, fb["reason"])
 
     # YEARLY PUT: N21 → N30 (shipping). shipping_code 필수, order_id 불필요.
     if yearly_requests:
@@ -413,15 +414,20 @@ async def transition_sends_to_delivered_batch(
         for fb in yearly_failed_batches:
             for item in fb["items"]:
                 affected = yearly_send_ids_by_shipping_code.get(item["shipping_code"], set())
-                cafe24_failed_send_ids |= affected
                 for send_id in affected:
-                    failed.append({
-                        "send_id": send_id,
-                        "recipient_name": sends_by_id[send_id].recipient_name,
-                        "recipient_phone": sends_by_id[send_id].recipient_phone,
-                        "reason": fb["reason"],
-                        "category": "cafe24",
-                    })
+                    _record_cafe24_failure(send_id, fb["reason"])
+
+    # MONTHLY/YEARLY 양쪽에서 모인 실패 사유를 send_id당 하나의 failed 항목으로 병합
+    # (VIP처럼 한 Send에 MONTHLY 실패 + YEARLY 실패가 동시에 있으면 사유를 이어붙임)
+    for send_id, reasons in cafe24_failure_reasons.items():
+        unique_reasons = list(dict.fromkeys(reasons))  # 순서 유지하며 중복 사유 제거
+        failed.append({
+            "send_id": send_id,
+            "recipient_name": sends_by_id[send_id].recipient_name,
+            "recipient_phone": sends_by_id[send_id].recipient_phone,
+            "reason": " / ".join(unique_reasons),
+            "category": "cafe24",
+        })
 
     # 3단계: 카페24까지 성공한(또는 애초에 대상이 아니었던) Send만 실제로 DB 반영
     succeeded_sends = [s for s in valid_sends if s.send_id not in cafe24_failed_send_ids]
