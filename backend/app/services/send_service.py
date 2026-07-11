@@ -188,6 +188,7 @@ def transition_send_to_delivered(
     send_method: str,
     courier_company: str,
     tracking_no: Optional[str],
+    send_items: Optional[List[SendItem]] = None,
 ) -> Send:
     """단일 PREPARING Send를 DELIVERED로 전환 ("보냈다 = 끝", SHIPPING 단계 없음).
 
@@ -197,6 +198,10 @@ def transition_send_to_delivered(
       - YEARLY OrderItem: last_send_issue 를 SendItem.issue 기준 max 로 갱신
       - MONTHLY OrderItem: last_send_issue 갱신 안 함
     - VIP Send 는 정기+단품 혼합 가능 — SendItem 단위 분기 필수 ("한 Send = 한 종류" 가정 금지)
+    - send_items: 이미 조회된 SendItem 목록(가급적 order_item 까지 joinedload된 것)을 넘기면
+      내부에서 재쿼리하지 않고 그대로 재사용. 대량 배치 호출 시(transition_sends_to_delivered_batch)
+      호출자가 이미 0단계에서 joinedload 해둔 목록을 반드시 전달해 N+1 쿼리를 피할 것.
+      생략 시(단독 호출 등) 함수 내부에서 직접 쿼리.
 
     호출자(엔드포인트)가 db.commit() 책임.
     """
@@ -218,21 +223,15 @@ def transition_send_to_delivered(
     send.delivered_at = now_kst()
 
     # 각 SendItem 마다 OrderItem.product_kind 로 분기 (VIP 정기+단품 혼합 Send 대응)
-    send_items = (
-        db.query(SendItem)
-        .filter(SendItem.send_id == send.send_id, SendItem.cancelled_at.is_(None))
-        .all()
-    )
-    if send_items:
-        order_item_ids = [si.order_item_id for si in send_items]
-        order_items_by_id = {
-            oi.order_item_id: oi
-            for oi in db.query(OrderItem)
-            .filter(OrderItem.order_item_id.in_(order_item_ids))
+    if send_items is None:
+        send_items = (
+            db.query(SendItem)
+            .filter(SendItem.send_id == send.send_id, SendItem.cancelled_at.is_(None))
             .all()
-        }
+        )
+    if send_items:
         for si in send_items:
-            oi = order_items_by_id.get(si.order_item_id)
+            oi = si.order_item  # 호출자가 joinedload 해뒀으면 추가 쿼리 없음
             if oi is None:
                 continue
             oi.delivered_at = now_kst()
@@ -311,7 +310,8 @@ async def transition_sends_to_delivered_batch(
 
     # 0단계: 루프 전에 모든 send의 SendItem 한번에 미리 쿼리
     # joinedload(order_item → order) 포함 → MONTHLY POST의 external_order_id 접근 시 추가 쿼리 없음
-    # transition_send_to_delivered 내부 재쿼리 시 SQLAlchemy identity map에서 캐시 반환됨 (DB 히트 없음)
+    # items_by_send_id는 3단계에서 transition_send_to_delivered(send_items=...)로 그대로 전달되어
+    # 재쿼리 없이 재사용됨(과거엔 그 함수 내부에서 SendItem/OrderItem을 매 Send마다 다시 쿼리했음)
     all_send_items = (
         db.query(SendItem)
         .filter(SendItem.send_id.in_(valid_send_ids), SendItem.cancelled_at.is_(None))
@@ -325,7 +325,8 @@ async def transition_sends_to_delivered_batch(
     # 1단계: Cafe24 정보 수집 (DB flush 전 — last_send_issue가 아직 null인 시점)
     monthly_groups: dict = {}                    # ext_oid → [order_item_code]
     monthly_order_items_map: dict = {}           # ext_oid → [OrderItem] (shipping_code 저장용)
-    monthly_send_ids_by_order: dict = {}         # ext_oid → {send_id, ...} (실패 시 역추적용)
+    monthly_send_ids_by_order: dict = {}         # ext_oid → {send_id, ...} (실패 시 역추적용, set — 순서 보장 안 함)
+    monthly_tracking_send_id_by_order: dict = {} # ext_oid → send_id (운송장번호 조회 전용 — 항상 덮어써서 "마지막 Send" 기준 결정적으로 유지)
     yearly_requests: List[dict] = []
     yearly_send_ids_by_shipping_code: dict = {}  # shipping_code → {send_id, ...}
     cafe24_synced_send_ids: set = set()          # 카페24 연동 "대상"이었던 Send (성공분은 3단계에서 걸러냄)
@@ -349,6 +350,7 @@ async def transition_sends_to_delivered_batch(
                 monthly_groups.setdefault(ext_oid, []).append(oi.external_order_item_id)
                 monthly_order_items_map.setdefault(ext_oid, []).append(oi)
                 monthly_send_ids_by_order.setdefault(ext_oid, set()).add(send.send_id)
+                monthly_tracking_send_id_by_order[ext_oid] = send.send_id  # 항상 덮어씀 — 같은 주문이 여러 Send에 걸쳐도 매번 동일하게 "마지막 Send" 채택
                 cafe24_synced_send_ids.add(send.send_id)
             elif (
                 oi.product_kind == "YEARLY"
@@ -381,7 +383,7 @@ async def transition_sends_to_delivered_batch(
     if monthly_groups:
         monthly_payload: List[dict] = []
         for ext_oid, item_codes in monthly_groups.items():
-            tracking_no_val = tracking_by_id[next(iter(monthly_send_ids_by_order[ext_oid]))]
+            tracking_no_val = tracking_by_id[monthly_tracking_send_id_by_order[ext_oid]]
             shipping_co_code = "0006" if courier_company == "CJ대한통운" else "0001"
             monthly_payload.append({
                 "order_id": ext_oid,
@@ -438,6 +440,7 @@ async def transition_sends_to_delivered_batch(
             send_method=send_method,
             courier_company=courier_company,
             tracking_no=tracking_by_id[send.send_id],
+            send_items=items_by_send_id.get(send.send_id, []),  # 0단계에서 joinedload 해둔 목록 재사용 — 재쿼리 방지
         )
 
     cafe24_synced_count = len(cafe24_synced_send_ids - cafe24_failed_send_ids)

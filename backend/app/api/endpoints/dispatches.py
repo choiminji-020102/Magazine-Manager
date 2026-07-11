@@ -267,27 +267,34 @@ async def transition_to_delivered_endpoint(
         client=request.app.state.http_client,
     )
 
-    db.commit()
+    # 요청된 Send 전부가 카페24를 시도해보지도 못하고 사전 검증에서 걸린 경우
+    # (존재 안 함 / 이미 처리됨) DB에는 아무 변경도 없으므로 commit·활동 로그를 생략한다.
+    # 카페24까지 시도됐다가 실패한 경우(category="cafe24")는 다른 주문의 성공 기록이
+    # 함께 flush됐을 수 있어(§7 MONTHLY 재전송 방지 가드) 그대로 commit+로그를 남긴다.
+    attempted_nothing = transitioned_count == 0 and all(f["category"] == "validation" for f in failed)
 
-    activity_log_service.create_log(
-        db=db,
-        action=ActivityAction.DISPATCH,
-        target_type=ActivityTargetType.SEND,
-        admin_id=current_admin.admin_id,
-        admin_name=current_admin.admin_name,
-        target_id=None,
-        target_name=f"[배송완료 처리] {transitioned_count}건",
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-        details={
-            "send_method": req.send_method,
-            "courier_company": req.courier_company,
-            "sends": [{"send_id": s.send_id, "tracking_no": s.tracking_no} for s in req.sends],
-            "transitioned_count": transitioned_count,
-            "cafe24_synced_count": cafe24_synced_count,
-            "failed": failed,
-        },
-    )
+    if not attempted_nothing:
+        db.commit()
+
+        activity_log_service.create_log(
+            db=db,
+            action=ActivityAction.DISPATCH,
+            target_type=ActivityTargetType.SEND,
+            admin_id=current_admin.admin_id,
+            admin_name=current_admin.admin_name,
+            target_id=None,
+            target_name=f"[배송완료 처리] {transitioned_count}건",
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+            details={
+                "send_method": req.send_method,
+                "courier_company": req.courier_company,
+                "sends": [{"send_id": s.send_id, "tracking_no": s.tracking_no} for s in req.sends],
+                "transitioned_count": transitioned_count,
+                "cafe24_synced_count": cafe24_synced_count,
+                "failed": failed,
+            },
+        )
 
     return ResponseModel(
         message=f"배송완료 처리 완료: {transitioned_count}건" + (f" (실패 {len(failed)}건)" if failed else ""),
