@@ -242,11 +242,12 @@ export const CAFE24_ITEM_STATUS_LABEL: Record<string, string> = {
 };
 
 // N20 = import 대상(파랑) / 그 외 N계열 = 확인필요(주황) / C·E·R claim = 미지정 → 회색 fallback(제외)
+// intensity 는 StatusBadge 로 렌더되는 다른 배지들과 동일하게 -50 기준 유지.
 export const CAFE24_ITEM_STATUS_COLOR: Record<string, string> = {
-  N20: "bg-sky-100 text-sky-700",
-  N00: "bg-amber-100 text-amber-700", N02: "bg-amber-100 text-amber-700",
-  N10: "bg-amber-100 text-amber-700", N21: "bg-amber-100 text-amber-700",
-  N22: "bg-amber-100 text-amber-700", N30: "bg-amber-100 text-amber-700",
-  N40: "bg-amber-100 text-amber-700", N50: "bg-amber-100 text-amber-700",
+  N20: "bg-sky-50 text-sky-700",
+  N00: "bg-amber-50 text-amber-700", N02: "bg-amber-50 text-amber-700",
+  N10: "bg-amber-50 text-amber-700", N21: "bg-amber-50 text-amber-700",
+  N22: "bg-amber-50 text-amber-700", N30: "bg-amber-50 text-amber-700",
+  N40: "bg-amber-50 text-amber-700", N50: "bg-amber-50 text-amber-700",
   // N01/N03(교환접수)은 claim 취급 → 색상 미지정으로 회색 fallback(제외)
 };
