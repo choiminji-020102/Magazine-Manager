@@ -45,7 +45,8 @@ function ItemBox({ item }: { item: Cafe24MappedOrderItem }) {
 
   // Cafe24 품목 상태: N20 배송준비중=import 대상 / 그 외 N계열=확인필요(block) / C·E·R=claim(제외)
   const status = item.order_status ?? "";
-  const isClaim = /^[CER]/.test(status);
+  // claim = 취소/교환/반품(C·E·R) + 교환접수 N접두(N01/N03) → import·금액 제외
+  const isClaim = /^[CER]/.test(status) || status === "N01" || status === "N03";
   const isImportable = status === "N20";
   const isBlocking = !isClaim && !isImportable && status !== "";
 

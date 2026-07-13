@@ -73,18 +73,23 @@ _OPTION_PERIOD_RE = re.compile(r"기간:\s*(\d+)/(\d+)\s*~")
 # 주문 전체가 skip 됨.)
 CLAIM_ORDER_STATUS_PREFIXES = ("C", "E", "R")
 
+# 접두는 N 이지만 실제로는 교환(exchange) 처리 상태라 claim 으로 취급하는 코드.
+# 공식 문서: N01=교환접수-교환상품, N03=교환접수-카드결제대기. E 접두 교환 코드와 동일하게 제외.
+# (N02 는 '주문접수중'과 코드가 중복돼 정상 상태로 남겨 비-N20 차단으로 처리 — claim 미포함)
+CLAIM_ORDER_STATUS_CODES = ("N01", "N03")
+
 
 def is_claim_item(item: dict) -> bool:
-    """품목이 취소/교환/반품(claim) 상태이면 True. 판정 기준은 item.order_status 접두 문자.
+    """품목이 취소/교환/반품(claim) 상태이면 True. 판정 기준은 item.order_status.
 
-    빈/알 수 없는 order_status 는 claim 이 아닌 것으로 간주(정상 품목 과다 제외 방지) —
-    예상 밖 값이면 기존 total_amount 검증이 안전망으로 걸러낸다.
-
-    판정 필드로 order_status(품목의 현재 상태)를 쓰는 이유:
-    - claim_quantity 는 교환완료(E41) 품목에서도 0 으로 내려와 claim 신호로 부적합.
-    - claim_code 는 '교환철회'로 정상 복귀한 원본 품목까지 과다 제외할 위험이 있어 미사용.
+    - 접두 C/E/R (취소/교환/반품), 또는 교환 N 접두 코드(N01/N03).
+    - 빈/알 수 없는 order_status 는 claim 이 아닌 것으로 간주(정상 품목 과다 제외 방지) —
+      예상 밖 값이면 기존 total_amount 검증이 안전망으로 걸러낸다.
+    - 판정 필드로 order_status 를 쓰는 이유: claim_quantity 는 교환완료(E41)에서도 0 이라 부적합.
+      claim_code 는 '교환철회'로 정상 복귀한 원본 품목까지 과다 제외할 위험이 있어 미사용.
     """
-    return (item.get("order_status") or "")[:1] in CLAIM_ORDER_STATUS_PREFIXES
+    status = item.get("order_status") or ""
+    return status[:1] in CLAIM_ORDER_STATUS_PREFIXES or status in CLAIM_ORDER_STATUS_CODES
 
 
 def filter_claim_items(items: List[dict]) -> List[dict]:
