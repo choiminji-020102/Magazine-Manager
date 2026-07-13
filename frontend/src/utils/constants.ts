@@ -241,11 +241,12 @@ export const CAFE24_ITEM_STATUS_LABEL: Record<string, string> = {
   E35: "교환처리중-환불완료", E36: "교환처리중-환불보류", E40: "교환완료", E41: "교환철회",
 };
 
-// N20 = import 대상(파랑) / 그 외 N계열 = 확인필요(주황) / C·E·R claim = 미지정 → 회색 fallback(제외)
+// N20 = import 대상(초록) / 그 외 N계열 = 확인필요(주황) / C·E·R claim = 미지정 → 회색 fallback(제외)
 // intensity 는 -100: ItemBox 박스가 상태별로 -50 틴트(amber-50 등)되어 있어, 배지도 -50이면
 // 같은 톤끼리 묻힌다. 같은 박스 안 정기/단품 배지(purple-100/sky-100)와도 톤을 맞춰 -100 사용.
+// N20 은 단품 배지(sky-100)와 겹치지 않도록 초록(green) 사용.
 export const CAFE24_ITEM_STATUS_COLOR: Record<string, string> = {
-  N20: "bg-sky-100 text-sky-700",
+  N20: "bg-green-100 text-green-700",
   N00: "bg-amber-100 text-amber-700", N02: "bg-amber-100 text-amber-700",
   N10: "bg-amber-100 text-amber-700", N21: "bg-amber-100 text-amber-700",
   N22: "bg-amber-100 text-amber-700", N30: "bg-amber-100 text-amber-700",
