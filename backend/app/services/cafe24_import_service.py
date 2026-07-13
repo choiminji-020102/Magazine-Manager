@@ -88,8 +88,34 @@ def is_claim_item(item: dict) -> bool:
 
 
 def filter_claim_items(items: List[dict]) -> List[dict]:
-    """items 에서 claim(취소/교환/반품) 품목을 제거한 새 리스트. 미리보기·import 공통 진입점."""
+    """items 에서 claim(취소/교환/반품) 품목을 제거한 새 리스트. import(금액·OrderItem) 전용.
+
+    미리보기(_build_mapped_order)는 이 필터를 쓰지 않고 claim 품목도 '제외됨' 표시로 노출한다.
+    """
     return [it for it in items if not is_claim_item(it)]
+
+
+# import 대상(발송 처리 가능) 품목 상태 = 배송준비중(N20) 뿐.
+# claim 이 아닌데 N20 도 아닌 상태(N21 배송대기·N30 배송중·N40 배송완료 등)는 Cafe24 에서 이미
+# 처리 중/완료라 우리가 새로 발송하면 이중 처리(정기구독은 standby POST 가 422 로 실패)된다.
+# 이런 품목은 order_price_amount 에는 잡히므로 개별 제외 시 금액이 어긋남 → 주문 전체를 명확한
+# 사유로 skip 해 사용자가 Cafe24 에서 확인 후 진행하도록 유도한다.
+IMPORT_TARGET_ITEM_STATUS = "N20"
+
+# Cafe24 품목 order_status 코드 → 한글 라벨 (skip 사유 메시지·로그용. N 계열 위주)
+CAFE24_ITEM_STATUS_LABELS = {
+    "N00": "입금전", "N02": "주문접수중", "N10": "상품준비중",
+    "N20": "배송준비중", "N21": "배송대기", "N22": "배송보류",
+    "N30": "배송중", "N40": "배송완료", "N50": "구매확정",
+}
+
+
+def cafe24_status_label(order_status: Optional[str]) -> str:
+    """order_status 코드 → '배송대기(N21)' 형태 라벨. 미매핑은 코드 그대로."""
+    if not order_status:
+        return "알수없음"
+    label = CAFE24_ITEM_STATUS_LABELS.get(order_status)
+    return f"{label}({order_status})" if label else order_status
 
 
 # ── 변환 헬퍼 (매핑 문서의 to_int / parse_cafe24_datetime 구현) ────────────────
@@ -304,10 +330,9 @@ def _build_mapped_order(
     )
     customer_memo = receiver.get("shipping_message") or None
 
-    # Items
-    # claim(취소/교환/반품) 품목 제외 — 실제 import(_import_single_order)와 동일 기준으로
-    # 미리보기 품목·금액을 맞춘다. 안 하면 교환 품목까지 표시돼 line_total 합이 부풀어 보임.
-    items = filter_claim_items(items)
+    # Items — claim/비-N20 품목도 목록에 그대로 노출한다(투명성). 제외/경고 표시는 프론트가
+    # order_status 로 판단. 실제 import·금액은 _import_single_order 에서 claim 제외 + N20 만
+    # 반영하므로 여기선 필터하지 않는다. (order.total_amount 은 order_price_amount 그대로라 무관)
     # unit_price = Cafe24 1년 단가 (product_price 원본)
     # sale_price = 1세트 실제 지불액 = product_price + option_price (옵션 추가금 포함, MONTHLY는 option_price=0)
     # line_total = 라인 총액 = sale_price × order_num
@@ -332,6 +357,7 @@ def _build_mapped_order(
             mapped_items.append({
                 "cafe24_product_code": cafe24_code,
                 "external_order_item_id": it.get("order_item_code"),
+                "order_status": it.get("order_status"),
                 "product_code": product.product_code,
                 "product_kind": product.product_kind,
                 "product_name": product.product_name,
@@ -346,6 +372,7 @@ def _build_mapped_order(
             mapped_items.append({
                 "cafe24_product_code": cafe24_code,
                 "external_order_item_id": it.get("order_item_code"),
+                "order_status": it.get("order_status"),
                 "product_code": None,
                 "product_kind": None,
                 "product_name": None,
@@ -519,6 +546,16 @@ async def _import_single_order(
     items = filter_claim_items(items)
     if not items:
         raise ImportSkip("정상(N) 품목이 없음 — 전 품목이 취소/교환/반품(claim) 상태")
+
+    # 1-3) claim 제외 후에도 배송준비중(N20)이 아닌 품목이 있으면 주문 전체 skip.
+    # (N21 배송대기·N30 배송중·N40 배송완료 등 — Cafe24 에서 이미 처리 중/완료. 개별 제외 시
+    #  order_price_amount 와 items_sum 이 어긋나므로 주문 단위로 막고 수동 검토를 유도한다.)
+    non_target = [it for it in items if it.get("order_status") != IMPORT_TARGET_ITEM_STATUS]
+    if non_target:
+        detail = ", ".join(cafe24_status_label(it.get("order_status")) for it in non_target)
+        raise ImportSkip(
+            f"배송준비중(N20)이 아닌 품목이 있습니다 — {detail}. Cafe24에서 확인 후 진행하세요."
+        )
 
     # 2) payment_method 매핑
     pm_codes = base_order.get("payment_method") or []
