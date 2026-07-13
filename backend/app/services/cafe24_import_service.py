@@ -65,6 +65,33 @@ _PERIOD_YEAR_RE = re.compile(r"구독 (?:기간|연장)=(\d+)년 연장")
 _OPTION_PERIOD_RE = re.compile(r"기간:\s*(\d+)/(\d+)\s*~")
 
 
+# Cafe24 품목별 order_status 접두 = 클레임 분류: C(취소)/E(교환)/R(반품). N 은 정상 주문 흐름.
+# 주의: 목록 조회의 order_status=N20 필터는 '주문' 단위 필터라, 정상 품목이 하나라도 있으면
+# 그 주문이 통과하고 items 배열엔 취소·교환·반품 품목까지 전부 함께 내려온다(예: 교환완료 E41).
+# 이런 claim 품목은 initial_order_amount(결제금액)에 반영되지 않으므로 금액 합산·검증 및
+# OrderItem 생성 대상에서 제외해야 한다. (제외 안 하면 items 합산이 부풀어 total_amount 불일치로
+# 주문 전체가 skip 됨.)
+CLAIM_ORDER_STATUS_PREFIXES = ("C", "E", "R")
+
+
+def is_claim_item(item: dict) -> bool:
+    """품목이 취소/교환/반품(claim) 상태이면 True. 판정 기준은 item.order_status 접두 문자.
+
+    빈/알 수 없는 order_status 는 claim 이 아닌 것으로 간주(정상 품목 과다 제외 방지) —
+    예상 밖 값이면 기존 total_amount 검증이 안전망으로 걸러낸다.
+
+    판정 필드로 order_status(품목의 현재 상태)를 쓰는 이유:
+    - claim_quantity 는 교환완료(E41) 품목에서도 0 으로 내려와 claim 신호로 부적합.
+    - claim_code 는 '교환철회'로 정상 복귀한 원본 품목까지 과다 제외할 위험이 있어 미사용.
+    """
+    return (item.get("order_status") or "")[:1] in CLAIM_ORDER_STATUS_PREFIXES
+
+
+def filter_claim_items(items: List[dict]) -> List[dict]:
+    """items 에서 claim(취소/교환/반품) 품목을 제거한 새 리스트. 미리보기·import 공통 진입점."""
+    return [it for it in items if not is_claim_item(it)]
+
+
 # ── 변환 헬퍼 (매핑 문서의 to_int / parse_cafe24_datetime 구현) ────────────────
 
 def to_int(value) -> int:
@@ -278,6 +305,9 @@ def _build_mapped_order(
     customer_memo = receiver.get("shipping_message") or None
 
     # Items
+    # claim(취소/교환/반품) 품목 제외 — 실제 import(_import_single_order)와 동일 기준으로
+    # 미리보기 품목·금액을 맞춘다. 안 하면 교환 품목까지 표시돼 line_total 합이 부풀어 보임.
+    items = filter_claim_items(items)
     # unit_price = Cafe24 1년 단가 (product_price 원본)
     # sale_price = 1세트 실제 지불액 = product_price + option_price (옵션 추가금 포함, MONTHLY는 option_price=0)
     # line_total = 라인 총액 = sale_price × order_num
@@ -482,6 +512,13 @@ async def _import_single_order(
         raise ImportSkip("receivers 데이터 비어있음")
     if not items:
         raise ImportSkip("items 데이터 비어있음")
+
+    # 1-2) claim(취소/교환/반품) 품목 제외 — order_status=N20 는 주문 단위 필터라 items 배열엔
+    # claim 품목이 섞여 온다(예: 교환완료 E41). 이하 상품매칭·total_amount 합산·검증·OrderItem
+    # 생성은 모두 이 필터된 items 를 사용한다(변수 재바인딩). 전 품목이 claim 이면 skip.
+    items = filter_claim_items(items)
+    if not items:
+        raise ImportSkip("정상(N) 품목이 없음 — 전 품목이 취소/교환/반품(claim) 상태")
 
     # 2) payment_method 매핑
     pm_codes = base_order.get("payment_method") or []
