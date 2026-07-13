@@ -14,6 +14,8 @@ import {
   INQUIRY_TYPE_COLOR,
   ADMIN_ROLE_LABEL,
   ADMIN_ROLE_COLOR,
+  CAFE24_ITEM_STATUS_LABEL,
+  CAFE24_ITEM_STATUS_COLOR,
 } from "@/utils/constants";
 
 type BadgeType =
@@ -23,7 +25,8 @@ type BadgeType =
   | "product_kind"
   | "inquiry_status"
   | "inquiry_type"
-  | "admin_role";
+  | "admin_role"
+  | "cafe24_item_status";
 
 interface StatusBadgeProps {
   type: BadgeType;
@@ -39,6 +42,7 @@ const LABEL_MAP: Record<BadgeType, Record<string, string>> = {
   inquiry_status: INQUIRY_STATUS_LABEL,
   inquiry_type: INQUIRY_TYPE_LABEL,
   admin_role: ADMIN_ROLE_LABEL,
+  cafe24_item_status: CAFE24_ITEM_STATUS_LABEL,
 };
 
 const COLOR_MAP: Record<BadgeType, Record<string, string>> = {
@@ -49,6 +53,7 @@ const COLOR_MAP: Record<BadgeType, Record<string, string>> = {
   inquiry_status: INQUIRY_STATUS_COLOR,
   inquiry_type: INQUIRY_TYPE_COLOR,
   admin_role: ADMIN_ROLE_COLOR,
+  cafe24_item_status: CAFE24_ITEM_STATUS_COLOR,
 };
 
 export function StatusBadge({ type, value, className }: StatusBadgeProps) {

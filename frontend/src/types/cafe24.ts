@@ -66,6 +66,7 @@ export interface Cafe24ProductImportResponse {
 export interface Cafe24MappedOrderItem {
   cafe24_product_code: string;              // Cafe24 원본
   external_order_item_id: string;           // = items[].order_item_code
+  order_status: string | null;             // Cafe24 품목 상태 (N20 배송준비중 / N21 배송대기 / E41 교환완료 …)
   product_code: string | null;              // 매칭된 내부 Product.product_code (null이면 상품 미등록)
   product_kind: "YEARLY" | "MONTHLY" | null;
   product_name: string | null;

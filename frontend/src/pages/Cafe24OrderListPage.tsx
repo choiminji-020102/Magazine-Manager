@@ -43,12 +43,22 @@ function ItemBox({ item }: { item: Cafe24MappedOrderItem }) {
   const isYearly = item.product_kind === "YEARLY";
   const years = isYearly && item.subscribe_period ? item.subscribe_period / 12 : null;
 
+  // Cafe24 품목 상태: N20 배송준비중=import 대상 / 그 외 N계열=확인필요(block) / C·E·R=claim(제외)
+  const status = item.order_status ?? "";
+  const isClaim = /^[CER]/.test(status);
+  const isImportable = status === "N20";
+  const isBlocking = !isClaim && !isImportable && status !== "";
+
+  const boxClass = !matched
+    ? "border-red-200 bg-red-50"
+    : isClaim
+    ? "border-gray-200 bg-gray-50 opacity-70"
+    : isBlocking
+    ? "border-amber-200 bg-amber-50"
+    : "border-gray-100 bg-white";
+
   return (
-    <div
-      className={`border rounded p-2 text-[11px] space-y-0.5 ${
-        matched ? "border-gray-100 bg-white" : "border-red-200 bg-red-50"
-      }`}
-    >
+    <div className={`border rounded p-2 text-[11px] space-y-0.5 ${boxClass}`}>
       {/* 그룹 1 — 식별 (OrderItemBox §4.3 와 동일 패턴) */}
       <div className="flex items-center gap-1.5 flex-wrap">
         {matched ? (
@@ -64,6 +74,7 @@ function ItemBox({ item }: { item: Cafe24MappedOrderItem }) {
             ⚠️ 미등록
           </span>
         )}
+        {status && <StatusBadge type="cafe24_item_status" value={status} />}
         {matched && item.product_name && (
           <span className="text-gray-700 truncate">{item.product_name}</span>
         )}
@@ -76,6 +87,16 @@ function ItemBox({ item }: { item: Cafe24MappedOrderItem }) {
           </span>
         )}
       </div>
+
+      {/* 상태 안내 — claim(제외) / 비-N20(확인 필요) */}
+      {isClaim && (
+        <div className="text-gray-500">· 취소/교환/반품 품목 — 가져오기·금액에서 제외</div>
+      )}
+      {isBlocking && (
+        <div className="text-amber-700 font-medium">
+          ⚠ 이미 처리 중 상태 — Cafe24에서 확인 후 진행하세요
+        </div>
+      )}
 
       {/* 그룹 2 — 가격 */}
       <div className="text-gray-600">
