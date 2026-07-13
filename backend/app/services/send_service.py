@@ -1,4 +1,5 @@
 # 표준 라이브러리
+import logging
 import re
 from typing import Dict, List, Optional, Tuple
 
@@ -25,6 +26,8 @@ from app.services.dispatch_grouping_service import (
     group_yearly_for_send,
 )
 from app.services.order_item_service import convert_to_send_product_code
+
+logger = logging.getLogger(__name__)
 
 
 # ── 헬퍼 ──────────────────────────────────────────────────────────────────────
@@ -323,10 +326,15 @@ async def transition_sends_to_delivered_batch(
         items_by_send_id.setdefault(si.send_id, []).append(si)
 
     # 1단계: Cafe24 정보 수집 (DB flush 전 — last_send_issue가 아직 null인 시점)
-    monthly_groups: dict = {}                    # ext_oid → [order_item_code]
-    monthly_order_items_map: dict = {}           # ext_oid → [OrderItem] (shipping_code 저장용)
-    monthly_send_ids_by_order: dict = {}         # ext_oid → {send_id, ...} (실패 시 역추적용, set — 순서 보장 안 함)
-    monthly_tracking_send_id_by_order: dict = {} # ext_oid → send_id (운송장번호 조회 전용 — 항상 덮어써서 "마지막 Send" 기준 결정적으로 유지)
+    # monthly_groups 키는 (ext_oid, send_id) — 같은 주문이라도 박스(Send)가 다르면 별도 그룹.
+    # 카페24 주문 하나의 MONTHLY 품목이 여러 박스로 나뉘는 경우(품목 개별 배송지 변경, VIP
+    # 슬롯 일부만 매칭 등 — CAFE24_STATUS_SYNC_PLAN.md §5-1-2 케이스 H·I)가 실제로 있어서,
+    # ext_oid만으로 묶으면 박스마다 다른 운송장 정보가 하나로 뭉개짐(§7). 그룹 하나 = 박스
+    # 하나 = 운송장 하나로 만들면 "대표 Send 고르기" 로직 자체가 필요 없어짐.
+    monthly_groups: dict = {}           # (ext_oid, send_id) → [order_item_code]
+    monthly_order_items_map: dict = {}  # (ext_oid, send_id) → [OrderItem] (shipping_code 저장용)
+    order_id_to_group_keys: dict = {}   # ext_oid → [group_key, ...] — 응답 매칭 1순위(기존에 검증된 order_id 매칭 유지용)
+    item_code_to_group_key: dict = {}   # order_item_code → group_key — order_id로 못 푸는 경우의 보조 매칭 + 실패 배치 역매칭(우리가 만든 요청이라 항상 확실)
     yearly_requests: List[dict] = []
     yearly_send_ids_by_shipping_code: dict = {}  # shipping_code → {send_id, ...}
     cafe24_synced_send_ids: set = set()          # 카페24 연동 "대상"이었던 Send (성공분은 3단계에서 걸러냄)
@@ -347,10 +355,14 @@ async def transition_sends_to_delivered_batch(
                 ext_oid = oi.order.external_order_id  # Cafe24 주문번호
                 if ext_oid is None:
                     continue
-                monthly_groups.setdefault(ext_oid, []).append(oi.external_order_item_id)
-                monthly_order_items_map.setdefault(ext_oid, []).append(oi)
-                monthly_send_ids_by_order.setdefault(ext_oid, set()).add(send.send_id)
-                monthly_tracking_send_id_by_order[ext_oid] = send.send_id  # 항상 덮어씀 — 같은 주문이 여러 Send에 걸쳐도 매번 동일하게 "마지막 Send" 채택
+                group_key = (ext_oid, send.send_id)  # 같은 주문이라도 박스(Send)가 다르면 별도 그룹
+                item_code = oi.external_order_item_id
+                monthly_groups.setdefault(group_key, []).append(item_code)
+                monthly_order_items_map.setdefault(group_key, []).append(oi)
+                group_keys_for_order = order_id_to_group_keys.setdefault(ext_oid, [])
+                if group_key not in group_keys_for_order:
+                    group_keys_for_order.append(group_key)
+                item_code_to_group_key[item_code] = group_key
                 cafe24_synced_send_ids.add(send.send_id)
             elif (
                 oi.product_kind == "YEARLY"
@@ -380,14 +392,15 @@ async def transition_sends_to_delivered_batch(
         cafe24_failure_reasons.setdefault(send_id, []).append(reason)
 
     # MONTHLY POST: N20 → N30 (shipping). order_id 필수.
+    # 그룹 키가 이미 (ext_oid, send_id) 단위라 그룹 하나 = 박스 하나 = 운송장 하나.
     if monthly_groups:
         monthly_payload: List[dict] = []
-        for ext_oid, item_codes in monthly_groups.items():
-            tracking_no_val = tracking_by_id[monthly_tracking_send_id_by_order[ext_oid]]
+        for group_key, item_codes in monthly_groups.items():
+            ext_oid, send_id = group_key
             shipping_co_code = "0006" if courier_company == "CJ대한통운" else "0001"
             monthly_payload.append({
                 "order_id": ext_oid,
-                "tracking_no": tracking_no_val,
+                "tracking_no": tracking_by_id[send_id],
                 "shipping_company_code": shipping_co_code,
                 "status": "shipping",
                 "order_item_code": item_codes,
@@ -395,18 +408,94 @@ async def transition_sends_to_delivered_batch(
         shipments, monthly_failed_batches = await cafe24_admin_service.post_shipments_tolerant(
             db=db, client=client, requests_payload=monthly_payload
         )
+        # 응답 매칭: order_id가 이 배치 안에서 유일하면(분할 없는 압도적 다수 케이스) 기존에
+        # 이미 검증된 order_id 매칭을 그대로 쓴다. order_id가 여러 그룹(=박스 분할)에 걸쳐
+        # 있을 때만 order_item_code로 보조 매칭한다 — 카페24 응답이 order_item_code를
+        # 요청과 동일하게 echo한다는 것은 공식 문서 예시로만 확인됐고(CAFE24_STATUS_SYNC_PLAN.md
+        # §5-1) 이 프로젝트가 실제로 받아본 적은 없어(§3와 동일한 성격의 리스크), 새로
+        # 도입하는 미검증 의존을 "order_id만으로 못 푸는 경우"로 최소화한다.
+        #
+        # 매칭이 실패해도 이 자리에서 즉시 실패 처리하지 않는다 — 같은 order_id의 다른
+        # shipment 항목이 나머지 박스를 이미/앞으로 해결할 수 있기 때문(형제 박스까지
+        # 과도하게 실패 처리하는 버그를 코드 리뷰로 발견해 수정한 이력 있음). 대신 그룹별
+        # 성공 여부만 기록해두고, 아래에서 응답·실패배치를 모두 처리한 뒤 "끝까지 결과가
+        # 확인되지 않은 그룹"만 한 번에 골라 실패 처리한다.
+        resolved_group_keys: set = set()  # 이 응답에서 실제로 shipping_code를 받은 그룹
         for shipment in shipments:
             resp_order_id = shipment.get("order_id")
             shipping_code = shipment.get("shipping_code")
-            if resp_order_id and shipping_code:
-                for oi in monthly_order_items_map.get(resp_order_id, []):
-                    oi.cafe24_shipping_code = shipping_code
+            if not shipping_code:
+                continue
+            candidates = order_id_to_group_keys.get(resp_order_id, [])
+            if len(candidates) == 1:
+                group_key = candidates[0]
+            elif len(candidates) > 1:
+                resp_item_codes = shipment.get("order_item_code") or []
+                # 응답 배열의 item_code 중 이 order_id의 후보 그룹 하나로 이어지는 것을 찾음
+                # (응답 순서가 요청과 다르게 올 가능성까지 방어 — 첫 번째 항목만 보지 않음)
+                matched = next(
+                    (item_code_to_group_key.get(code) for code in resp_item_codes
+                     if item_code_to_group_key.get(code) in candidates),
+                    None,
+                )
+                if matched is None:
+                    # 이 shipment 항목만으로는 특정 불가 — 아래 커버리지 점검에서 최종 실패
+                    # 처리됨. order_item_code echo 가정(§7 참고)이 실제로 맞는지 확인할 유일한
+                    # 단서이므로, 카페24가 실제로 보낸 원본 응답을 그대로 로그에 남겨둔다.
+                    logger.warning(
+                        "MONTHLY 발송완료: 분할된 박스(order_id=%s) 응답 매칭 실패 — "
+                        "raw shipment=%s, candidates=%s",
+                        resp_order_id, shipment, candidates,
+                    )
+                    continue
+                group_key = matched
+            else:
+                continue
+            for oi in monthly_order_items_map.get(group_key, []):
+                oi.cafe24_shipping_code = shipping_code
+            resolved_group_keys.add(group_key)
         db.flush()
+
         for fb in monthly_failed_batches:
             for item in fb["items"]:
-                affected = monthly_send_ids_by_order.get(item["order_id"], set())
-                for send_id in affected:
-                    _record_cafe24_failure(send_id, fb["reason"])
+                # 실패 배치는 우리가 직접 만든 요청 payload이므로 order_item_code로 항상 확실하게 역매칭 가능
+                item_codes = item.get("order_item_code") or []
+                group_key = item_code_to_group_key.get(item_codes[0]) if item_codes else None
+                if group_key is None:
+                    continue
+                _, failed_send_id = group_key
+                _record_cafe24_failure(failed_send_id, fb["reason"])
+
+        # 커버리지 점검: 카페24에 보낸 모든 그룹은 "성공(resolved_group_keys)" 또는 "명시적
+        # 실패(cafe24_failed_send_ids, 위 실패배치 처리에서 이미 기록됨)" 둘 중 하나로 반드시
+        # 끝나야 한다. 응답에서도 실패배치에서도 확인되지 않은 그룹이 남아있다면 — 카페24가
+        # 일부 항목의 응답을 조용히 누락하는 경우가 실제로 관측된 적은 없지만 그 가능성 자체를
+        # 배제할 방법이 없다(§3와 동일한 성격의 리스크) — 성공으로 간주하지 않고 안전하게
+        # 실패 처리한다. "모르면 DELIVERED로 넘기지 않는다"는 원칙을 분할 여부와 무관하게
+        # 모든 MONTHLY 그룹에 일괄 적용 — 분할된 주문의 형제 박스 실패 때문에 이미 실패
+        # 기록된 send_id는 건너뛰어 사유 문자열이 중복되지 않게 한다.
+        for group_key in monthly_groups:
+            if group_key in resolved_group_keys:
+                continue
+            uncovered_ext_oid, uncovered_send_id = group_key
+            if uncovered_send_id in cafe24_failed_send_ids:
+                continue  # 이미 위(실패 배치 처리)에서 실패로 기록됨 — 중복 사유 방지
+            # oi.cafe24_shipping_code가 끝내 설정되지 않았으므로 idempotency 가드(§1)가
+            # 다음 재시도에서도 이 그룹을 다시 카페24로 보낼 것 — 실제로는 카페24가 이번
+            # 요청을 이미 (부분적으로) 처리했을 가능성을 배제할 수 없어 무작정 재시도하면
+            # 카페24 쪽에 중복 배송 레코드가 쌓일 위험이 있다(코드 리뷰로 지적됨). 원본
+            # payload를 로그로 남겨 실제 발생 시 원인 파악 근거로 삼는다.
+            logger.warning(
+                "MONTHLY 발송완료: send_id=%s(order_id=%s)가 카페24 응답/실패배치 어디에도 "
+                "확인되지 않아 커버리지 점검으로 안전 실패 처리함 — item_codes=%s",
+                uncovered_send_id, uncovered_ext_oid, monthly_groups[group_key],
+            )
+            _record_cafe24_failure(
+                uncovered_send_id,
+                "카페24로부터 이 박스에 대한 확인 응답을 받지 못했습니다. 재시도 전 카페24"
+                " 관리자 화면에서 이미 배송 등록이 됐는지 반드시 확인해주세요 — 확인 없이"
+                " 재시도하면 카페24에 중복 배송 레코드가 생성될 수 있습니다.",
+            )
 
     # YEARLY PUT: N21 → N30 (shipping). shipping_code 필수, order_id 불필요.
     if yearly_requests:
