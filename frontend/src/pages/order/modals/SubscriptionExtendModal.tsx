@@ -187,7 +187,7 @@ export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Prop
               </div>
 
               <div className="space-y-2">
-                <span className="text-xs font-medium text-gray-600">입금 계좌</span>
+                <Label>입금 계좌</Label>
                 <div className="flex gap-2">
                   <Input
                     className="h-8 text-sm flex-[1]"
