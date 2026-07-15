@@ -585,11 +585,11 @@ function SubscriptionListTab() {
           }
         }}
       >
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>구독 일괄 무상 연장</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 py-1">
+          <div className="space-y-4 py-1">
             <div className="text-xs text-gray-500 space-y-1">
               <p>
                 선택한 <span className="font-semibold text-gray-800">{activeSelectedIds.length}건</span>의 구독을 연장합니다. (YEARLY 상품만 적용)
@@ -604,15 +604,49 @@ function SubscriptionListTab() {
               <Label>
                 연장 개월 수 <span className="text-red-500 ml-0.5">*</span>
               </Label>
-              <Input
-                className={`mt-1 ${extendMonthsError ? "border-red-500" : ""}`}
-                type="number"
-                min={1}
-                max={24}
-                value={extendMonths}
-                onChange={(e) => { setExtendMonths(e.target.value); setExtendMonthsError(false); }}
-                placeholder="1"
-              />
+              <div className="flex items-center mt-1 w-fit">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExtendMonths(String(Math.max(1, (parseInt(extendMonths) || 0) - 1)));
+                    setExtendMonthsError(false);
+                  }}
+                  className="w-9 h-8 flex items-center justify-center border border-gray-300 border-r-0 rounded-l-md bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-800 text-base transition-colors"
+                >
+                  −
+                </button>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={extendMonths}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/[^0-9]/g, "");
+                    if (digits === "") {
+                      setExtendMonths("");
+                      setExtendMonthsError(false);
+                      return;
+                    }
+                    setExtendMonths(String(Math.min(1000, parseInt(digits))));
+                    setExtendMonthsError(false);
+                  }}
+                  onBlur={() => {
+                    if ((parseInt(extendMonths) || 0) < 1) setExtendMonths("1");
+                  }}
+                  className={`w-16 h-8 text-center text-sm border text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 relative ${
+                    extendMonthsError ? "border-red-500" : "border-gray-300"
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExtendMonths(String(Math.min(1000, (parseInt(extendMonths) || 0) + 1)));
+                    setExtendMonthsError(false);
+                  }}
+                  className="w-9 h-8 flex items-center justify-center border border-gray-300 border-l-0 rounded-r-md bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-800 text-base transition-colors"
+                >
+                  +
+                </button>
+              </div>
               {extendMonthsError && (
                 <p className="text-xs text-red-500 mt-1">연장 개월 수를 입력해주세요.</p>
               )}
