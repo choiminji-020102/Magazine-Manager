@@ -124,14 +124,39 @@ export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Prop
           {/* 연장 개월 수 */}
           <div>
             <Label>연장 개월 수</Label>
-            <Input
-              type="number"
-              min={1}
-              max={24}
-              className="mt-1"
-              value={months}
-              onChange={(e) => setMonths(e.target.value)}
-            />
+            <div className="flex items-center mt-1 w-fit">
+              <button
+                type="button"
+                onClick={() => setMonths(String(Math.max(1, absMonths - 1)))}
+                className="w-9 h-8 flex items-center justify-center border border-gray-300 border-r-0 rounded-l-md bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-800 text-base transition-colors"
+              >
+                −
+              </button>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={months}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/[^0-9]/g, "");
+                  if (digits === "") {
+                    setMonths("");
+                    return;
+                  }
+                  setMonths(String(Math.min(1000, parseInt(digits))));
+                }}
+                onBlur={() => {
+                  if (absMonths < 1) setMonths("1");
+                }}
+                className="w-16 h-8 text-center text-sm border border-gray-300 text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 relative"
+              />
+              <button
+                type="button"
+                onClick={() => setMonths(String(Math.min(1000, absMonths + 1)))}
+                className="w-9 h-8 flex items-center justify-center border border-gray-300 border-l-0 rounded-r-md bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-800 text-base transition-colors"
+              >
+                +
+              </button>
+            </div>
           </div>
 
           {/* 유료 연장: 결제 금액 */}
