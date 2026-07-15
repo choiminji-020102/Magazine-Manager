@@ -78,7 +78,7 @@ class OrderItemLastSendIssueUpdate(BaseModel):
 
 class SubscriptionExtendRequest(BaseModel):
     """구독 기간 연장 - 단건"""
-    extend_months: int = Field(..., ge=1)       # 추가할 개월 수 (필수, 예: 12→14개월이면 2 입력)
+    extend_months: int = Field(..., ge=1, le=1000)  # 추가할 개월 수 (필수, 1~1000, 예: 12→14개월이면 2 입력)
     is_paid: bool = False                       # True = 유료 연장, False = 무상 연장
     reason: Optional[str] = None               # 연장 사유
     paid_amount: Optional[int] = None          # 유료 연장 시 받은 금액
@@ -89,7 +89,7 @@ class SubscriptionExtendRequest(BaseModel):
 class SubscriptionBatchExtendRequest(BaseModel):
     """구독 기간 연장 - 다건 일괄 (휴지 없이, 무상 연장)"""
     order_item_ids: List[int]
-    extend_months: int = Field(..., ge=1)
+    extend_months: int = Field(..., ge=1, le=1000)
     reason: str                                 # 필수
 
 
