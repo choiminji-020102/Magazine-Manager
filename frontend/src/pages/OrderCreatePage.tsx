@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { ChevronRight, ChevronLeft, Check, X } from "lucide-react";
+import { ChevronRight, ChevronLeft, Check, X, StickyNote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -82,6 +82,7 @@ export default function OrderCreatePage() {
   const [customerAddresses, setCustomerAddresses] = useState<AddressResponse[]>([]);
 
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const [openMemoId, setOpenMemoId] = useState<number | null>(null);
   const [channel, setChannel] = useState("OFFLINE");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentMethodError, setPaymentMethodError] = useState(false);
@@ -190,10 +191,12 @@ export default function OrderCreatePage() {
         },
       ];
     });
+    if (openMemoId === product.product_id) setOpenMemoId(null);
   };
 
   const removeOrderItem = (productId: number) => {
     setOrderItems((prev) => prev.filter((i) => i.product.product_id !== productId));
+    if (openMemoId === productId) setOpenMemoId(null);
   };
 
   // 신규 배송지 모드일 때 선택된 고객 정보를 수령인/연락처에 자동 반영
@@ -725,7 +728,7 @@ export default function OrderCreatePage() {
                       {orderItems.some((i) => i.product.product_kind === "YEARLY") && (
                         <th className="px-2 py-2 text-gray-500 font-medium w-20 text-center">구독기간(년)</th>
                       )}
-                      <th className="px-2 py-2 text-gray-500 font-medium text-left">메모</th>
+                      <th className="px-2 py-2 text-gray-500 font-medium w-12 text-center">메모</th>
                       <th className="px-2 py-2 text-gray-500 font-medium w-20 text-center">수량</th>
                       <th className="px-2 py-2 text-gray-500 font-medium w-24 text-center">소계</th>
                       <th className="w-6"></th>
@@ -733,7 +736,8 @@ export default function OrderCreatePage() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {orderItems.map((item) => (
-                      <tr key={item.product.product_id} className="align-middle">
+                      <Fragment key={item.product.product_id}>
+                      <tr className="align-middle">
                         <td className="px-3 py-2">
                           <div className="font-medium text-gray-900 leading-tight">{item.product.product_name}</div>
                         </td>
@@ -797,21 +801,25 @@ export default function OrderCreatePage() {
                             )}
                           </td>
                         )}
-                        <td className="px-2 py-2">
-                          <Input
-                            className="h-7 text-xs"
-                            placeholder="메모 (선택)"
-                            value={item.admin_memo ?? ""}
-                            onChange={(e) =>
-                              setOrderItems((prev) =>
-                                prev.map((i) =>
-                                  i.product.product_id === item.product.product_id
-                                    ? { ...i, admin_memo: e.target.value }
-                                    : i
-                                )
+                        <td className="px-2 py-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOpenMemoId(
+                                openMemoId === item.product.product_id
+                                  ? null
+                                  : item.product.product_id
                               )
                             }
-                          />
+                            title={item.admin_memo || "메모 추가"}
+                            className={`w-7 h-7 inline-flex items-center justify-center rounded-md border transition-colors ${
+                              item.admin_memo
+                                ? "border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                : "border-gray-200 bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                            }`}
+                          >
+                            <StickyNote className="h-3.5 w-3.5" />
+                          </button>
                         </td>
                         <td className="px-2 py-2">
                           <div className="flex items-center justify-center">
@@ -864,6 +872,50 @@ export default function OrderCreatePage() {
                           </button>
                         </td>
                       </tr>
+                      {openMemoId === item.product.product_id && (
+                        <tr className="bg-gray-50/60">
+                          <td
+                            colSpan={
+                              6 +
+                              (orderItems.some((i) => i.product.product_kind === "YEARLY")
+                                ? 1
+                                : 0)
+                            }
+                            className="px-3 pb-2 pt-0"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="shrink-0 text-[11px] text-gray-500">메모</span>
+                              <input
+                                autoFocus
+                                type="text"
+                                value={item.admin_memo ?? ""}
+                                onChange={(e) =>
+                                  setOrderItems((prev) =>
+                                    prev.map((i) =>
+                                      i.product.product_id === item.product.product_id
+                                        ? { ...i, admin_memo: e.target.value }
+                                        : i
+                                    )
+                                  )
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Escape" || e.key === "Enter")
+                                    setOpenMemoId(null);
+                                }}
+                                className="h-7 flex-1 rounded-md border border-gray-200 px-2 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setOpenMemoId(null)}
+                                className="shrink-0 px-2 text-xs text-blue-600 hover:underline"
+                              >
+                                확인
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>
