@@ -155,6 +155,7 @@ export interface OrderItemListQuery {
   product_kind?: string | null;
   product_code?: string | null;
   customer_search?: string | null;
+  recipient_search?: string | null;
   is_cancelled?: boolean | null;
   end_issue_from?: string | null;
   end_issue_to?: string | null;

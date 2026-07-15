@@ -80,6 +80,7 @@ function SubscriptionListTab() {
   const [productKind, setProductKind] = useState("");
   const [cancelledFilter, setCancelledFilter] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
+  const [recipientSearch, setRecipientSearch] = useState("");
   const [endIssueFrom, setEndIssueFrom] = useState("");
   const [endIssueTo, setEndIssueTo] = useState("");
 
@@ -109,6 +110,7 @@ function SubscriptionListTab() {
   const [isExpiringDownloading, setIsExpiringDownloading] = useState(false);
 
   const debouncedCustomerSearch = useDebounce(customerSearch, 300);
+  const debouncedRecipientSearch = useDebounce(recipientSearch, 300);
   const limit = 20;
 
   const isCancelledParam =
@@ -122,6 +124,7 @@ function SubscriptionListTab() {
       productKind,
       cancelledFilter,
       debouncedCustomerSearch,
+      debouncedRecipientSearch,
       endIssueFrom,
       endIssueTo,
     ],
@@ -132,6 +135,7 @@ function SubscriptionListTab() {
         product_kind: productKind || null,
         is_cancelled: isCancelledParam,
         customer_search: debouncedCustomerSearch || null,
+        recipient_search: debouncedRecipientSearch || null,
         end_issue_from: endIssueFrom || null,
         end_issue_to: endIssueTo || null,
       }).then((r) => r.data),
@@ -250,6 +254,7 @@ function SubscriptionListTab() {
     setProductKind("");
     setCancelledFilter("");
     setCustomerSearch("");
+    setRecipientSearch("");
     setEndIssueFrom("");
     setEndIssueTo("");
     setPage(1);
@@ -269,7 +274,10 @@ function SubscriptionListTab() {
       ? [{ key: "cancelled", label: cancelledFilter === "true" ? "취소" : "활성", onRemove: () => { setCancelledFilter(""); setPage(1); } }]
       : []),
     ...(debouncedCustomerSearch
-      ? [{ key: "customer", label: `고객: ${debouncedCustomerSearch}`, onRemove: () => { setCustomerSearch(""); setPage(1); } }]
+      ? [{ key: "customer", label: `주문자: ${debouncedCustomerSearch}`, onRemove: () => { setCustomerSearch(""); setPage(1); } }]
+      : []),
+    ...(debouncedRecipientSearch
+      ? [{ key: "recipient", label: `수령인: ${debouncedRecipientSearch}`, onRemove: () => { setRecipientSearch(""); setPage(1); } }]
       : []),
     ...(endIssueFrom
       ? [{ key: "issueFrom", label: `종료호 ≥ ${formatIssue(endIssueFrom)}`, onRemove: () => { setEndIssueFrom(""); setPage(1); } }]
@@ -466,9 +474,16 @@ function SubscriptionListTab() {
 
             <Input
               className="w-44"
-              placeholder="고객명 / 연락처"
+              placeholder="주문자 이름 / 연락처"
               value={customerSearch}
               onChange={(e) => { setCustomerSearch(e.target.value); setPage(1); }}
+            />
+
+            <Input
+              className="w-44"
+              placeholder="수령인 이름 / 연락처"
+              value={recipientSearch}
+              onChange={(e) => { setRecipientSearch(e.target.value); setPage(1); }}
             />
           </>
         }

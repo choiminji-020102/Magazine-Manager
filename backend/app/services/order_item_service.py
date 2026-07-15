@@ -146,6 +146,7 @@ def list_order_items(
         product_kind=query.product_kind,
         product_code=query.product_code,
         customer_search=query.customer_search,
+        recipient_search=query.recipient_search,
         is_cancelled=query.is_cancelled,
         end_issue_from=query.end_issue_from,
         end_issue_to=query.end_issue_to,

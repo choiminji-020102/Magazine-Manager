@@ -209,7 +209,8 @@ class OrderItemListQuery(BaseModel):
     limit: int = Field(20, ge=1, le=100)
     product_kind: Optional[str] = None
     product_code: Optional[str] = None
-    customer_search: Optional[str] = None       # 고객명 or 연락처
+    customer_search: Optional[str] = None       # 주문자 이름 or 연락처
+    recipient_search: Optional[str] = None       # 수령인 이름 or 연락처
     is_cancelled: Optional[bool] = None         # None=전체, True=취소만, False=활성만
     end_issue_from: Optional[str] = None        # final_subscribe_end_issue >=
     end_issue_to: Optional[str] = None          # final_subscribe_end_issue <=
@@ -224,6 +225,7 @@ class OrderItemListQuery(BaseModel):
         product_kind: Optional[str] = Query(None),
         product_code: Optional[str] = Query(None),
         customer_search: Optional[str] = Query(None),
+        recipient_search: Optional[str] = Query(None),
         is_cancelled: Optional[bool] = Query(None),
         end_issue_from: Optional[str] = Query(None),
         end_issue_to: Optional[str] = Query(None),
@@ -236,6 +238,7 @@ class OrderItemListQuery(BaseModel):
             product_kind=product_kind,
             product_code=product_code,
             customer_search=customer_search,
+            recipient_search=recipient_search,
             is_cancelled=is_cancelled,
             end_issue_from=end_issue_from,
             end_issue_to=end_issue_to,

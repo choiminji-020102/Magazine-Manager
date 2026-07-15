@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.utils import now_kst
 from app.models.order import Order
 from app.models.customer import Customer
+from app.models.address import Address
 from app.models.order_item import OrderItem
 from app.schemas.order_item import OrderItemUpdate
 
@@ -126,6 +127,7 @@ def list_order_items(
     product_kind: Optional[str] = None,
     product_code: Optional[str] = None,
     customer_search: Optional[str] = None,
+    recipient_search: Optional[str] = None,
     is_cancelled: Optional[bool] = None,
     end_issue_from: Optional[str] = None,
     end_issue_to: Optional[str] = None,
@@ -149,6 +151,14 @@ def list_order_items(
             or_(
                 Customer.customer_name.ilike(f"%{customer_search}%"),
                 Customer.customer_phone.ilike(f"%{customer_search}%"),
+            )
+        )
+    if recipient_search:
+        # 수령인 검색 시에만 품목 배송지(OrderItem.address_id)를 조인 — 미검색 시 기본 조회 동작 유지
+        query = query.join(Address, OrderItem.address_id == Address.address_id).filter(
+            or_(
+                Address.recipient_name.ilike(f"%{recipient_search}%"),
+                Address.recipient_phone.ilike(f"%{recipient_search}%"),
             )
         )
     if is_cancelled is True:
