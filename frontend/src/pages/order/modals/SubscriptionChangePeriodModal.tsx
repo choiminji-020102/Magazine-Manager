@@ -113,7 +113,7 @@ export function SubscriptionChangePeriodModal({ open, onClose, item, onSuccess, 
 
           {/* 개월 수 */}
           <div>
-            <Label>이동 개월 수</Label>
+            <Label>이동 개월 수 <span className="text-red-500 ml-0.5">*</span></Label>
             <Input
               type="number"
               min={1}

@@ -127,7 +127,7 @@ export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Prop
 
           {/* 연장 개월 수 */}
           <div>
-            <Label>연장 개월 수</Label>
+            <Label>연장 개월 수 <span className="text-red-500 ml-0.5">*</span></Label>
             <div className="flex items-center mt-1 w-fit">
               <button
                 type="button"
@@ -179,7 +179,7 @@ export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Prop
               </div>
 
               <div>
-                <Label>결제 금액</Label>
+                <Label>결제 금액 <span className="text-gray-400 font-normal">(선택)</span></Label>
                 <Input
                   type="number"
                   min={0}
@@ -191,7 +191,7 @@ export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Prop
               </div>
 
               <div className="space-y-2">
-                <Label>입금 계좌</Label>
+                <Label>입금 계좌 <span className="text-gray-400 font-normal">(선택)</span></Label>
                 <div className="flex gap-2">
                   <Input
                     className="h-8 text-sm flex-[1]"

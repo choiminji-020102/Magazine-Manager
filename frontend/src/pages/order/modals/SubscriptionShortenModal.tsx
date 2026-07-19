@@ -146,7 +146,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
 
           {/* 단축 개월 수 */}
           <div>
-            <Label>단축 개월 수 <span className="text-xs text-gray-400 font-normal">(최대 {maxShorten}개월)</span></Label>
+            <Label>단축 개월 수 <span className="text-red-500 ml-0.5">*</span> <span className="text-xs text-gray-400 font-normal">(최대 {maxShorten}개월)</span></Label>
             <Input
               type="number"
               min={1}
@@ -193,7 +193,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
           {/* 환불 금액 (직접 입력) */}
           {calcResult && (
             <div>
-              <Label>환불 금액</Label>
+              <Label>환불 금액 <span className="text-red-500 ml-0.5">*</span></Label>
               <div className="flex items-center gap-1.5 mt-1">
                 <Input
                   type="number"
@@ -209,7 +209,7 @@ export function SubscriptionShortenModal({ open, onClose, item, onSuccess }: Pro
           {/* 환불 계좌 */}
           {calcResult && (
             <div className="space-y-2">
-              <span className="text-xs font-medium text-gray-600">환불 계좌</span>
+              <Label>환불 계좌 <span className="text-gray-400 font-normal">(선택)</span></Label>
               <div className="flex gap-2">
                 <Input
                   className="h-8 text-sm flex-[1]"
