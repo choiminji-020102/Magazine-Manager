@@ -58,8 +58,17 @@ export default function InquiryDetailPanel({ inquiryId, onClose }: InquiryDetail
   const statusMutation = useMutation({
     mutationFn: (newStatus: string) =>
       inquiriesApi.updateInquiry(inquiryId, { inquiry_status: newStatus }),
-    onSuccess: () => {
-      toast.success("상태가 변경되었습니다.");
+    onSuccess: (_data, newStatus) => {
+      // 이전 상태에 따라 되돌리기 문구를 구분 (완료→접수: 재오픈, 취소→접수: 취소 해제)
+      const message =
+        newStatus === "COMPLETED"
+          ? "완료 처리되었습니다."
+          : newStatus === "CANCELLED"
+          ? "취소되었습니다."
+          : inquiry?.inquiry_status === "CANCELLED"
+          ? "취소가 해제되었습니다."
+          : "접수 상태로 되돌렸습니다.";
+      toast.success(message);
       queryClient.invalidateQueries({ queryKey: ["inquiry", inquiryId] });
       queryClient.invalidateQueries({ queryKey: ["inquiries"] });
     },
@@ -81,6 +90,10 @@ export default function InquiryDetailPanel({ inquiryId, onClose }: InquiryDetail
       </div>
     );
   }
+
+  // 미완료(접수) 상태 판정 — 레거시 IN_PROGRESS 데이터도 접수처럼 처리할 수 있게 포함
+  const isPending =
+    inquiry.inquiry_status === "RECEIVED" || inquiry.inquiry_status === "IN_PROGRESS";
 
   return (
     <div className="flex flex-col h-full">
@@ -122,38 +135,59 @@ export default function InquiryDetailPanel({ inquiryId, onClose }: InquiryDetail
           </div>
         </div>
 
-        {/* 액션 버튼 */}
+        {/* 액션 버튼 (접수 → 완료 / 취소, 3단계) */}
         <div className="flex items-center gap-2 mt-3 flex-wrap">
-          {inquiry.inquiry_status === "RECEIVED" && (
-            <Button
-              size="sm"
-              onClick={() => {
-                setAnswerMode(true);
-                setAnswerText(inquiry.answer ?? "");
-              }}
-            >
-              답변 등록
-            </Button>
+          {/* 접수 상태(레거시 IN_PROGRESS 포함): 답변 등록 · 완료 처리 · 취소 */}
+          {isPending && (
+            <>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setAnswerMode(true);
+                  setAnswerText(inquiry.answer ?? "");
+                }}
+              >
+                답변 등록
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => statusMutation.mutate("COMPLETED")}
+                disabled={statusMutation.isPending}
+              >
+                완료 처리
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-600 border-red-200 hover:bg-red-50"
+                onClick={() => statusMutation.mutate("CANCELLED")}
+                disabled={statusMutation.isPending}
+              >
+                취소
+              </Button>
+            </>
           )}
-          {inquiry.inquiry_status === "RECEIVED" && (
+          {/* 완료 상태: 접수로 되돌리기(재오픈) */}
+          {inquiry.inquiry_status === "COMPLETED" && (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => statusMutation.mutate("IN_PROGRESS")}
+              onClick={() => statusMutation.mutate("RECEIVED")}
               disabled={statusMutation.isPending}
             >
-              처리중으로 변경
+              접수로 되돌리기
             </Button>
           )}
-          {inquiry.inquiry_status !== "CANCELLED" && inquiry.inquiry_status !== "COMPLETED" && (
+          {/* 취소 상태: 취소 해제 */}
+          {inquiry.inquiry_status === "CANCELLED" && (
             <Button
               variant="outline"
               size="sm"
-              className="text-red-600 border-red-200 hover:bg-red-50"
-              onClick={() => statusMutation.mutate("CANCELLED")}
+              onClick={() => statusMutation.mutate("RECEIVED")}
               disabled={statusMutation.isPending}
             >
-              취소
+              취소 해제
             </Button>
           )}
         </div>
@@ -217,12 +251,6 @@ export default function InquiryDetailPanel({ inquiryId, onClose }: InquiryDetail
             <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
               {inquiry.answer}
             </p>
-            {inquiry.handled_at && (
-              <p className="text-xs text-gray-400 mt-1">
-                {inquiry.handler_name && <span>{inquiry.handler_name} · </span>}
-                {formatDateTime(inquiry.handled_at)}
-              </p>
-            )}
             <Button
               variant="ghost"
               size="sm"
@@ -248,7 +276,18 @@ export default function InquiryDetailPanel({ inquiryId, onClose }: InquiryDetail
           {inquiry.order_id && (
             <InfoRow label="관련 주문" value={`#${inquiry.order_id}`} />
           )}
+          {inquiry.handler_name && (
+            <InfoRow label="담당자" value={inquiry.handler_name} />
+          )}
+          {inquiry.handled_at && (
+            <InfoRow label="처리일시" value={formatDateTime(inquiry.handled_at)} />
+          )}
+        </Section>
+
+        {/* 시스템 (CRUD 타임스탬프 등 시스템 메타데이터는 별도 섹션으로 분리) */}
+        <Section title="시스템">
           <InfoRow label="등록일" value={formatDateTime(inquiry.created_at)} />
+          <InfoRow label="수정일" value={formatDateTime(inquiry.updated_at)} />
         </Section>
       </div>
     </div>

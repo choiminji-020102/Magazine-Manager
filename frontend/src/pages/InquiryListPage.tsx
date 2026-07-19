@@ -33,7 +33,6 @@ import InquiryDetailPanel from "./inquiry/InquiryDetailPanel";
 const STATUS_OPTIONS = [
   { value: "", label: "전체 상태" },
   { value: "RECEIVED", label: "접수" },
-  { value: "IN_PROGRESS", label: "처리중" },
   { value: "COMPLETED", label: "완료" },
   { value: "CANCELLED", label: "취소" },
 ];
@@ -264,7 +263,9 @@ export default function InquiryListPage() {
             emptyMessage="문의가 없습니다."
             activeRowId={selectedId}
             rowClassName={(row) =>
-              row.inquiry_status === "RECEIVED" ? "bg-amber-50 hover:bg-amber-100" : ""
+              row.inquiry_status === "RECEIVED" || row.inquiry_status === "IN_PROGRESS"
+                ? "bg-amber-50 hover:bg-amber-100"
+                : ""
             }
           />
         </div>

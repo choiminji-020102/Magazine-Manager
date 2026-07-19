@@ -93,10 +93,27 @@ def create_inquiry(db: Session, inquiry_in: InquiryCreate) -> Inquiry:
     return inquiry
 
 
-def update_inquiry(db: Session, inquiry: Inquiry, inquiry_in: InquiryUpdate) -> Inquiry:
+def update_inquiry(
+    db: Session,
+    inquiry: Inquiry,
+    inquiry_in: InquiryUpdate,
+    admin_id: Optional[int] = None,
+) -> Inquiry:
     update_data = inquiry_in.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(inquiry, field, value)
+
+    # 상태 전이에 따른 처리 이력 동기화
+    # 완료 처리 → 담당자/처리일시 기록, 접수로 되돌리기(재오픈·취소해제) → 초기화
+    if "inquiry_status" in update_data:
+        new_status = update_data["inquiry_status"]
+        if new_status == "COMPLETED":
+            inquiry.handled_by = admin_id
+            inquiry.handled_at = now_kst()
+        elif new_status == "RECEIVED":
+            inquiry.handled_by = None
+            inquiry.handled_at = None
+
     db.commit()
     db.refresh(inquiry)
     return inquiry

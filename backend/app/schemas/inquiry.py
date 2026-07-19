@@ -26,7 +26,7 @@ class InquiryUpdate(BaseModel):
 
 class InquiryAnswer(BaseModel):
     answer: str
-    inquiry_status: str = Field(default="COMPLETED", description="RECEIVED, IN_PROGRESS, COMPLETED")
+    inquiry_status: str = Field(default="COMPLETED", description="RECEIVED, COMPLETED, CANCELLED")
 
 
 class InquiryResponse(BaseModel):

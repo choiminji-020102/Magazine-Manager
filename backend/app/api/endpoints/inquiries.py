@@ -194,7 +194,7 @@ def update_inquiry(
         "inquiry_status": inquiry.inquiry_status
     }
     
-    inquiry = inquiry_service.update_inquiry(db, inquiry, inquiry_in)
+    inquiry = inquiry_service.update_inquiry(db, inquiry, inquiry_in, admin_id=current_admin.admin_id)
     
     activity_log_service.create_log(
         db=db,
