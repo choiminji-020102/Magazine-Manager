@@ -24,13 +24,17 @@ interface Props {
   onSuccess: () => void;
 }
 
+// 유료 연장 입금 계좌 기본값 (필요 시 수기 수정 가능)
+const DEFAULT_REFUND_BANK = "국민은행";
+const DEFAULT_REFUND_ACCOUNT = "112233445566";
+
 export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Props) {
   const [months, setMonths] = useState("1");
   const [isPaid, setIsPaid] = useState(false);
   const [reason, setReason] = useState("");
   const [paidAmount, setPaidAmount] = useState("");
-  const [refundBank, setRefundBank] = useState("");
-  const [refundAccount, setRefundAccount] = useState("");
+  const [refundBank, setRefundBank] = useState(DEFAULT_REFUND_BANK);
+  const [refundAccount, setRefundAccount] = useState(DEFAULT_REFUND_ACCOUNT);
 
   const absMonths = Math.abs(parseInt(months) || 0);
   const newEndIssue = addMonthsToIssue(item.final_subscribe_end_issue, absMonths);
@@ -65,8 +69,8 @@ export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Prop
     setIsPaid(false);
     setReason("");
     setPaidAmount("");
-    setRefundBank("");
-    setRefundAccount("");
+    setRefundBank(DEFAULT_REFUND_BANK);
+    setRefundAccount(DEFAULT_REFUND_ACCOUNT);
     onClose();
   };
 
