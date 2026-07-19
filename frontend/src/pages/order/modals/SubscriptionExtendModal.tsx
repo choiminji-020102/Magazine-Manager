@@ -26,9 +26,14 @@ interface Props {
 
 // 유료 연장 입금 계좌 기본값 (필요 시 수기 수정 가능)
 const DEFAULT_REFUND_BANK = "국민은행";
-const DEFAULT_REFUND_ACCOUNT = "112233445566";
+const DEFAULT_REFUND_ACCOUNT = "213-6370-4009-443";
 
-export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Props) {
+export function SubscriptionExtendModal({
+  open,
+  onClose,
+  item,
+  onSuccess,
+}: Props) {
   const [months, setMonths] = useState("1");
   const [isPaid, setIsPaid] = useState(false);
   const [reason, setReason] = useState("");
@@ -37,7 +42,10 @@ export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Prop
   const [refundAccount, setRefundAccount] = useState(DEFAULT_REFUND_ACCOUNT);
 
   const absMonths = Math.abs(parseInt(months) || 0);
-  const newEndIssue = addMonthsToIssue(item.final_subscribe_end_issue, absMonths);
+  const newEndIssue = addMonthsToIssue(
+    item.final_subscribe_end_issue,
+    absMonths,
+  );
 
   // 유료 연장 시 참고 금액 계산: 단가 × 연장 개월
   const currentPeriod = item.subscribe_period || 12;
@@ -50,11 +58,13 @@ export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Prop
         extend_months: absMonths || 1,
         is_paid: isPaid,
         reason: reason || null,
-        ...(isPaid ? {
-          paid_amount: paidAmount ? parseInt(paidAmount) : null,
-          refund_bank: refundBank || null,
-          refund_account: refundAccount || null,
-        } : {}),
+        ...(isPaid
+          ? {
+              paid_amount: paidAmount ? parseInt(paidAmount) : null,
+              refund_bank: refundBank || null,
+              refund_account: refundAccount || null,
+            }
+          : {}),
       }),
     onSuccess: () => {
       toast.success("구독이 연장되었습니다.");
@@ -91,14 +101,16 @@ export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Prop
             <div className="flex justify-between">
               <span>현재 구독 기간</span>
               <span className="font-medium">
-                {formatIssue(item.final_subscribe_start_issue)} ~ {formatIssue(item.final_subscribe_end_issue)}
+                {formatIssue(item.final_subscribe_start_issue)} ~{" "}
+                {formatIssue(item.final_subscribe_end_issue)}
               </span>
             </div>
             {newEndIssue && (
               <div className="flex justify-between text-blue-600">
                 <span>변경 후 구독 기간</span>
                 <span className="font-medium">
-                  {formatIssue(item.final_subscribe_start_issue)} ~ {formatIssue(newEndIssue)}
+                  {formatIssue(item.final_subscribe_start_issue)} ~{" "}
+                  {formatIssue(newEndIssue)}
                 </span>
               </div>
             )}
@@ -127,7 +139,9 @@ export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Prop
 
           {/* 연장 개월 수 */}
           <div>
-            <Label>연장 개월 수 <span className="text-red-500 ml-0.5">*</span></Label>
+            <Label>
+              연장 개월 수 <span className="text-red-500 ml-0.5">*</span>
+            </Label>
             <div className="flex items-center mt-1 w-fit">
               <button
                 type="button"
@@ -167,10 +181,15 @@ export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Prop
           {isPaid && absMonths > 0 && (
             <>
               <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-500 space-y-1">
-                <div className="font-medium text-gray-600">결제 금액 (참고)</div>
+                <div className="font-medium text-gray-600">
+                  결제 금액 (참고)
+                </div>
                 <div className="flex justify-between">
                   <span>판매가 ÷ 구독기간</span>
-                  <span>{formatAmount(item.sale_price)} ÷ {currentPeriod}개월 = {formatAmount(unitPrice)}/월</span>
+                  <span>
+                    {formatAmount(item.sale_price)} ÷ {currentPeriod}개월 ={" "}
+                    {formatAmount(unitPrice)}/월
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>단가 × {absMonths}개월</span>
@@ -179,7 +198,10 @@ export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Prop
               </div>
 
               <div>
-                <Label>결제 금액 <span className="text-gray-400 font-normal">(선택)</span></Label>
+                <Label>
+                  결제 금액{" "}
+                  <span className="text-gray-400 font-normal">(선택)</span>
+                </Label>
                 <Input
                   type="number"
                   min={0}
@@ -191,7 +213,10 @@ export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Prop
               </div>
 
               <div className="space-y-2">
-                <Label>입금 계좌 <span className="text-gray-400 font-normal">(선택)</span></Label>
+                <Label>
+                  입금 계좌{" "}
+                  <span className="text-gray-400 font-normal">(선택)</span>
+                </Label>
                 <div className="flex gap-2">
                   <Input
                     className="h-8 text-sm flex-[1]"
@@ -212,7 +237,10 @@ export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Prop
 
           {/* 연장 사유 */}
           <div>
-            <Label>연장 사유 <span className="text-gray-400 font-normal">(선택)</span></Label>
+            <Label>
+              연장 사유{" "}
+              <span className="text-gray-400 font-normal">(선택)</span>
+            </Label>
             <Input
               className="mt-1"
               placeholder="연장 사유"
@@ -223,7 +251,9 @@ export function SubscriptionExtendModal({ open, onClose, item, onSuccess }: Prop
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>취소</Button>
+          <Button variant="outline" onClick={handleClose}>
+            취소
+          </Button>
           <Button
             onClick={() => mutation.mutate()}
             disabled={mutation.isPending || absMonths < 1}
