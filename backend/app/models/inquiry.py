@@ -20,8 +20,10 @@ class Inquiry(Base):
     handled_by = Column(BigInteger, ForeignKey("admins.admin_id"), nullable=True, comment="담당 관리자 ID")
     handled_at = Column(DateTime, nullable=True, comment="처리 완료 일시")
 
-    is_deleted = Column(Boolean, nullable=False, server_default="0", comment="삭제 여부(소프트 삭제)")
-    deleted_at = Column(DateTime, nullable=True, comment="삭제 일시")
+    # ⚠️ 미사용: 문의 삭제는 하드 삭제(db.delete)로 동작한다. 아래 소프트 삭제 컬럼은
+    #    테이블에만 남아있고 실제로는 세팅/필터되지 않는다. (delete_inquiry 참고)
+    is_deleted = Column(Boolean, nullable=False, server_default="0", comment="삭제 여부(미사용 - 하드 삭제)")
+    deleted_at = Column(DateTime, nullable=True, comment="삭제 일시(미사용 - 하드 삭제)")
 
     created_at = Column(DateTime, nullable=False, server_default=func.now(), comment="생성 일시")
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now(), comment="수정 일시")
