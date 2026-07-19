@@ -25,12 +25,14 @@ import { Pagination } from "@/components/common/Pagination";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { inquiriesApi } from "@/api/inquiriesApi";
+import { customersApi } from "@/api/customersApi";
 import { ordersApi } from "@/api/ordersApi";
 import { orderItemsApi } from "@/api/orderItemsApi";
 import { toast } from "@/hooks/use-toast";
 import { formatDate, formatPhone, formatAmount } from "@/utils/format";
 import { CHANNEL_LABEL, ORDER_STATUS_LABEL } from "@/utils/constants";
-import type { InquiryListResponse, CustomerQuickSearchResponse } from "@/types/inquiry";
+import type { InquiryListResponse } from "@/types/inquiry";
+import type { CustomerListItem } from "@/types/customer";
 import type { OrderResponse } from "@/types/order";
 import type { OrderItemDetailResponse } from "@/types/orderItem";
 import InquiryDetailPanel from "./inquiry/InquiryDetailPanel";
@@ -64,8 +66,8 @@ export default function InquiryListPage() {
 
   // 문의 등록 모달
   const [createOpen, setCreateOpen] = useState(false);
-  const [phone4, setPhone4] = useState("");
-  const [selectedCustomer, setSelectedCustomer] = useState<CustomerQuickSearchResponse | null>(null);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerListItem | null>(null);
   const [relatedOrderId, setRelatedOrderId] = useState<number | null>(null);
   const [relatedOrderItemId, setRelatedOrderItemId] = useState<number | null>(null);
   const [createForm, setCreateForm] = useState({
@@ -92,12 +94,15 @@ export default function InquiryListPage() {
         .then((r) => r.data),
   });
 
-  // 전화번호 뒤4자리 고객 검색
-  const { data: phone4Results = [] } = useQuery<CustomerQuickSearchResponse[]>({
-    queryKey: ["inquiry-phone4", phone4],
+  // 고객 이름 검색
+  const customerQuery = customerSearch.trim();
+  const { data: customerResults = [] } = useQuery<CustomerListItem[]>({
+    queryKey: ["inquiry-customer-search", customerQuery],
     queryFn: () =>
-      inquiriesApi.searchByPhone4(phone4).then((r) => r.data.data ?? []),
-    enabled: phone4.length === 4,
+      customersApi
+        .getCustomers({ page: 1, limit: 10, search: customerQuery })
+        .then((r) => r.data.items ?? []),
+    enabled: customerQuery.length >= 2,
   });
 
   // 선택 고객의 주문 목록 (관련 주문 연결용)
@@ -136,7 +141,7 @@ export default function InquiryListPage() {
 
   const handleCreateClose = () => {
     setCreateOpen(false);
-    setPhone4("");
+    setCustomerSearch("");
     setSelectedCustomer(null);
     setRelatedOrderId(null);
     setRelatedOrderItemId(null);
@@ -327,33 +332,30 @@ export default function InquiryListPage() {
             {/* 고객 검색 */}
             <div>
               <Label className="text-xs">
-                고객 검색 (전화번호 뒤 4자리)
+                고객 검색 (이름)
                 <span className="text-red-500 ml-0.5">*</span>
               </Label>
               <Input
                 className="mt-1"
-                placeholder="뒤 4자리 입력"
-                maxLength={4}
-                value={phone4}
+                placeholder="고객 이름 입력"
+                value={customerSearch}
                 onChange={(e) => {
-                  setPhone4(e.target.value.replace(/\D/g, ""));
+                  setCustomerSearch(e.target.value);
                   setSelectedCustomer(null);
                   setRelatedOrderId(null);
                   setRelatedOrderItemId(null);
                 }}
               />
-              {phone4.length === 4 && (
-                <div className="mt-1.5 border border-gray-200 rounded-md overflow-hidden">
-                  {phone4Results.length === 0 ? (
+              {customerQuery.length >= 2 && !selectedCustomer && (
+                <div className="mt-1.5 border border-gray-200 rounded-md overflow-hidden max-h-52 overflow-y-auto">
+                  {customerResults.length === 0 ? (
                     <div className="px-3 py-2 text-xs text-gray-400">검색 결과 없음</div>
                   ) : (
-                    phone4Results.map((c) => (
+                    customerResults.map((c) => (
                       <button
                         key={c.customer_id}
                         type="button"
-                        className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-50 flex items-center gap-2 ${
-                          selectedCustomer?.customer_id === c.customer_id ? "bg-blue-50" : ""
-                        }`}
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 flex items-center gap-2"
                         onClick={() => {
                           setSelectedCustomer(c);
                           setRelatedOrderId(null);
