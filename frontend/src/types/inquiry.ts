@@ -61,6 +61,12 @@ export interface InquiryDetailResponse extends InquiryResponse {
   customer_name?: string | null;
   customer_phone?: string | null;
   handler_name?: string | null;
+  // order_id 연결 시 주문 스냅샷 (식별용)
+  order_channel?: string | null;
+  order_status?: string | null;
+  order_payment_amount?: number | null;
+  order_at?: string | null;
+  order_item_product_name?: string | null;  // order_item_id 연결 시 품목명 스냅샷
 }
 
 export interface CustomerQuickSearchResponse {

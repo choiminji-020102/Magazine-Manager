@@ -25,9 +25,14 @@ import { Pagination } from "@/components/common/Pagination";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { inquiriesApi } from "@/api/inquiriesApi";
+import { ordersApi } from "@/api/ordersApi";
+import { orderItemsApi } from "@/api/orderItemsApi";
 import { toast } from "@/hooks/use-toast";
-import { formatDate, formatPhone } from "@/utils/format";
+import { formatDate, formatPhone, formatAmount } from "@/utils/format";
+import { CHANNEL_LABEL, ORDER_STATUS_LABEL } from "@/utils/constants";
 import type { InquiryListResponse, CustomerQuickSearchResponse } from "@/types/inquiry";
+import type { OrderResponse } from "@/types/order";
+import type { OrderItemDetailResponse } from "@/types/orderItem";
 import InquiryDetailPanel from "./inquiry/InquiryDetailPanel";
 
 const STATUS_OPTIONS = [
@@ -61,6 +66,8 @@ export default function InquiryListPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [phone4, setPhone4] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerQuickSearchResponse | null>(null);
+  const [relatedOrderId, setRelatedOrderId] = useState<number | null>(null);
+  const [relatedOrderItemId, setRelatedOrderItemId] = useState<number | null>(null);
   const [createForm, setCreateForm] = useState({
     inquiry_type: "PHONE",
     title: "",
@@ -93,6 +100,22 @@ export default function InquiryListPage() {
     enabled: phone4.length === 4,
   });
 
+  // 선택 고객의 주문 목록 (관련 주문 연결용)
+  const { data: customerOrders = [] } = useQuery<OrderResponse[]>({
+    queryKey: ["inquiry-customer-orders", selectedCustomer?.customer_id],
+    queryFn: () =>
+      ordersApi.getOrdersByCustomer(selectedCustomer!.customer_id).then((r) => r.data.data ?? []),
+    enabled: !!selectedCustomer,
+  });
+
+  // 선택 주문의 품목 목록 (관련 주문품목 연결용)
+  const { data: orderItems = [] } = useQuery<OrderItemDetailResponse[]>({
+    queryKey: ["inquiry-order-items", relatedOrderId],
+    queryFn: () =>
+      orderItemsApi.getItemsByOrder(relatedOrderId!).then((r) => r.data.data ?? []),
+    enabled: !!relatedOrderId,
+  });
+
   const createMutation = useMutation({
     mutationFn: () =>
       inquiriesApi.createInquiry({
@@ -100,6 +123,8 @@ export default function InquiryListPage() {
         inquiry_type: createForm.inquiry_type,
         title: createForm.title || null,
         content: createForm.content || null,
+        order_id: relatedOrderId,
+        order_item_id: relatedOrderItemId,
       }),
     onSuccess: () => {
       toast.success("문의가 등록되었습니다.");
@@ -113,6 +138,8 @@ export default function InquiryListPage() {
     setCreateOpen(false);
     setPhone4("");
     setSelectedCustomer(null);
+    setRelatedOrderId(null);
+    setRelatedOrderItemId(null);
     setCreateForm({ inquiry_type: "PHONE", title: "", content: "" });
   };
 
@@ -311,6 +338,8 @@ export default function InquiryListPage() {
                 onChange={(e) => {
                   setPhone4(e.target.value.replace(/\D/g, ""));
                   setSelectedCustomer(null);
+                  setRelatedOrderId(null);
+                  setRelatedOrderItemId(null);
                 }}
               />
               {phone4.length === 4 && (
@@ -325,7 +354,11 @@ export default function InquiryListPage() {
                         className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-50 flex items-center gap-2 ${
                           selectedCustomer?.customer_id === c.customer_id ? "bg-blue-50" : ""
                         }`}
-                        onClick={() => setSelectedCustomer(c)}
+                        onClick={() => {
+                          setSelectedCustomer(c);
+                          setRelatedOrderId(null);
+                          setRelatedOrderItemId(null);
+                        }}
                       >
                         <span className="font-medium text-gray-800">{c.customer_name}</span>
                         <span className="text-gray-400 font-mono">{formatPhone(c.customer_phone)}</span>
@@ -341,6 +374,73 @@ export default function InquiryListPage() {
                 </div>
               )}
             </div>
+
+            {/* 관련 주문 / 주문품목 연결 (선택) */}
+            {selectedCustomer && (
+              <>
+                <div>
+                  <Label className="text-xs">
+                    관련 주문 <span className="text-gray-400">(선택)</span>
+                  </Label>
+                  <Select
+                    value={relatedOrderId ? String(relatedOrderId) : "_none"}
+                    onValueChange={(v) => {
+                      setRelatedOrderId(v === "_none" ? null : Number(v));
+                      setRelatedOrderItemId(null);
+                    }}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="주문 선택 안 함" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">선택 안 함</SelectItem>
+                      {customerOrders.map((o) => (
+                        <SelectItem key={o.order_id} value={String(o.order_id)}>
+                          {[
+                            CHANNEL_LABEL[o.order_channel] ?? o.order_channel,
+                            ORDER_STATUS_LABEL[o.order_status] ?? o.order_status,
+                            formatAmount(o.payment_amount),
+                            formatDate(o.order_at),
+                          ].join(" · ")}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {customerOrders.length === 0 && (
+                    <p className="text-xs text-gray-400 mt-1">이 고객의 주문 내역이 없습니다.</p>
+                  )}
+                </div>
+
+                {relatedOrderId && (
+                  <div>
+                    <Label className="text-xs">
+                      관련 주문품목 <span className="text-gray-400">(선택)</span>
+                    </Label>
+                    <Select
+                      value={relatedOrderItemId ? String(relatedOrderItemId) : "_none"}
+                      onValueChange={(v) =>
+                        setRelatedOrderItemId(v === "_none" ? null : Number(v))
+                      }
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="전체 품목" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none">전체 품목 (주문 전체)</SelectItem>
+                        {orderItems.map((it) => (
+                          <SelectItem key={it.order_item_id} value={String(it.order_item_id)}>
+                            {it.product_name}
+                            {it.cancelled_at && (
+                              <span className="ml-1 text-red-500">(취소)</span>
+                            )}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </>
+            )}
 
             {/* 문의 유형 */}
             <div>

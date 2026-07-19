@@ -67,6 +67,12 @@ class InquiryDetailResponse(InquiryResponse):
     customer_name: Optional[str] = None
     customer_phone: Optional[str] = None
     handler_name: Optional[str] = None
+    # order_id 연결 시 주문 스냅샷 (식별용 — 채널/상태/금액/일시)
+    order_channel: Optional[str] = None
+    order_status: Optional[str] = None
+    order_payment_amount: Optional[int] = None
+    order_at: Optional[datetime] = None
+    order_item_product_name: Optional[str] = None  # order_item_id 연결 시 품목명 스냅샷
 
 
 # 전화번호 뒤4자리 검색용

@@ -7,7 +7,8 @@ import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { inquiriesApi } from "@/api/inquiriesApi";
 import { toast } from "@/hooks/use-toast";
-import { formatDateTime, formatPhone } from "@/utils/format";
+import { formatDateTime, formatDate, formatPhone, formatAmount } from "@/utils/format";
+import { CHANNEL_LABEL, ORDER_STATUS_LABEL } from "@/utils/constants";
 
 interface InquiryDetailPanelProps {
   inquiryId: number;
@@ -274,7 +275,32 @@ export default function InquiryDetailPanel({ inquiryId, onClose }: InquiryDetail
             <InfoRow label="카테고리" value={inquiry.inquiry_category} />
           )}
           {inquiry.order_id && (
-            <InfoRow label="관련 주문" value={`#${inquiry.order_id}`} />
+            <InfoRow
+              label="관련 주문"
+              value={
+                [
+                  inquiry.order_channel &&
+                    (CHANNEL_LABEL[inquiry.order_channel] ?? inquiry.order_channel),
+                  inquiry.order_status &&
+                    (ORDER_STATUS_LABEL[inquiry.order_status] ?? inquiry.order_status),
+                  inquiry.order_payment_amount != null &&
+                    formatAmount(inquiry.order_payment_amount),
+                  inquiry.order_at && formatDate(inquiry.order_at),
+                ]
+                  .filter(Boolean)
+                  .join(" · ") || `#${inquiry.order_id}`
+              }
+            />
+          )}
+          {inquiry.order_id && (
+            <InfoRow
+              label="관련 주문품목"
+              value={
+                inquiry.order_item_id
+                  ? (inquiry.order_item_product_name ?? `#${inquiry.order_item_id}`)
+                  : "전체 품목 (주문 전체)"
+              }
+            />
           )}
           {inquiry.handler_name && (
             <InfoRow label="담당자" value={inquiry.handler_name} />

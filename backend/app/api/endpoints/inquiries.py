@@ -120,12 +120,39 @@ def get_inquiry(
         handler = admin_service.get_admin_by_id(db, inquiry.handled_by)
         if handler:
             handler_name = handler.admin_name
-    
+
+    # 연결된 주문 스냅샷 (식별용)
+    order_channel = None
+    order_status = None
+    order_payment_amount = None
+    order_at = None
+    if inquiry.order_id:
+        from app.services import order_service
+        order = order_service.get_order_by_id(db, inquiry.order_id)
+        if order:
+            order_channel = order.order_channel
+            order_status = order.order_status
+            order_payment_amount = order.payment_amount
+            order_at = order.order_at
+
+    # 연결된 주문품목 품목명
+    order_item_product_name = None
+    if inquiry.order_item_id:
+        from app.services import order_item_service
+        order_item = order_item_service.get_order_item_by_id(db, inquiry.order_item_id)
+        if order_item:
+            order_item_product_name = order_item.product_name
+
     return ResponseModel(data=InquiryDetailResponse(
         **inquiry.__dict__,
         customer_name=customer.customer_name if customer else None,
         customer_phone=customer.customer_phone if customer else None,
-        handler_name=handler_name
+        handler_name=handler_name,
+        order_channel=order_channel,
+        order_status=order_status,
+        order_payment_amount=order_payment_amount,
+        order_at=order_at,
+        order_item_product_name=order_item_product_name
     ))
 
 
