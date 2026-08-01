@@ -122,7 +122,14 @@ def list_sends(db: Session, query: SendListQuery) -> Tuple[List[Send], int]:
         "delivered_at",
     }
     sort_col = getattr(Send, query.sort_by if query.sort_by in allowed_sort else "created_at")
-    q = q.order_by(sort_col.asc() if query.sort_order == "asc" else sort_col.desc())
+    # PK 를 2차 정렬키로 고정 — [발송 생성] 은 일괄 INSERT 라 created_at 이 초 단위로 동일한
+    # 행이 수백 건씩 뭉친다. tie 상태에서는 LIMIT/OFFSET 페이징의 행 순서가 비결정적이라
+    # 같은 행이 두 페이지에 중복 등장하고 다른 행은 어느 페이지에도 안 나오는 누락이 발생한다.
+    is_asc = query.sort_order == "asc"
+    q = q.order_by(
+        sort_col.asc() if is_asc else sort_col.desc(),
+        Send.send_id.asc() if is_asc else Send.send_id.desc(),
+    )
 
     total = q.count()
     items = q.offset((query.page - 1) * query.limit).limit(query.limit).all()
