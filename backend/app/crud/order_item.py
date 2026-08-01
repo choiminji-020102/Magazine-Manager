@@ -174,7 +174,12 @@ def list_order_items(
 
     allowed_sort = {"created_at", "subscribe_start_issue", "final_subscribe_end_issue", "updated_at"}
     sort_col = getattr(OrderItem, sort_by if sort_by in allowed_sort else "created_at")
-    query = query.order_by(sort_col.asc() if sort_order == "asc" else sort_col.desc())
+    # PK 2차 정렬키 — 정렬값이 같은 행이 많으면 페이징 순서가 비결정적이라 중복·누락 발생
+    is_asc = sort_order == "asc"
+    query = query.order_by(
+        sort_col.asc() if is_asc else sort_col.desc(),
+        OrderItem.order_item_id.asc() if is_asc else OrderItem.order_item_id.desc(),
+    )
 
     total = query.count()
     offset = (page - 1) * limit

@@ -79,6 +79,12 @@ def get_logs(
 
     total = query.count()
     offset = (page - 1) * limit
-    items = query.order_by(ActivityLog.created_at.desc()).offset(offset).limit(limit).all()
+    # PK 2차 정렬키 — created_at 이 같은 행이 많으면 페이징 순서가 비결정적이라 중복·누락 발생
+    items = (
+        query.order_by(ActivityLog.created_at.desc(), ActivityLog.log_id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
 
     return items, total

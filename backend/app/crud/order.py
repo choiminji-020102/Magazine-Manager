@@ -92,7 +92,12 @@ def list_orders(
     # ── 정렬: 허용된 컬럼만 사용 (SQL 인젝션 방지) ────────────────────────────
     allowed_sort = {"order_at", "created_at", "payment_at", "updated_at"}
     sort_col = getattr(Order, sort_by if sort_by in allowed_sort else "created_at")
-    query = query.order_by(sort_col.asc() if sort_order == "asc" else sort_col.desc())
+    # PK 2차 정렬키 — 정렬값이 같은 행이 많으면 페이징 순서가 비결정적이라 중복·누락 발생
+    is_asc = sort_order == "asc"
+    query = query.order_by(
+        sort_col.asc() if is_asc else sort_col.desc(),
+        Order.order_id.asc() if is_asc else Order.order_id.desc(),
+    )
 
     total = query.count()
     offset = (page - 1) * limit

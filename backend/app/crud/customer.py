@@ -76,10 +76,11 @@ def list_customers(
         query = query.filter(Customer.admin_memo.like(f"%{admin_memo}%"))
 
     sort_col = getattr(Customer, sort_by, Customer.created_at)
+    # PK 2차 정렬키 — 정렬값이 같은 행이 많으면 페이징 순서가 비결정적이라 중복·누락 발생
     if sort_order == "asc":
-        query = query.order_by(sort_col.asc())
+        query = query.order_by(sort_col.asc(), Customer.customer_id.asc())
     else:
-        query = query.order_by(sort_col.desc())
+        query = query.order_by(sort_col.desc(), Customer.customer_id.desc())
 
     total = query.count()
     offset = (page - 1) * limit
