@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple
 # 서드파티 라이브러리
 from fastapi import HTTPException, status
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, contains_eager
 
 # 로컬 애플리케이션
 from app.core.utils import calculate_subscribe_end_issue, count_issue_diff
@@ -69,10 +69,15 @@ def recalculate_final_end_issue(db: Session, order_item: OrderItem) -> str:
 
 
 def _get_active_send_items(db: Session, order_item_id: int) -> List[SendItem]:
-    """취소되지 않은 SendItem 목록"""
+    """취소되지 않은 SendItem 목록.
+
+    호출자가 `si.send.send_status` 를 순회하므로 Send 를 함께 로드한다.
+    (YEARLY 는 구독 개월 수만큼 SendItem 이 쌓여 lazy load 시 N+1 이 된다.)
+    """
     return (
         db.query(SendItem)
         .join(Send, SendItem.send_id == Send.send_id)
+        .options(contains_eager(SendItem.send))
         .filter(
             SendItem.order_item_id == order_item_id,
             SendItem.cancelled_at.is_(None),
@@ -221,47 +226,96 @@ def update_order_item(db: Session, order_item: OrderItem, item_in: OrderItemUpda
 
 # ── 배송지 변경 ───────────────────────────────────────────────────────────────
 
+def _has_remaining_send_issues(order_item: OrderItem, shipped_issues: List[str]) -> bool:
+    """앞으로 발송할 호가 남아 있는지 판정.
+
+    YEARLY 는 매월 그 호의 Send 가 새로 생성되므로, 지난 호가 모두 DELIVERED 여도
+    구독 종료 호가 남아 있으면 아직 Send 가 없는 다음 호부터 새 배송지로 나가야 한다.
+    MONTHLY 는 시작호 = 종료호(1회성) 라 그 한 번을 보냈으면 남은 발송이 없다.
+
+    실제 호출부는 DELIVERED 이력이 있을 때만 이 함수를 부르지만(and 단축평가),
+    함수 단독으로도 답이 맞도록 "발송 이력이 아직 없음 = 남아 있음" 을 함께 처리한다.
+
+    shipped_issues — DELIVERED Send 에 속한 SendItem 의 issue 목록. 호출부가 계산해 넘긴다.
+        UniqueConstraint(order_item_id, issue) 로 중복은 없으나 조회에 order_by 가 없어
+        정렬은 보장되지 않는다 (max 로 비교하므로 무관).
+
+        예) 25년 12월호 시작 정기구독을 26년 7월호까지 발송한 OrderItem
+            shipped_issues            = ["202512", "202601", ..., "202607"]  (8건)
+            last_send_issue           = "202607"
+            final_subscribe_end_issue = "202611"
+            → max("202607") < "202611" → True (26년 8~11월호가 남아 배송지 변경 허용)
+
+        같은 구독을 26년 11월호까지 모두 발송했다면
+            shipped_issues            = ["202512", ..., "202611"]  (12건)
+            → max("202611") < "202611" → False (구독 완주, 변경 불가)
+    """
+    # 발송 이력(호) 과 last_send_issue 를 합쳐 "마지막으로 나간 호" 를 구한다.
+    # last_send_issue 만 믿지 않는 이유 — 레거시 이관분은 NULL 일 수 있음.
+    sent_issues = [issue for issue in shipped_issues if issue]
+    if order_item.last_send_issue:
+        sent_issues.append(order_item.last_send_issue)
+
+    # MONTHLY 는 시작호 = 종료호(1회성) — 한 번 보냈으면 끝, 아직 안 보냈으면 남아 있다
+    if order_item.product_kind != "YEARLY":
+        return not sent_issues
+
+    end_issue = order_item.final_subscribe_end_issue
+    if not end_issue:
+        return False
+    # issue 는 YYYYMM 6자리 고정이라 문자열 비교 = 시간순 비교.
+    # default="" — 판별 가능한 호가 하나도 없으면 아직 안 나간 것으로 보고 변경 허용
+    return max(sent_issues, default="") < end_issue
+
+
 def apply_address_to_order_item(
     db: Session,
     order_item: OrderItem,
     new_address: Address,
-) -> Tuple[List[str], List[str]]:
-    """한 OrderItem 에 새 배송지 적용 — DELIVERED 차단 + PREPARING Send 스냅샷 동기화.
+) -> Tuple[List[str], List[str], bool]:
+    """한 OrderItem 에 새 배송지 적용 — 발송 완료분 차단 + PREPARING Send 스냅샷 동기화.
 
     공유 helper — `update_address` (개별 품목 변경) 와 `order_service.change_order_address`
     (주문 단위 일괄 변경) 가 동일한 안전 가드를 적용하도록 분리.
 
     동작:
-    - DELIVERED Send 만 있고 PENDING 없으면 OrderItem 자체 안 건드림 (옛 주소 유지).
-    - PENDING 있으면 OrderItem.address_id 변경 + PREPARING Send 의 6필드 동기화
+    - DELIVERED Send 만 있고 앞으로 발송할 호도 없으면 OrderItem 자체 안 건드림 (옛 주소 유지).
+    - PREPARING Send 가 있거나, YEARLY 이면서 구독 종료 호가 남아 있으면
+      OrderItem.address_id 변경 + PREPARING Send 의 스냅샷 필드 동기화
       (address_id / recipient_name / recipient_phone / country_code / postal_code /
        recipient_address / customer_memo).
+      → 아직 Send 가 생성되지 않은 다음 호는 발송 그룹화가 OrderItem.address_id 를
+        조인해 주소를 읽으므로 자동으로 새 배송지가 반영된다.
     - 트랜잭션 commit/refresh 는 호출자 책임.
 
     Returns:
-        (already_shipped_issues, pending_issues)
+        (already_shipped_issues, preparing_issues, changed)
     """
     send_items = _get_active_send_items(db, order_item.order_item_id)
 
     already_shipped_issues: List[str] = []
-    pending_issues: List[str] = []
-    pending_send_ids: set = set()
+    preparing_issues: List[str] = []
+    preparing_send_ids: set = set()
 
     for si in send_items:
         if si.send.send_status == "DELIVERED":
             already_shipped_issues.append(si.issue)
         else:
-            pending_issues.append(si.issue)
-            pending_send_ids.add(si.send_id)
+            preparing_issues.append(si.issue)
+            preparing_send_ids.add(si.send_id)
 
-    # DELIVERED 만 있으면 OrderItem 안 건드림 (옛 주소 유지)
-    if not pending_issues and already_shipped_issues:
-        return sorted(set(already_shipped_issues)), []
+    # DELIVERED 만 있고 앞으로 발송할 호도 없으면 OrderItem 안 건드림 (옛 주소 유지)
+    if (
+        not preparing_issues
+        and already_shipped_issues
+        and not _has_remaining_send_issues(order_item, already_shipped_issues)
+    ):
+        return sorted(set(already_shipped_issues)), [], False
 
     order_item.address_id = new_address.address_id
 
-    if pending_send_ids:
-        sends = db.query(Send).filter(Send.send_id.in_(pending_send_ids)).all()
+    if preparing_send_ids:
+        sends = db.query(Send).filter(Send.send_id.in_(preparing_send_ids)).all()
         for send in sends:
             if send.send_status == "PREPARING":
                 send.address_id = new_address.address_id
@@ -272,7 +326,7 @@ def apply_address_to_order_item(
                 send.recipient_address = new_address.recipient_address
                 send.customer_memo = new_address.customer_memo
 
-    return sorted(set(already_shipped_issues)), sorted(set(pending_issues))
+    return sorted(set(already_shipped_issues)), sorted(set(preparing_issues)), True
 
 
 def update_address(
@@ -297,29 +351,36 @@ def update_address(
         )
         new_address, _ = address_service.find_or_create_address(db, new_address_data)
 
-    # 공유 helper 로 적용 (DELIVERED 차단 + PREPARING Send 동기화)
-    already_shipped_issues, pending_issues = apply_address_to_order_item(
+    # 공유 helper 로 적용 (발송 완료분 차단 + PREPARING Send 동기화)
+    already_shipped_issues, preparing_issues, changed = apply_address_to_order_item(
         db, order_item, new_address
     )
 
-    # DELIVERED 만 있는 경우 — OrderItem 안 건드린 상태로 차단 응답
-    if not pending_issues and already_shipped_issues:
+    # 발송이 모두 끝난 경우 — OrderItem 안 건드린 상태로 차단 응답
+    if not changed:
         return OrderItemAddressUpdateResponse(
             can_change=False,
             already_shipped_issues=already_shipped_issues,
             pending_issues=[],
-            message="이미 배송이 시작되었거나 배송 예정일이 지나 배송지를 변경할 수 없습니다.",
+            message="이미 모든 회차의 발송이 완료되어 배송지를 변경할 수 없습니다.",
         )
 
     db.commit()
     db.refresh(order_item)
 
+    # PREPARING Send 가 없으면 아직 생성되지 않은 다음 호부터 반영됨
+    message = (
+        "배송지가 변경되었습니다."
+        if preparing_issues
+        else "배송지가 변경되었습니다. 다음 호 발송분부터 새 배송지로 적용됩니다."
+    )
+
     return OrderItemAddressUpdateResponse(
         can_change=True,
         changed_address_id=new_address.address_id,
         already_shipped_issues=already_shipped_issues,
-        pending_issues=pending_issues,
-        message="배송지가 변경되었습니다.",
+        pending_issues=preparing_issues,
+        message=message,
     )
 
 
