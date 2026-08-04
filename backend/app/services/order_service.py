@@ -223,7 +223,8 @@ def change_order_address(db: Session, order: Order, new_address_id: int) -> None
 
     `order_item_service.update_address` 와 동일한 안전 가드를 각 OrderItem 에 적용:
     - 발송이 모두 끝난 OrderItem 은 옛 주소 유지 (건드리지 않음)
-    - PREPARING Send 있는 OrderItem 은 address_id 변경 + Send 스냅샷 필드 동기화
+    - 그 외에는 OrderItem.address_id 만 변경. 이미 만들어진 PREPARING Send 는
+      건드리지 않으므로(공유 박스 오염 방지) 반영하려면 [발송 생성] 재실행이 필요하다.
     - YEARLY 이면서 구독 종료 호가 남은 OrderItem 은 지난 호가 모두 DELIVERED 여도
       address_id 변경 (아직 Send 가 없는 다음 호부터 새 배송지로 발송)
     - CANCELLED OrderItem 은 처리 대상에서 제외 (`cancelled_at IS NULL` 필터)

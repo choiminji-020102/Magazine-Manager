@@ -153,8 +153,9 @@ class PauseInfo(BaseModel):
 class OrderItemAddressUpdateResponse(BaseModel):
     can_change: bool
     changed_address_id: Optional[int] = None
-    already_shipped_issues: List[str] = []      # 이미 발송된 호 (변경 불가)
-    pending_issues: List[str] = []              # 미발송 예정 호 (변경 적용됨)
+    already_shipped_issues: List[str] = []      # 발송 완료(DELIVERED)된 호 — 예전 주소 그대로
+    preparing_issues: List[str] = []            # 발송 후보(PREPARING)에 담긴 호 — 배송지를 바꿔도
+                                                # 이 박스는 예전 주소 그대로라 [발송 생성] 재실행 필요
     message: str
 
 

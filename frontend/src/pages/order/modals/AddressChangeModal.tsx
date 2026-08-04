@@ -135,16 +135,19 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
         toast.error(result?.message ?? "배송지를 변경할 수 없습니다.");
         return;
       }
-      if (result.already_shipped_issues.length > 0) {
+      // 발송 후보에 이미 담긴 건은 예전 주소 그대로다 — 재생성해야 반영되므로 가장 강하게 알린다
+      if (result.preparing_issues.length > 0) {
+        const preparing = result.preparing_issues.map(formatIssue).join(", ");
+        toast.warning(
+          "발송 후보를 다시 만들어주세요",
+          `배송지는 바뀌었지만, ${preparing}가 이미 발송 후보에 담겨 있어 예전 주소 그대로입니다. ` +
+            `발송 후보 화면에서 [발송 생성]을 다시 누르지 않으면 예전 주소로 배송됩니다.`
+        );
+      } else if (result.already_shipped_issues.length > 0) {
         const issues = result.already_shipped_issues.map(formatIssue).join(", ");
-        // 발송 예정 회차가 없으면 아직 생성되지 않은 다음 호부터 반영된다는 안내를 덧붙인다
-        const remainingNotice =
-          result.pending_issues.length > 0
-            ? ""
-            : " 다음 호 발송분부터 새 배송지로 적용됩니다.";
         toast.warning(
           "배송지가 변경되었습니다.",
-          `이미 발송 완료된 ${issues}는 기존 배송지가 유지됩니다.${remainingNotice}`
+          `이미 발송 완료된 ${issues}는 예전 주소 그대로이고, 다음 호부터 새 주소로 나갑니다.`
         );
       } else {
         toast.success("배송지가 변경되었습니다.");
@@ -286,7 +289,9 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
           )}
 
           <p className="text-xs text-gray-400">
-            ※ 이미 발송 완료된 회차는 기존 배송지가 유지되고, 남은 회차만 변경됩니다. (구독이 끝나 남은 회차가 없으면 변경 불가)
+            ※ 이미 발송 완료된 회차는 예전 주소 그대로이고, 남은 회차만 새 주소로 바뀝니다. (구독이 끝나 남은 회차가 없으면 변경 불가)
+            <br />
+            ※ 이미 <span className="text-amber-600 font-medium">발송 후보에 담긴 건은 [발송 생성]을 다시</span> 눌러야 새 주소로 바뀝니다.
           </p>
         </div>
 

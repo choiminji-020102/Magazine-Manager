@@ -211,17 +211,24 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     setSelectedVipSlot(defaultVipSlot);
   }, [addressChangeOpen, defaultVipSlot]);
 
-  // 일괄 변경 확인 문구 — VIP 를 바꾼 경우에만 그 사실을 함께 알린다
+  // 일괄 변경 확인 문구 — 재생성 필요 여부와 VIP 변경을 해당될 때만 덧붙인다
   const addressConfirmDescription = (() => {
-    const base =
+    let text =
       "이 주문의 발송 예정 품목 배송지가 선택한 배송지로 일괄 변경됩니다. " +
-      "이미 발송 완료된 품목은 기존 배송지가 유지됩니다.";
-    if (!hasEnabledVipSlot || selectedVipSlot === defaultVipSlot) {
-      return `${base} 계속하시겠습니까?`;
+      "이미 발송 완료된 품목은 예전 주소 그대로입니다.";
+
+    if ((order?.sends ?? []).some((s) => s.send_status === "PREPARING")) {
+      text +=
+        " 이미 발송 후보에 담긴 건은 예전 주소 그대로이니, 발송 후보 화면에서 [발송 생성]을 다시 눌러주세요.";
     }
-    const slot = vipSlots.find((s) => s.slot_number === selectedVipSlot);
-    const vipText = slot ? `'${vipSlotLabel(slot)}' 그룹으로 지정` : "그룹 해제";
-    return `${base} 새 배송지의 VIP는 ${vipText}됩니다. 계속하시겠습니까?`;
+
+    if (hasEnabledVipSlot && selectedVipSlot !== defaultVipSlot) {
+      const slot = vipSlots.find((s) => s.slot_number === selectedVipSlot);
+      const vipText = slot ? `'${vipSlotLabel(slot)}' 그룹으로 지정` : "그룹 해제";
+      text += ` 새 배송지의 VIP는 ${vipText}됩니다.`;
+    }
+
+    return `${text} 계속하시겠습니까?`;
   })();
 
   // 재배송 이력 — 이 주문에 묶인 send_id 만 좁혀 한 번 조회 (target_ids 다중 필터).
@@ -293,6 +300,9 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       await ordersApi.updateOrder(orderId, { address_id: addressId });
 
       let skippedItems: OrderItemDetailResponse[] = [];
+      // 이미 만들어진 PREPARING 박스는 백엔드가 건드리지 않으므로 옛 주소 그대로다.
+      // 재생성 안내가 필요한지 판단하기 위해 조회 실패 시에도 직전 상태를 근거로 남긴다.
+      let hasPreparingSend = (order?.sends ?? []).some((s) => s.send_status === "PREPARING");
       try {
         // fetchQuery로 캐시를 직접 채워 이후 invalidateQueries 로 인한 중복 재조회를 방지
         const freshRes = await queryClient.fetchQuery({
@@ -304,6 +314,9 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             !item.cancelled_at &&
             beforeAddressByItemId.get(item.order_item_id) !== addressId &&
             item.address_id === beforeAddressByItemId.get(item.order_item_id)
+        );
+        hasPreparingSend = (freshRes?.data?.sends ?? []).some(
+          (s) => s.send_status === "PREPARING"
         );
       } catch {
         // 안내 문구용 부가 정보 수집 실패 — 배송지 변경 자체는 성공했으므로 화면만 최신화
@@ -330,12 +343,14 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       return {
         skippedItems,
         activeItemCount: beforeAddressByItemId.size,
+        hasPreparingSend,
         vipApplied,
         vipError,
       };
     },
-    onSuccess: ({ skippedItems, activeItemCount, vipApplied, vipError }) => {
-      if (skippedItems.length > 0 && skippedItems.length >= activeItemCount) {
+    onSuccess: ({ skippedItems, activeItemCount, hasPreparingSend, vipApplied, vipError }) => {
+      const allSkipped = skippedItems.length > 0 && skippedItems.length >= activeItemCount;
+      if (allSkipped) {
         const names = skippedItems.map((i) => i.product_name).join(", ");
         toast.warning(
           "배송지가 변경되지 않았습니다.",
@@ -349,6 +364,14 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
         );
       } else {
         toast.success("배송지가 변경되었습니다. (모든 품목 일괄 변경)");
+      }
+      // 발송 후보에 이미 담긴 건은 예전 주소 그대로 — 재생성해야 반영된다
+      if (!allSkipped && hasPreparingSend) {
+        toast.warning(
+          "발송 후보를 다시 만들어주세요",
+          "이 주문은 이미 발송 후보에 담겨 있어 예전 주소 그대로입니다. " +
+            "발송 후보 화면에서 [발송 생성]을 다시 누르지 않으면 예전 주소로 배송됩니다."
+        );
       }
       if (vipError) {
         toast.error("VIP 그룹 지정 실패", `배송지는 변경되었습니다. ${vipError}`);
@@ -1120,7 +1143,9 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             )}
 
             <p className="text-xs text-gray-400">
-              ※ 발송이 모두 완료된 품목은 기존 배송지가 유지되고, 발송 예정이 남은 품목은 새 배송지로 변경됩니다.
+              ※ 발송 완료된 품목은 예전 주소 그대로이고, 발송이 남은 품목만 새 주소로 바뀝니다.
+              <br />
+              ※ 이미 <span className="text-amber-600 font-medium">발송 후보에 담긴 건은 [발송 생성]을 다시</span> 눌러야 새 주소로 바뀝니다.
             </p>
           </div>
           <DialogFooter>

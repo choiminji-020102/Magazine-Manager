@@ -273,36 +273,39 @@ def apply_address_to_order_item(
     order_item: OrderItem,
     new_address: Address,
 ) -> Tuple[List[str], List[str], bool]:
-    """한 OrderItem 에 새 배송지 적용 — 발송 완료분 차단 + PREPARING Send 스냅샷 동기화.
+    """한 OrderItem 에 새 배송지 적용 — 발송 완료분만 차단하고 OrderItem.address_id 를 갱신.
 
     공유 helper — `update_address` (개별 품목 변경) 와 `order_service.change_order_address`
     (주문 단위 일괄 변경) 가 동일한 안전 가드를 적용하도록 분리.
 
     동작:
     - DELIVERED Send 만 있고 앞으로 발송할 호도 없으면 OrderItem 자체 안 건드림 (옛 주소 유지).
-    - PREPARING Send 가 있거나, YEARLY 이면서 구독 종료 호가 남아 있으면
-      OrderItem.address_id 변경 + PREPARING Send 의 스냅샷 필드 동기화
-      (address_id / recipient_name / recipient_phone / country_code / postal_code /
-       recipient_address / customer_memo).
-      → 아직 Send 가 생성되지 않은 다음 호는 발송 그룹화가 OrderItem.address_id 를
-        조인해 주소를 읽으므로 자동으로 새 배송지가 반영된다.
+    - 그 외에는 OrderItem.address_id 만 갱신한다. 아직 Send 가 없는 호는 발송 그룹화
+      (dispatch_grouping_service)가 OrderItem.address_id 를 조인해 주소를 읽으므로
+      [발송 생성] 시점에 자동으로 새 배송지가 반영된다.
     - 트랜잭션 commit/refresh 는 호출자 책임.
+
+    **이미 만들어진 PREPARING Send 는 건드리지 않는다.**
+    MONTHLY·VIP 박스는 (우편번호, 주소) 그룹화라 1 Send 에 여러 OrderItem 의 SendItem 이
+    묶인다 — 다른 고객 것도 함께. 그 Send 의 스냅샷을 덮어쓰면 같은 박스에 든 **다른 고객의
+    책까지** 새 주소로 나간다. 게다가 주소가 바뀌었으면 박스 소속 자체가 달라져야 맞다
+    ("서울 박스에 부산 라벨" 은 모순). 따라서 반영은 [발송 생성] 재실행에 맡기고,
+    호출자는 preparing_issues 를 근거로 관리자에게 재생성을 안내한다.
 
     Returns:
         (already_shipped_issues, preparing_issues, changed)
+        preparing_issues — 아직 옛 주소로 남아 있는 PREPARING 호 목록 (재생성 안내용)
     """
     send_items = _get_active_send_items(db, order_item.order_item_id)
 
     already_shipped_issues: List[str] = []
     preparing_issues: List[str] = []
-    preparing_send_ids: set = set()
 
     for si in send_items:
         if si.send.send_status == "DELIVERED":
             already_shipped_issues.append(si.issue)
         else:
             preparing_issues.append(si.issue)
-            preparing_send_ids.add(si.send_id)
 
     # DELIVERED 만 있고 앞으로 발송할 호도 없으면 OrderItem 안 건드림 (옛 주소 유지)
     if (
@@ -313,18 +316,6 @@ def apply_address_to_order_item(
         return sorted(set(already_shipped_issues)), [], False
 
     order_item.address_id = new_address.address_id
-
-    if preparing_send_ids:
-        sends = db.query(Send).filter(Send.send_id.in_(preparing_send_ids)).all()
-        for send in sends:
-            if send.send_status == "PREPARING":
-                send.address_id = new_address.address_id
-                send.recipient_name = new_address.recipient_name
-                send.recipient_phone = new_address.recipient_phone
-                send.country_code = new_address.country_code or "KR"
-                send.postal_code = new_address.postal_code
-                send.recipient_address = new_address.recipient_address
-                send.customer_memo = new_address.customer_memo
 
     return sorted(set(already_shipped_issues)), sorted(set(preparing_issues)), True
 
@@ -351,7 +342,7 @@ def update_address(
         )
         new_address, _ = address_service.find_or_create_address(db, new_address_data)
 
-    # 공유 helper 로 적용 (발송 완료분 차단 + PREPARING Send 동기화)
+    # 공유 helper 로 적용 (발송 완료분 차단 — PREPARING Send 는 건드리지 않음)
     already_shipped_issues, preparing_issues, changed = apply_address_to_order_item(
         db, order_item, new_address
     )
@@ -361,25 +352,27 @@ def update_address(
         return OrderItemAddressUpdateResponse(
             can_change=False,
             already_shipped_issues=already_shipped_issues,
-            pending_issues=[],
-            message="이미 모든 회차의 발송이 완료되어 배송지를 변경할 수 없습니다.",
+            preparing_issues=[],
+            message="모든 회차가 발송 완료되어 배송지를 변경할 수 없습니다.",
         )
 
     db.commit()
     db.refresh(order_item)
 
-    # PREPARING Send 가 없으면 아직 생성되지 않은 다음 호부터 반영됨
+    # 이미 만들어진 발송 후보는 옛 주소 그대로다 — 재생성해야 반영됨
+    # ("발송 후보" = 화면상 PREPARING 상태 표기. 관리자가 쓰는 용어로 안내한다)
     message = (
-        "배송지가 변경되었습니다."
+        "배송지가 변경되었습니다. 다만 이 품목은 이미 발송 후보에 담겨 있어 아직 예전 주소입니다. "
+        "발송 후보 화면에서 [발송 생성]을 다시 눌러주세요."
         if preparing_issues
-        else "배송지가 변경되었습니다. 다음 호 발송분부터 새 배송지로 적용됩니다."
+        else "배송지가 변경되었습니다. 다음 호 발송분부터 새 주소로 나갑니다."
     )
 
     return OrderItemAddressUpdateResponse(
         can_change=True,
         changed_address_id=new_address.address_id,
         already_shipped_issues=already_shipped_issues,
-        pending_issues=preparing_issues,
+        preparing_issues=preparing_issues,
         message=message,
     )
 

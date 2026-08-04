@@ -142,7 +142,7 @@ def test_yearly_지난호_전부발송완료_구독남으면_변경가능(db, ol
 
     assert result.can_change is True
     assert item.address_id == new_address.address_id
-    assert result.pending_issues == []               # PREPARING Send 는 없음
+    assert result.preparing_issues == []             # 발송 후보에 담긴 호 없음
     assert len(result.already_shipped_issues) == 8
     assert "다음 호 발송분부터" in result.message
 
@@ -189,8 +189,13 @@ def test_send이_아직_없는_신규주문은_변경가능(db, old_address, new
     assert result.already_shipped_issues == []
 
 
-def test_preparing_send는_스냅샷필드까지_동기화된다(db, old_address, new_address):
-    """이미 만들어진 발송 건은 재생성 없이 새 주소가 반영돼야 한다 (엑셀이 Send 스냅샷을 읽음)."""
+def test_preparing_send는_건드리지_않고_재생성을_안내한다(db, old_address, new_address):
+    """이미 만들어진 발송 건은 손대지 않는다.
+
+    MONTHLY·VIP 박스는 여러 OrderItem 이 한 Send 를 공유하므로(1 Send : N SendItem)
+    스냅샷을 덮어쓰면 같은 박스의 다른 고객 책까지 새 주소로 나간다.
+    반영은 [발송 생성] 재실행에 맡기고 응답으로 안내한다.
+    """
     order = _make_order(db, old_address)
     item = _make_item(db, order, old_address, start="202512", end="202611", last_send="202607")
     _make_send(db, item, old_address, issue="202607", status="DELIVERED")
@@ -201,14 +206,48 @@ def test_preparing_send는_스냅샷필드까지_동기화된다(db, old_address
     )
 
     assert result.can_change is True
-    assert result.pending_issues == ["202608"]
-    assert preparing.address_id == new_address.address_id
-    assert preparing.recipient_name == new_address.recipient_name
-    assert preparing.recipient_phone == new_address.recipient_phone
-    assert preparing.postal_code == new_address.postal_code
-    assert preparing.recipient_address == new_address.recipient_address
-    assert preparing.country_code == new_address.country_code
-    assert preparing.customer_memo == new_address.customer_memo
+    assert item.address_id == new_address.address_id      # 다음 발송 생성 때 반영될 값
+    assert result.preparing_issues == ["202608"]
+    assert "[발송 생성]" in result.message                 # 재생성 안내
+
+    # PREPARING Send 는 옛 주소 그대로여야 한다
+    assert preparing.address_id == old_address.address_id
+    assert preparing.recipient_name == old_address.recipient_name
+    assert preparing.recipient_phone == old_address.recipient_phone
+    assert preparing.postal_code == old_address.postal_code
+    assert preparing.recipient_address == old_address.recipient_address
+    assert preparing.customer_memo == old_address.customer_memo
+
+
+def test_공유박스는_다른_품목까지_바뀌지_않는다(db, old_address, new_address):
+    """같은 주소로 묶인 MONTHLY 박스 — 한 품목만 이사해도 나머지는 그대로여야 한다."""
+    order1 = _make_order(db, old_address)
+    order2 = _make_order(db, old_address)
+    item1 = _make_item(db, order1, old_address, kind="MONTHLY", start="202608", end="202608")
+    item2 = _make_item(db, order2, old_address, kind="MONTHLY", start="202608", end="202608")
+
+    # group_monthly_for_send 결과대로 한 Send 에 두 SendItem 이 붙은 상태
+    shared_send = _make_send(db, item1, old_address, issue="202608", status="PREPARING")
+    db.add(SendItem(
+        send_item_id=next(_pk),
+        send_id=shared_send.send_id,
+        order_item_id=item2.order_item_id,
+        product_code=item2.product_code,
+        product_name=item2.product_name,
+        issue="202608",
+    ))
+    db.flush()
+
+    order_item_service.update_address(
+        db, item1, OrderItemAddressUpdate(address_id=new_address.address_id)
+    )
+
+    assert item1.address_id == new_address.address_id     # 바뀐 품목만 새 주소
+    assert item2.address_id == old_address.address_id     # 다른 품목은 그대로
+    # 공유 박스가 오염되지 않아야 한다 — 덮어썼다면 item2 의 책도 새 주소로 나간다
+    assert shared_send.recipient_address == old_address.recipient_address
+    assert shared_send.postal_code == old_address.postal_code
+    assert shared_send.address_id == old_address.address_id
 
 
 def test_delivered_send는_옛주소_그대로_보존된다(db, old_address, new_address):
@@ -293,7 +332,8 @@ def test_일괄변경_취소된품목은_제외된다(db, old_address, new_addre
     assert cancelled.address_id == old_address.address_id
 
 
-def test_일괄변경_preparing_send_스냅샷도_동기화된다(db, old_address, new_address):
+def test_일괄변경도_preparing_send를_건드리지_않는다(db, old_address, new_address):
+    """개별 변경과 동일 — 이미 만들어진 박스는 [발송 생성] 재실행으로만 반영된다."""
     order = _make_order(db, old_address)
     item = _make_item(db, order, old_address, start="202512", end="202611", last_send="202607")
     preparing = _make_send(db, item, old_address, issue="202608", status="PREPARING")
@@ -302,8 +342,9 @@ def test_일괄변경_preparing_send_스냅샷도_동기화된다(db, old_addres
     db.commit()
 
     assert item.address_id == new_address.address_id
-    assert preparing.recipient_address == new_address.recipient_address
-    assert preparing.postal_code == new_address.postal_code
+    assert preparing.recipient_address == old_address.recipient_address
+    assert preparing.postal_code == old_address.postal_code
+    assert preparing.address_id == old_address.address_id
 
 
 def test_일괄변경_없는_배송지면_404(db, old_address):

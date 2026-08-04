@@ -166,7 +166,7 @@ export interface OrderItemListQuery {
 export interface OrderItemAddressUpdateResponse {
   can_change: boolean;
   changed_address_id?: number | null;
-  already_shipped_issues: string[];
-  pending_issues: string[];
+  already_shipped_issues: string[];   // 발송 완료된 호
+  preparing_issues: string[];         // 발송 후보에 담긴 호 — [발송 생성] 재실행 필요
   message: string;
 }
