@@ -28,7 +28,7 @@ import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
 import { formatDate, formatPhone, formatPhoneInput, formatAmount } from "@/utils/format";
 import { PAYMENT_METHOD_LABEL } from "@/utils/constants";
-import { VipFlagsEditor } from "@/components/common/VipFlags";
+import { VipFlagsEditor, buildVipPayload } from "@/components/common/VipFlags";
 import type { AddressResponse } from "@/types/address";
 import type { VipSlotResponse } from "@/types/vipSlot";
 import type { OrderResponse } from "@/types/order";
@@ -203,13 +203,7 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
     mutationFn: ({ addressId, slotNumber }: {
       addressId: number;
       slotNumber: number | null;   // null = 전체 해제
-    }) => {
-      const payload: Record<string, boolean> = {};
-      for (let n = 1; n <= 6; n++) {
-        payload[`vip${n}`] = slotNumber === n;
-      }
-      return addressesApi.updateAddress(addressId, payload);
-    },
+    }) => addressesApi.updateAddress(addressId, buildVipPayload(slotNumber)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customer", customerId] });
       queryClient.invalidateQueries({ queryKey: ["customers"] });

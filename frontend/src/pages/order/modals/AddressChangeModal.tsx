@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -18,8 +18,16 @@ import {
   type NewAddressErrors,
 } from "@/components/common/NewAddressForm";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
+import {
+  VipFlagsDisplay,
+  VipFlagsEditor,
+  activeVipSlot,
+  buildVipPayload,
+  vipSlotLabel,
+} from "@/components/common/VipFlags";
 import { addressesApi } from "@/api/addressesApi";
 import { orderItemsApi } from "@/api/orderItemsApi";
+import { vipSlotsApi } from "@/api/vipSlotsApi";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
 import { formatPhone, formatIssue } from "@/utils/format";
@@ -42,10 +50,14 @@ function buildPrefilledNewAddress(item: OrderItemResponse): NewAddressValue {
 }
 
 export function AddressChangeModal({ open, onClose, item, customerId, onSuccess }: Props) {
+  const queryClient = useQueryClient();
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   const [newAddr, setNewAddr] = useState<NewAddressValue>(() => buildPrefilledNewAddress(item));
   const [newAddrErrors, setNewAddrErrors] = useState<NewAddressErrors>(EMPTY_NEW_ADDRESS_ERRORS);
+  // VIP 그룹은 배송지(Address) 단위 설정이라 배송지를 바꾸면 따라오지 않는다.
+  // 이 모달에서 함께 지정해 VIP 발송 대상에서 조용히 빠지는 것을 막는다.
+  const [selectedVipSlot, setSelectedVipSlot] = useState<number | null>(null);
 
   // 고객 배송지 목록
   const { data: addrRes } = useQuery({
@@ -55,28 +67,69 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
     enabled: open && !!customerId,
   });
 
+  const { data: vipSlots = [] } = useQuery({
+    queryKey: ["vip-slots"],
+    queryFn: () => vipSlotsApi.getVipSlots().then((r) => r.data.data ?? []),
+    enabled: open,
+  });
+
   const addresses = addrRes?.data ?? [];
+  const hasEnabledVipSlot = vipSlots.some((s) => s.is_enabled);
+  const currentVipSlot = activeVipSlot(item.address, vipSlots);
+
+  // 라디오 기본값 — 기존 배송지를 고르면 그 배송지의 실제 설정, 신규 입력이면 현재 배송지 설정을 승계.
+  // 원시값(number|null)으로 좁혀 두는 이유 — 배열을 의존성에 두면 refetch 로 참조만 바뀌어도
+  // effect 가 다시 돌아 관리자가 방금 고른 라디오를 되돌려 버린다.
+  const defaultVipSlot = useMemo(() => {
+    if (mode === "new") return currentVipSlot;
+    const target = addresses.find((a) => a.address_id === selectedAddressId);
+    return target ? activeVipSlot(target, vipSlots) : currentVipSlot;
+  }, [mode, selectedAddressId, addresses, vipSlots, currentVipSlot]);
+
+  useEffect(() => {
+    if (!open) return;
+    setSelectedVipSlot(defaultVipSlot);
+  }, [open, defaultVipSlot]);
 
   const mutation = useMutation({
-    mutationFn: () => {
-      if (mode === "existing" && selectedAddressId) {
-        return orderItemsApi.updateAddress(item.order_item_id, {
-          address_id: selectedAddressId,
-        });
+    mutationFn: async () => {
+      const res =
+        mode === "existing" && selectedAddressId
+          ? await orderItemsApi.updateAddress(item.order_item_id, {
+              address_id: selectedAddressId,
+            })
+          : await orderItemsApi.updateAddress(item.order_item_id, {
+              new_address: {
+                customer_id: customerId,
+                recipient_name: newAddr.recipient_name,
+                recipient_phone: newAddr.recipient_phone,
+                postal_code: newAddr.postal_code,
+                recipient_address: newAddr.recipient_address,
+                customer_memo: newAddr.customer_memo || null,
+                admin_memo: newAddr.admin_memo || null,
+              },
+            });
+
+      // 배송지 변경이 실제로 적용된 경우에만 VIP 지정을 반영한다.
+      // 배송지 변경은 이미 끝났으므로 VIP 실패로 전체를 실패 처리하지 않는다.
+      const changedAddressId = res.data.data?.changed_address_id;
+      let vipApplied = false;
+      let vipError: string | null = null;
+      if (res.data.data?.can_change && changedAddressId) {
+        const target = addresses.find((a) => a.address_id === changedAddressId);
+        // 신규 생성 주소는 목록에 없음 → VIP 전부 false 로 간주
+        if (activeVipSlot(target, vipSlots) !== selectedVipSlot) {
+          try {
+            await addressesApi.updateAddress(changedAddressId, buildVipPayload(selectedVipSlot));
+            vipApplied = true;
+          } catch (err) {
+            vipError = getErrorMessage(err);
+          }
+        }
       }
-      return orderItemsApi.updateAddress(item.order_item_id, {
-        new_address: {
-          customer_id: customerId,
-          recipient_name: newAddr.recipient_name,
-          recipient_phone: newAddr.recipient_phone,
-          postal_code: newAddr.postal_code,
-          recipient_address: newAddr.recipient_address,
-          customer_memo: newAddr.customer_memo || null,
-          admin_memo: newAddr.admin_memo || null,
-        },
-      });
+      return { res, vipApplied, vipError };
     },
-    onSuccess: (res) => {
+    onSuccess: ({ res, vipApplied, vipError }) => {
       const result = res.data.data;
       if (!result?.can_change) {
         toast.error(result?.message ?? "배송지를 변경할 수 없습니다.");
@@ -84,12 +137,32 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
       }
       if (result.already_shipped_issues.length > 0) {
         const issues = result.already_shipped_issues.map(formatIssue).join(", ");
+        // 발송 예정 회차가 없으면 아직 생성되지 않은 다음 호부터 반영된다는 안내를 덧붙인다
+        const remainingNotice =
+          result.pending_issues.length > 0
+            ? ""
+            : " 다음 호 발송분부터 새 배송지로 적용됩니다.";
         toast.warning(
           "배송지가 변경되었습니다.",
-          `이미 발송 완료된 ${issues}는 기존 배송지가 유지됩니다.`
+          `이미 발송 완료된 ${issues}는 기존 배송지가 유지됩니다.${remainingNotice}`
         );
       } else {
         toast.success("배송지가 변경되었습니다.");
+      }
+      if (vipError) {
+        toast.error("VIP 그룹 지정 실패", `배송지는 변경되었습니다. ${vipError}`);
+      } else if (vipApplied) {
+        const slot = vipSlots.find((s) => s.slot_number === selectedVipSlot);
+        toast.success(
+          slot
+            ? `VIP 그룹 '${vipSlotLabel(slot)}'이 새 배송지에 지정되었습니다.`
+            : "새 배송지의 VIP 그룹이 해제되었습니다."
+        );
+      }
+      if (vipApplied) {
+        // 배송지 목록 캐시 두 벌 — 이 모달과 OrderDetailPanel 이 서로 다른 키를 쓴다
+        queryClient.invalidateQueries({ queryKey: ["customer-addresses"] });
+        queryClient.invalidateQueries({ queryKey: ["customerAddresses"] });
       }
       onSuccess();
       handleClose();
@@ -102,6 +175,7 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
     setNewAddr(buildPrefilledNewAddress(item));
     setNewAddrErrors(EMPTY_NEW_ADDRESS_ERRORS);
     setMode("existing");
+    setSelectedVipSlot(null);
     onClose();
   };
 
@@ -143,6 +217,7 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
               <div className="text-gray-500">
                 ({item.address.postal_code}) {item.address.recipient_address}
               </div>
+              <VipFlagsDisplay address={item.address} slots={vipSlots} compact />
             </div>
           )}
 
@@ -192,8 +267,26 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
             />
           )}
 
+          {/* VIP 그룹 — 배송지 단위 설정이라 변경 시 함께 지정해야 발송 대상에서 빠지지 않는다 */}
+          {hasEnabledVipSlot && (
+            <div className="border-t border-gray-100 pt-3 space-y-1.5">
+              <div className="text-xs font-medium text-gray-500">VIP 그룹</div>
+              <VipFlagsEditor
+                address={buildVipPayload(selectedVipSlot)}
+                slots={vipSlots}
+                onChange={setSelectedVipSlot}
+                disabled={mutation.isPending}
+              />
+              <p className="text-xs text-gray-400">
+                {mode === "new"
+                  ? "※ 현재 배송지의 설정이 기본 선택됩니다. 변경 후 새 배송지에 적용됩니다."
+                  : "※ 선택한 배송지의 현재 설정이 표시됩니다. 바꾸면 그 배송지에 적용됩니다."}
+              </p>
+            </div>
+          )}
+
           <p className="text-xs text-gray-400">
-            ※ 이미 발송 완료된 회차는 기존 배송지가 유지되고, 남은 회차만 변경됩니다. (전 회차 발송 완료 시 변경 불가)
+            ※ 이미 발송 완료된 회차는 기존 배송지가 유지되고, 남은 회차만 변경됩니다. (구독이 끝나 남은 회차가 없으면 변경 불가)
           </p>
         </div>
 

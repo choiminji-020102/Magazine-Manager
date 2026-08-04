@@ -45,7 +45,13 @@ import {
   type NewAddressValue,
   type NewAddressErrors,
 } from "@/components/common/NewAddressForm";
-import { VipFlagsDisplay } from "@/components/common/VipFlags";
+import {
+  VipFlagsDisplay,
+  VipFlagsEditor,
+  activeVipSlot,
+  buildVipPayload,
+  vipSlotLabel,
+} from "@/components/common/VipFlags";
 import type { OrderItemDetailResponse } from "@/types/orderItem";
 import { PaymentMethod } from "@/types/order";
 import SubscriptionDetailPanel from "../subscription/SubscriptionDetailPanel";
@@ -91,6 +97,9 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
   const [newAddr, setNewAddr] = useState<NewAddressValue>(EMPTY_NEW_ADDRESS);
   const [addressConfirmOpen, setAddressConfirmOpen] = useState(false);
   const [newAddrErrors, setNewAddrErrors] = useState<NewAddressErrors>(EMPTY_NEW_ADDRESS_ERRORS);
+  // VIP 그룹은 배송지(Address) 단위 설정이라 배송지를 바꾸면 따라오지 않는다.
+  // 이 모달에서 함께 지정해 VIP 발송 대상에서 조용히 빠지는 것을 막는다.
+  const [selectedVipSlot, setSelectedVipSlot] = useState<number | null>(null);
 
   // 품목별 모달 상태
   const [activeModal, setActiveModal] = useState<ModalType>(null);
@@ -185,6 +194,36 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     staleTime: 5 * 60 * 1000,
   });
 
+  const hasEnabledVipSlot = vipSlots.some((s) => s.is_enabled);
+  const currentVipSlot = activeVipSlot(order?.address, vipSlots);
+
+  // 라디오 기본값 — 기존 배송지를 고르면 그 배송지의 실제 설정, 신규 입력이면 현재 배송지 설정을 승계.
+  // 원시값(number|null)으로 좁혀 두는 이유 — 배열을 의존성에 두면 refetch 로 참조만 바뀌어도
+  // effect 가 다시 돌아 관리자가 방금 고른 라디오를 되돌려 버린다.
+  const defaultVipSlot = useMemo(() => {
+    if (addressMode === "new") return currentVipSlot;
+    const target = customerAddresses?.data?.find((a) => a.address_id === selectedAddressId);
+    return target ? activeVipSlot(target, vipSlots) : currentVipSlot;
+  }, [addressMode, selectedAddressId, customerAddresses, vipSlots, currentVipSlot]);
+
+  useEffect(() => {
+    if (!addressChangeOpen) return;
+    setSelectedVipSlot(defaultVipSlot);
+  }, [addressChangeOpen, defaultVipSlot]);
+
+  // 일괄 변경 확인 문구 — VIP 를 바꾼 경우에만 그 사실을 함께 알린다
+  const addressConfirmDescription = (() => {
+    const base =
+      "이 주문의 발송 예정 품목 배송지가 선택한 배송지로 일괄 변경됩니다. " +
+      "이미 발송 완료된 품목은 기존 배송지가 유지됩니다.";
+    if (!hasEnabledVipSlot || selectedVipSlot === defaultVipSlot) {
+      return `${base} 계속하시겠습니까?`;
+    }
+    const slot = vipSlots.find((s) => s.slot_number === selectedVipSlot);
+    const vipText = slot ? `'${vipSlotLabel(slot)}' 그룹으로 지정` : "그룹 해제";
+    return `${base} 새 배송지의 VIP는 ${vipText}됩니다. 계속하시겠습니까?`;
+  })();
+
   // 재배송 이력 — 이 주문에 묶인 send_id 만 좁혀 한 번 조회 (target_ids 다중 필터).
   // limit=100 도 그대로 두지만 보통 박스가 100개를 넘지 않아 누락 없음.
   const sendIdsOfOrder = useMemo(
@@ -271,9 +310,31 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
         queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       }
 
-      return { skippedItems, activeItemCount: beforeAddressByItemId.size };
+      // 실제로 새 배송지가 반영된 품목이 있을 때만 VIP 지정을 적용한다.
+      // 배송지 변경은 이미 끝났으므로 VIP 실패로 전체를 실패 처리하지 않는다.
+      let vipApplied = false;
+      let vipError: string | null = null;
+      if (skippedItems.length < beforeAddressByItemId.size) {
+        const target = customerAddresses?.data?.find((a) => a.address_id === addressId);
+        // 신규 생성 주소는 목록에 없음 → VIP 전부 false 로 간주
+        if (activeVipSlot(target, vipSlots) !== selectedVipSlot) {
+          try {
+            await addressesApi.updateAddress(addressId, buildVipPayload(selectedVipSlot));
+            vipApplied = true;
+          } catch (err) {
+            vipError = getErrorMessage(err);
+          }
+        }
+      }
+
+      return {
+        skippedItems,
+        activeItemCount: beforeAddressByItemId.size,
+        vipApplied,
+        vipError,
+      };
     },
-    onSuccess: ({ skippedItems, activeItemCount }) => {
+    onSuccess: ({ skippedItems, activeItemCount, vipApplied, vipError }) => {
       if (skippedItems.length > 0 && skippedItems.length >= activeItemCount) {
         const names = skippedItems.map((i) => i.product_name).join(", ");
         toast.warning(
@@ -289,7 +350,22 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       } else {
         toast.success("배송지가 변경되었습니다. (모든 품목 일괄 변경)");
       }
+      if (vipError) {
+        toast.error("VIP 그룹 지정 실패", `배송지는 변경되었습니다. ${vipError}`);
+      } else if (vipApplied) {
+        const slot = vipSlots.find((s) => s.slot_number === selectedVipSlot);
+        toast.success(
+          slot
+            ? `VIP 그룹 '${vipSlotLabel(slot)}'이 새 배송지에 지정되었습니다.`
+            : "새 배송지의 VIP 그룹이 해제되었습니다."
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      if (vipApplied) {
+        // 배송지 목록 캐시 두 벌 — 이 패널과 AddressChangeModal 이 서로 다른 키를 쓴다
+        queryClient.invalidateQueries({ queryKey: ["customerAddresses"] });
+        queryClient.invalidateQueries({ queryKey: ["customer-addresses"] });
+      }
       handleAddressClose();
     },
     onError: (err) => toast.error(getErrorMessage(err)),
@@ -302,6 +378,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     setAddressMode("existing");
     setNewAddr(EMPTY_NEW_ADDRESS);
     setNewAddrErrors(EMPTY_NEW_ADDRESS_ERRORS);
+    setSelectedVipSlot(null);
   };
 
   const handleAddressSubmit = () => {
@@ -1024,6 +1101,24 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
               />
             )}
 
+            {/* VIP 그룹 — 배송지 단위 설정이라 변경 시 함께 지정해야 발송 대상에서 빠지지 않는다 */}
+            {hasEnabledVipSlot && (
+              <div className="border-t border-gray-100 pt-3 space-y-1.5">
+                <div className="text-xs font-medium text-gray-500">VIP 그룹</div>
+                <VipFlagsEditor
+                  address={buildVipPayload(selectedVipSlot)}
+                  slots={vipSlots}
+                  onChange={setSelectedVipSlot}
+                  disabled={addressChangeMutation.isPending}
+                />
+                <p className="text-xs text-gray-400">
+                  {addressMode === "new"
+                    ? "※ 현재 배송지의 설정이 기본 선택됩니다. 변경 후 새 배송지에 적용됩니다."
+                    : "※ 선택한 배송지의 현재 설정이 표시됩니다. 바꾸면 그 배송지에 적용됩니다."}
+                </p>
+              </div>
+            )}
+
             <p className="text-xs text-gray-400">
               ※ 발송이 모두 완료된 품목은 기존 배송지가 유지되고, 발송 예정이 남은 품목은 새 배송지로 변경됩니다.
             </p>
@@ -1044,7 +1139,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
         onClose={() => setAddressConfirmOpen(false)}
         onConfirm={() => addressChangeMutation.mutate()}
         title="배송지 일괄 변경"
-        description="이 주문의 발송 예정 품목 배송지가 선택한 배송지로 일괄 변경됩니다. 이미 발송 완료된 품목은 기존 배송지가 유지됩니다. 계속하시겠습니까?"
+        description={addressConfirmDescription}
         confirmLabel="일괄 변경"
         variant="destructive"
         isLoading={addressChangeMutation.isPending}

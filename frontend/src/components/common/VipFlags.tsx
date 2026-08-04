@@ -16,8 +16,31 @@ function vipKey(slotNumber: number): VipKey {
   return `vip${slotNumber}` as VipKey;
 }
 
-function slotLabel(slot: VipSlotResponse): string {
+export function vipSlotLabel(slot: VipSlotResponse): string {
   return slot.label?.trim() || `vip${slot.slot_number}`;
+}
+
+// 활성화된 그룹 중 현재 선택된 슬롯 번호 (없으면 null).
+// 비활성 그룹은 무시 — 화면에 안 보이는 값이 선택 상태로 잡히지 않게 한다.
+export function activeVipSlot(
+  address: VipSource | null | undefined,
+  slots: VipSlotResponse[]
+): number | null {
+  if (!address) return null;
+  const found = slots.find((s) => s.is_enabled && Boolean(address[vipKey(s.slot_number)]));
+  return found?.slot_number ?? null;
+}
+
+// vip1~vip6 6개 필드 일괄 페이로드. 단건만 보내면 백엔드 단일성 검증에서 잔존 그룹 때문에 422.
+export function buildVipPayload(slotNumber: number | null): VipSource {
+  return {
+    vip1: slotNumber === 1,
+    vip2: slotNumber === 2,
+    vip3: slotNumber === 3,
+    vip4: slotNumber === 4,
+    vip5: slotNumber === 5,
+    vip6: slotNumber === 6,
+  };
 }
 
 // 활성화된 그룹 중 source에 T로 표시된 것만 칩으로 출력 (읽기 전용)
@@ -43,7 +66,7 @@ export function VipFlagsDisplay({
     <div className="flex flex-wrap gap-1">
       {active.map((s) => (
         <span key={s.slot_number} className={chipClass}>
-          {slotLabel(s)}
+          {vipSlotLabel(s)}
         </span>
       ))}
     </div>
@@ -96,7 +119,7 @@ export function VipFlagsEditor({
               }}
               className="h-3.5 w-3.5 cursor-pointer accent-blue-600"
             />
-            <span className="text-xs text-gray-600">{slotLabel(s)}</span>
+            <span className="text-xs text-gray-600">{vipSlotLabel(s)}</span>
           </label>
         );
       })}
