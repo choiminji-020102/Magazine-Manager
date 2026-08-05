@@ -86,9 +86,10 @@ def get_inquiries(
 
 
 def get_inquiries_by_customer(db: Session, customer_id: int, limit: int = 10) -> List[Inquiry]:
+    # PK 2차 정렬키 — created_at 이 같은 행이 경계에 걸리면 상위 N 건이 조회마다 달라짐
     return db.query(Inquiry).filter(
         Inquiry.customer_id == customer_id
-    ).order_by(Inquiry.created_at.desc()).limit(limit).all()
+    ).order_by(Inquiry.created_at.desc(), Inquiry.inquiry_id.desc()).limit(limit).all()
 
 
 def create_inquiry(db: Session, inquiry_in: InquiryCreate) -> Inquiry:
@@ -167,15 +168,15 @@ def get_customer_inquiry_history(db: Session, customer_id: int) -> dict:
     # 문의 수
     inquiries_count = db.query(Inquiry).filter(Inquiry.customer_id == customer_id).count()
     
-    # 최근 주문 5건
+    # 최근 주문 5건 — PK 2차 정렬키로 5·6위 동점 시에도 결과가 흔들리지 않게 고정
     recent_orders = db.query(Order).filter(
         Order.customer_id == customer_id
-    ).order_by(Order.order_at.desc()).limit(5).all()
-    
-    # 최근 문의 5건
+    ).order_by(Order.order_at.desc(), Order.order_id.desc()).limit(5).all()
+
+    # 최근 문의 5건 — 위와 동일
     recent_inquiries = db.query(Inquiry).filter(
         Inquiry.customer_id == customer_id
-    ).order_by(Inquiry.created_at.desc()).limit(5).all()
+    ).order_by(Inquiry.created_at.desc(), Inquiry.inquiry_id.desc()).limit(5).all()
     
     return {
         "customer": customer,
