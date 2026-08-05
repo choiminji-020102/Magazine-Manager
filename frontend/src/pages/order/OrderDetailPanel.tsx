@@ -304,10 +304,15 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       // 재생성 안내가 필요한지 판단하기 위해 조회 실패 시에도 직전 상태를 근거로 남긴다.
       let hasPreparingSend = (order?.sends ?? []).some((s) => s.send_status === "PREPARING");
       try {
-        // fetchQuery로 캐시를 직접 채워 이후 invalidateQueries 로 인한 중복 재조회를 방지
+        // fetchQuery로 캐시를 직접 채워 이후 invalidateQueries 로 인한 중복 재조회를 방지.
+        // staleTime: 0 필수 — QueryClient 기본값이 30초라, 이걸 빼면 30초 안에 두 번째
+        // 변경 시 fetchQuery 가 서버를 안 타고 **변경 전 캐시**를 그대로 돌려준다.
+        // 그러면 아래 스킵 판정이 "안 바뀌었다"로 오판해 거짓 경고가 뜨고,
+        // 이 캐시로 화면까지 그려져 옛 주소가 그대로 보인다.
         const freshRes = await queryClient.fetchQuery({
           queryKey: ["order", orderId],
           queryFn: () => ordersApi.getOrder(orderId).then((r) => r.data),
+          staleTime: 0,
         });
         skippedItems = (freshRes?.data?.items ?? []).filter(
           (item) =>
