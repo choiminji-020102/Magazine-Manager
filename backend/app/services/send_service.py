@@ -15,7 +15,7 @@ from app.models.order_item import OrderItem
 from app.models.product import Product
 from app.models.send import Send
 from app.models.send_item import SendItem
-from app.schemas.send import SendListQuery
+from app.schemas.send import OrderItemSendResponse, SendListQuery
 from app.crud import send as send_crud
 from app.services import cafe24_admin_service, send_item_service
 from app.services.dispatch_grouping_service import (
@@ -654,6 +654,50 @@ def list_sends(db: Session, query: SendListQuery) -> Tuple[List[Send], int]:
 
 def get_sends_by_order(db: Session, order_id: int) -> List[Send]:
     return send_crud.read_sends_by_order_id(db=db, order_id=order_id)
+
+
+def _to_order_item_send_response(send_item: SendItem) -> OrderItemSendResponse:
+    """SendItem + 소속 Send 를 응답 스키마로 조립.
+
+    created_at 은 Send 것을 쓴다 (박스가 발송 후보로 잡힌 시점 = 발송 이력의 시각).
+    send 는 CRUD 가 INNER JOIN 으로 eager load 하므로 항상 존재한다.
+    """
+    send = send_item.send
+    return OrderItemSendResponse(
+        send_item_id=send_item.send_item_id,
+        send_id=send_item.send_id,
+        send_status=send.send_status,
+        send_method=send.send_method,
+        courier_company=send.courier_company,
+        product_name=send_item.product_name,
+        issue=send_item.issue,
+        tracking_no=send.tracking_no,
+        recipient_name=send.recipient_name,
+        recipient_phone=send.recipient_phone,
+        country_code=send.country_code,
+        postal_code=send.postal_code,
+        recipient_address=send.recipient_address,
+        send_num=send_item.send_num,
+        customer_memo=send.customer_memo,
+        item_admin_memo=send_item.admin_memo,
+        send_admin_memo=send.admin_memo,
+        delivered_at=send.delivered_at,
+        created_at=send.created_at,
+    )
+
+
+def get_send_history_by_order_item(
+    db: Session, order_item_id: int
+) -> List[OrderItemSendResponse]:
+    """주문 품목 하나의 발송 이력 (최신 호 순).
+
+    get_sends_by_order 와 달리 같은 주문의 다른 품목 발송은 섞이지 않는다.
+    반환 건수는 그 품목이 발송된 호(issue) 수 — 여러 품목이 아니다.
+    """
+    send_items = send_crud.read_send_items_by_order_item_id(
+        db=db, order_item_id=order_item_id
+    )
+    return [_to_order_item_send_response(si) for si in send_items]
 
 
 def get_send_items(db: Session, send_id: int) -> List[SendItem]:

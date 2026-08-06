@@ -12,6 +12,7 @@ from app.models.admin import Admin
 from app.schemas.activity_log import ActivityAction, ActivityTargetType
 from app.schemas.common import PaginatedResponse, ResponseModel
 from app.schemas.send import (
+    OrderItemSendResponse,
     SendAdminMemoUpdate,
     SendDetailResponse,
     SendListQuery,
@@ -20,7 +21,12 @@ from app.schemas.send import (
     SendTrackingUpdate,
 )
 from app.schemas.send_item import SendItemResponse
-from app.services import activity_log_service, order_service, send_service
+from app.services import (
+    activity_log_service,
+    order_item_service,
+    order_service,
+    send_service,
+)
 
 router = APIRouter(tags=["발송"])
 
@@ -73,6 +79,30 @@ def get_sends_by_order(
     return ResponseModel(
         message="주문별 발송 목록을 조회했습니다.",
         data=[SendResponse.model_validate(s) for s in sends],
+    )
+
+
+@router.get(
+    "/order-items/{order_item_id}/sends",
+    response_model=ResponseModel[List[OrderItemSendResponse]],
+)
+def get_sends_by_order_item(
+    order_item_id: int,
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(require_manager),
+):
+    """주문 품목별 발송 이력 (호·상품명 포함, 최신 호 순).
+
+    /orders/{order_id}/sends 와 달리 그 품목의 발송만 반환한다.
+    """
+    order_item_service.get_order_item_by_id(db, order_item_id)  # 품목 존재 확인
+
+    # 여러 품목이 아니라 한 품목의 호(issue)별 발송 기록 N건 — (품목, 호) 유니크
+    history = send_service.get_send_history_by_order_item(db, order_item_id)
+
+    return ResponseModel(
+        message="주문 품목별 발송 이력을 조회했습니다.",
+        data=history,
     )
 
 

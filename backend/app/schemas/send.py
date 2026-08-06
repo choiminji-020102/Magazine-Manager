@@ -180,6 +180,37 @@ class SendDetailResponse(SendResponse):
     items: List[SendItemResponse] = []
 
 
+class OrderItemSendResponse(BaseModel):
+    """주문 품목 하나의 발송 이력 1건 (SendItem + 소속 Send 요약).
+
+    SendItem 기준이라 어느 호(issue)에 무엇이 나갔는지가 행마다 드러난다.
+    uq_send_items_order_item_issue 제약 덕에 (품목, 호) 당 1건 — 행 = 발송 이력 1건.
+
+    admin_memo 는 SendItem/Send 양쪽에 존재하므로 item_/send_ 접두어로 구분한다.
+    두 테이블을 flat 하게 합치므로 from_attributes 자동 매핑이 불가 —
+    조립은 send_service.get_send_history_by_order_item() 이 담당한다.
+    """
+    send_item_id: int
+    send_id: int
+    send_status: str
+    send_method: Optional[str] = None
+    courier_company: Optional[str] = None
+    product_name: str
+    issue: str
+    tracking_no: Optional[str] = None
+    recipient_name: str
+    recipient_phone: str
+    country_code: str
+    postal_code: str
+    recipient_address: str
+    send_num: int
+    customer_memo: Optional[str] = None
+    item_admin_memo: Optional[str] = None
+    send_admin_memo: Optional[str] = None
+    delivered_at: Optional[datetime] = None
+    created_at: datetime
+
+
 # ── 목록 쿼리 스키마 ──────────────────────────────────────────────────────────
 
 class SendListQuery(BaseModel):
