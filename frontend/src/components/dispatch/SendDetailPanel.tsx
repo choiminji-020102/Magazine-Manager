@@ -124,8 +124,8 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
               queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
               queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
               queryClient.invalidateQueries({ queryKey: ["delivered-sends"] });
-              // SubscriptionDetailPanel 의 묶인 발송 query — orderId 무관 prefix 무효화
-              queryClient.invalidateQueries({ queryKey: ["order-sends"] });
+              // SubscriptionDetailPanel 의 발송 이력 query — orderItemId 무관 prefix 무효화
+              queryClient.invalidateQueries({ queryKey: ["order-item-sends"] });
             }}
           />
 
@@ -153,7 +153,7 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
             onSuccess={() => {
               queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
               queryClient.invalidateQueries({ queryKey: ["delivered-sends"] });
-              queryClient.invalidateQueries({ queryKey: ["order-sends"] });
+              queryClient.invalidateQueries({ queryKey: ["order-item-sends"] });
             }}
           />
 
@@ -165,7 +165,7 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
               queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
               queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
               queryClient.invalidateQueries({ queryKey: ["delivered-sends"] });
-              queryClient.invalidateQueries({ queryKey: ["order-sends"] });
+              queryClient.invalidateQueries({ queryKey: ["order-item-sends"] });
             }}
           />
 
@@ -248,7 +248,7 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
                 queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
                 queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
                 queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
-                queryClient.invalidateQueries({ queryKey: ["order-sends"] });
+                queryClient.invalidateQueries({ queryKey: ["order-item-sends"] });
               }}
             />
           )}

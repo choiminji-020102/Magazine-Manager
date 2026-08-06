@@ -77,6 +77,31 @@ export interface SendDetailResponse extends SendResponse {
   items: SendItemResponse[];
 }
 
+export interface OrderItemSendResponse {
+  // GET /order-items/{order_item_id}/sends — 그 품목의 발송 이력 1건 (SendItem + 소속 Send 요약).
+  // 여러 품목이 아니라 한 품목의 호(issue)별 기록 — (품목, 호) 유니크라 행 1개 = 이력 1줄.
+  // admin_memo 는 SendItem/Send 양쪽에 있어 item_/send_ 접두어로 구분.
+  send_item_id: number;
+  send_id: number;
+  send_status: SendStatus;
+  send_method?: SendMethod | null;
+  courier_company?: CourierCompany | null;
+  product_name: string;
+  issue: string;
+  tracking_no?: string | null;
+  recipient_name: string;
+  recipient_phone: string;
+  country_code: string;
+  postal_code: string;
+  recipient_address: string;
+  send_num: number;
+  customer_memo?: string | null;
+  item_admin_memo?: string | null;
+  send_admin_memo?: string | null;
+  delivered_at?: string | null;
+  created_at: string;
+}
+
 // ── 목록 쿼리 ─────────────────────────────────────────────────────────────────
 
 export interface SendListQuery {
