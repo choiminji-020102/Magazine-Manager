@@ -233,8 +233,8 @@ def _has_remaining_send_issues(order_item: OrderItem, shipped_issues: List[str])
     구독 종료 호가 남아 있으면 아직 Send 가 없는 다음 호부터 새 배송지로 나가야 한다.
     MONTHLY 는 시작호 = 종료호(1회성) 라 그 한 번을 보냈으면 남은 발송이 없다.
 
-    실제 호출부는 DELIVERED 이력이 있을 때만 이 함수를 부르지만(and 단축평가),
-    함수 단독으로도 답이 맞도록 "발송 이력이 아직 없음 = 남아 있음" 을 함께 처리한다.
+    실제 호출부는 DELIVERED 내역이 있을 때만 이 함수를 부르지만(and 단축평가),
+    함수 단독으로도 답이 맞도록 "발송 내역이 아직 없음 = 남아 있음" 을 함께 처리한다.
 
     shipped_issues — DELIVERED Send 에 속한 SendItem 의 issue 목록. 호출부가 계산해 넘긴다.
         UniqueConstraint(order_item_id, issue) 로 중복은 없으나 조회에 order_by 가 없어
@@ -250,7 +250,7 @@ def _has_remaining_send_issues(order_item: OrderItem, shipped_issues: List[str])
             shipped_issues            = ["202512", ..., "202611"]  (12건)
             → max("202611") < "202611" → False (구독 완주, 변경 불가)
     """
-    # 발송 이력(호) 과 last_send_issue 를 합쳐 "마지막으로 나간 호" 를 구한다.
+    # 발송 내역(호) 과 last_send_issue 를 합쳐 "마지막으로 나간 호" 를 구한다.
     # last_send_issue 만 믿지 않는 이유 — 레거시 이관분은 NULL 일 수 있음.
     sent_issues = [issue for issue in shipped_issues if issue]
     if order_item.last_send_issue:
@@ -720,7 +720,7 @@ def find_subscription_targets(
         .subquery()
     )
 
-    # 이미 해당 issue로 발송 이력이 있는 order_item_id 제외
+    # 이미 해당 issue로 발송 내역이 있는 order_item_id 제외
     # ("활성 SendItem이 있는" 또는 "DELIVERED/CANCELLED Send에 들어있는" — group_*_for_send와 동일 판정)
     already_sent_subquery = (
         db.query(SendItem.order_item_id)

@@ -78,7 +78,7 @@ class SendAdminMemoUpdate(BaseModel):
 
 
 class SendResendRequest(BaseModel):
-    """DELIVERED Send에 대한 재배송 이력 입력 (POST /sends/{send_id}/resend).
+    """DELIVERED Send에 대한 재배송 내역 입력 (POST /sends/{send_id}/resend).
 
     Send 본체 변경 없음 — 활동 로그(action=RESEND) details에만 기록.
     reason/send_method/courier_company/send_item_ids/tracking_no는 필수, memo는 선택.
@@ -88,7 +88,7 @@ class SendResendRequest(BaseModel):
     UI가 모든 SendItem ID를 채워서 보냄 (해당 send_id에 속하지 않은 ID 포함 시 422).
 
     cf. TransitionSendItem (배송완료 처리)은 PREPARING → DELIVERED 최초 전환이며 우편·자체배송
-    케이스의 운송장 없음을 허용 — 빈 입력을 None 으로 통과시킴. 본 스키마는 재발송 이력 기록
+    케이스의 운송장 없음을 허용 — 빈 입력을 None 으로 통과시킴. 본 스키마는 재발송 내역 기록
     흐름이라 빈 입력을 거부(422).
     """
     reason: str
@@ -181,10 +181,10 @@ class SendDetailResponse(SendResponse):
 
 
 class OrderItemSendResponse(BaseModel):
-    """주문 품목 하나의 발송 이력 1건 (SendItem + 소속 Send 요약).
+    """주문 품목 하나의 발송 내역 1건 (SendItem + 소속 Send 요약).
 
     SendItem 기준이라 어느 호(issue)에 무엇이 나갔는지가 행마다 드러난다.
-    uq_send_items_order_item_issue 제약 덕에 (품목, 호) 당 1건 — 행 = 발송 이력 1건.
+    uq_send_items_order_item_issue 제약 덕에 (품목, 호) 당 1건 — 행 = 발송 내역 1건.
 
     admin_memo 는 SendItem/Send 양쪽에 존재하므로 item_/send_ 접두어로 구분한다.
     두 테이블을 flat 하게 합치므로 from_attributes 자동 매핑이 불가 —

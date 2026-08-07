@@ -1,6 +1,6 @@
-"""주문 품목별 발송 이력 조회 회귀 테스트.
+"""주문 품목별 발송 내역 조회 회귀 테스트.
 
-핵심 회귀 — 구독 상세의 '발송 이력' 은 그 품목(order_item) 의 발송만 보여야 한다.
+핵심 회귀 — 구독 상세의 '발송 내역' 은 그 품목(order_item) 의 발송만 보여야 한다.
 (이전 구현은 order_id 로 조회해서 같은 주문에 묶인 **다른 품목의 발송까지** 섞어 보여줬고,
  SendItem 을 응답에 담지 않아 어느 호(issue)·어떤 책인지 구분할 수도 없었다.)
 
@@ -151,5 +151,5 @@ def test_preparing_send_has_no_delivered_at(db):
 
 
 def test_empty_history(db):
-    """발송 이력이 없는 품목은 빈 리스트를 반환한다."""
+    """발송 내역이 없는 품목은 빈 리스트를 반환한다."""
     assert send_service.get_send_history_by_order_item(db, 777) == []

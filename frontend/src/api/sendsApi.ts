@@ -22,7 +22,7 @@ export const sendsApi = {
     return api.get<ResponseModel<SendResponse[]>>(`/orders/${orderId}/sends`);
   },
 
-  // GET /order-items/{order_item_id}/sends - 주문 품목별 발송 이력 (호·상품명 포함, 최신 호 순)
+  // GET /order-items/{order_item_id}/sends - 주문 품목별 발송 내역 (호·상품명 포함, 최신 호 순)
   // getSendsByOrder 와 달리 같은 주문의 다른 품목 발송은 섞이지 않음
   getSendsByOrderItem: (orderItemId: number) => {
     return api.get<ResponseModel<OrderItemSendResponse[]>>(
@@ -45,7 +45,7 @@ export const sendsApi = {
     return api.patch<ResponseModel<SendResponse>>(`/sends/${sendId}/admin-memo`, data);
   },
 
-  // POST /sends/{send_id}/resend - DELIVERED Send 재배송 이력 기록 (Send 본체 변경 없음)
+  // POST /sends/{send_id}/resend - DELIVERED Send 재배송 내역 기록 (Send 본체 변경 없음)
   resendSend: (sendId: number, data: SendResendRequest) => {
     return api.post<ResponseModel<SendResponse>>(`/sends/${sendId}/resend`, data);
   },

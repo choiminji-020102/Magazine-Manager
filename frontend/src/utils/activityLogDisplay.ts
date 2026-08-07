@@ -1,7 +1,7 @@
 import { formatIssue, formatAmount } from "@/utils/format";
 
 /**
- * 활동 로그 → 변경 이력 UI 표시용 데이터 변환
+ * 활동 로그 → 변경 내역 UI 표시용 데이터 변환
  * 주문 상세 모달, 구독 상세 패널에서 공통 사용
  */
 export function getLogDisplay(log: { action: string; details?: Record<string, any> | null }) {

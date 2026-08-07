@@ -16,7 +16,7 @@ interface Props {
 }
 
 // 정기(YEARLY) 신규 결제 추가 — incremental.
-// 기존 PREPARING 박스는 건드리지 않고, PAID + 호 범위 + 발송 이력 없는 OrderItem 만 박스 추가 생성.
+// 기존 PREPARING 박스는 건드리지 않고, PAID + 호 범위 + 발송 내역 없는 OrderItem 만 박스 추가 생성.
 // 정기는 1 OrderItem = 1 박스 매핑이라 묶음 재계산 불필요.
 export default function AddToPreparingYearlyModal({
   open,

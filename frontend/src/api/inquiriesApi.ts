@@ -19,7 +19,7 @@ export const inquiriesApi = {
     );
   },
 
-  // GET /inquiries/customer/{customer_id}/history - 고객 문의 이력 조회
+  // GET /inquiries/customer/{customer_id}/history - 고객 문의 내역 조회
   getCustomerHistory: (customerId: number) => {
     return api.get<ResponseModel<CustomerInquiryHistoryResponse>>(
       `/inquiries/customer/${customerId}/history`

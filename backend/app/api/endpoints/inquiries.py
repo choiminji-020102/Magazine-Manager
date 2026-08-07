@@ -41,14 +41,14 @@ def search_by_phone4(
     )
 
 
-# 고객 문의 이력 조회 (주문 + 문의 내역)
+# 고객 문의 내역 조회 (주문 + 문의 내역)
 @router.get("/customer/{customer_id}/history", response_model=ResponseModel[CustomerInquiryHistoryResponse])
 def get_customer_history(
     customer_id: int,
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin)
 ):
-    """고객 문의 이력 조회 (주문내역 + 문의내역)"""
+    """고객 문의 내역 조회 (주문내역 + 문의내역)"""
     result = inquiry_service.get_customer_inquiry_history(db, customer_id)
     
     if result is None:

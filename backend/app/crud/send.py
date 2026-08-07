@@ -40,14 +40,14 @@ def read_sends_by_order_id(db: Session, order_id: int) -> List[Send]:
 
 
 def read_send_items_by_order_item_id(db: Session, order_item_id: int) -> List[SendItem]:
-    """주문 품목 ID로 그 품목의 발송 이력 조회 (SendItem 단위).
+    """주문 품목 ID로 그 품목의 발송 내역 조회 (SendItem 단위).
 
     read_sends_by_order_id 와 달리 order_id 가 아닌 order_item_id 로 좁히므로
     같은 주문에 묶인 다른 품목의 발송은 섞이지 않는다.
     Send 는 joinedload 로 함께 로드 (상태/운송장/배송완료일시 표시용).
     innerjoin=True — Send 가 없는 미아 SendItem 은 결과에서 배제해
     호출부가 send 를 None 체크 없이 참조할 수 있게 한다.
-    uq_send_items_order_item_issue 제약 덕에 (품목, 호) 당 1건 — 행이 곧 발송 이력 1건.
+    uq_send_items_order_item_issue 제약 덕에 (품목, 호) 당 1건 — 행이 곧 발송 내역 1건.
     """
     return (
         db.query(SendItem)

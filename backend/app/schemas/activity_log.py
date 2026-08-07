@@ -22,7 +22,7 @@ class ActivityLogListQuery(BaseModel):
     """활동 로그 목록 조회 쿼리 파라미터.
 
     target_id 와 target_ids 는 둘 다 사용 가능 — target_ids 는 다중 ID 필터 (IN 절).
-    페이지 안에 보이는 박스들의 RESEND 이력을 한 번에 좁혀 가져올 때 사용.
+    페이지 안에 보이는 박스들의 RESEND 내역을 한 번에 좁혀 가져올 때 사용.
     둘 다 지정 시 target_ids 가 우선 (target_id 무시).
     """
     page: int = Field(1, ge=1, description="페이지 번호")

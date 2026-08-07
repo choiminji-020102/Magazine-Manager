@@ -91,7 +91,7 @@ def get_sends_by_order_item(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_manager),
 ):
-    """주문 품목별 발송 이력 (호·상품명 포함, 최신 호 순).
+    """주문 품목별 발송 내역 (호·상품명 포함, 최신 호 순).
 
     /orders/{order_id}/sends 와 달리 그 품목의 발송만 반환한다.
     """
@@ -101,7 +101,7 @@ def get_sends_by_order_item(
     history = send_service.get_send_history_by_order_item(db, order_item_id)
 
     return ResponseModel(
-        message="주문 품목별 발송 이력을 조회했습니다.",
+        message="주문 품목별 발송 내역을 조회했습니다.",
         data=history,
     )
 
@@ -310,7 +310,7 @@ def resend_send(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin),
 ):
-    """DELIVERED Send 재배송 이력 기록 (Send 본체 변경 없음, 활동 로그만 추가).
+    """DELIVERED Send 재배송 내역 기록 (Send 본체 변경 없음, 활동 로그만 추가).
 
     send_item_ids로 재발송 대상 품목을 명시 (박스 통째 시 UI가 모든 SendItem ID 채워서 보냄).
     해당 send_id에 속하지 않은 SendItem ID가 섞여있으면 422 거부.
@@ -348,7 +348,7 @@ def resend_send(
     )
 
     return ResponseModel(
-        message="재배송 이력이 기록되었습니다.",
+        message="재배송 내역이 기록되었습니다.",
         data=SendResponse.model_validate(send),
     )
 

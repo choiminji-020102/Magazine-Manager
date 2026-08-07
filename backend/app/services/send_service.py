@@ -417,7 +417,7 @@ async def transition_sends_to_delivered_batch(
         #
         # 매칭이 실패해도 이 자리에서 즉시 실패 처리하지 않는다 — 같은 order_id의 다른
         # shipment 항목이 나머지 박스를 이미/앞으로 해결할 수 있기 때문(형제 박스까지
-        # 과도하게 실패 처리하는 버그를 코드 리뷰로 발견해 수정한 이력 있음). 대신 그룹별
+        # 과도하게 실패 처리하는 버그를 코드 리뷰로 발견해 수정한 내역 있음). 대신 그룹별
         # 성공 여부만 기록해두고, 아래에서 응답·실패배치를 모두 처리한 뒤 "끝까지 결과가
         # 확인되지 않은 그룹"만 한 번에 골라 실패 처리한다.
         resolved_group_keys: set = set()  # 이 응답에서 실제로 shipping_code를 받은 그룹
@@ -659,7 +659,7 @@ def get_sends_by_order(db: Session, order_id: int) -> List[Send]:
 def _to_order_item_send_response(send_item: SendItem) -> OrderItemSendResponse:
     """SendItem + 소속 Send 를 응답 스키마로 조립.
 
-    created_at 은 Send 것을 쓴다 (박스가 발송 후보로 잡힌 시점 = 발송 이력의 시각).
+    created_at 은 Send 것을 쓴다 (박스가 발송 후보로 잡힌 시점 = 발송 내역의 시각).
     send 는 CRUD 가 INNER JOIN 으로 eager load 하므로 항상 존재한다.
     """
     send = send_item.send
@@ -689,7 +689,7 @@ def _to_order_item_send_response(send_item: SendItem) -> OrderItemSendResponse:
 def get_send_history_by_order_item(
     db: Session, order_item_id: int
 ) -> List[OrderItemSendResponse]:
-    """주문 품목 하나의 발송 이력 (최신 호 순).
+    """주문 품목 하나의 발송 내역 (최신 호 순).
 
     get_sends_by_order 와 달리 같은 주문의 다른 품목 발송은 섞이지 않는다.
     반환 건수는 그 품목이 발송된 호(issue) 수 — 여러 품목이 아니다.

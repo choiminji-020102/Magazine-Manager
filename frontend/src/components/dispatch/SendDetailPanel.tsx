@@ -42,7 +42,7 @@ interface Props {
 
 // 발송 박스 단위 상세 패널.
 // PreparingSendListPage / DeliveredSendListPage 의 행 클릭 시 열림.
-// 박스 안 SendItem 책 종류 확인용 (#11 약점 보강) + 재배송 이력 노출.
+// 박스 안 SendItem 책 종류 확인용 (#11 약점 보강) + 재배송 내역 노출.
 // 향후 PR6.5.5 에서 [재배송 입력] 섹션 추가 예정.
 
 export default function SendDetailPanel({ open, onClose, sendId }: Props) {
@@ -124,7 +124,7 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
               queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
               queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
               queryClient.invalidateQueries({ queryKey: ["delivered-sends"] });
-              // SubscriptionDetailPanel 의 발송 이력 query — orderItemId 무관 prefix 무효화
+              // SubscriptionDetailPanel 의 발송 내역 query — orderItemId 무관 prefix 무효화
               queryClient.invalidateQueries({ queryKey: ["order-item-sends"] });
             }}
           />
@@ -169,9 +169,9 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
             }}
           />
 
-          {/* 재배송 — 입력(추가 버튼/폼)과 이력 리스트를 한 섹션에 통합.
+          {/* 재배송 — 입력(추가 버튼/폼)과 내역 리스트를 한 섹션에 통합.
               DELIVERED 박스만 입력 가능(ResendInputSection 내부 조건 아님 — 부모에서 분기).
-              이력은 PREPARING 박스에서도 표시될 수 있으나 정의상 항상 0건.
+              내역은 PREPARING 박스에서도 표시될 수 있으나 정의상 항상 0건.
               백엔드 활동 로그 API 는 created_at DESC 반환이라 그 순서 그대로 표시 (최신부터 위로).
               백엔드 정렬 변경 시 깨짐. */}
           <Section title={`재배송 (${resendLogs.length}건)`}>
@@ -187,9 +187,9 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
                 }}
               />
             )}
-            {/* 이력 리스트 */}
+            {/* 내역 리스트 */}
             {resendLogs.length === 0 ? (
-              <p className="text-xs text-gray-400">재배송 이력이 없습니다.</p>
+              <p className="text-xs text-gray-400">재배송 내역이 없습니다.</p>
             ) : (
               <div className="space-y-2">
                 {resendLogs.map((log) => {
@@ -758,7 +758,7 @@ function ResendInputSection({ send, onSuccess }: ResendInputSectionProps) {
         })
         .then((r) => r.data),
     onSuccess: (res) => {
-      toast.success(res.message ?? "재배송 이력이 기록되었습니다.");
+      toast.success(res.message ?? "재배송 내역이 기록되었습니다.");
       // 폼 초기화
       setOpen(false);
       setReason("");
@@ -816,7 +816,7 @@ function ResendInputSection({ send, onSuccess }: ResendInputSectionProps) {
     // 부모 Section "재배송" 안에서 렌더 — 자체 wrapper 없이 버튼만
     return (
       <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-        + 재배송 이력 추가
+        + 재배송 내역 추가
       </Button>
     );
   }

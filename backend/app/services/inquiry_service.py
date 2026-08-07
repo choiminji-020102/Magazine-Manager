@@ -110,7 +110,7 @@ def update_inquiry(
     for field, value in update_data.items():
         setattr(inquiry, field, value)
 
-    # 상태 전이에 따른 처리 이력 동기화
+    # 상태 전이에 따른 처리 내역 동기화
     # 완료 처리 → 담당자/처리일시 기록, 접수로 되돌리기(재오픈·취소해제) → 초기화
     if "inquiry_status" in update_data:
         new_status = update_data["inquiry_status"]
@@ -156,7 +156,7 @@ def search_customers_by_phone4(db: Session, phone_num4: str) -> List[Customer]:
     ).order_by(Customer.created_at.desc()).all()
 
 
-# 고객 문의 이력 조회 (주문 + 문의)
+# 고객 문의 내역 조회 (주문 + 문의)
 def get_customer_inquiry_history(db: Session, customer_id: int) -> dict:
     customer = db.query(Customer).filter(Customer.customer_id == customer_id).first()
     if not customer:

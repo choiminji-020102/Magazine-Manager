@@ -202,7 +202,7 @@ def group_yearly_for_send(
     - 활성 vip 슬롯에 속한 OrderItem 자동 제외 (vipN 탭에서 따로 처리)
     - 중복 발송 방지 (다음 조건을 모두 만족하는 OrderItem만 포함):
       - OrderItem.last_send_issue IS NULL 또는 last_send_issue < issue
-      - 그 호로 "활성 SendItem이 있는" 또는 "DELIVERED/CANCELLED Send에 들어있는" 이력 없음
+      - 그 호로 "활성 SendItem이 있는" 또는 "DELIVERED/CANCELLED Send에 들어있는" 내역 없음
         (즉, 그 호로 한 번이라도 발송 처리되거나 박스가 종료된 OrderItem은 재발송 X)
       - 그 호로 휴지(Pause)되지 않음
       - final_subscribe_start_issue ≤ issue ≤ final_subscribe_end_issue (구독 범위 안)
@@ -288,8 +288,8 @@ def group_vip_for_send(
     - 대상: PAID + cancelled_at IS NULL + Address.vipN=true
     - 🚫 country_code 필터 절대 금지 — 해외 포함 모두 가져옴
     - 정기(YEARLY) + 단품(MONTHLY) 통합 — 같은 (우편번호, 주소) 면 한 그룹에 공존
-    - 정기 부분 필터: subscribe 범위 + last_send_issue + Pause + 발송이력 없음 (group_yearly 와 동일)
-    - 단품 부분 필터: 발송이력 없음 (group_monthly 와 동일)
+    - 정기 부분 필터: subscribe 범위 + last_send_issue + Pause + 발송내역 없음 (group_yearly 와 동일)
+    - 단품 부분 필터: 발송내역 없음 (group_monthly 와 동일)
     - 그룹핑 키: (postal_code, recipient_address) — monthly 와 동일. 같은 그룹 안 수령인이 다르면
       가나다 첫 후보 자동 채택 (정렬 키: recipient_name → recipient_phone)
     - product_code `+`/`~` → `-` 변환은 본 함수에서 안 함. create_preparing_sends_from_groups 가
@@ -327,7 +327,7 @@ def group_vip_for_send(
 
     candidate_ids = [oi.order_item_id for oi, _ in candidates]
 
-    # 2. 단품 발송이력 (issue 무관) + 정기 발송이력 (issue 일치) — 한번에
+    # 2. 단품 발송내역 (issue 무관) + 정기 발송내역 (issue 일치) — 한번에
     monthly_already_sent = {
         row[0]
         for row in db.query(SendItem.order_item_id)
@@ -478,7 +478,7 @@ def count_paid_not_prepared(db: Session) -> Dict[str, int]:
     - Order.order_status = 'PAID'
     - OrderItem.cancelled_at IS NULL
     - "활성 SendItem(cancelled_at IS NULL)" 또는 "DELIVERED/CANCELLED Send 에 들어있는 SendItem"
-      이 모두 없는 OrderItem (group_*_for_send 와 동일한 발송 이력 판정)
+      이 모두 없는 OrderItem (group_*_for_send 와 동일한 발송 내역 판정)
 
     VIP 격리 (PR2 정책 일관):
     - monthly/yearly 는 활성 vipN 모두 false 인 OrderItem 만 (비활성 슬롯의 vipN=true 는 monthly/yearly 에 흡수)

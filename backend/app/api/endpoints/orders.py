@@ -56,7 +56,7 @@ def get_orders_by_customer(
     db: Session = Depends(get_db),
     current_admin: Admin = Depends(require_admin),
 ):
-    """고객별 주문 이력 조회"""
+    """고객별 주문 내역 조회"""
     customer_service.get_customer_by_id(db, customer_id, include_deleted=True)  # 고객 존재 여부 검증
     orders = order_service.get_orders_by_customer(db, customer_id)
     return ResponseModel(data=[OrderResponse.model_validate(o) for o in orders])

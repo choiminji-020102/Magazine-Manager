@@ -31,7 +31,7 @@ export interface SendAdminMemoUpdate {
 }
 
 export interface SendResendRequest {
-  // POST /sends/{send_id}/resend — DELIVERED Send 재배송 이력 기록 (Send 본체 변경 없음).
+  // POST /sends/{send_id}/resend — DELIVERED Send 재배송 내역 기록 (Send 본체 변경 없음).
   // send_item_ids: 박스 통째 재발송 시 UI가 모든 SendItem ID 채워서 보냄.
   reason: string;
   send_method: SendMethod;
@@ -78,8 +78,8 @@ export interface SendDetailResponse extends SendResponse {
 }
 
 export interface OrderItemSendResponse {
-  // GET /order-items/{order_item_id}/sends — 그 품목의 발송 이력 1건 (SendItem + 소속 Send 요약).
-  // 여러 품목이 아니라 한 품목의 호(issue)별 기록 — (품목, 호) 유니크라 행 1개 = 이력 1줄.
+  // GET /order-items/{order_item_id}/sends — 그 품목의 발송 내역 1건 (SendItem + 소속 Send 요약).
+  // 여러 품목이 아니라 한 품목의 호(issue)별 기록 — (품목, 호) 유니크라 행 1개 = 내역 1줄.
   // admin_memo 는 SendItem/Send 양쪽에 있어 item_/send_ 접두어로 구분.
   send_item_id: number;
   send_id: number;

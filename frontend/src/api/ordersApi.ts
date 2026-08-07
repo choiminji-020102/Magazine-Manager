@@ -23,7 +23,7 @@ export const ordersApi = {
     return api.get<ResponseModel<OrderResponse>>(`/orders/external/${externalOrderId}`);
   },
 
-  // GET /orders/customer/{customer_id} - 고객별 주문 이력
+  // GET /orders/customer/{customer_id} - 고객별 주문 내역
   getOrdersByCustomer: (customerId: number) => {
     return api.get<ResponseModel<OrderResponse[]>>(`/orders/customer/${customerId}`);
   },

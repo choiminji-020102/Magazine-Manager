@@ -361,7 +361,7 @@ def test_일괄변경_없는_배송지면_404(db, old_address):
 # ── 쿼리 효율 ─────────────────────────────────────────────────────────────────
 
 def test_발송이력이_많아도_send를_건건이_조회하지_않는다(db, captured_sql, old_address, new_address):
-    """`si.send` lazy load N+1 회귀 방지 — 12개월치 발송 이력이 있어도 Send 조회는 한 번."""
+    """`si.send` lazy load N+1 회귀 방지 — 12개월치 발송 내역이 있어도 Send 조회는 한 번."""
     order = _make_order(db, old_address)
     item = _make_item(db, order, old_address, start="202512", end="202711", last_send="202611")
     for issue in _issues("202512", 12):
