@@ -42,7 +42,10 @@ export function AddressList({
               <span className="font-mono text-gray-500">{formatPhone(addr.recipient_phone)}</span>
             </div>
             <div className="text-gray-500">
-              ({addr.postal_code}) {addr.recipient_address}
+              {addr.postal_code && (
+                <span className="font-mono mr-1">[{addr.postal_code}]</span>
+              )}
+              {addr.recipient_address}
             </div>
             {addr.customer_memo && (
               <div className="text-gray-400 mt-0.5">{addr.customer_memo}</div>

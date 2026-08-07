@@ -489,7 +489,10 @@ export default function OrderCreatePage() {
                         </span>
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
-                        ({addr.postal_code}) {addr.recipient_address}
+                        {addr.postal_code && (
+                          <span className="font-mono mr-1">[{addr.postal_code}]</span>
+                        )}
+                        {addr.recipient_address}
                       </div>
                     </button>
                   ))
@@ -1027,8 +1030,8 @@ export default function OrderCreatePage() {
               <div>
                 배송지:{" "}
                 {selectedAddress
-                  ? `(${selectedAddress.postal_code}) ${selectedAddress.recipient_address}`
-                  : `(${newAddress.postal_code}) ${newAddress.recipient_address}`}
+                  ? `[${selectedAddress.postal_code}] ${selectedAddress.recipient_address}`
+                  : `[${newAddress.postal_code}] ${newAddress.recipient_address}`}
               </div>
               <div>상품: {orderItems.map((i) => i.product.product_name).join(", ")}</div>
             </div>

@@ -805,7 +805,10 @@ function AddressCard({
             </span>
           </div>
           <div className="text-xs text-gray-500">
-            ({address.postal_code}) {address.recipient_address}
+            {address.postal_code && (
+              <span className="font-mono mr-1">[{address.postal_code}]</span>
+            )}
+            {address.recipient_address}
           </div>
           {address.customer_memo && (
             <div className="text-xs text-gray-400">배송 메모: {address.customer_memo}</div>

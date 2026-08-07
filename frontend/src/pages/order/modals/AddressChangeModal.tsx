@@ -218,7 +218,10 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
                 <span className="font-mono">{formatPhone(item.address.recipient_phone)}</span>
               </div>
               <div className="text-gray-500">
-                ({item.address.postal_code}) {item.address.recipient_address}
+                {item.address.postal_code && (
+                  <span className="font-mono mr-1">[{item.address.postal_code}]</span>
+                )}
+                {item.address.recipient_address}
               </div>
               <VipFlagsDisplay address={item.address} slots={vipSlots} compact />
             </div>
