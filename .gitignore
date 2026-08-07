@@ -10,3 +10,10 @@ sunmok129-test/
 
 # Claude Code 로컬 설정 (개인 설정 — 커밋 불필요)
 .claude/settings.local.json
+
+# Local Netlify folder
+.netlify
+
+# 매뉴얼 배포 산출물 — deploy_manual.sh 가 매뉴얼.html 로부터 생성한다.
+# 빌드 시각이 매번 바뀌므로 추적하지 않는다. 원본은 매뉴얼.html.
+docs/index.html
