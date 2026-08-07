@@ -107,10 +107,11 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
 
   // 이 품목의 발송 내역 — 여러 품목이 아니라 한 품목의 호(issue)별 기록 N건.
   // order_id 가 아닌 order_item_id 기준이라 같은 주문의 다른 품목 발송은 섞이지 않음.
+  // 각 행은 Send 가 아니라 SendItem 1건 (= 그 품목이 그 호에 나간 기록).
   const {
-    data: sends = [],
-    isLoading: sendsLoading,
-    isError: sendsError,
+    data: sendHistory = [],
+    isLoading: historyLoading,
+    isError: historyError,
   } = useQuery<OrderItemSendResponse[]>({
     queryKey: ["order-item-sends", item.order_item_id],
     queryFn: () =>
@@ -441,38 +442,38 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
         {/* 발송 내역 */}
         <Section title="발송 내역">
           {/* 로딩·실패를 "없음" 과 구분한다 — 조회 실패를 미발송으로 오판하면 안 됨 */}
-          {sendsLoading ? (
+          {historyLoading ? (
             <div className="flex justify-center py-2">
               <LoadingSpinner size="sm" />
             </div>
-          ) : sendsError ? (
+          ) : historyError ? (
             <p className="text-xs text-red-500">발송 내역을 불러오지 못했습니다.</p>
-          ) : sends.length === 0 ? (
+          ) : sendHistory.length === 0 ? (
             <p className="text-xs text-gray-400">발송 내역이 없습니다.</p>
           ) : (
             <div className="space-y-2">
-              {sends.map((send) => (
+              {sendHistory.map((row) => (
                 <div
-                  key={send.send_item_id}
+                  key={row.send_item_id}
                   className="bg-gray-50 rounded-md px-3 py-2.5"
                 >
                   {/* 헤더 — 호(가장 강한 위계) + 권수 + 상태.
                       권수 배지는 StatusBadge 와 같은 규격(px-1.5 py-0.5 text-[11px])으로 맞춤 */}
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-semibold text-gray-800">
-                      {formatIssue(send.issue)}
+                      {formatIssue(row.issue)}
                     </span>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {/* 해외 발송 배지 — 카드 계열(PreparingSendCard 등)과 동일하게 헤더에 표기 */}
-                      {send.country_code !== "KR" && (
+                      {row.country_code !== "KR" && (
                         <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-semibold">
-                          🌐 {send.country_code}
+                          🌐 {row.country_code}
                         </span>
                       )}
                       <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium bg-gray-200 text-gray-600">
-                        {send.send_num}권
+                        {row.send_num}권
                       </span>
-                      <StatusBadge type="send_status" value={send.send_status} />
+                      <StatusBadge type="send_status" value={row.send_status} />
                     </div>
                   </div>
 
@@ -480,26 +481,26 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
                   <div className="flex items-baseline text-xs mt-0.5">
                     <span
                       className="text-gray-700 truncate flex-1 min-w-0"
-                      title={send.product_name}
+                      title={row.product_name}
                     >
-                      {send.product_name}
+                      {row.product_name}
                     </span>
                   </div>
 
                   {/* 상세 — 라벨을 붙여 값의 뜻을 명시 (list-card InfoRow 공용) */}
                   <div className="mt-2 pt-2 border-t border-gray-200 space-y-1 text-xs">
-                    {(send.send_method || send.courier_company) && (
+                    {(row.send_method || row.courier_company) && (
                       <CardInfoRow
                         label="발송"
-                        value={[send.send_method, send.courier_company]
+                        value={[row.send_method, row.courier_company]
                           .filter(Boolean)
                           .join(" · ")}
                       />
                     )}
-                    {send.tracking_no && (
+                    {row.tracking_no && (
                       <CardInfoRow
                         label="운송장"
-                        value={<span className="font-mono">{send.tracking_no}</span>}
+                        value={<span className="font-mono">{row.tracking_no}</span>}
                       />
                     )}
                     {/* 이름·연락처를 한 줄로 합친다 — 위 '배송지' 섹션은 현재 배송지라
@@ -507,7 +508,7 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
                         지난 기록이라 압축한다. 불일치가 아니라 의도된 차이. */}
                     <CardInfoRow
                       label="수령인"
-                      value={`${send.recipient_name} · ${formatPhone(send.recipient_phone)}`}
+                      value={`${row.recipient_name} · ${formatPhone(row.recipient_phone)}`}
                     />
                     {/* 주소 표기는 OrderListCard·PreparingSendCard·DeliveredSendCard 와 동일 —
                         [우편번호] font-mono + 주소 전문. 우편번호는 빈 문자열일 수 있어 조건부 */}
@@ -515,28 +516,28 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
                       label="주소"
                       value={
                         <>
-                          {send.postal_code && (
-                            <span className="font-mono mr-1">[{send.postal_code}]</span>
+                          {row.postal_code && (
+                            <span className="font-mono mr-1">[{row.postal_code}]</span>
                           )}
-                          {send.recipient_address}
+                          {row.recipient_address}
                         </>
                       }
                     />
-                    <SendMemoRow label="요청사항" value={send.customer_memo} />
-                    <SendMemoRow label="품목메모" value={send.item_admin_memo} />
-                    <SendMemoRow label="발송메모" value={send.send_admin_memo} />
+                    <SendMemoRow label="요청사항" value={row.customer_memo} />
+                    <SendMemoRow label="품목메모" value={row.item_admin_memo} />
+                    <SendMemoRow label="발송메모" value={row.send_admin_memo} />
                     {/* 라벨·포맷은 다른 발송 화면과 동일하게 — '발송 완료' + 날짜+시간.
                         발송 전(PREPARING)에는 delivered_at 이 없어 시각 정보가 사라지므로
                         그때만 후보로 잡힌 시각(Send.created_at)을 대신 보여준다. */}
-                    {send.delivered_at ? (
+                    {row.delivered_at ? (
                       <CardInfoRow
                         label="발송 완료"
-                        value={formatDateTime(send.delivered_at)}
+                        value={formatDateTime(row.delivered_at)}
                       />
                     ) : (
                       <CardInfoRow
                         label="후보 생성"
-                        value={formatDateTime(send.created_at)}
+                        value={formatDateTime(row.created_at)}
                       />
                     )}
                   </div>
