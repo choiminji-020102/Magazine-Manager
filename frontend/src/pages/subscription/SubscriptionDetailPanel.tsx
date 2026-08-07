@@ -525,9 +525,19 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
                     <SendMemoRow label="요청사항" value={send.customer_memo} />
                     <SendMemoRow label="품목메모" value={send.item_admin_memo} />
                     <SendMemoRow label="발송메모" value={send.send_admin_memo} />
-                    <CardInfoRow label="생성" value={formatDate(send.created_at)} />
-                    {send.delivered_at && (
-                      <CardInfoRow label="배송완료" value={formatDate(send.delivered_at)} />
+                    {/* 라벨·포맷은 다른 발송 화면과 동일하게 — '발송 완료' + 날짜+시간.
+                        발송 전(PREPARING)에는 delivered_at 이 없어 시각 정보가 사라지므로
+                        그때만 후보로 잡힌 시각(Send.created_at)을 대신 보여준다. */}
+                    {send.delivered_at ? (
+                      <CardInfoRow
+                        label="발송 완료"
+                        value={formatDateTime(send.delivered_at)}
+                      />
+                    ) : (
+                      <CardInfoRow
+                        label="후보 생성"
+                        value={formatDateTime(send.created_at)}
+                      />
                     )}
                   </div>
                 </div>

@@ -66,7 +66,7 @@ export interface TransitionToDeliveredRequest {
   courier_company: CourierCompany;
 }
 
-// [배송완료 처리] 실패 건 — 성공/실패가 한 응답 안에 섞여서 나올 수 있음 (부분 성공 허용).
+// [발송 완료 처리] 실패 건 — 성공/실패가 한 응답 안에 섞여서 나올 수 있음 (부분 성공 허용).
 export interface TransitionFailedItem {
   send_id: number;
   // validation: 카페24를 시도하기도 전에 걸림(존재 안 함/이미 처리됨) — 카페24도 당연히 반영 안 됨
