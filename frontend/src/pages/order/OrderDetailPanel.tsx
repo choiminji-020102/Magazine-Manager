@@ -231,7 +231,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     return `${text} 계속하시겠습니까?`;
   })();
 
-  // 재배송 이력 — 이 주문에 묶인 send_id 만 좁혀 한 번 조회 (target_ids 다중 필터).
+  // 재배송 내역 — 이 주문에 묶인 send_id 만 좁혀 한 번 조회 (target_ids 다중 필터).
   // limit=100 도 그대로 두지만 보통 박스가 100개를 넘지 않아 누락 없음.
   const sendIdsOfOrder = useMemo(
     () => (order?.sends ?? []).map((s) => s.send_id),
@@ -694,7 +694,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             ) : null}
           </TabsTrigger>
           <TabsTrigger value="sends">
-            발송내역
+            발송 내역
             {order.sends?.length ? (
               <span className="ml-1 text-xs text-gray-400">{order.sends.length}</span>
             ) : null}
@@ -726,9 +726,14 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
               <InfoRow
                 label="주소"
                 value={
-                  order.address
-                    ? `(${order.address.postal_code}) ${order.address.recipient_address}`
-                    : null
+                  order.address ? (
+                    <>
+                      {order.address.postal_code && (
+                        <span className="font-mono mr-1">[{order.address.postal_code}]</span>
+                      )}
+                      {order.address.recipient_address}
+                    </>
+                  ) : null
                 }
               />
               {order.address?.customer_memo && (
@@ -918,7 +923,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             )}
           </TabsContent>
 
-          {/* 발송내역 탭 */}
+          {/* 발송 내역 탭 */}
           <TabsContent value="sends" className="m-0 p-4 space-y-3">
             {order.sends?.map((send) => (
               <div key={send.send_id} className="border border-gray-100 rounded-lg overflow-hidden">
@@ -947,11 +952,16 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                   {/* 수령인 정보 */}
                   <div className="flex items-start gap-3">
                     <span className="text-xs text-gray-400 w-24 flex-shrink-0">수령인</span>
-                    <span className="text-xs text-gray-700">{send.recipient_name} / {formatPhone(send.recipient_phone)}</span>
+                    <span className="text-xs text-gray-700">{send.recipient_name} · {formatPhone(send.recipient_phone)}</span>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="text-xs text-gray-400 w-24 flex-shrink-0">주소</span>
-                    <span className="text-xs text-gray-700">({send.postal_code}) {send.recipient_address}</span>
+                    <span className="text-xs text-gray-700">
+                      {send.postal_code && (
+                        <span className="font-mono mr-1">[{send.postal_code}]</span>
+                      )}
+                      {send.recipient_address}
+                    </span>
                   </div>
                   {send.customer_memo && (
                     <div className="flex items-start gap-3">
@@ -993,7 +1003,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                       <span className="text-xs text-gray-700">{formatDateTime(send.delivered_at)}</span>
                     </div>
                   )}
-                  {/* 재배송 이력 */}
+                  {/* 재배송 내역 */}
                   {(resendsBySendId.get(send.send_id) ?? []).map((log, idx) => {
                     const d = log.details ?? {};
                     const parts: string[] = [];
@@ -1076,7 +1086,10 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                   <span className="font-mono">{formatPhone(order.address.recipient_phone)}</span>
                 </div>
                 <div className="text-gray-500">
-                  ({order.address.postal_code}) {order.address.recipient_address}
+                  {order.address.postal_code && (
+                    <span className="font-mono mr-1">[{order.address.postal_code}]</span>
+                  )}
+                  {order.address.recipient_address}
                 </div>
               </div>
             )}
@@ -1686,31 +1699,37 @@ function OrderItemCard({
           </div>
         ) : null}
 
-        {/* 품목별 배송지 */}
+        {/* 품목별 배송지 — '배송지' 제목 없이 수령인·주소 라벨을 직접 붙인다 */}
         {item.address && (
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">배송지</span>
-              {!isCancelled && (
-                <button
-                  className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                  onClick={() => onAction("addressChange", item)}
-                >
-                  변경
-                </button>
-              )}
-            </div>
-            <div className="space-y-0.5">
-              <div className="text-xs text-gray-700">
-                {item.address.recipient_name} / {formatPhone(item.address.recipient_phone)}
+          <div className="flex items-start justify-between gap-2">
+            <div className="space-y-0.5 flex-1 min-w-0">
+              <div className="flex gap-2 text-xs leading-tight">
+                <span className="text-gray-400 w-14 shrink-0">수령인</span>
+                <span className="text-gray-700 break-all flex-1">
+                  {item.address.recipient_name} · {formatPhone(item.address.recipient_phone)}
+                </span>
               </div>
-              <div className="text-xs text-gray-700">
-                ({item.address.postal_code}) {item.address.recipient_address}
+              <div className="flex gap-2 text-xs leading-tight">
+                <span className="text-gray-400 w-14 shrink-0">주소</span>
+                <span className="text-gray-700 break-all flex-1">
+                  {item.address.postal_code && (
+                    <span className="font-mono mr-1">[{item.address.postal_code}]</span>
+                  )}
+                  {item.address.recipient_address}
+                </span>
               </div>
               {item.address.customer_memo && (
                 <div className="text-xs text-gray-400">{item.address.customer_memo}</div>
               )}
             </div>
+            {!isCancelled && (
+              <button
+                className="text-xs text-blue-600 hover:text-blue-800 hover:underline shrink-0"
+                onClick={() => onAction("addressChange", item)}
+              >
+                변경
+              </button>
+            )}
           </div>
         )}
 
@@ -1731,7 +1750,7 @@ function OrderItemCard({
           </div>
         )}
 
-        {/* 변경 이력 (활동 로그) */}
+        {/* 변경 내역 (활동 로그) */}
         <OrderItemChangeLogs orderItemId={item.order_item_id} />
 
         {/* 관리자 메모 */}
@@ -1765,7 +1784,7 @@ function OrderItemChangeLogs({ orderItemId }: { orderItemId: number }) {
 
   return (
     <div>
-      <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">변경 이력</div>
+      <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">변경 내역</div>
       <div className="space-y-0.5">
         {logs.map((log) => {
           const { label, color, summary } = getLogDisplay(log);
