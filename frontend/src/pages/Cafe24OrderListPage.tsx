@@ -206,9 +206,11 @@ function OrderCard({
             label="결제금액"
             value={<span className="font-semibold text-gray-900">{formatAmount(order.payment_amount)}</span>}
           />
+          {/* Cafe24 receivers[0].shipping_message — 우리 DB 의 Address.customer_memo 로 들어간다.
+              Order.customer_memo(고객 메모)가 아니라 배송지에 딸린 요청사항이다. */}
           {order.customer_memo && (
             <InfoRow
-              label="고객 메모"
+              label="배송 요청사항"
               value={
                 <span className="block truncate text-gray-500" title={order.customer_memo}>
                   {order.customer_memo}
