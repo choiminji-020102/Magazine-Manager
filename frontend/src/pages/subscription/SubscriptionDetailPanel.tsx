@@ -344,10 +344,10 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
             }
           />
           {detail?.address?.customer_memo && (
-            <InfoRow label="배송 메모" value={detail.address.customer_memo} />
+            <InfoRow label="배송 요청사항" value={detail.address.customer_memo} />
           )}
           {detail?.address?.admin_memo && (
-            <InfoRow label="관리자메모" value={detail.address.admin_memo} />
+            <InfoRow label="관리자 메모" value={detail.address.admin_memo} />
           )}
         </Section>
 
@@ -520,9 +520,9 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
                         </>
                       }
                     />
-                    <SendMemoRow label="요청사항" value={row.customer_memo} />
-                    <SendMemoRow label="품목메모" value={row.item_admin_memo} />
-                    <SendMemoRow label="발송메모" value={row.send_admin_memo} />
+                    <SendMemoRow label="배송 요청사항" value={row.customer_memo} />
+                    <SendMemoRow label="품목 메모" value={row.item_admin_memo} />
+                    <SendMemoRow label="발송 메모" value={row.send_admin_memo} />
                     {/* 라벨·포맷은 다른 발송 화면과 동일하게 — '발송 완료' + 날짜+시간.
                         발송 전(PREPARING)에는 delivered_at 이 없어 시각 정보가 사라지므로
                         그때만 후보로 잡힌 시각(Send.created_at)을 대신 보여준다. */}

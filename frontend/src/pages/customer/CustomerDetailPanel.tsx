@@ -532,7 +532,7 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
                       </div>
                     )}
                     <div>
-                      <Label className="text-xs text-gray-600">배송 메모</Label>
+                      <Label className="text-xs text-gray-600">배송 요청사항</Label>
                       <Input
                         className="mt-1 h-8 text-sm"
                         placeholder="문 앞에 놔주세요 (선택)"
@@ -811,7 +811,7 @@ function AddressCard({
             {address.recipient_address}
           </div>
           {address.customer_memo && (
-            <div className="text-xs text-gray-400">배송 메모: {address.customer_memo}</div>
+            <div className="text-xs text-gray-400">배송 요청사항: {address.customer_memo}</div>
           )}
           {/* 관리자 메모 인라인 편집 */}
           {editingMemo ? (

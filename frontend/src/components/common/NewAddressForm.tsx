@@ -111,12 +111,12 @@ export function NewAddressForm({ value, onChange, errors, onErrorsChange }: NewA
         error={errors.address}
       />
       <div>
-        <Label className="text-xs">배송 메모</Label>
+        <Label className="text-xs">배송 요청사항</Label>
         <Input
           className="mt-1"
           value={value.customer_memo}
           onChange={(e) => set({ customer_memo: e.target.value })}
-          placeholder="(선택)"
+          placeholder="문 앞에 놔주세요 (선택)"
         />
       </div>
       <div>
@@ -125,7 +125,7 @@ export function NewAddressForm({ value, onChange, errors, onErrorsChange }: NewA
           className="mt-1"
           value={value.admin_memo}
           onChange={(e) => set({ admin_memo: e.target.value })}
-          placeholder="(선택)"
+          placeholder="내부 메모 (선택)"
         />
       </div>
     </div>

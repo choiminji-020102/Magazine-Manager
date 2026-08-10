@@ -122,7 +122,7 @@ export default function OrderListCard({
             />
             {order.customer_memo && (
               <InfoRow
-                label="고객메모"
+                label="고객 메모"
                 value={
                   <span className="block truncate text-gray-500" title={order.customer_memo}>
                     {order.customer_memo}
@@ -132,7 +132,7 @@ export default function OrderListCard({
             )}
             {order.admin_memo && (
               <InfoRow
-                label="메모"
+                label="관리자 메모"
                 value={
                   <span className="block truncate text-gray-500" title={order.admin_memo}>
                     📝 {order.admin_memo}

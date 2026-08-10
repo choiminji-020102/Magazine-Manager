@@ -113,10 +113,10 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
               <span className="font-mono">{send.postal_code}</span>
             </Row>
             <Row label="주소">{send.recipient_address}</Row>
-            {send.customer_memo && <Row label="배송메모">{send.customer_memo}</Row>}
+            {send.customer_memo && <Row label="배송 요청사항">{send.customer_memo}</Row>}
           </Section>
 
-          {/* 관리자 메모 — 편집 가능. 상태 무관 (PREPARING/DELIVERED/CANCELLED). */}
+          {/* 발송 메모(Send.admin_memo) — 편집 가능. 상태 무관 (PREPARING/DELIVERED/CANCELLED). */}
           <AdminMemoSection
             key={send.send_id}
             send={send}
@@ -407,7 +407,7 @@ function TrackingSection({ send, onSuccess }: TrackingSectionProps) {
 }
 
 
-// ── 관리자 메모 섹션 (편집 가능, 상태 무관) ────────────────────────────────────
+// ── 발송 메모 섹션 (Send.admin_memo, 편집 가능, 상태 무관) ─────────────────────
 
 interface AdminMemoSectionProps {
   send: SendDetailResponse;
@@ -425,7 +425,7 @@ function AdminMemoSection({ send, onSuccess }: AdminMemoSectionProps) {
         .updateAdminMemo(send.send_id, { admin_memo: memo.trim() || null })
         .then((r) => r.data),
     onSuccess: (res) => {
-      toast.success(res.message ?? "관리자 메모가 수정되었습니다.");
+      toast.success(res.message ?? "발송 메모가 수정되었습니다.");
       onSuccess();
     },
     onError: (err) => toast.error(getErrorMessage(err)),
@@ -435,14 +435,14 @@ function AdminMemoSection({ send, onSuccess }: AdminMemoSectionProps) {
   const overLimit = memo.length > MAX_LEN;
 
   return (
-    <Section title="관리자 메모">
+    <Section title="발송 메모">
       <textarea
         className={`w-full px-3 py-2 text-xs border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 ${
           overLimit ? "border-red-500" : "border-gray-300"
         }`}
         rows={3}
         maxLength={MAX_LEN}
-        placeholder="발송 관리자 메모"
+        placeholder="발송 메모"
         value={memo}
         onChange={(e) => setMemo(e.target.value)}
         disabled={mutation.isPending}
@@ -574,7 +574,7 @@ function BoxContentsSection({ send, onSuccess }: BoxContentsSectionProps) {
                             }`}
                             rows={2}
                             maxLength={MAX_LEN}
-                            placeholder="발송 품목 관리자 메모"
+                            placeholder="품목 메모"
                             value={memoDraft}
                             onChange={(e) => setMemoDraft(e.target.value)}
                             disabled={mutation.isPending}

@@ -129,7 +129,7 @@ export default function DeliveredSendCard({
             />
             {send.admin_memo && (
               <InfoRow
-                label="메모"
+                label="발송 메모"
                 value={
                   <span className="block truncate text-gray-500" title={send.admin_memo}>
                     📝 {send.admin_memo}
@@ -167,7 +167,7 @@ export default function DeliveredSendCard({
             />
             {send.customer_memo && (
               <InfoRow
-                label="배송메모"
+                label="배송 요청사항"
                 value={
                   <span className="block truncate text-gray-500" title={send.customer_memo}>
                     {send.customer_memo}

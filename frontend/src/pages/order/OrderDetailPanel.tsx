@@ -715,7 +715,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
               <InfoRow label="연락처" value={formatPhone(order.customer?.customer_phone)} />
               <InfoRow label="이메일" value={order.customer?.customer_email} />
               {order.customer?.admin_memo && (
-                <InfoRow label="관리자메모" value={order.customer.admin_memo} />
+                <InfoRow label="관리자 메모" value={order.customer.admin_memo} />
               )}
             </Section>
 
@@ -737,10 +737,10 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                 }
               />
               {order.address?.customer_memo && (
-                <InfoRow label="배송 메모" value={order.address.customer_memo} />
+                <InfoRow label="배송 요청사항" value={order.address.customer_memo} />
               )}
               {order.address?.admin_memo && (
-                <InfoRow label="관리자메모" value={order.address.admin_memo} />
+                <InfoRow label="관리자 메모" value={order.address.admin_memo} />
               )}
             </Section>
 
@@ -856,7 +856,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             {/* 메모 */}
             {editMode ? (
               <Section title="메모">
-                <EditRow label="고객메모">
+                <EditRow label="고객 메모">
                   <Input
                     className="h-7 text-xs flex-1"
                     value={editForm.customer_memo}
@@ -864,7 +864,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                     placeholder="고객 메모"
                   />
                 </EditRow>
-                <EditRow label="관리자메모">
+                <EditRow label="관리자 메모">
                   <Input
                     className="h-7 text-xs flex-1"
                     value={editForm.admin_memo}
@@ -877,10 +877,10 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
               (order.customer_memo || order.admin_memo) && (
                 <Section title="메모">
                   {order.customer_memo && (
-                    <InfoRow label="고객메모" value={order.customer_memo} />
+                    <InfoRow label="고객 메모" value={order.customer_memo} />
                   )}
                   {order.admin_memo && (
-                    <InfoRow label="관리자메모" value={order.admin_memo} />
+                    <InfoRow label="관리자 메모" value={order.admin_memo} />
                   )}
                 </Section>
               )
@@ -965,13 +965,13 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                   </div>
                   {send.customer_memo && (
                     <div className="flex items-start gap-3">
-                      <span className="text-xs text-gray-400 w-24 flex-shrink-0">배송메모</span>
+                      <span className="text-xs text-gray-400 w-24 flex-shrink-0">배송 요청사항</span>
                       <span className="text-xs text-gray-700">{send.customer_memo}</span>
                     </div>
                   )}
                   {send.admin_memo && (
                     <div className="flex items-start gap-3">
-                      <span className="text-xs text-gray-400 w-24 flex-shrink-0">관리자메모</span>
+                      <span className="text-xs text-gray-400 w-24 flex-shrink-0">발송 메모</span>
                       <span className="text-xs text-gray-700">{send.admin_memo}</span>
                     </div>
                   )}

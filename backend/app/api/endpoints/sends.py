@@ -226,7 +226,8 @@ def update_admin_memo(
             user_agent=request.headers.get("user-agent"),
             details={"before": {"admin_memo": before}, "after": {"admin_memo": after}},
         )
-        message = "관리자 메모가 수정되었습니다."
+        # 화면 라벨과 동일하게 — Send.admin_memo 는 UI 에서 '발송 메모'
+        message = "발송 메모가 수정되었습니다."
     else:
         message = "변경된 항목이 없습니다."
 

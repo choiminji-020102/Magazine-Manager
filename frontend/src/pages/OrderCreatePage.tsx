@@ -600,14 +600,14 @@ export default function OrderCreatePage() {
                   </div>
                 )}
                 <div>
-                  <Label>배송 메모</Label>
+                  <Label>배송 요청사항</Label>
                   <Input
                     className="mt-1"
                     value={newAddress.customer_memo}
                     onChange={(e) =>
                       setNewAddress((p) => ({ ...p, customer_memo: e.target.value }))
                     }
-                    placeholder="(선택)"
+                    placeholder="문 앞에 놔주세요 (선택)"
                   />
                 </div>
               </div>
@@ -1014,7 +1014,7 @@ export default function OrderCreatePage() {
               <Label>관리자 메모</Label>
               <textarea
                 className="mt-1 w-full border border-gray-300 rounded-md p-2 text-sm resize-none h-16 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="(선택)"
+                placeholder="내부 메모 (선택)"
                 value={adminMemo}
                 onChange={(e) => setAdminMemo(e.target.value)}
               />
