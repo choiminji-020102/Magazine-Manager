@@ -975,27 +975,15 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                       <span className="text-xs text-gray-700">{send.admin_memo}</span>
                     </div>
                   )}
-                  {/* 배송 방법 */}
-                  {send.send_method && (
-                    <div className="flex items-start gap-3">
-                      <span className="text-xs text-gray-400 w-24 flex-shrink-0">배송방법</span>
-                      <span className="text-xs text-gray-700">
-                        {send.send_method}
-                        {send.courier_company && (
-                          <span className="text-gray-400"> · {send.courier_company}</span>
-                        )}
-                      </span>
-                    </div>
-                  )}
-                  {/* 운송장 */}
-                  {send.tracking_no ? (
-                    <div className="flex items-start gap-3">
-                      <span className="text-xs text-gray-400 w-24 flex-shrink-0">운송장</span>
-                      <span className="text-xs text-gray-700 font-mono">{send.tracking_no}</span>
-                    </div>
-                  ) : (
-                    <div className="text-xs text-gray-300">운송장 미등록</div>
-                  )}
+                  {/* 발송 수단 3종을 한 줄로 — 구독 상세 발송 내역과 동일한 표기.
+                      값 가공 없이 그대로 노출한다 (없으면 "-"). */}
+                  <div className="flex items-start gap-3">
+                    <span className="text-xs text-gray-400 w-24 flex-shrink-0">발송</span>
+                    <span className="text-xs text-gray-700">
+                      {send.send_method ?? "-"} · {send.courier_company ?? "-"} ·{" "}
+                      <span className="font-mono">{send.tracking_no ?? "-"}</span>
+                    </span>
+                  </div>
                   {/* 타임스탬프 */}
                   {send.delivered_at && (
                     <div className="flex items-start gap-3">

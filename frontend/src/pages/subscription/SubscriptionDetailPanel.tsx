@@ -489,20 +489,17 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
 
                   {/* 상세 — 라벨을 붙여 값의 뜻을 명시 (list-card InfoRow 공용) */}
                   <div className="mt-2 pt-2 border-t border-gray-200 space-y-1 text-xs">
-                    {(row.send_method || row.courier_company) && (
-                      <CardInfoRow
-                        label="발송"
-                        value={[row.send_method, row.courier_company]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      />
-                    )}
-                    {row.tracking_no && (
-                      <CardInfoRow
-                        label="운송장"
-                        value={<span className="font-mono">{row.tracking_no}</span>}
-                      />
-                    )}
+                    {/* 발송 수단 3종을 한 줄로 — 주문 상세 발송 내역과 동일한 표기.
+                        값 가공 없이 그대로 노출한다 (없으면 "-"). */}
+                    <CardInfoRow
+                      label="발송"
+                      value={
+                        <>
+                          {row.send_method ?? "-"} · {row.courier_company ?? "-"} ·{" "}
+                          <span className="font-mono">{row.tracking_no ?? "-"}</span>
+                        </>
+                      }
+                    />
                     {/* 이름·연락처를 한 줄로 합친다 — 위 '배송지' 섹션은 현재 배송지라
                         눈에 띄어야 해서 두 줄로 분리하지만, 여기는 호마다 반복되는
                         지난 기록이라 압축한다. 불일치가 아니라 의도된 차이. */}

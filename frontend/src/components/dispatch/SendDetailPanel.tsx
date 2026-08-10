@@ -302,7 +302,7 @@ function TrackingSection({ send, onSuccess }: TrackingSectionProps) {
   const handleSave = () => {
     const allEmpty = tracking.trim() === "" && sendMethod === "" && courier === "";
     if (allEmpty) {
-      toast.error("운송장·배송방법·배송업체 중 최소 1개를 입력해주세요.");
+      toast.error("운송장·배송 방법·운송사 중 최소 1개를 입력해주세요.");
       return;
     }
     mutation.mutate();
