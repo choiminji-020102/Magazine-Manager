@@ -8,6 +8,7 @@
 출처가 뒤바뀌지 않아야 하고, Send 가 없는 미아 SendItem 은 결과에서 빠져야 한다
 (조립부가 send 를 None 체크 없이 참조하므로 INNER JOIN 이 전제다).
 """
+from datetime import datetime
 from itertools import count
 
 from app.models.send import Send
@@ -44,7 +45,8 @@ def _make_send(db, *, status="DELIVERED", admin_memo=None, customer_memo=None,
 
 
 def _make_send_item(db, order_item_id, issue, *, send=None, send_id=None,
-                    product_name="말씀함께 [기본판]", admin_memo=None, send_num=1):
+                    product_name="말씀함께 [기본판]", admin_memo=None, send_num=1,
+                    cancelled_at=None):
     """send=None 이고 send_id 만 주면 미아(orphan) SendItem 을 만든다."""
     item = SendItem(
         send_item_id=next(_pk),
@@ -56,6 +58,7 @@ def _make_send_item(db, order_item_id, issue, *, send=None, send_id=None,
         send_num=send_num,
         cost_price=0,
         admin_memo=admin_memo,
+        cancelled_at=cancelled_at,
     )
     db.add(item)
     db.flush()
@@ -148,6 +151,23 @@ def test_preparing_send_has_no_delivered_at(db):
 
     assert row.send_status == "PREPARING"
     assert row.delivered_at is None
+
+
+def test_cancelled_send_item_is_excluded(db):
+    """취소된 SendItem 은 결과에서 빠진다 (read_send_items_by_send_id 와 동일 기준).
+
+    한계: cancelled_at 은 현재 dead 컬럼이라(품목 취소 미구현) 운영 데이터에는 값이
+    들어가지 않는다. 향후 취소 기능이 켜졌을 때 이 경로만 취소분을 노출하는 회귀를 막는
+    선행 검증이다. 응답에 cancelled_at 이 없어 화면에서 구분할 방법도 없으므로 필터가 유일한 방어다.
+    """
+    _make_send_item(db, TARGET, "202604", send=_make_send(db))
+    _make_send_item(db, TARGET, "202605", send=_make_send(db),
+                    cancelled_at=datetime(2026, 5, 1, 12, 0, 0))
+    db.commit()
+
+    rows = send_service.get_send_history_by_order_item(db, TARGET)
+
+    assert [r.issue for r in rows] == ["202604"]
 
 
 def test_empty_history(db):

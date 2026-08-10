@@ -39,7 +39,11 @@ def read_sends_by_order_id(db: Session, order_id: int) -> List[Send]:
     )
 
 
-def read_send_items_by_order_item_id(db: Session, order_item_id: int) -> List[SendItem]:
+def read_send_items_by_order_item_id(
+    db: Session,
+    order_item_id: int,
+    include_cancelled: bool = False,
+) -> List[SendItem]:
     """주문 품목 ID로 그 품목의 발송 내역 조회 (SendItem 단위).
 
     read_sends_by_order_id 와 달리 order_id 가 아닌 order_item_id 로 좁히므로
@@ -48,14 +52,19 @@ def read_send_items_by_order_item_id(db: Session, order_item_id: int) -> List[Se
     innerjoin=True — Send 가 없는 미아 SendItem 은 결과에서 배제해
     호출부가 send 를 None 체크 없이 참조할 수 있게 한다.
     uq_send_items_order_item_issue 제약 덕에 (품목, 호) 당 1건 — 행이 곧 발송 내역 1건.
+
+    cancelled_at 은 현재 dead 컬럼이라(품목 취소 미구현) 이 필터는 동작상 무의미하지만,
+    형제 쿼리 read_send_items_by_send_id 와 동일한 기준을 유지해 향후 취소 기능이
+    활성화될 때 이 경로만 취소분을 노출하는 일이 없게 한다.
     """
-    return (
+    query = (
         db.query(SendItem)
         .options(joinedload(SendItem.send, innerjoin=True))
         .filter(SendItem.order_item_id == order_item_id)
-        .order_by(SendItem.issue.desc())
-        .all()
     )
+    if not include_cancelled:
+        query = query.filter(SendItem.cancelled_at.is_(None))
+    return query.order_by(SendItem.issue.desc()).all()
 
 
 def list_sends(db: Session, query: SendListQuery) -> Tuple[List[Send], int]:
