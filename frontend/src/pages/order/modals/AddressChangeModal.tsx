@@ -75,7 +75,13 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
 
   const addresses = addrRes?.data ?? [];
   const hasEnabledVipSlot = vipSlots.some((s) => s.is_enabled);
-  const currentVipSlot = activeVipSlot(item.address, vipSlots);
+  // 현재 배송지의 VIP — 목록에 있으면 목록을 우선한다.
+  // 목록 쿼리는 모달을 열 때마다 refetch 되지만 item.address 는 부모가 받아둔 스냅샷이라,
+  // 다른 화면에서 VIP 를 바꾼 직후에는 목록 쪽이 더 신선하다.
+  // 라디오 기본값과 제출 가드가 반드시 같은 값을 보게 하는 것이 핵심 — 기준이 어긋나면
+  // 관리자가 아무것도 안 건드렸는데 가드를 통과해 옛 VIP 를 되돌려 쓰게 된다.
+  const currentAddressInList = addresses.find((a) => a.address_id === item.address_id);
+  const currentVipSlot = activeVipSlot(currentAddressInList ?? item.address, vipSlots);
 
   // 라디오 기본값 — 기존 배송지를 고르면 그 배송지의 실제 설정, 신규 입력이면 현재 배송지 설정을 승계.
   // 원시값(number|null)으로 좁혀 두는 이유 — 배열을 의존성에 두면 refetch 로 참조만 바뀌어도
@@ -91,8 +97,35 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
     setSelectedVipSlot(defaultVipSlot);
   }, [open, defaultVipSlot]);
 
+  // 선택한 배송지에 VIP 그룹 지정을 반영.
+  // force — 배송지를 그대로 둔 채 VIP 만 바꾸는 경로. 제출 시 이미 변경 여부를 확인했으므로
+  // 캐시 기준 재비교로 조용히 건너뛰지 않도록 비교를 생략한다.
+  const applyVipSlot = async (
+    addressId: number,
+    force = false
+  ): Promise<{ vipApplied: boolean; vipError: string | null }> => {
+    const target = addresses.find((a) => a.address_id === addressId);
+    // 신규 생성 주소는 목록에 없음 → VIP 전부 false 로 간주
+    if (!force && activeVipSlot(target, vipSlots) === selectedVipSlot) {
+      return { vipApplied: false, vipError: null };
+    }
+    try {
+      await addressesApi.updateAddress(addressId, buildVipPayload(selectedVipSlot));
+      return { vipApplied: true, vipError: null };
+    } catch (err) {
+      return { vipApplied: false, vipError: getErrorMessage(err) };
+    }
+  };
+
   const mutation = useMutation({
     mutationFn: async () => {
+      // 배송지는 그대로 두고 VIP 그룹만 바꾸는 경우 — 품목 배송지가 바뀌지 않으므로
+      // 배송지 변경 API 를 부르지 않는다 (무의미한 UPDATE 와 활동 로그를 남기지 않기 위함).
+      if (mode === "existing" && selectedAddressId === item.address_id) {
+        const { vipApplied, vipError } = await applyVipSlot(selectedAddressId, true);
+        return { res: null, vipApplied, vipError };
+      }
+
       const res =
         mode === "existing" && selectedAddressId
           ? await orderItemsApi.updateAddress(item.order_item_id, {
@@ -116,20 +149,40 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
       let vipApplied = false;
       let vipError: string | null = null;
       if (res.data.data?.can_change && changedAddressId) {
-        const target = addresses.find((a) => a.address_id === changedAddressId);
-        // 신규 생성 주소는 목록에 없음 → VIP 전부 false 로 간주
-        if (activeVipSlot(target, vipSlots) !== selectedVipSlot) {
-          try {
-            await addressesApi.updateAddress(changedAddressId, buildVipPayload(selectedVipSlot));
-            vipApplied = true;
-          } catch (err) {
-            vipError = getErrorMessage(err);
-          }
-        }
+        ({ vipApplied, vipError } = await applyVipSlot(changedAddressId));
       }
       return { res, vipApplied, vipError };
     },
     onSuccess: ({ res, vipApplied, vipError }) => {
+      // 배송지를 그대로 두고 VIP 만 바꾼 경우 — 변경 안내는 생략하고 VIP 결과만 알린다
+      if (!res) {
+        if (vipError) {
+          // 바뀐 것이 하나도 없다 — 선택을 유지한 채 열어 둬야 재입력 없이 다시 시도할 수 있다
+          toast.error("VIP 그룹 지정 실패", vipError);
+          return;
+        }
+        if (vipApplied) {
+          const slot = vipSlots.find((s) => s.slot_number === selectedVipSlot);
+          // VIP 그룹(Address.vipN)도 발송 그룹화 기준이라 이미 만들어진 발송 후보는 옛 그룹 그대로다.
+          // 게다가 VIP 변경은 탭(scope)을 넘나드는 이동이라 [발송 생성] 도 예전 탭 → 새 탭 순으로
+          // 두 번 필요하다 (자기 scope 의 PREPARING 만 지우고 다시 만들기 때문).
+          // 배송지 변경과 달리 이 경로는 백엔드 응답이 없어 PREPARING 여부를 알 수 없으므로
+          // 조건부 문구로 안내한다.
+          toast.success(
+            slot
+              ? `VIP 그룹 '${vipSlotLabel(slot)}'이 지정되었습니다.`
+              : "VIP 그룹이 해제되었습니다.",
+            "이미 발송 후보에 담긴 호가 있으면, 예전 그룹 탭을 먼저 [발송 생성]으로 다시 만든 뒤 새 그룹 탭도 다시 만들어주세요."
+          );
+          // 배송지 목록 캐시 두 벌 — 이 모달과 OrderDetailPanel 이 서로 다른 키를 쓴다
+          queryClient.invalidateQueries({ queryKey: ["customer-addresses"] });
+          queryClient.invalidateQueries({ queryKey: ["customerAddresses"] });
+        }
+        onSuccess();
+        handleClose();
+        return;
+      }
+
       const result = res.data.data;
       if (!result?.can_change) {
         toast.error(result?.message ?? "배송지를 변경할 수 없습니다.");
@@ -186,6 +239,19 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
     if (mode === "existing") {
       if (!selectedAddressId) {
         toast.error("변경할 배송지를 선택해주세요.");
+        return;
+      }
+      // VIP 그룹만 바꾸는 것도 정당한 조작이라 배송지가 같다고 무조건 막지 않는다.
+      if (
+        selectedAddressId === item.address_id &&
+        (!hasEnabledVipSlot || selectedVipSlot === currentVipSlot)
+      ) {
+        // VIP 슬롯이 하나도 활성화되지 않았으면 편집 UI 자체가 없다 — 없는 길을 안내하지 않는다
+        toast.error(
+          hasEnabledVipSlot
+            ? "현재 배송지와 동일합니다. 다른 배송지를 선택하거나 VIP 그룹을 변경해주세요."
+            : "현재 배송지와 동일합니다. 다른 배송지를 선택해주세요."
+        );
         return;
       }
       mutation.mutate();
@@ -259,7 +325,7 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
               addresses={addresses}
               selectedAddressId={selectedAddressId}
               onSelect={setSelectedAddressId}
-              currentAddressId={item.address?.address_id}
+              currentAddressId={item.address_id}
             />
           )}
 

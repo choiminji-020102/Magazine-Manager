@@ -195,7 +195,15 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
   });
 
   const hasEnabledVipSlot = vipSlots.some((s) => s.is_enabled);
-  const currentVipSlot = activeVipSlot(order?.address, vipSlots);
+  // 현재 배송지의 VIP — 목록에 있으면 목록을 우선한다.
+  // 목록 쿼리는 다이얼로그를 열 때마다 refetch 되지만 order.address 는 주문 상세 스냅샷이라,
+  // 다른 화면에서 VIP 를 바꾼 직후에는 목록 쪽이 더 신선하다.
+  // 라디오 기본값과 제출 가드가 반드시 같은 값을 보게 하는 것이 핵심 — 기준이 어긋나면
+  // 관리자가 아무것도 안 건드렸는데 가드를 통과해 옛 VIP 를 되돌려 쓰게 된다.
+  const currentAddressInList = customerAddresses?.data?.find(
+    (a) => a.address_id === order?.address_id
+  );
+  const currentVipSlot = activeVipSlot(currentAddressInList ?? order?.address, vipSlots);
 
   // 라디오 기본값 — 기존 배송지를 고르면 그 배송지의 실제 설정, 신규 입력이면 현재 배송지 설정을 승계.
   // 원시값(number|null)으로 좁혀 두는 이유 — 배열을 의존성에 두면 refetch 로 참조만 바뀌어도
@@ -268,9 +276,45 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     return map;
   }, [resendLogs]);
 
+  // 선택한 배송지에 VIP 그룹 지정을 반영.
+  // force — 배송지를 그대로 둔 채 VIP 만 바꾸는 경로. 제출 시 이미 변경 여부를 확인했으므로
+  // 캐시 기준 재비교로 조용히 건너뛰지 않도록 비교를 생략한다.
+  const applyVipSlot = async (
+    addressId: number,
+    force = false
+  ): Promise<{ vipApplied: boolean; vipError: string | null }> => {
+    const target = customerAddresses?.data?.find((a) => a.address_id === addressId);
+    // 신규 생성 주소는 목록에 없음 → VIP 전부 false 로 간주
+    if (!force && activeVipSlot(target, vipSlots) === selectedVipSlot) {
+      return { vipApplied: false, vipError: null };
+    }
+    try {
+      await addressesApi.updateAddress(addressId, buildVipPayload(selectedVipSlot));
+      return { vipApplied: true, vipError: null };
+    } catch (err) {
+      return { vipApplied: false, vipError: getErrorMessage(err) };
+    }
+  };
+
   // 배송지 변경 mutation
   const addressChangeMutation = useMutation({
     mutationFn: async () => {
+      // 배송지는 그대로 두고 VIP 그룹만 바꾸는 경우 — 품목 배송지가 하나도 안 바뀌므로
+      // 주문 수정 API 를 부르지 않는다 (무의미한 UPDATE 와 활동 로그를 남기지 않기 위함).
+      if (addressMode === "existing" && selectedAddressId === order?.address_id) {
+        const { vipApplied, vipError } = await applyVipSlot(selectedAddressId, true);
+        return {
+          vipOnly: true,
+          skippedItems: [] as OrderItemDetailResponse[],
+          activeItemCount: 0,
+          // VIP 그룹(Address.vipN)도 발송 그룹화 기준이라, 이미 만들어진 발송 후보는
+          // 옛 그룹 그대로 남는다 — 배송지를 바꿨을 때와 똑같이 재생성 안내가 필요하다.
+          hasPreparingSend: (order?.sends ?? []).some((s) => s.send_status === "PREPARING"),
+          vipApplied,
+          vipError,
+        };
+      }
+
       let addressId: number;
       if (addressMode === "existing") {
         addressId = selectedAddressId!;
@@ -333,19 +377,11 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
       let vipApplied = false;
       let vipError: string | null = null;
       if (skippedItems.length < beforeAddressByItemId.size) {
-        const target = customerAddresses?.data?.find((a) => a.address_id === addressId);
-        // 신규 생성 주소는 목록에 없음 → VIP 전부 false 로 간주
-        if (activeVipSlot(target, vipSlots) !== selectedVipSlot) {
-          try {
-            await addressesApi.updateAddress(addressId, buildVipPayload(selectedVipSlot));
-            vipApplied = true;
-          } catch (err) {
-            vipError = getErrorMessage(err);
-          }
-        }
+        ({ vipApplied, vipError } = await applyVipSlot(addressId));
       }
 
       return {
+        vipOnly: false,
         skippedItems,
         activeItemCount: beforeAddressByItemId.size,
         hasPreparingSend,
@@ -353,46 +389,70 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
         vipError,
       };
     },
-    onSuccess: ({ skippedItems, activeItemCount, hasPreparingSend, vipApplied, vipError }) => {
+    onSuccess: ({ vipOnly, skippedItems, activeItemCount, hasPreparingSend, vipApplied, vipError }) => {
       const allSkipped = skippedItems.length > 0 && skippedItems.length >= activeItemCount;
-      if (allSkipped) {
-        const names = skippedItems.map((i) => i.product_name).join(", ");
-        toast.warning(
-          "배송지가 변경되지 않았습니다.",
-          `선택한 품목(${names})이 모두 이미 발송 완료되어 기존 배송지가 유지됩니다.`
-        );
-      } else if (skippedItems.length > 0) {
-        const names = skippedItems.map((i) => i.product_name).join(", ");
-        toast.warning(
-          "배송지가 변경되었습니다.",
-          `이미 발송 완료된 ${skippedItems.length}건(${names})은 기존 배송지가 유지됩니다.`
-        );
-      } else {
-        toast.success("배송지가 변경되었습니다. (모든 품목 일괄 변경)");
+      // 배송지가 그대로인 VIP 전용 변경은 배송지 관련 안내를 통째로 생략한다
+      if (!vipOnly) {
+        if (allSkipped) {
+          const names = skippedItems.map((i) => i.product_name).join(", ");
+          toast.warning(
+            "배송지가 변경되지 않았습니다.",
+            `선택한 품목(${names})이 모두 이미 발송 완료되어 기존 배송지가 유지됩니다.`
+          );
+        } else if (skippedItems.length > 0) {
+          const names = skippedItems.map((i) => i.product_name).join(", ");
+          toast.warning(
+            "배송지가 변경되었습니다.",
+            `이미 발송 완료된 ${skippedItems.length}건(${names})은 기존 배송지가 유지됩니다.`
+          );
+        } else {
+          toast.success("배송지가 변경되었습니다. (모든 품목 일괄 변경)");
+        }
+        // 발송 후보에 이미 담긴 건은 예전 주소 그대로 — 재생성해야 반영된다
+        if (!allSkipped && hasPreparingSend) {
+          toast.warning(
+            "발송 후보를 다시 만들어주세요",
+            "이 주문은 이미 발송 후보에 담겨 있어 예전 주소 그대로입니다. " +
+              "발송 후보 화면에서 [발송 생성]을 다시 누르지 않으면 예전 주소로 배송됩니다."
+          );
+        }
       }
-      // 발송 후보에 이미 담긴 건은 예전 주소 그대로 — 재생성해야 반영된다
-      if (!allSkipped && hasPreparingSend) {
-        toast.warning(
-          "발송 후보를 다시 만들어주세요",
-          "이 주문은 이미 발송 후보에 담겨 있어 예전 주소 그대로입니다. " +
-            "발송 후보 화면에서 [발송 생성]을 다시 누르지 않으면 예전 주소로 배송됩니다."
-        );
+      if (vipError && vipOnly) {
+        // 바뀐 것이 하나도 없다 — 선택을 유지한 채 열어 둬야 재입력 없이 다시 시도할 수 있다
+        toast.error("VIP 그룹 지정 실패", vipError);
+        return;
       }
       if (vipError) {
         toast.error("VIP 그룹 지정 실패", `배송지는 변경되었습니다. ${vipError}`);
       } else if (vipApplied) {
         const slot = vipSlots.find((s) => s.slot_number === selectedVipSlot);
+        const target = vipOnly ? "" : "새 배송지";
         toast.success(
           slot
-            ? `VIP 그룹 '${vipSlotLabel(slot)}'이 새 배송지에 지정되었습니다.`
-            : "새 배송지의 VIP 그룹이 해제되었습니다."
+            ? `VIP 그룹 '${vipSlotLabel(slot)}'이 ${target ? `${target}에 ` : ""}지정되었습니다.`
+            : `${target ? `${target}의 ` : ""}VIP 그룹이 해제되었습니다.`
         );
+        // VIP 만 바꾼 경로는 위 배송지 안내가 통째로 생략되므로 여기서 따로 알린다.
+        // 배송지 변경과 달리 VIP 변경은 탭(scope)을 넘나드는 이동이라 재생성도 두 번 필요하다 —
+        // [발송 생성] 은 자기 scope 의 PREPARING 만 지우고 다시 만들기 때문에(dispatches.py),
+        // 예전 탭을 먼저 비우지 않으면 그 품목이 활성 SendItem 을 가진 채로 남아
+        // 새 탭의 후보에서 제외된다.
+        if (vipOnly && hasPreparingSend) {
+          toast.warning(
+            "발송 후보를 다시 만들어주세요",
+            "VIP 그룹이 바뀌면 발송 묶음도 바뀝니다. 이미 발송 후보에 담긴 호는 예전 그룹에 남아 있으니, " +
+              "발송 후보 화면에서 예전 그룹 탭을 먼저 [발송 생성]으로 다시 만든 뒤 새 그룹 탭도 다시 만들어주세요."
+          );
+        }
       }
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       if (vipApplied) {
         // 배송지 목록 캐시 두 벌 — 이 패널과 AddressChangeModal 이 서로 다른 키를 쓴다
         queryClient.invalidateQueries({ queryKey: ["customerAddresses"] });
         queryClient.invalidateQueries({ queryKey: ["customer-addresses"] });
+        // 상세 화면의 '현재 배송지' VIP 표기도 갱신 — 배송지 변경 경로는 위에서
+        // fetchQuery 로 이미 최신화되지만 VIP 만 바꾼 경로는 여기서만 갱신된다.
+        queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       }
       handleAddressClose();
     },
@@ -416,7 +476,18 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
         return;
       }
       if (selectedAddressId === order?.address_id) {
-        toast.error("현재 배송지와 동일합니다. 다른 배송지를 선택해주세요.");
+        // VIP 그룹만 바꾸는 것도 정당한 조작이라 배송지가 같다고 무조건 막지 않는다.
+        if (!hasEnabledVipSlot || selectedVipSlot === currentVipSlot) {
+          // VIP 슬롯이 하나도 활성화되지 않았으면 편집 UI 자체가 없다 — 없는 길을 안내하지 않는다
+          toast.error(
+            hasEnabledVipSlot
+              ? "현재 배송지와 동일합니다. 다른 배송지를 선택하거나 VIP 그룹을 변경해주세요."
+              : "현재 배송지와 동일합니다. 다른 배송지를 선택해주세요."
+          );
+          return;
+        }
+        // 품목 배송지는 그대로이므로 일괄 변경 경고 없이 VIP 만 적용한다
+        addressChangeMutation.mutate();
         return;
       }
       setAddressConfirmOpen(true);
