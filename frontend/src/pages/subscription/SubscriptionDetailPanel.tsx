@@ -477,15 +477,12 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
                     </div>
                   </div>
 
-                  {/* 무엇이 나갔는가 — flex-1 min-w-0 이 있어야 폭이 제한돼 truncate 가 동작 */}
-                  <div className="flex items-baseline text-xs mt-0.5">
-                    <span
-                      className="text-gray-700 truncate flex-1 min-w-0"
-                      title={row.product_name}
-                    >
-                      {row.product_name}
-                    </span>
-                  </div>
+                  {/* 상품명은 일부러 넣지 않는다 (응답 스키마에서도 뺐다).
+                      한 품목의 발송은 전부 같은 Product 를 스냅샷하므로 행마다 같은 값이 반복되고,
+                      그 값은 이 패널 헤더·[상품] 섹션에 이미 떠 있다.
+                      게다가 이름이 '정기구독 - 26년 8월호 시작 …' 형태라 구독 시작 호를 품고 있어
+                      바로 위의 발송 호와 나란히 놓이면 서로 다른 두 호처럼 읽힌다.
+                      주문 상세의 발송 내역도 상품명을 표시하지 않는다. */}
 
                   {/* 상세 — 라벨을 붙여 값의 뜻을 명시 (list-card InfoRow 공용) */}
                   <div className="mt-2 pt-2 border-t border-gray-200 space-y-1 text-xs">

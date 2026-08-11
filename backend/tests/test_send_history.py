@@ -45,15 +45,14 @@ def _make_send(db, *, status="DELIVERED", admin_memo=None, customer_memo=None,
 
 
 def _make_send_item(db, order_item_id, issue, *, send=None, send_id=None,
-                    product_name="말씀함께 [기본판]", admin_memo=None, send_num=1,
-                    cancelled_at=None):
+                    admin_memo=None, send_num=1, cancelled_at=None):
     """send=None 이고 send_id 만 주면 미아(orphan) SendItem 을 만든다."""
     item = SendItem(
         send_item_id=next(_pk),
         send_id=send.send_id if send is not None else send_id,
         order_item_id=order_item_id,
         product_code=f"W0+{issue}",
-        product_name=product_name,
+        product_name="말씀함께 [기본판]",  # NOT NULL 이라 채우지만 응답엔 안 나간다
         issue=issue,
         send_num=send_num,
         cost_price=0,
@@ -77,14 +76,30 @@ def test_other_order_item_sends_are_not_mixed_in(db):
     """같은 주문의 다른 품목 발송이 섞이지 않는다 (핵심 회귀)."""
     mine = _make_send(db)
     theirs = _make_send(db)
-    _make_send_item(db, TARGET, "202604", send=mine, product_name="내 책")
-    _make_send_item(db, OTHER, "202604", send=theirs, product_name="남의 책")
+    _make_send_item(db, TARGET, "202604", send=mine)
+    _make_send_item(db, OTHER, "202604", send=theirs)
     db.commit()
 
     rows = send_service.get_send_history_by_order_item(db, TARGET)
 
-    assert [r.product_name for r in rows] == ["내 책"]
-    assert theirs.send_id not in [r.send_id for r in rows]
+    # 같은 호(202604) 라 issue 로는 구분이 안 된다 — 소속 Send 로 판정한다
+    assert [r.send_id for r in rows] == [mine.send_id]
+
+
+def test_shared_box_returns_only_my_item(db):
+    """한 박스에 두 품목이 함께 들어도 내 품목만 반환한다.
+
+    MONTHLY·VIP 는 (우편번호, 주소) 로 묶여 1 Send : N SendItem 이 된다.
+    이땐 send_id 가 같아 위 테스트의 판정 기준으로는 못 걸러지므로 별도로 확인한다.
+    """
+    shared = _make_send(db)
+    mine = _make_send_item(db, TARGET, "202604", send=shared)
+    _make_send_item(db, OTHER, "202604", send=shared)
+    db.commit()
+
+    rows = send_service.get_send_history_by_order_item(db, TARGET)
+
+    assert [r.send_item_id for r in rows] == [mine.send_item_id]
 
 
 def test_ordered_by_issue_desc(db):
@@ -112,16 +127,15 @@ def test_admin_memo_sources_are_not_swapped(db):
 
 
 def test_send_item_fields_come_from_send_item(db):
-    """상품명·호·부수는 Send 가 아니라 SendItem 스냅샷에서 온다."""
+    """호·부수는 Send 가 아니라 SendItem 스냅샷에서 온다."""
     send = _make_send(db, tracking_no="1111", send_method="기출유택배",
                       courier_company="CJ대한통운")
-    _make_send_item(db, TARGET, "202604", send=send,
-                    product_name="어린이 말씀함께", send_num=2)
+    _make_send_item(db, TARGET, "202604", send=send, send_num=2)
     db.commit()
 
     row = send_service.get_send_history_by_order_item(db, TARGET)[0]
 
-    assert (row.product_name, row.issue, row.send_num) == ("어린이 말씀함께", "202604", 2)
+    assert (row.issue, row.send_num) == ("202604", 2)
     assert (row.tracking_no, row.send_method, row.courier_company) == (
         "1111", "기출유택배", "CJ대한통운")
 

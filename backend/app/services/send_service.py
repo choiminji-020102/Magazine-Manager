@@ -669,7 +669,6 @@ def _to_order_item_send_response(send_item: SendItem) -> OrderItemSendResponse:
         send_status=send.send_status,
         send_method=send.send_method,
         courier_company=send.courier_company,
-        product_name=send_item.product_name,
         issue=send_item.issue,
         tracking_no=send.tracking_no,
         recipient_name=send.recipient_name,

@@ -183,8 +183,11 @@ class SendDetailResponse(SendResponse):
 class OrderItemSendResponse(BaseModel):
     """주문 품목 하나의 발송 내역 1건 (SendItem + 소속 Send 요약).
 
-    SendItem 기준이라 어느 호(issue)에 무엇이 나갔는지가 행마다 드러난다.
+    SendItem 기준이라 어느 호(issue)가 어디로 나갔는지가 행마다 드러난다.
     uq_send_items_order_item_issue 제약 덕에 (품목, 호) 당 1건 — 행 = 발송 내역 1건.
+
+    상품명은 일부러 뺐다 — 한 품목의 발송은 전부 같은 Product 를 스냅샷하므로
+    행마다 같은 값이 반복될 뿐이고, 호출부가 이미 OrderItem.product_name 을 들고 있다.
 
     admin_memo 는 SendItem/Send 양쪽에 존재하므로 item_/send_ 접두어로 구분한다.
     두 테이블을 flat 하게 합치므로 from_attributes 자동 매핑이 불가 —
@@ -195,7 +198,6 @@ class OrderItemSendResponse(BaseModel):
     send_status: str
     send_method: Optional[str] = None
     courier_company: Optional[str] = None
-    product_name: str
     issue: str
     tracking_no: Optional[str] = None
     recipient_name: str

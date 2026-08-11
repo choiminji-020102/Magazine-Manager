@@ -86,7 +86,6 @@ export interface OrderItemSendResponse {
   send_status: SendStatus;
   send_method?: SendMethod | null;
   courier_company?: CourierCompany | null;
-  product_name: string;
   issue: string;
   tracking_no?: string | null;
   recipient_name: string;
