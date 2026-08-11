@@ -927,11 +927,31 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
           <TabsContent value="sends" className="m-0 p-4 space-y-3">
             {order.sends?.map((send) => (
               <div key={send.send_id} className="border border-gray-100 rounded-lg overflow-hidden">
-                <div className="flex items-center justify-between px-3.5 py-2 bg-gray-50 border-b border-gray-100">
-                  <div className="flex items-center gap-2">
+                {/* 헤더 — 발송상태 + 시각. 구독 상세 발송 내역 카드와 동일 규격
+                    (아이콘 h-3.5 gray-400 + text-xs, 박스 없음).
+                    구독 상세엔 호·권수가 더 있지만 여기는 못 쓴다 — 이 목록은 SendResponse 라
+                    items 가 없어(박스에 어떤 품목이 들었는지 모름) 호·권수를 낼 근거가 없다.
+                    send_id 도 일부러 안 쓴다 — 내부 PK 라 관리자가 읽을 값이 아니고,
+                    이 탭은 이미 '이 주문의 발송' 이라는 맥락이 있어 박스 번호가 필요 없다.
+                    박스를 특정해야 하는 자리(발송 목록 카드·삭제 확인 모달)에서만 노출한다. */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3.5 py-2 bg-gray-50 border-b border-gray-100 text-xs text-gray-900">
+                  {/* 해외 발송 배지 — 카드 계열(PreparingSendCard 등)과 동일 규격.
+                      취급이 다른 예외 건이라 구독 상세와 마찬가지로 헤더 맨 앞에 둔다. */}
+                  {send.country_code !== "KR" && (
+                    <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-semibold">
+                      🌐 {send.country_code}
+                    </span>
+                  )}
+                  {/* 시각을 본문 줄이 아니라 여기 두는 이유 — 본문에 '발송 완료' 라벨로 두면
+                      상태 배지와 같은 문구가 한 카드에 두 번 나온다.
+                      발송 전(PREPARING)엔 delivered_at 이 없어 박스가 잡힌 시각을 쓴다. */}
+                  <span className="inline-flex items-center gap-1.5">
+                    <Truck className="h-3.5 w-3.5 text-gray-400" />
                     <StatusBadge type="send_status" value={send.send_status} />
-                    <span className="text-xs text-gray-400 font-mono">#{send.send_id}</span>
-                  </div>
+                    <span className="text-gray-500">
+                      {formatDateTime(send.delivered_at ?? send.created_at)}
+                    </span>
+                  </span>
                 </div>
                 <div className="px-3.5 py-3 space-y-2">
                   {/* 함께 묶인 주문 (자기 주문 제외) */}
@@ -949,6 +969,21 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                         </span>
                       </div>
                     ))}
+                  {/* 발송 수단 3종을 한 줄로 — 구독 상세 발송 내역과 동일한 표기·순서.
+                      값 가공 없이 그대로 노출한다 (없으면 "-"). */}
+                  <div className="flex items-start gap-3">
+                    <span className="text-xs text-gray-400 w-24 flex-shrink-0">발송</span>
+                    <span className="text-xs text-gray-700">
+                      {send.send_method ?? "-"} · {send.courier_company ?? "-"} ·{" "}
+                      {/* font-mono 는 값이 있을 때만 — 숫자 자릿수를 맞춰 읽기 쉬우라고 쓰는 것이라
+                          빈 값 '-' 에까지 씌우면 모노스페이스 고정폭 때문에 하이픈만 길어 보인다. */}
+                      {send.tracking_no ? (
+                        <span className="font-mono">{send.tracking_no}</span>
+                      ) : (
+                        "-"
+                      )}
+                    </span>
+                  </div>
                   {/* 수령인 정보 */}
                   <div className="flex items-start gap-3">
                     <span className="text-xs text-gray-400 w-24 flex-shrink-0">수령인</span>
@@ -973,28 +1008,6 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                     <div className="flex items-start gap-3">
                       <span className="text-xs text-gray-400 w-24 flex-shrink-0">발송 메모</span>
                       <span className="text-xs text-gray-700">{send.admin_memo}</span>
-                    </div>
-                  )}
-                  {/* 발송 수단 3종을 한 줄로 — 구독 상세 발송 내역과 동일한 표기.
-                      값 가공 없이 그대로 노출한다 (없으면 "-"). */}
-                  <div className="flex items-start gap-3">
-                    <span className="text-xs text-gray-400 w-24 flex-shrink-0">발송</span>
-                    <span className="text-xs text-gray-700">
-                      {send.send_method ?? "-"} · {send.courier_company ?? "-"} ·{" "}
-                      {/* font-mono 는 값이 있을 때만 — 숫자 자릿수를 맞춰 읽기 쉬우라고 쓰는 것이라
-                          빈 값 '-' 에까지 씌우면 모노스페이스 고정폭 때문에 하이픈만 길어 보인다. */}
-                      {send.tracking_no ? (
-                        <span className="font-mono">{send.tracking_no}</span>
-                      ) : (
-                        "-"
-                      )}
-                    </span>
-                  </div>
-                  {/* 타임스탬프 */}
-                  {send.delivered_at && (
-                    <div className="flex items-start gap-3">
-                      <span className="text-xs text-gray-400 w-24 flex-shrink-0">발송 완료</span>
-                      <span className="text-xs text-gray-700">{formatDateTime(send.delivered_at)}</span>
                     </div>
                   )}
                   {/* 재배송 내역 */}
