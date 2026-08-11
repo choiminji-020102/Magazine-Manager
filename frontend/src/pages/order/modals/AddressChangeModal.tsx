@@ -117,6 +117,16 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
     }
   };
 
+  // VIP 는 Address 단위 설정이라 이 배송지를 참조하는 목록의 VIP 배지가 모두 낡는다.
+  // 배송지 목록 캐시가 두 벌인 이유 — 이 모달과 OrderDetailPanel 이 서로 다른 키를 쓴다.
+  const invalidateVipCaches = () => {
+    queryClient.invalidateQueries({ queryKey: ["customer-addresses"] });
+    queryClient.invalidateQueries({ queryKey: ["customerAddresses"] });
+    queryClient.invalidateQueries({ queryKey: ["orders"] });
+    queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+    queryClient.invalidateQueries({ queryKey: ["customers"] });
+  };
+
   const mutation = useMutation({
     mutationFn: async () => {
       // 배송지는 그대로 두고 VIP 그룹만 바꾸는 경우 — 품목 배송지가 바뀌지 않으므로
@@ -174,9 +184,7 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
               : "VIP 그룹이 해제되었습니다.",
             "이미 발송 후보에 담긴 호가 있으면, 예전 그룹 탭을 먼저 [발송 생성]으로 다시 만든 뒤 새 그룹 탭도 다시 만들어주세요."
           );
-          // 배송지 목록 캐시 두 벌 — 이 모달과 OrderDetailPanel 이 서로 다른 키를 쓴다
-          queryClient.invalidateQueries({ queryKey: ["customer-addresses"] });
-          queryClient.invalidateQueries({ queryKey: ["customerAddresses"] });
+          invalidateVipCaches();
         }
         onSuccess();
         handleClose();
@@ -216,9 +224,7 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
         );
       }
       if (vipApplied) {
-        // 배송지 목록 캐시 두 벌 — 이 모달과 OrderDetailPanel 이 서로 다른 키를 쓴다
-        queryClient.invalidateQueries({ queryKey: ["customer-addresses"] });
-        queryClient.invalidateQueries({ queryKey: ["customerAddresses"] });
+        invalidateVipCaches();
       }
       onSuccess();
       handleClose();
