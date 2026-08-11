@@ -378,42 +378,43 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
                 <InfoRow label="관리자 메모" value={customer.admin_memo || "-"} />
               )}
             </Section>
-            {/* 배송지 섹션 — 조회·관리 전용(VIP 슬롯 지정 / 관리자 메모 / 삭제).
-                배송지 생성은 실제로 쓰이는 자리(주문 등록·배송지 변경)에서만 한다. */}
-            <div className="border border-gray-100 rounded-lg overflow-hidden">
-              <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  배송지
+            {/* 조회·관리 전용(VIP 슬롯 지정 / 관리자 메모 / 삭제).
+                배송지 생성은 실제로 쓰이는 자리(주문 등록·배송지 변경)에서만 한다.
+                '등록된' 을 붙인 이유 — 배송지는 불변 필드라 주소를 바꾸면 레코드가 새로 생긴다.
+                즉 이 목록은 '지금 보낼 곳'이 아니라 '등록됐던 주소 전부'다 (2개 이상인 고객 107명). */}
+            <Section
+              title={
+                <>
+                  등록된 배송지
                   {customer.addresses?.length ? (
                     <span className="ml-1 font-normal normal-case text-gray-400">({customer.addresses.length})</span>
                   ) : null}
-                </h3>
-              </div>
-              <div className="px-3.5 py-3 space-y-2.5">
-                {customer.addresses?.length ? (
-                  customer.addresses.map((address) => (
-                    <AddressCard
-                      key={address.address_id}
-                      address={address}
-                      vipSlots={vipSlots}
-                      onDelete={() => setDeleteAddressId(address.address_id)}
-                      onUpdateMemo={(memo) =>
-                        updateAddressMemoMutation.mutate({ addressId: address.address_id, memo })
-                      }
-                      onChangeVip={(slotNumber) =>
-                        updateAddressVipMutation.mutate({
-                          addressId: address.address_id,
-                          slotNumber,
-                        })
-                      }
-                      vipDisabled={updateAddressVipMutation.isPending}
-                    />
-                  ))
-                ) : (
-                  <p className="text-sm text-gray-400 text-center py-4">등록된 배송지가 없습니다.</p>
-                )}
-              </div>
-            </div>
+                </>
+              }
+            >
+              {customer.addresses?.length ? (
+                customer.addresses.map((address) => (
+                  <AddressCard
+                    key={address.address_id}
+                    address={address}
+                    vipSlots={vipSlots}
+                    onDelete={() => setDeleteAddressId(address.address_id)}
+                    onUpdateMemo={(memo) =>
+                      updateAddressMemoMutation.mutate({ addressId: address.address_id, memo })
+                    }
+                    onChangeVip={(slotNumber) =>
+                      updateAddressVipMutation.mutate({
+                        addressId: address.address_id,
+                        slotNumber,
+                      })
+                    }
+                    vipDisabled={updateAddressVipMutation.isPending}
+                  />
+                ))
+              ) : (
+                <p className="text-sm text-gray-400 text-center py-4">등록된 배송지가 없습니다.</p>
+              )}
+            </Section>
             <Section title="시스템">
               <InfoRow label="등록일" value={formatDate(customer.created_at)} />
               <InfoRow label="수정일" value={formatDate(customer.updated_at)} />
@@ -529,7 +530,8 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
 }
 
 // 섹션 컴포넌트
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+// title 이 ReactNode 인 이유 — 배송지 섹션이 제목 옆에 개수 배지를 단다.
+function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="border border-gray-100 rounded-lg overflow-hidden">
       <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100">
