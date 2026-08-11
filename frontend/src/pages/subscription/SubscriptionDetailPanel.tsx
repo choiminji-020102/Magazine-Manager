@@ -10,6 +10,8 @@ import {
   Trash2,
   Pencil,
   PauseCircle,
+  BookOpen,
+  Truck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -453,28 +455,43 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
           ) : (
             <div className="space-y-2">
               {sendHistory.map((row) => (
+                /* 껍질은 gray-50 단색 — 주문 상세 카드처럼 '흰 배경 + gray-100 테두리 +
+                   gray-50 헤더 띠' 로 만들면 안 된다. 그건 Section 이 이미 쓰는 구조라
+                   테두리 안에 같은 테두리, 회색 띠 안에 회색 띠가 되어 경계가 사라진다.
+                   주문 상세는 TabsContent 에 카드를 바로 놓아 감싸는 껍질이 없는 경우다. */
                 <div
                   key={row.send_item_id}
                   className="bg-gray-50 rounded-md px-3 py-2.5"
                 >
-                  {/* 헤더 — 호(가장 강한 위계) + 권수 + 상태.
-                      권수 배지는 StatusBadge 와 같은 규격(px-1.5 py-0.5 text-[11px])으로 맞춤 */}
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-gray-800">
+                  {/* 헤더 — 호 + 핵심 지표(권수·발송상태).
+                      지표 표기는 주문 상세 [품목] 탭의 품목 카드와 동일 규격 —
+                      아이콘(h-3.5 gray-400) + text-xs, 박스 없음.
+                      호만 font-semibold 로 올려 카드 제목 역할을 준다. */}
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-gray-900">
+                    <span className="inline-flex items-center gap-1.5 font-semibold">
                       {formatIssue(row.issue)}
-                    </span>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {/* 해외 발송 배지 — 카드 계열(PreparingSendCard 등)과 동일하게 헤더에 표기 */}
+                      {/* 해외 발송 배지 — 카드 계열(PreparingSendCard 등)과 동일 규격 */}
                       {row.country_code !== "KR" && (
                         <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-semibold">
                           🌐 {row.country_code}
                         </span>
                       )}
-                      <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium bg-gray-200 text-gray-600">
-                        {row.send_num}권
-                      </span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <BookOpen className="h-3.5 w-3.5 text-gray-400" />
+                      {row.send_num}권
+                    </span>
+                    {/* 시각을 본문 줄이 아니라 여기 두는 이유 — 본문에 '발송 완료' 라벨로 두면
+                        상태 배지와 같은 문구가 한 카드에 두 번 나온다.
+                        발송 전(PREPARING)엔 delivered_at 이 없어 후보로 잡힌 시각을 쓴다.
+                        무슨 시각인지는 바로 옆 상태 배지가 말해주므로 따로 표시하지 않는다. */}
+                    <span className="inline-flex items-center gap-1.5">
+                      <Truck className="h-3.5 w-3.5 text-gray-400" />
                       <StatusBadge type="send_status" value={row.send_status} />
-                    </div>
+                      <span className="text-gray-500">
+                        {formatDateTime(row.delivered_at ?? row.created_at)}
+                      </span>
+                    </span>
                   </div>
 
                   {/* 상품명은 일부러 넣지 않는다 (응답 스키마에서도 뺐다).
@@ -526,20 +543,6 @@ export default function SubscriptionDetailPanel({ item, onClose }: Props) {
                     <SendMemoRow label="배송 요청사항" value={row.customer_memo} />
                     <SendMemoRow label="품목 메모" value={row.item_admin_memo} />
                     <SendMemoRow label="발송 메모" value={row.send_admin_memo} />
-                    {/* 라벨·포맷은 다른 발송 화면과 동일하게 — '발송 완료' + 날짜+시간.
-                        발송 전(PREPARING)에는 delivered_at 이 없어 시각 정보가 사라지므로
-                        그때만 후보로 잡힌 시각(Send.created_at)을 대신 보여준다. */}
-                    {row.delivered_at ? (
-                      <CardInfoRow
-                        label="발송 완료"
-                        value={formatDateTime(row.delivered_at)}
-                      />
-                    ) : (
-                      <CardInfoRow
-                        label="후보 생성"
-                        value={formatDateTime(row.created_at)}
-                      />
-                    )}
                   </div>
                 </div>
               ))}
