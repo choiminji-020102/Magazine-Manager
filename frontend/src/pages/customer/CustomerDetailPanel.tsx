@@ -5,7 +5,6 @@ import { X, Plus, Edit2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -17,7 +16,6 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { SlidingPanel } from "@/components/common/SlidingPanel";
-import { AddressSearchField } from "@/components/common/AddressSearchField";
 import OrderDetailPanel from "@/pages/order/OrderDetailPanel";
 import { customersApi } from "@/api/customersApi";
 import { ordersApi } from "@/api/ordersApi";
@@ -33,16 +31,6 @@ import type { AddressResponse } from "@/types/address";
 import type { VipSlotResponse } from "@/types/vipSlot";
 import type { OrderResponse } from "@/types/order";
 import type { InquiryResponse } from "@/types/inquiry";
-
-const EMPTY_ADDRESS_FORM = {
-  recipient_name: "",
-  recipient_phone: "",
-  country_code: "KR",
-  postal_code: "",
-  recipient_address: "",
-  customer_memo: "",
-  admin_memo: "",
-};
 
 interface CustomerDetailPanelProps {
   customerId: number;
@@ -63,8 +51,6 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
     create_channel: "OFFLINE" as string,
     admin_memo: "",
   });
-  const [addAddressMode, setAddAddressMode] = useState(false);
-  const [addressForm, setAddressForm] = useState(EMPTY_ADDRESS_FORM);
   const [deleteAddressId, setDeleteAddressId] = useState<number | null>(null);
 
   const { data: res, isLoading } = useQuery({
@@ -146,27 +132,6 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       setDeleteConfirm(false);
       if (!customer?.is_deleted) onClose();
-    },
-    onError: (err) => toast.error(getErrorMessage(err)),
-  });
-
-  const createAddressMutation = useMutation({
-    mutationFn: () =>
-      addressesApi.createAddress({
-        customer_id: customerId,
-        recipient_name: addressForm.recipient_name,
-        recipient_phone: addressForm.recipient_phone,
-        country_code: addressForm.country_code,
-        postal_code: addressForm.postal_code,
-        recipient_address: addressForm.recipient_address,
-        customer_memo: addressForm.customer_memo || null,
-        admin_memo: addressForm.admin_memo || null,
-      }),
-    onSuccess: () => {
-      toast.success("배송지가 추가되었습니다.");
-      queryClient.invalidateQueries({ queryKey: ["customer", customerId] });
-      setAddAddressMode(false);
-      setAddressForm(EMPTY_ADDRESS_FORM);
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });
@@ -413,164 +378,18 @@ export default function CustomerDetailPanel({ customerId, onClose }: CustomerDet
                 <InfoRow label="관리자 메모" value={customer.admin_memo || "-"} />
               )}
             </Section>
-            {/* 배송지 섹션 */}
+            {/* 배송지 섹션 — 조회·관리 전용(VIP 슬롯 지정 / 관리자 메모 / 삭제).
+                배송지 생성은 실제로 쓰이는 자리(주문 등록·배송지 변경)에서만 한다. */}
             <div className="border border-gray-100 rounded-lg overflow-hidden">
-              <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+              <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100">
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   배송지
                   {customer.addresses?.length ? (
                     <span className="ml-1 font-normal normal-case text-gray-400">({customer.addresses.length})</span>
                   ) : null}
                 </h3>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-6 text-xs px-2 gap-1"
-                  onClick={() => setAddAddressMode((v) => !v)}
-                >
-                  <Plus className="h-3 w-3" />
-                  {addAddressMode ? "취소" : "배송지 추가"}
-                </Button>
               </div>
               <div className="px-3.5 py-3 space-y-2.5">
-                {addAddressMode && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3.5 space-y-2.5">
-                    <div className="text-xs font-semibold text-blue-700">새 배송지</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-xs text-gray-600">수령인 <span className="text-red-500">*</span></Label>
-                        <Input
-                          className="mt-1 h-8 text-sm"
-                          placeholder="홍길동"
-                          value={addressForm.recipient_name}
-                          onChange={(e) => setAddressForm((f) => ({ ...f, recipient_name: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-gray-600">연락처 <span className="text-red-500">*</span></Label>
-                        <Input
-                          className="mt-1 h-8 text-sm font-mono"
-                          placeholder="010-0000-0000"
-                          value={addressForm.recipient_phone}
-                          onChange={(e) => setAddressForm((f) => ({ ...f, recipient_phone: formatPhoneInput(e.target.value) }))}
-                        />
-                      </div>
-                    </div>
-                    {/* 국내 / 해외 토글 */}
-                    <div className="flex gap-1">
-                      {(["KR", "해외"] as const).map((opt) => {
-                        const isKr = opt === "KR";
-                        const selected = isKr ? addressForm.country_code === "KR" : addressForm.country_code !== "KR";
-                        return (
-                          <button
-                            key={opt}
-                            type="button"
-                            onClick={() =>
-                              setAddressForm((f) => ({
-                                ...f,
-                                country_code: isKr ? "KR" : "",
-                                postal_code: "",
-                                recipient_address: "",
-                              }))
-                            }
-                            className={`px-3 py-1 text-xs rounded border transition-colors ${
-                              selected
-                                ? "bg-blue-600 text-white border-blue-600"
-                                : "bg-white text-gray-500 border-gray-300 hover:border-gray-400"
-                            }`}
-                          >
-                            {opt === "KR" ? "국내" : "해외"}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {addressForm.country_code === "KR" ? (
-                      <AddressSearchField
-                        postalCode={addressForm.postal_code}
-                        address={addressForm.recipient_address}
-                        onChange={(postal_code, recipient_address) =>
-                          setAddressForm((f) => ({ ...f, postal_code, recipient_address }))
-                        }
-                        required
-                      />
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="w-40">
-                          <Label className="text-xs text-gray-600">국가 <span className="text-red-500 ml-0.5">*</span></Label>
-                          <Select
-                            value={addressForm.country_code}
-                            onValueChange={(v) => setAddressForm((f) => ({ ...f, country_code: v }))}
-                          >
-                            <SelectTrigger className="mt-1 h-8 text-sm">
-                              <SelectValue placeholder="국가 선택" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="SG">싱가포르 (SG)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="flex gap-2">
-                          <div className="w-28">
-                            <Label className="text-xs text-gray-600">우편번호 <span className="text-red-500 ml-0.5">*</span></Label>
-                            <Input
-                              className="mt-1 h-8 text-sm font-mono"
-                              placeholder="12345"
-                              value={addressForm.postal_code}
-                              onChange={(e) => setAddressForm((f) => ({ ...f, postal_code: e.target.value }))}
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <Label className="text-xs text-gray-600">주소 <span className="text-red-500 ml-0.5">*</span></Label>
-                            <Input
-                              className="mt-1 h-8 text-sm"
-                              placeholder="123 Main St, City"
-                              value={addressForm.recipient_address}
-                              onChange={(e) => setAddressForm((f) => ({ ...f, recipient_address: e.target.value }))}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    <div>
-                      <Label className="text-xs text-gray-600">배송 요청사항</Label>
-                      <Input
-                        className="mt-1 h-8 text-sm"
-                        placeholder="문 앞에 놔주세요 (선택)"
-                        value={addressForm.customer_memo}
-                        onChange={(e) => setAddressForm((f) => ({ ...f, customer_memo: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs text-gray-600">관리자 메모</Label>
-                      <Input
-                        className="mt-1 h-8 text-sm"
-                        placeholder="(선택)"
-                        value={addressForm.admin_memo}
-                        onChange={(e) => setAddressForm((f) => ({ ...f, admin_memo: e.target.value }))}
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => createAddressMutation.mutate()}
-                        disabled={
-                          !addressForm.recipient_name ||
-                          !addressForm.recipient_phone ||
-                          !addressForm.country_code ||
-                          !addressForm.postal_code ||
-                          !addressForm.recipient_address ||
-                          createAddressMutation.isPending
-                        }
-                      >
-                        {createAddressMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-                        저장
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => { setAddAddressMode(false); setAddressForm(EMPTY_ADDRESS_FORM); }}>
-                        취소
-                      </Button>
-                    </div>
-                  </div>
-                )}
                 {customer.addresses?.length ? (
                   customer.addresses.map((address) => (
                     <AddressCard
