@@ -392,7 +392,13 @@ function TrackingSection({ send, onSuccess }: TrackingSectionProps) {
         <Row label="배송 방법">{send.send_method ?? "-"}</Row>
         <Row label="운송사">{send.courier_company ?? "-"}</Row>
         <Row label="송장 번호">
-          <span className="font-mono">{send.tracking_no ?? "-"}</span>
+          {/* font-mono 는 값이 있을 때만 — 숫자 자릿수를 맞춰 읽기 쉬우라고 쓰는 것이라
+              빈 값 '-' 에까지 씌우면 모노스페이스 고정폭 때문에 하이픈만 길어 보인다. */}
+          {send.tracking_no ? (
+            <span className="font-mono">{send.tracking_no}</span>
+          ) : (
+            "-"
+          )}
         </Row>
         {send.send_status === "DELIVERED" && !editing && (
           <div className="pt-1">

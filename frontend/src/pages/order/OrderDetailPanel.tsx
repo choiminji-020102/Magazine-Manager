@@ -981,7 +981,13 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                     <span className="text-xs text-gray-400 w-24 flex-shrink-0">발송</span>
                     <span className="text-xs text-gray-700">
                       {send.send_method ?? "-"} · {send.courier_company ?? "-"} ·{" "}
-                      <span className="font-mono">{send.tracking_no ?? "-"}</span>
+                      {/* font-mono 는 값이 있을 때만 — 숫자 자릿수를 맞춰 읽기 쉬우라고 쓰는 것이라
+                          빈 값 '-' 에까지 씌우면 모노스페이스 고정폭 때문에 하이픈만 길어 보인다. */}
+                      {send.tracking_no ? (
+                        <span className="font-mono">{send.tracking_no}</span>
+                      ) : (
+                        "-"
+                      )}
                     </span>
                   </div>
                   {/* 타임스탬프 */}
