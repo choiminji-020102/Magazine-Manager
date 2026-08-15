@@ -1,10 +1,12 @@
 import { Fragment, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Edit2, RotateCcw, X } from "lucide-react";
+import { ChevronRight, Edit2, RotateCcw, X } from "lucide-react";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { SendResendModal } from "@/components/dispatch/SendResendModal";
+import OrderDetailPanel from "@/pages/order/OrderDetailPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -63,6 +65,8 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
   const [deleteStep1Open, setDeleteStep1Open] = useState(false);
   const [deleteStep2Open, setDeleteStep2Open] = useState(false);
   const [resendOpen, setResendOpen] = useState(false);
+  // 묶인 주문 행에서 겹쳐 여는 주문 상세 (CustomerDetailPanel → OrderDetailPanel 과 동일)
+  const [orderPanelId, setOrderPanelId] = useState<number | null>(null);
 
   // 편집 모드 — 다른 도메인 패널과 동일하게 토글 하나로 본문 전체를 전환한다.
   // 발송 메모(상태 무관)와 운송장 3필드(DELIVERED 만)를 한 번에 다루고,
@@ -239,6 +243,7 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
   }
 
   const isOverseas = send.country_code !== "KR";
+  const hasTracking = !!(send.send_method || send.courier_company || send.tracking_no);
 
   return (
     <div className="flex flex-col h-full">
@@ -334,177 +339,8 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
       </div>
 
       {/* 스크롤 영역 */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 text-sm">
-        {/* 수령인 / 주소 */}
-        <Section title="수령인">
-          <Row label="이름">{send.recipient_name}</Row>
-          <Row label="연락처">{formatPhone(send.recipient_phone)}</Row>
-          <Row label="국가">
-            {send.country_code === "KR" ? (
-              <span>대한민국 (KR)</span>
-            ) : (
-              <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-semibold">
-                🌐 {send.country_code}
-              </span>
-            )}
-          </Row>
-          <Row label="우편번호">
-            <span className="font-mono">{send.postal_code}</span>
-          </Row>
-          <Row label="주소">{send.recipient_address}</Row>
-          {send.customer_memo && <Row label="배송 요청사항">{send.customer_memo}</Row>}
-        </Section>
-
-        {/* 발송 메모(Send.admin_memo) — 상태 무관 편집 가능 (PREPARING/DELIVERED/CANCELLED) */}
-        <Section title="발송 메모">
-          {editMode ? (
-            <>
-              <textarea
-                className={`w-full px-3 py-2 text-xs border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 ${
-                  editForm.admin_memo.length > MEMO_MAX_LEN ? "border-red-500" : "border-gray-300"
-                }`}
-                rows={3}
-                maxLength={MEMO_MAX_LEN}
-                placeholder="발송 메모"
-                value={editForm.admin_memo}
-                onChange={(e) => setEditForm((f) => ({ ...f, admin_memo: e.target.value }))}
-                disabled={updateMutation.isPending}
-              />
-              <span
-                className={`text-[11px] ${
-                  editForm.admin_memo.length > MEMO_MAX_LEN ? "text-red-500" : "text-gray-400"
-                }`}
-              >
-                {editForm.admin_memo.length} / {MEMO_MAX_LEN}
-              </span>
-            </>
-          ) : (
-            <p className="text-sm text-gray-700 whitespace-pre-line">
-              {send.admin_memo || <span className="text-gray-400">발송 메모가 없습니다.</span>}
-            </p>
-          )}
-        </Section>
-
-        {/* 묶인 주문 */}
-        {send.related_orders.length > 0 && (
-          <Section title="묶인 주문">
-            <div className="space-y-1">
-              {send.related_orders.map((ro) => (
-                <div key={ro.order_id} className="text-xs text-gray-700 flex items-center gap-2">
-                  <span className="font-mono text-gray-400">#{ro.order_id}</span>
-                  <span>·</span>
-                  <span>{ro.customer_name}</span>
-                  <span>·</span>
-                  <span className="font-mono text-gray-500">{formatPhone(ro.customer_phone)}</span>
-                </div>
-              ))}
-            </div>
-          </Section>
-        )}
-
-        {/* 운송장 — DELIVERED 박스에서만 편집 가능 (PREPARING/CANCELLED 은 read-only) */}
-        <Section title="운송장">
-          {editMode && canEditTracking ? (
-            <>
-              <EditRow label="배송 방법">
-                <div className="flex-1">
-                  <Select
-                    value={editForm.send_method}
-                    onValueChange={(v) => {
-                      const sm = v as SendMethod;
-                      setEditForm((f) => ({
-                        ...f,
-                        send_method: sm,
-                        // 운영자가 운송사를 이미 지정한 상태라면 덮지 않는다
-                        courier_company:
-                          f.courier_company ||
-                          ((SEND_METHOD_TO_COURIER[sm] as CourierCompany | undefined) ?? ""),
-                      }));
-                      setEditErrors((e) => ({ ...e, send_method: "", courier_company: "" }));
-                    }}
-                  >
-                    <SelectTrigger
-                      className={`h-7 text-xs ${editErrors.send_method ? "border-red-500" : ""}`}
-                    >
-                      <SelectValue placeholder="선택" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SEND_METHOD_OPTIONS.map((m) => (
-                        <SelectItem key={m.value} value={m.value} className="text-xs">
-                          {m.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {editErrors.send_method && (
-                    <p className="text-xs text-red-500 mt-1">{editErrors.send_method}</p>
-                  )}
-                </div>
-              </EditRow>
-              <EditRow label="운송사">
-                <div className="flex-1">
-                  <Select
-                    value={editForm.courier_company}
-                    onValueChange={(v) => {
-                      setEditForm((f) => ({ ...f, courier_company: v as CourierCompany }));
-                      setEditErrors((e) => ({ ...e, courier_company: "" }));
-                    }}
-                  >
-                    <SelectTrigger
-                      className={`h-7 text-xs ${editErrors.courier_company ? "border-red-500" : ""}`}
-                    >
-                      <SelectValue placeholder="선택" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {COURIER_COMPANY_OPTIONS.map((c) => (
-                        <SelectItem key={c.value} value={c.value} className="text-xs">
-                          {c.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {editErrors.courier_company && (
-                    <p className="text-xs text-red-500 mt-1">{editErrors.courier_company}</p>
-                  )}
-                </div>
-              </EditRow>
-              <EditRow label="송장 번호">
-                <div className="flex-1">
-                  <Input
-                    className={`h-7 text-xs font-mono ${editErrors.tracking_no ? "border-red-500" : ""}`}
-                    placeholder="숫자만 추출되어 저장됨"
-                    value={editForm.tracking_no}
-                    onChange={(e) => {
-                      setEditForm((f) => ({ ...f, tracking_no: e.target.value }));
-                      setEditErrors((er) => ({ ...er, tracking_no: "" }));
-                    }}
-                  />
-                  {editErrors.tracking_no && (
-                    <p className="text-xs text-red-500 mt-1">{editErrors.tracking_no}</p>
-                  )}
-                </div>
-              </EditRow>
-            </>
-          ) : (
-            <>
-              <Row label="배송 방법">{send.send_method ?? "-"}</Row>
-              <Row label="운송사">{send.courier_company ?? "-"}</Row>
-              <Row label="송장 번호">
-                {/* font-mono 는 값이 있을 때만 — 숫자 자릿수를 맞춰 읽기 쉬우라고 쓰는 것이라
-                    빈 값 '-' 에까지 씌우면 모노스페이스 고정폭 때문에 하이픈만 길어 보인다. */}
-                {send.tracking_no ? <span className="font-mono">{send.tracking_no}</span> : "-"}
-              </Row>
-              {/* 편집 모드인데 입력이 안 나오는 이유를 그 자리에서 밝힌다 */}
-              {editMode && (
-                <p className="text-xs text-gray-400">
-                  운송장은 배송 완료 상태에서만 수정할 수 있습니다.
-                </p>
-              )}
-            </>
-          )}
-        </Section>
-
-        {/* 박스 안 SendItem 목록 — 각 품목 admin_memo 인라인 편집 */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {/* 박스 내용 — 이 패널을 여는 1순위 목적이 '이 박스에 뭐가 들었나' 라서 맨 위에 둔다 */}
         <BoxContentsSection
           key={`box-${send.send_id}`}
           send={send}
@@ -516,67 +352,268 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
           }}
         />
 
-        {/* 재배송 내역 — 입력은 헤더 [재배송 기록] → SendResendModal.
-            내역은 PREPARING 박스에서도 표시될 수 있으나 정의상 항상 0건.
-            백엔드 활동 로그 API 는 created_at DESC 반환이라 그 순서 그대로 표시 (최신부터 위로).
-            백엔드 정렬 변경 시 깨짐. */}
-        <Section title={`재배송 (${resendLogs.length}건)`}>
-          {resendLogs.length === 0 ? (
-            <p className="text-xs text-gray-400">재배송 내역이 없습니다.</p>
-          ) : (
-            <div className="space-y-2">
-              {resendLogs.map((log) => {
-                const d = log.details ?? {};
-                const resendIds = (Array.isArray(d.send_item_ids) ? d.send_item_ids : []) as number[];
-                const resendItems = resendIds
-                  .map((id) => send.items.find((it) => it.send_item_id === id))
-                  .filter((it): it is NonNullable<typeof it> => !!it);
-                const isFull =
-                  resendItems.length > 0 && resendItems.length === send.items.length;
-                return (
-                  <div key={log.log_id} className="border border-orange-100 bg-orange-50/50 rounded p-2 space-y-0.5">
-                    <div className="text-xs text-gray-500">{formatDateTime(log.created_at)}</div>
-                    {d.reason && <div className="text-xs text-gray-700">사유: {d.reason}</div>}
-                    {resendItems.length > 0 && (
-                      <div className="text-xs text-gray-700">
-                        <div>
-                          품목:{" "}
-                          {isFull
-                            ? `전체 ${resendItems.length}건`
-                            : `일부 ${resendItems.length}/${send.items.length}건`}
-                        </div>
-                        <ul className="ml-4 mt-0.5 space-y-0.5">
-                          {resendItems.map((it) => (
-                            <li key={it.send_item_id}>
-                              <span className="font-mono text-gray-500">{it.product_code}</span>{" "}
-                              <span className="text-gray-700">{it.product_name}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+        {/* 배송지 — 섹션 이름을 다른 도메인 패널과 맞춘다 (기존 '수령인').
+            Send 의 수령인 필드는 Address 스냅샷이라 배송지 그 자체다. */}
+        <Section title="배송지">
+          <InfoRow label="수령인" value={send.recipient_name} />
+          <InfoRow label="연락처" value={formatPhone(send.recipient_phone)} />
+          <InfoRow
+            label="국가"
+            value={
+              send.country_code === "KR" ? (
+                "대한민국 (KR)"
+              ) : (
+                <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-semibold">
+                  🌐 {send.country_code}
+                </span>
+              )
+            }
+          />
+          {/* 주소 표기는 OrderDetailPanel·카드 계열과 동일 — [우편번호] font-mono + 주소 전문.
+              우편번호를 별도 행으로 두면 한 줄로 읽히는 주소가 두 줄로 갈라진다. */}
+          <InfoRow
+            label="주소"
+            value={
+              <>
+                {send.postal_code && (
+                  <span className="font-mono mr-1">[{send.postal_code}]</span>
+                )}
+                {send.recipient_address}
+              </>
+            }
+          />
+          <InfoRow label="배송 요청사항" value={send.customer_memo} />
+        </Section>
+
+        {/* 운송장 — DELIVERED 박스에서만 편집 가능 (PREPARING/CANCELLED 은 read-only).
+            값이 하나도 없는 PREPARING 박스에서는 '-' 세 줄이 자리만 차지하므로 감춘다.
+            (운송장은 DELIVERED 전환 시점에 채워진다 — PREPARING 은 정의상 항상 비어 있음) */}
+        {(hasTracking || editMode) && (
+          <Section title="운송장">
+            {editMode && canEditTracking ? (
+              <>
+                <EditRow label="배송 방법">
+                  <div className="flex-1">
+                    <Select
+                      value={editForm.send_method}
+                      onValueChange={(v) => {
+                        const sm = v as SendMethod;
+                        setEditForm((f) => ({
+                          ...f,
+                          send_method: sm,
+                          // 운영자가 운송사를 이미 지정한 상태라면 덮지 않는다
+                          courier_company:
+                            f.courier_company ||
+                            ((SEND_METHOD_TO_COURIER[sm] as CourierCompany | undefined) ?? ""),
+                        }));
+                        setEditErrors((e) => ({ ...e, send_method: "", courier_company: "" }));
+                      }}
+                    >
+                      <SelectTrigger
+                        className={`h-7 text-xs ${editErrors.send_method ? "border-red-500" : ""}`}
+                      >
+                        <SelectValue placeholder="선택" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SEND_METHOD_OPTIONS.map((m) => (
+                          <SelectItem key={m.value} value={m.value} className="text-xs">
+                            {m.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {editErrors.send_method && (
+                      <p className="text-xs text-red-500 mt-1">{editErrors.send_method}</p>
                     )}
-                    {d.send_method && (
-                      <div className="text-xs text-gray-700">
-                        방법: {d.send_method}
-                        {d.courier_company && <span className="text-gray-400"> · {d.courier_company}</span>}
-                      </div>
-                    )}
-                    {d.tracking_no && (
-                      <div className="text-xs text-gray-700 font-mono">운송장: {d.tracking_no}</div>
-                    )}
-                    {d.memo && <div className="text-xs text-gray-500">메모: {d.memo}</div>}
                   </div>
-                );
-              })}
-            </div>
+                </EditRow>
+                <EditRow label="운송사">
+                  <div className="flex-1">
+                    <Select
+                      value={editForm.courier_company}
+                      onValueChange={(v) => {
+                        setEditForm((f) => ({ ...f, courier_company: v as CourierCompany }));
+                        setEditErrors((e) => ({ ...e, courier_company: "" }));
+                      }}
+                    >
+                      <SelectTrigger
+                        className={`h-7 text-xs ${editErrors.courier_company ? "border-red-500" : ""}`}
+                      >
+                        <SelectValue placeholder="선택" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COURIER_COMPANY_OPTIONS.map((c) => (
+                          <SelectItem key={c.value} value={c.value} className="text-xs">
+                            {c.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {editErrors.courier_company && (
+                      <p className="text-xs text-red-500 mt-1">{editErrors.courier_company}</p>
+                    )}
+                  </div>
+                </EditRow>
+                <EditRow label="송장 번호">
+                  <div className="flex-1">
+                    <Input
+                      className={`h-7 text-xs font-mono ${editErrors.tracking_no ? "border-red-500" : ""}`}
+                      placeholder="숫자만 추출되어 저장됨"
+                      value={editForm.tracking_no}
+                      onChange={(e) => {
+                        setEditForm((f) => ({ ...f, tracking_no: e.target.value }));
+                        setEditErrors((er) => ({ ...er, tracking_no: "" }));
+                      }}
+                    />
+                    {editErrors.tracking_no && (
+                      <p className="text-xs text-red-500 mt-1">{editErrors.tracking_no}</p>
+                    )}
+                  </div>
+                </EditRow>
+              </>
+            ) : (
+              <>
+                <InfoRow label="배송 방법" value={send.send_method ?? "-"} />
+                <InfoRow label="운송사" value={send.courier_company ?? "-"} />
+                <InfoRow
+                  label="송장 번호"
+                  value={
+                    /* font-mono 는 값이 있을 때만 — 숫자 자릿수를 맞춰 읽기 쉬우라고 쓰는 것이라
+                       빈 값 '-' 에까지 씌우면 모노스페이스 고정폭 때문에 하이픈만 길어 보인다. */
+                    send.tracking_no ? <span className="font-mono">{send.tracking_no}</span> : "-"
+                  }
+                />
+                {/* 편집 모드인데 입력이 안 나오는 이유를 그 자리에서 밝힌다 */}
+                {editMode && (
+                  <p className="text-xs text-gray-400">
+                    운송장은 배송 완료 상태에서만 수정할 수 있습니다.
+                  </p>
+                )}
+              </>
+            )}
+          </Section>
+        )}
+
+        {/* 발송 메모(Send.admin_memo) — 상태 무관 편집 가능 (PREPARING/DELIVERED/CANCELLED).
+            운송장 뒤에 두는 이유 — 배송 수단이 핵심 정보고 메모는 그에 붙는 보조 정보다. */}
+        <Section title="발송 메모">
+          {editMode ? (
+            <textarea
+              className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+              rows={3}
+              maxLength={MEMO_MAX_LEN}
+              placeholder="발송 메모"
+              value={editForm.admin_memo}
+              onChange={(e) => setEditForm((f) => ({ ...f, admin_memo: e.target.value }))}
+              disabled={updateMutation.isPending}
+            />
+          ) : (
+            <p className="text-sm text-gray-700 whitespace-pre-line">
+              {send.admin_memo || <span className="text-gray-400">발송 메모가 없습니다.</span>}
+            </p>
           )}
         </Section>
 
+        {/* 묶인 주문 — 한 박스에 여러 주문의 책이 담기는 MONTHLY·VIP 그룹화 때문에 생긴다.
+            행을 누르면 그 주문 상세를 겹쳐 연다 (CustomerDetailPanel 의 주문 행과 동일). */}
+        {send.related_orders.length > 0 && (
+          <Section title={`묶인 주문 (${send.related_orders.length}건)`}>
+            <div className="space-y-1">
+              {send.related_orders.map((ro) => (
+                <button
+                  key={ro.order_id}
+                  onClick={() => setOrderPanelId(ro.order_id)}
+                  className="w-full flex items-center gap-2 text-xs text-gray-700 text-left px-1 -mx-1 py-1 rounded hover:bg-gray-50 transition-colors"
+                  title="주문 상세 열기"
+                >
+                  <span className="font-mono text-gray-400">#{ro.order_id}</span>
+                  <span>·</span>
+                  <span>{ro.customer_name}</span>
+                  <span>·</span>
+                  <span className="font-mono text-gray-500">{formatPhone(ro.customer_phone)}</span>
+                  <ChevronRight className="h-3.5 w-3.5 text-gray-300 ml-auto flex-shrink-0" />
+                </button>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {/* 재배송 내역 — 입력은 헤더 [재배송 기록] → SendResendModal.
+            재배송은 DELIVERED 에서만 가능하므로 그 외 상태에서는 내역이 있을 때만 노출한다
+            (PREPARING 에 '재배송 0건' 을 띄워봐야 늘 0건이다).
+            백엔드 활동 로그 API 는 created_at DESC 반환이라 그 순서 그대로 표시 (최신부터 위로).
+            백엔드 정렬 변경 시 깨짐. */}
+        {(send.send_status === "DELIVERED" || resendLogs.length > 0) && (
+          <Section title={`재배송 (${resendLogs.length}건)`}>
+            {resendLogs.length === 0 ? (
+              <p className="text-xs text-gray-400">재배송 내역이 없습니다.</p>
+            ) : (
+              <div className="space-y-2">
+                {resendLogs.map((log) => {
+                  const d = log.details ?? {};
+                  const resendIds = (Array.isArray(d.send_item_ids) ? d.send_item_ids : []) as number[];
+                  const resendItems = resendIds
+                    .map((id) => send.items.find((it) => it.send_item_id === id))
+                    .filter((it): it is NonNullable<typeof it> => !!it);
+                  const isFull =
+                    resendItems.length > 0 && resendItems.length === send.items.length;
+                  return (
+                    <div key={log.log_id} className="border border-orange-100 bg-orange-50/50 rounded p-2 space-y-0.5">
+                      <div className="text-xs text-gray-500">{formatDateTime(log.created_at)}</div>
+                      {d.reason && <div className="text-xs text-gray-700">사유: {d.reason}</div>}
+                      {resendItems.length > 0 && (
+                        <div className="text-xs text-gray-700">
+                          <div>
+                            품목:{" "}
+                            {isFull
+                              ? `전체 ${resendItems.length}건`
+                              : `일부 ${resendItems.length}/${send.items.length}건`}
+                          </div>
+                          <ul className="ml-4 mt-0.5 space-y-0.5">
+                            {resendItems.map((it) => (
+                              <li key={it.send_item_id}>
+                                <span className="font-mono text-gray-500">{it.product_code}</span>{" "}
+                                <span className="text-gray-700">{it.product_name}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {d.send_method && (
+                        <div className="text-xs text-gray-700">
+                          방법: {d.send_method}
+                          {d.courier_company && <span className="text-gray-400"> · {d.courier_company}</span>}
+                        </div>
+                      )}
+                      {d.tracking_no && (
+                        <div className="text-xs text-gray-700 font-mono">운송장: {d.tracking_no}</div>
+                      )}
+                      {d.memo && <div className="text-xs text-gray-500">메모: {d.memo}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Section>
+        )}
+
         {/* 시스템 메타 */}
         <Section title="시스템">
-          <Row label="생성일">{formatDateTime(send.created_at)}</Row>
-          <Row label="수정일">{formatDateTime(send.updated_at)}</Row>
-          {send.delivered_at && <Row label="발송 완료일">{formatDateTime(send.delivered_at)}</Row>}
+          <InfoRow
+            label="발송 ID"
+            value={<span className="font-mono text-xs text-gray-500">#{send.send_id}</span>}
+          />
+          <InfoRow label="생성일" value={formatDateTime(send.created_at)} />
+          <InfoRow label="수정일" value={formatDateTime(send.updated_at)} />
+          {send.delivered_at && (
+            <InfoRow label="발송 완료일" value={formatDateTime(send.delivered_at)} />
+          )}
+          {send.cancelled_at && (
+            <InfoRow
+              label="취소일"
+              value={<span className="text-red-500">{formatDateTime(send.cancelled_at)}</span>}
+            />
+          )}
         </Section>
       </div>
 
@@ -633,6 +670,13 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
         variant="destructive"
         isLoading={deleteMutation.isPending}
       />
+
+      {/* 묶인 주문 상세 — 이 패널 위에 겹쳐 연다 */}
+      <SlidingPanel open={orderPanelId !== null} onClose={() => setOrderPanelId(null)}>
+        {orderPanelId !== null && (
+          <OrderDetailPanel orderId={orderPanelId} onClose={() => setOrderPanelId(null)} />
+        )}
+      </SlidingPanel>
     </div>
   );
 }
@@ -651,9 +695,6 @@ interface BoxContentsSectionProps {
 function BoxContentsSection({ send, onSuccess }: BoxContentsSectionProps) {
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [memoDraft, setMemoDraft] = useState("");
-
-  const MAX_LEN = 1000;
-  const overLimit = memoDraft.length > MAX_LEN;
 
   const mutation = useMutation({
     mutationFn: ({ id, memo }: { id: number; memo: string | null }) =>
@@ -677,7 +718,6 @@ function BoxContentsSection({ send, onSuccess }: BoxContentsSectionProps) {
   };
 
   const saveEdit = (itemId: number) => {
-    if (overLimit) return;
     mutation.mutate({ id: itemId, memo: memoDraft.trim() || null });
   };
 
@@ -698,7 +738,7 @@ function BoxContentsSection({ send, onSuccess }: BoxContentsSectionProps) {
             {send.items.map((it) => {
               const isEditing = editingItemId === it.send_item_id;
               // 편집 모드에서만 의미 있음 — 변경 없는 저장으로 인한 불필요 API 호출 방지
-              // (AdminMemoSection 의 dirty 패턴과 동일).
+              // (패널 본체의 memoDirty / trackingDirty 와 같은 판단).
               const isDirty =
                 isEditing && memoDraft.trim() !== (it.admin_memo ?? "").trim();
               return (
@@ -736,46 +776,45 @@ function BoxContentsSection({ send, onSuccess }: BoxContentsSectionProps) {
                     <td className="py-1 pr-2 text-gray-600">{formatIssue(it.issue)}</td>
                     <td className="py-1 text-right font-semibold text-gray-700">{it.send_num}</td>
                   </tr>
-                  {/* 편집 행 — 전체 폭(colSpan=3) textarea. 데이터 행 바로 아래에 펼쳐짐. */}
+                  {/* 편집 행 — 전체 폭(colSpan=3). 데이터 행 바로 아래에 펼쳐짐.
+                      CustomerDetailPanel 의 배송지 메모와 같은 규격 —
+                      한 줄 Input + Enter 저장 / Esc 취소. 글자수 카운터는 두지 않는다
+                      (maxLength 로 상한이 걸려 있어 세어 보일 이유가 없다). */}
                   {isEditing && (
                     <tr className="border-b border-gray-50">
                       <td colSpan={3} className="pt-1 pb-2">
-                        <div className="space-y-1">
-                          <textarea
-                            className={`w-full px-2 py-1 text-[11px] border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 ${
-                              overLimit ? "border-red-500" : "border-gray-300"
-                            }`}
-                            rows={2}
-                            maxLength={MAX_LEN}
+                        <div className="flex gap-1">
+                          <Input
+                            className="h-7 text-xs flex-1"
+                            maxLength={MEMO_MAX_LEN}
                             placeholder="품목 메모"
                             value={memoDraft}
                             onChange={(e) => setMemoDraft(e.target.value)}
                             disabled={mutation.isPending}
                             autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && isDirty) saveEdit(it.send_item_id);
+                              if (e.key === "Escape") cancelEdit();
+                            }}
                           />
-                          <div className="flex items-center justify-between">
-                            <span className={`text-[10px] ${overLimit ? "text-red-500" : "text-gray-400"}`}>
-                              {memoDraft.length} / {MAX_LEN}
-                            </span>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={cancelEdit}
-                                disabled={mutation.isPending}
-                              >
-                                취소
-                              </Button>
-                              <Button
-                                size="sm"
-                                onClick={() => saveEdit(it.send_item_id)}
-                                disabled={!isDirty || mutation.isPending || overLimit}
-                              >
-                                {mutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-                                저장
-                              </Button>
-                            </div>
-                          </div>
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs px-2"
+                            onClick={() => saveEdit(it.send_item_id)}
+                            disabled={!isDirty || mutation.isPending}
+                          >
+                            {mutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+                            저장
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs px-2"
+                            onClick={cancelEdit}
+                            disabled={mutation.isPending}
+                          >
+                            취소
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -790,22 +829,35 @@ function BoxContentsSection({ send, onSuccess }: BoxContentsSectionProps) {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+// 섹션 컴포넌트 — action 은 헤더 띠 우측 슬롯 (OrderDetailPanel 과 동일 시그니처)
+function Section({
+  title,
+  children,
+  action,
+}: {
+  title: string;
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
   return (
     <div className="border border-gray-100 rounded-lg overflow-hidden">
-      <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100">
+      <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{title}</h3>
+        {action}
       </div>
       <div className="px-3.5 py-3 space-y-2.5">{children}</div>
     </div>
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+// 정보 행 컴포넌트 — 값이 없으면 렌더하지 않는다 (다른 도메인 패널과 동일).
+// '-' 를 보여야 하는 자리는 호출부에서 ?? "-" 로 채워 넘긴다.
+function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+  if (!value && value !== 0) return null;
   return (
     <div className="flex items-start gap-3">
       <span className="text-xs text-gray-400 w-24 flex-shrink-0 pt-0.5">{label}</span>
-      <span className="text-sm text-gray-700 flex-1">{children}</span>
+      <span className="text-sm text-gray-700 flex-1 whitespace-pre-line">{value}</span>
     </div>
   );
 }
