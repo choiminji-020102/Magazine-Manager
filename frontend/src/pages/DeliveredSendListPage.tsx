@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -35,8 +35,22 @@ export default function DeliveredSendListPage() {
   const [recipientPhone, setRecipientPhone] = useState("");
   const [page, setPage] = useState(1);
 
-  // 박스 상세 패널 — 운송장/메모 편집은 패널에서 처리 (PR-C2 에서 신설)
+  // 박스 상세 패널 — 운송장/메모 편집은 패널에서 처리 (PR-C2 에서 신설).
+  // 열림 상태와 대상 ID 를 분리한다 — 하나로 묶으면 닫는 순간 자식이 언마운트돼
+  // 빈 패널이 슬라이드된다. 애니메이션이 끝난 뒤 ID 를 비운다
+  // (OrderListPage·CustomerListPage·ProductListPage 와 동일한 패턴).
   const [detailSendId, setDetailSendId] = useState<number | null>(null);
+  const [detailPanelOpen, setDetailPanelOpen] = useState(false);
+
+  const openDetailPanel = (sendId: number) => {
+    setDetailSendId(sendId);
+    setDetailPanelOpen(true);
+  };
+
+  const handleDetailPanelClose = useCallback(() => {
+    setDetailPanelOpen(false);
+    setTimeout(() => setDetailSendId(null), 250);
+  }, []);
 
   const issueValid = /^\d{6}$/.test(issueInput);
   const vipSlot = vipSlotOf(scope);
@@ -214,7 +228,7 @@ export default function DeliveredSendListPage() {
                 detail={s}
                 detailError={false}
                 resendLogs={resendsBySendId.get(s.send_id) ?? []}
-                onCardClick={() => setDetailSendId(s.send_id)}
+                onCardClick={() => openDetailPanel(s.send_id)}
               />
             ))}
           </div>
@@ -222,12 +236,9 @@ export default function DeliveredSendListPage() {
       </div>
 
       {/* 박스 상세 패널 — 운송장 / admin_memo 편집은 여기서 */}
-      <SlidingPanel open={detailSendId !== null} onClose={() => setDetailSendId(null)}>
+      <SlidingPanel open={detailPanelOpen} onClose={handleDetailPanelClose}>
         {detailSendId !== null && (
-          <SendDetailPanel
-            sendId={detailSendId}
-            onClose={() => setDetailSendId(null)}
-          />
+          <SendDetailPanel sendId={detailSendId} onClose={handleDetailPanelClose} />
         )}
       </SlidingPanel>
 

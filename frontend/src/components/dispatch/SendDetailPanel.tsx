@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Edit2, RotateCcw, X } from "lucide-react";
 import { StatusBadge } from "@/components/common/StatusBadge";
@@ -31,10 +31,14 @@ import type {
   SendMethod,
   CourierCompany,
   SendTrackingUpdate,
+  SendResponse,
   SendDetailResponse,
 } from "@/types/send";
 
-// Send.admin_memo / SendItem.admin_memo 공통 길이 상한
+// 메모 입력 길이 상한.
+// Send.admin_memo 는 백엔드 SendAdminMemoUpdate 가 max_length=1000 으로 강제한다.
+// SendItem.admin_memo 는 백엔드에 길이 제약이 없지만(DB 도 Text), 같은 화면의 두 메모가
+// 서로 다른 상한을 갖는 게 더 이상하므로 입력 단계에서만 같은 값으로 맞춘다.
 const MEMO_MAX_LEN = 1000;
 
 interface Props {
@@ -65,8 +69,20 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
   const [deleteStep1Open, setDeleteStep1Open] = useState(false);
   const [deleteStep2Open, setDeleteStep2Open] = useState(false);
   const [resendOpen, setResendOpen] = useState(false);
-  // 묶인 주문 행에서 겹쳐 여는 주문 상세 (CustomerDetailPanel → OrderDetailPanel 과 동일)
+  // 묶인 주문 행에서 겹쳐 여는 주문 상세 (CustomerDetailPanel → OrderDetailPanel 과 동일).
+  // 열림 상태와 ID 를 분리해야 닫을 때 빈 패널이 슬라이드되지 않는다.
   const [orderPanelId, setOrderPanelId] = useState<number | null>(null);
+  const [orderPanelOpen, setOrderPanelOpen] = useState(false);
+
+  const openOrderPanel = (orderId: number) => {
+    setOrderPanelId(orderId);
+    setOrderPanelOpen(true);
+  };
+
+  const closeOrderPanel = useCallback(() => {
+    setOrderPanelOpen(false);
+    setTimeout(() => setOrderPanelId(null), 250);
+  }, []);
 
   // 편집 모드 — 다른 도메인 패널과 동일하게 토글 하나로 본문 전체를 전환한다.
   // 발송 메모(상태 무관)와 운송장 3필드(DELIVERED 만)를 한 번에 다루고,
@@ -75,6 +91,9 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
   const [editForm, setEditForm] = useState(EMPTY_EDIT_FORM);
   // 필드별 에러 메시지 (UI_GUIDE §10 3종 세트: border-red + 메시지 + toast)
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+  // 저장 중 '메모는 반영됐는데 운송장이 실패' 를 알리기 위한 플래그.
+  // state 가 아니라 ref 인 이유 — 화면을 다시 그릴 값이 아니라 onError 로 넘기는 신호다.
+  const memoSavedRef = useRef(false);
 
   const { data: send, isLoading } = useQuery({
     queryKey: ["send-detail", sendId],
@@ -111,31 +130,55 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
   // (send_service.update_tracking — PREPARING/CANCELLED 는 400).
   const canEditTracking = send?.send_status === "DELIVERED";
 
+  // 서버 값도 trim 해서 비교한다 — 백엔드가 이미 정규화해 내려주지만(운송장은 숫자만,
+  // 방법·운송사는 strip), 양쪽을 같은 기준으로 비교해야 헛 dirty 판정이 없다.
   const memoDirty = !!send && editForm.admin_memo.trim() !== (send.admin_memo ?? "").trim();
   const trackingDirty =
     !!send &&
     canEditTracking &&
-    (editForm.tracking_no.trim() !== (send.tracking_no ?? "") ||
+    (editForm.tracking_no.trim() !== (send.tracking_no ?? "").trim() ||
       editForm.send_method !== ((send.send_method as SendMethod | null) ?? "") ||
       editForm.courier_company !== ((send.courier_company as CourierCompany | null) ?? ""));
+
+  // 저장 응답에 담겨 오는 갱신된 Send 를 상세 캐시에 즉시 반영한다.
+  // 무효화만 하면 refetch 가 도착하기 전까지 읽기 행이 옛 값을 그리고,
+  // 그 사이 [수정] 을 다시 누르면 draft 가 옛 값으로 되돌아가 방금 저장한 값을 덮어쓴다.
+  // 응답은 items 가 없는 SendResponse 라 기존 캐시 위에 병합한다.
+  const applyUpdatedSend = (updated: SendResponse | null | undefined) => {
+    if (!updated) return;
+    queryClient.setQueryData<SendDetailResponse>(["send-detail", sendId], (old) =>
+      old ? { ...old, ...updated } : old,
+    );
+  };
 
   const updateMutation = useMutation({
     // 바뀐 쪽만 호출한다 — 엔드포인트가 admin-memo / tracking 으로 나뉘어 있고
     // 운송장 API 는 DELIVERED 전용이라 무조건 호출하면 PREPARING 에서 400 이 난다.
-    // 두 요청은 순차 실행 — 앞이 실패하면 뒤는 보내지 않는다 (부분 반영 최소화).
+    // 두 요청은 순차 실행 — 앞이 실패하면 뒤는 보내지 않는다.
+    //
+    // 두 요청을 한 버튼에 묶은 이상 '앞은 성공, 뒤는 실패' 가 가능하다.
+    // (권한이 다르다 — admin-memo 는 require_manager, tracking 은 require_admin.
+    //  MANAGER 계정이 둘을 함께 고치면 메모만 저장되고 운송장은 403 이 난다.)
+    // 그래서 캐시 무효화는 onSuccess 가 아니라 onSettled 에서 한다 —
+    // 실패해도 서버에 이미 반영된 앞쪽 변경이 화면에 즉시 드러나야 한다.
     mutationFn: async () => {
       const messages: string[] = [];
+      memoSavedRef.current = false;
       if (memoDirty) {
         const res = await sendsApi.updateAdminMemo(sendId, {
           admin_memo: editForm.admin_memo.trim() || null,
         });
         messages.push(res.data.message);
+        memoSavedRef.current = true;
+        applyUpdatedSend(res.data.data);
       }
       if (trackingDirty && send) {
         // 실제로 바뀐 필드만 담는다. 백엔드 crud 는 None 인 필드를 건너뛰므로
         // 안 바뀐 필드를 굳이 실어 보낼 이유가 없다 (셋 다 없으면 422).
         const payload: SendTrackingUpdate = {};
-        if (editForm.tracking_no.trim() !== (send.tracking_no ?? "")) {
+        // 조건은 위 trackingDirty 와 정확히 같아야 한다 —
+        // 어긋나면 dirty 인데 payload 가 비어 422(셋 다 없음)를 맞을 수 있다.
+        if (editForm.tracking_no.trim() !== (send.tracking_no ?? "").trim()) {
           payload.tracking_no = editForm.tracking_no.trim();
         }
         if (editForm.send_method !== ((send.send_method as SendMethod | null) ?? "")) {
@@ -146,6 +189,7 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
         }
         const res = await sendsApi.updateTracking(sendId, payload);
         messages.push(res.data.message);
+        applyUpdatedSend(res.data.data);
       }
       return messages;
     },
@@ -153,13 +197,24 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
       toast.success(messages.join(" ") || "수정되었습니다.");
       setEditMode(false);
       setEditErrors({});
+    },
+    onError: (err) => {
+      // 앞선 메모 저장이 이미 서버에 반영된 채 뒤가 실패했다면 그 사실을 밝힌다.
+      // 편집 모드는 열어 둔다 — 사용자가 실패한 쪽만 고쳐 다시 저장할 수 있어야 한다.
+      // (아래 onSettled 의 무효화로 memoDirty 는 false 가 되므로 메모가 재전송되지는 않는다.)
+      const message = getErrorMessage(err);
+      toast.error(
+        memoSavedRef.current ? `${message} (발송 메모는 저장되었습니다.)` : message,
+      );
+    },
+    onSettled: () => {
+      memoSavedRef.current = false;
       queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
       queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
       queryClient.invalidateQueries({ queryKey: ["delivered-sends"] });
       // SubscriptionDetailPanel 의 발송 내역 query — orderItemId 무관 prefix 무효화
       queryClient.invalidateQueries({ queryKey: ["order-item-sends"] });
     },
-    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const handleSave = () => {
@@ -217,27 +272,42 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
     onSuccess: (res) => {
       toast.success(res.message ?? "PREPARING 박스가 삭제되었습니다.");
       setDeleteStep2Open(false);
+      // 삭제된 박스의 캐시는 무효화가 아니라 제거한다 — 무효화하면 아직 살아 있는
+      // observer 가 GET /sends/{id} 를 다시 쏘고, 하드 삭제라 404 가 돌아온다.
+      // onClose() 는 setState 예약일 뿐이라 이 시점엔 아직 언마운트 전이다.
+      queryClient.removeQueries({ queryKey: ["send-detail", sendId] });
+      queryClient.removeQueries({ queryKey: ["send-resend-logs", sendId] });
       onClose();
       queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
       queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
-      queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
       queryClient.invalidateQueries({ queryKey: ["order-item-sends"] });
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });
 
-  if (isLoading) {
+  // 로딩·조회 실패 때도 헤더 줄의 X 는 남긴다 — 부모가 SlidingPanel 에 title 을 넘기지 않아
+  // 여기서 그리지 않으면 화면에 닫기 버튼이 하나도 없다 (ESC·오버레이 클릭만 남는다).
+  if (isLoading || !send) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
-  if (!send) {
-    return (
-      <div className="flex items-center justify-center py-12 text-sm text-gray-400">
-        발송 정보를 불러올 수 없습니다.
+      <div className="flex flex-col h-full">
+        <div className="px-5 py-4 border-b border-gray-200 bg-white flex items-center justify-between">
+          <h2 className="text-base font-semibold text-gray-900">발송 상세</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 flex-shrink-0 ml-2"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <LoadingSpinner />
+          </div>
+        ) : (
+          <div className="flex items-center justify-center py-12 text-sm text-gray-400">
+            발송 정보를 불러올 수 없습니다.
+          </div>
+        )}
       </div>
     );
   }
@@ -363,7 +433,7 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
               send.country_code === "KR" ? (
                 "대한민국 (KR)"
               ) : (
-                <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-semibold">
+                <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-semibold">
                   🌐 {send.country_code}
                 </span>
               )
@@ -498,15 +568,22 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
             운송장 뒤에 두는 이유 — 배송 수단이 핵심 정보고 메모는 그에 붙는 보조 정보다. */}
         <Section title="발송 메모">
           {editMode ? (
-            <textarea
-              className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
-              rows={3}
-              maxLength={MEMO_MAX_LEN}
-              placeholder="발송 메모"
-              value={editForm.admin_memo}
-              onChange={(e) => setEditForm((f) => ({ ...f, admin_memo: e.target.value }))}
-              disabled={updateMutation.isPending}
-            />
+            <>
+              <textarea
+                className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                rows={3}
+                maxLength={MEMO_MAX_LEN}
+                placeholder="발송 메모"
+                value={editForm.admin_memo}
+                onChange={(e) => setEditForm((f) => ({ ...f, admin_memo: e.target.value }))}
+                disabled={updateMutation.isPending}
+              />
+              {/* maxLength 가 초과 입력을 막아주므로 경고 색은 필요 없지만,
+                  상한에서 갑자기 안 써지는 이유는 알려줘야 한다 */}
+              <span className="text-[11px] text-gray-400">
+                {editForm.admin_memo.length} / {MEMO_MAX_LEN}
+              </span>
+            </>
           ) : (
             <p className="text-sm text-gray-700 whitespace-pre-line">
               {send.admin_memo || <span className="text-gray-400">발송 메모가 없습니다.</span>}
@@ -522,7 +599,7 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
               {send.related_orders.map((ro) => (
                 <button
                   key={ro.order_id}
-                  onClick={() => setOrderPanelId(ro.order_id)}
+                  onClick={() => openOrderPanel(ro.order_id)}
                   className="w-full flex items-center gap-2 text-xs text-gray-700 text-left px-1 -mx-1 py-1 rounded hover:bg-gray-50 transition-colors"
                   title="주문 상세 열기"
                 >
@@ -672,9 +749,9 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
       />
 
       {/* 묶인 주문 상세 — 이 패널 위에 겹쳐 연다 */}
-      <SlidingPanel open={orderPanelId !== null} onClose={() => setOrderPanelId(null)}>
+      <SlidingPanel open={orderPanelOpen} onClose={closeOrderPanel}>
         {orderPanelId !== null && (
-          <OrderDetailPanel orderId={orderPanelId} onClose={() => setOrderPanelId(null)} />
+          <OrderDetailPanel orderId={orderPanelId} onClose={closeOrderPanel} />
         )}
       </SlidingPanel>
     </div>
@@ -777,15 +854,18 @@ function BoxContentsSection({ send, onSuccess }: BoxContentsSectionProps) {
                     <td className="py-1 text-right font-semibold text-gray-700">{it.send_num}</td>
                   </tr>
                   {/* 편집 행 — 전체 폭(colSpan=3). 데이터 행 바로 아래에 펼쳐짐.
-                      CustomerDetailPanel 의 배송지 메모와 같은 규격 —
-                      한 줄 Input + Enter 저장 / Esc 취소. 글자수 카운터는 두지 않는다
-                      (maxLength 로 상한이 걸려 있어 세어 보일 이유가 없다). */}
+                      한 줄 Input 이 아니라 textarea 인 이유 — SendItem.admin_memo 는 DB 가 Text 이고
+                      백엔드에 길이·형식 제약이 없어 개행이 든 메모가 저장돼 있을 수 있다.
+                      Input 은 값에서 개행을 지우므로, 그런 메모를 열기만 해도 한 줄로 뭉개진 채
+                      dirty 로 잡혀 저장 시 개행이 사라진다.
+                      같은 이유로 Enter 는 저장이 아니라 줄바꿈이다 (Esc 취소만 둔다). */}
                   {isEditing && (
                     <tr className="border-b border-gray-50">
                       <td colSpan={3} className="pt-1 pb-2">
-                        <div className="flex gap-1">
-                          <Input
-                            className="h-7 text-xs flex-1"
+                        <div className="space-y-1">
+                          <textarea
+                            className="w-full px-2 py-1 text-[11px] border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                            rows={2}
                             maxLength={MEMO_MAX_LEN}
                             placeholder="품목 메모"
                             value={memoDraft}
@@ -793,28 +873,34 @@ function BoxContentsSection({ send, onSuccess }: BoxContentsSectionProps) {
                             disabled={mutation.isPending}
                             autoFocus
                             onKeyDown={(e) => {
-                              if (e.key === "Enter" && isDirty) saveEdit(it.send_item_id);
                               if (e.key === "Escape") cancelEdit();
                             }}
                           />
-                          <Button
-                            size="sm"
-                            className="h-7 text-xs px-2"
-                            onClick={() => saveEdit(it.send_item_id)}
-                            disabled={!isDirty || mutation.isPending}
-                          >
-                            {mutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-                            저장
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 text-xs px-2"
-                            onClick={cancelEdit}
-                            disabled={mutation.isPending}
-                          >
-                            취소
-                          </Button>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-gray-400">
+                              {memoDraft.length} / {MEMO_MAX_LEN}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs px-2"
+                                onClick={cancelEdit}
+                                disabled={mutation.isPending}
+                              >
+                                취소
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="h-7 text-xs px-2"
+                                onClick={() => saveEdit(it.send_item_id)}
+                                disabled={!isDirty || mutation.isPending}
+                              >
+                                {mutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+                                저장
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -829,21 +915,12 @@ function BoxContentsSection({ send, onSuccess }: BoxContentsSectionProps) {
   );
 }
 
-// 섹션 컴포넌트 — action 은 헤더 띠 우측 슬롯 (OrderDetailPanel 과 동일 시그니처)
-function Section({
-  title,
-  children,
-  action,
-}: {
-  title: string;
-  children: React.ReactNode;
-  action?: React.ReactNode;
-}) {
+// 섹션 컴포넌트
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="border border-gray-100 rounded-lg overflow-hidden">
-      <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+      <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100">
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{title}</h3>
-        {action}
       </div>
       <div className="px-3.5 py-3 space-y-2.5">{children}</div>
     </div>

@@ -58,10 +58,13 @@ export function SendResendModal({ open, onClose, send, onSuccess }: Props) {
 
   const allItemIds = useMemo(() => send.items.map((it) => it.send_item_id), [send.items]);
 
-  // 모달 열릴 때 품목 전체 선택
+  // 모달 열릴 때 품목 전체 선택 — 오픈 시점 스냅샷만 필요하다.
+  // deps 에 allItemIds 를 넣으면 모달이 열려 있는 동안 items 가 갱신될 때
+  // 운영자가 해제한 체크가 전부 되살아나, 부분 재배송이 전체 재배송으로 기록된다.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 오픈 시점 스냅샷만 필요 (items 변경 추적 안 함)
   useEffect(() => {
     if (open) setSelectedItemIds(new Set(allItemIds));
-  }, [open, allItemIds]);
+  }, [open]);
 
   const resetForm = () => {
     setReason("");
