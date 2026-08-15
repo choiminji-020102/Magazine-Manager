@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { FilterBar } from "@/components/common/FilterBar";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Pagination } from "@/components/common/Pagination";
+import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { FileDown, Package, RefreshCw, X } from "lucide-react";
 import RegeneratePreparingConfirmModal from "@/components/dispatch/RegeneratePreparingConfirmModal";
 import TransitionToDeliveredModal from "@/components/dispatch/TransitionToDeliveredModal";
@@ -499,11 +500,14 @@ export default function PreparingSendListPage() {
       </div>
 
       {/* 박스 상세 패널 — #11 약점 보강: TransitionToDeliveredModal 진입 전 박스 안 책 종류 확인 가능 */}
-      <SendDetailPanel
-        open={detailSendId !== null}
-        onClose={() => setDetailSendId(null)}
-        sendId={detailSendId}
-      />
+      <SlidingPanel open={detailSendId !== null} onClose={() => setDetailSendId(null)}>
+        {detailSendId !== null && (
+          <SendDetailPanel
+            sendId={detailSendId}
+            onClose={() => setDetailSendId(null)}
+          />
+        )}
+      </SlidingPanel>
 
       {/* 페이지네이션 */}
       {sendsData && (

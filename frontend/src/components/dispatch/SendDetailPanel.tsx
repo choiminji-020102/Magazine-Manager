@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
-import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
@@ -35,22 +34,29 @@ import type {
 } from "@/types/send";
 
 interface Props {
-  open: boolean;
+  sendId: number;
   onClose: () => void;
-  sendId: number | null;
 }
 
 // 발송 박스 단위 상세 패널.
 // PreparingSendListPage / DeliveredSendListPage 의 행 클릭 시 열림.
 // 박스 안 SendItem 책 종류 확인용 (#11 약점 보강) + 재배송 내역 노출.
-// 향후 PR6.5.5 에서 [재배송 입력] 섹션 추가 예정.
+//
+// SlidingPanel 은 부모 페이지가 렌더한다 — 다른 도메인 패널(OrderDetailPanel,
+// CustomerDetailPanel 등) 과 동일한 뼈대. 이 컴포넌트는 내용물만 반환하므로
+// 헤더를 sticky 가 아니라 flex 형제로 고정할 수 있고, 스크롤은 본문에만 걸린다.
 
-export default function SendDetailPanel({ open, onClose, sendId }: Props) {
+export default function SendDetailPanel({ sendId, onClose }: Props) {
   const queryClient = useQueryClient();
-  const { data: sendData, isLoading } = useQuery({
+
+  // 박스 강제 삭제 — 위험 액션이라 2단계 확인 (1차 대상/규모 안내 → 2차 비가역성 강조).
+  // 2차에서 취소 시 1차로 돌아가지 않고 그대로 닫힘 (모달 중첩 UX 단순화).
+  const [deleteStep1Open, setDeleteStep1Open] = useState(false);
+  const [deleteStep2Open, setDeleteStep2Open] = useState(false);
+
+  const { data: send, isLoading } = useQuery({
     queryKey: ["send-detail", sendId],
-    queryFn: () => sendsApi.getSend(sendId!).then((r) => r.data.data!),
-    enabled: open && sendId !== null,
+    queryFn: () => sendsApi.getSend(sendId).then((r) => r.data.data!),
   });
 
   const { data: resendLogs = [] } = useQuery({
@@ -61,207 +67,292 @@ export default function SendDetailPanel({ open, onClose, sendId }: Props) {
           page: 1,
           limit: 50,
           target_type: "SEND",
-          target_id: sendId!,
+          target_id: sendId,
           action: "RESEND",
         })
         .then((r) => r.data.items ?? []),
-    enabled: open && sendId !== null,
   });
 
-  const send = sendData;
+  // PREPARING 박스 강제 삭제 — 운영자 직접 박스 단위 정리용.
+  // OrderItem 취소 시 자동 제거 흐름과 별개. 사유/메모는 받지 않는다.
+  const deleteMutation = useMutation({
+    mutationFn: () => sendsApi.deletePreparingSend(sendId).then((r) => r.data),
+    onSuccess: (res) => {
+      toast.success(res.message ?? "PREPARING 박스가 삭제되었습니다.");
+      setDeleteStep2Open(false);
+      onClose();
+      queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
+      queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
+      queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
+      queryClient.invalidateQueries({ queryKey: ["order-item-sends"] });
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (!send) {
+    return (
+      <div className="flex items-center justify-center py-12 text-sm text-gray-400">
+        발송 정보를 불러올 수 없습니다.
+      </div>
+    );
+  }
+
+  const isOverseas = send.country_code !== "KR";
 
   return (
-    <SlidingPanel open={open} onClose={onClose}>
-      {/* 자체 헤더 — 다른 도메인 상세 패널(CustomerDetailPanel 등)과 동일 패턴.
-          SlidingPanel.title prop 대신 children 안에서 상태 배지·ID 까지 통합.
-          SlidingPanel 의 children 영역이 자체로 스크롤되므로 sticky top-0 으로 고정. */}
-      <div className="sticky top-0 z-10 px-5 py-4 border-b border-gray-200 bg-white flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
-          {send && <StatusBadge type="send_status" value={send.send_status} />}
-          <h2 className="text-base font-semibold text-gray-900 truncate">
-            {send ? `발송 #${send.send_id}` : "발송 상세"}
-          </h2>
-        </div>
-        <button
-          onClick={onClose}
-          className="rounded-md p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors flex-shrink-0 ml-2"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
-      {isLoading || !send ? (
-        <div className="flex items-center justify-center py-16">
-          <LoadingSpinner size="lg" />
-        </div>
-      ) : (
-        <div className="p-4 space-y-3 text-sm">
-          {/* 수령인 / 주소 */}
-          <Section title="수령인">
-            <Row label="이름">{send.recipient_name}</Row>
-            <Row label="연락처">{formatPhone(send.recipient_phone)}</Row>
-            <Row label="국가">
-              {send.country_code === "KR" ? (
-                <span>대한민국 (KR)</span>
-              ) : (
-                <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-semibold">
+    <div className="flex flex-col h-full">
+      {/* 패널 헤더 */}
+      <div className="px-5 py-4 border-b border-gray-200 bg-white">
+        <div className="flex items-start justify-between mb-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 mb-1">
+              <StatusBadge type="send_status" value={send.send_status} />
+              {/* 해외 발송 배지 — 카드 계열(PreparingSendCard 등)과 동일 규격 */}
+              {isOverseas && (
+                <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-semibold">
                   🌐 {send.country_code}
                 </span>
               )}
-            </Row>
-            <Row label="우편번호">
-              <span className="font-mono">{send.postal_code}</span>
-            </Row>
-            <Row label="주소">{send.recipient_address}</Row>
-            {send.customer_memo && <Row label="배송 요청사항">{send.customer_memo}</Row>}
-          </Section>
+            </div>
+            {/* 제목은 박스 ID 가 아니라 수령인 — 다른 패널이 고객명·상품명을 쓰는 것과 같다.
+                ID 는 사람이 식별하지 못하므로 부제로 내린다. */}
+            <div className="font-semibold text-gray-900 text-base leading-tight truncate">
+              {send.recipient_name}
+            </div>
+            <div className="text-xs text-gray-400 mt-0.5">
+              <span className="font-mono">{formatPhone(send.recipient_phone)}</span>
+              <span className="mx-1.5">·</span>
+              <span className="font-mono">발송 #{send.send_id}</span>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 flex-shrink-0 ml-2"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-          {/* 발송 메모(Send.admin_memo) — 편집 가능. 상태 무관 (PREPARING/DELIVERED/CANCELLED). */}
-          <AdminMemoSection
-            key={send.send_id}
-            send={send}
-            onSuccess={() => {
-              queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
-              queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
-              queryClient.invalidateQueries({ queryKey: ["delivered-sends"] });
-              // SubscriptionDetailPanel 의 발송 내역 query — orderItemId 무관 prefix 무효화
-              queryClient.invalidateQueries({ queryKey: ["order-item-sends"] });
-            }}
-          />
+        {/* 액션 버튼 */}
+        {send.send_status === "PREPARING" && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDeleteStep1Open(true)}
+              disabled={deleteMutation.isPending}
+              className="text-red-600 border-red-200 hover:bg-red-50"
+            >
+              {deleteMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+              박스 삭제
+            </Button>
+          </div>
+        )}
+      </div>
 
-          {/* 묶인 주문 */}
-          {send.related_orders.length > 0 && (
-            <Section title="묶인 주문">
-              <div className="space-y-1">
-                {send.related_orders.map((ro) => (
-                  <div key={ro.order_id} className="text-xs text-gray-700 flex items-center gap-2">
-                    <span className="font-mono text-gray-400">#{ro.order_id}</span>
-                    <span>·</span>
-                    <span>{ro.customer_name}</span>
-                    <span>·</span>
-                    <span className="font-mono text-gray-500">{formatPhone(ro.customer_phone)}</span>
-                  </div>
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {/* 운송장 — DELIVERED 박스에서만 편집 가능 (PREPARING/CANCELLED 은 read-only) */}
-          <TrackingSection
-            key={`tracking-${send.send_id}`}
-            send={send}
-            onSuccess={() => {
-              queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
-              queryClient.invalidateQueries({ queryKey: ["delivered-sends"] });
-              queryClient.invalidateQueries({ queryKey: ["order-item-sends"] });
-            }}
-          />
-
-          {/* 박스 안 SendItem 목록 — 각 품목 admin_memo 인라인 편집 */}
-          <BoxContentsSection
-            key={`box-${send.send_id}`}
-            send={send}
-            onSuccess={() => {
-              queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
-              queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
-              queryClient.invalidateQueries({ queryKey: ["delivered-sends"] });
-              queryClient.invalidateQueries({ queryKey: ["order-item-sends"] });
-            }}
-          />
-
-          {/* 재배송 — 입력(추가 버튼/폼)과 내역 리스트를 한 섹션에 통합.
-              DELIVERED 박스만 입력 가능(ResendInputSection 내부 조건 아님 — 부모에서 분기).
-              내역은 PREPARING 박스에서도 표시될 수 있으나 정의상 항상 0건.
-              백엔드 활동 로그 API 는 created_at DESC 반환이라 그 순서 그대로 표시 (최신부터 위로).
-              백엔드 정렬 변경 시 깨짐. */}
-          <Section title={`재배송 (${resendLogs.length}건)`}>
-            {/* 입력 — DELIVERED 만. key 로 박스 바뀔 때 toggle/입력 state 초기화. */}
-            {send.send_status === "DELIVERED" && (
-              <ResendInputSection
-                key={send.send_id}
-                send={send}
-                onSuccess={() => {
-                  queryClient.invalidateQueries({ queryKey: ["send-resend-logs", sendId] });
-                  queryClient.invalidateQueries({ queryKey: ["delivered-resend-logs"] });
-                  queryClient.invalidateQueries({ queryKey: ["resendLogs"] });
-                }}
-              />
-            )}
-            {/* 내역 리스트 */}
-            {resendLogs.length === 0 ? (
-              <p className="text-xs text-gray-400">재배송 내역이 없습니다.</p>
+      {/* 스크롤 영역 */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 text-sm">
+        {/* 수령인 / 주소 */}
+        <Section title="수령인">
+          <Row label="이름">{send.recipient_name}</Row>
+          <Row label="연락처">{formatPhone(send.recipient_phone)}</Row>
+          <Row label="국가">
+            {send.country_code === "KR" ? (
+              <span>대한민국 (KR)</span>
             ) : (
-              <div className="space-y-2">
-                {resendLogs.map((log) => {
-                  const d = log.details ?? {};
-                  const resendIds = (Array.isArray(d.send_item_ids) ? d.send_item_ids : []) as number[];
-                  const resendItems = resendIds
-                    .map((id) => send.items.find((it) => it.send_item_id === id))
-                    .filter((it): it is NonNullable<typeof it> => !!it);
-                  const isFull =
-                    resendItems.length > 0 && resendItems.length === send.items.length;
-                  return (
-                    <div key={log.log_id} className="border border-orange-100 bg-orange-50/50 rounded p-2 space-y-0.5">
-                      <div className="text-xs text-gray-500">{formatDateTime(log.created_at)}</div>
-                      {d.reason && <div className="text-xs text-gray-700">사유: {d.reason}</div>}
-                      {resendItems.length > 0 && (
-                        <div className="text-xs text-gray-700">
-                          <div>
-                            품목:{" "}
-                            {isFull
-                              ? `전체 ${resendItems.length}건`
-                              : `일부 ${resendItems.length}/${send.items.length}건`}
-                          </div>
-                          <ul className="ml-4 mt-0.5 space-y-0.5">
-                            {resendItems.map((it) => (
-                              <li key={it.send_item_id}>
-                                <span className="font-mono text-gray-500">{it.product_code}</span>{" "}
-                                <span className="text-gray-700">{it.product_name}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {d.send_method && (
-                        <div className="text-xs text-gray-700">
-                          방법: {d.send_method}
-                          {d.courier_company && <span className="text-gray-400"> · {d.courier_company}</span>}
-                        </div>
-                      )}
-                      {d.tracking_no && (
-                        <div className="text-xs text-gray-700 font-mono">운송장: {d.tracking_no}</div>
-                      )}
-                      {d.memo && <div className="text-xs text-gray-500">메모: {d.memo}</div>}
-                    </div>
-                  );
-                })}
-              </div>
+              <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-semibold">
+                🌐 {send.country_code}
+              </span>
             )}
-          </Section>
+          </Row>
+          <Row label="우편번호">
+            <span className="font-mono">{send.postal_code}</span>
+          </Row>
+          <Row label="주소">{send.recipient_address}</Row>
+          {send.customer_memo && <Row label="배송 요청사항">{send.customer_memo}</Row>}
+        </Section>
 
-          {/* PREPARING 박스 강제 삭제 — PREPARING 박스만 노출, 위험 액션 (확인 모달) */}
-          {send.send_status === "PREPARING" && (
-            <PreparingDeleteSection
+        {/* 발송 메모(Send.admin_memo) — 편집 가능. 상태 무관 (PREPARING/DELIVERED/CANCELLED). */}
+        <AdminMemoSection
+          key={send.send_id}
+          send={send}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
+            queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
+            queryClient.invalidateQueries({ queryKey: ["delivered-sends"] });
+            // SubscriptionDetailPanel 의 발송 내역 query — orderItemId 무관 prefix 무효화
+            queryClient.invalidateQueries({ queryKey: ["order-item-sends"] });
+          }}
+        />
+
+        {/* 묶인 주문 */}
+        {send.related_orders.length > 0 && (
+          <Section title="묶인 주문">
+            <div className="space-y-1">
+              {send.related_orders.map((ro) => (
+                <div key={ro.order_id} className="text-xs text-gray-700 flex items-center gap-2">
+                  <span className="font-mono text-gray-400">#{ro.order_id}</span>
+                  <span>·</span>
+                  <span>{ro.customer_name}</span>
+                  <span>·</span>
+                  <span className="font-mono text-gray-500">{formatPhone(ro.customer_phone)}</span>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {/* 운송장 — DELIVERED 박스에서만 편집 가능 (PREPARING/CANCELLED 은 read-only) */}
+        <TrackingSection
+          key={`tracking-${send.send_id}`}
+          send={send}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
+            queryClient.invalidateQueries({ queryKey: ["delivered-sends"] });
+            queryClient.invalidateQueries({ queryKey: ["order-item-sends"] });
+          }}
+        />
+
+        {/* 박스 안 SendItem 목록 — 각 품목 admin_memo 인라인 편집 */}
+        <BoxContentsSection
+          key={`box-${send.send_id}`}
+          send={send}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
+            queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
+            queryClient.invalidateQueries({ queryKey: ["delivered-sends"] });
+            queryClient.invalidateQueries({ queryKey: ["order-item-sends"] });
+          }}
+        />
+
+        {/* 재배송 — 입력(추가 버튼/폼)과 내역 리스트를 한 섹션에 통합.
+            DELIVERED 박스만 입력 가능(ResendInputSection 내부 조건 아님 — 부모에서 분기).
+            내역은 PREPARING 박스에서도 표시될 수 있으나 정의상 항상 0건.
+            백엔드 활동 로그 API 는 created_at DESC 반환이라 그 순서 그대로 표시 (최신부터 위로).
+            백엔드 정렬 변경 시 깨짐. */}
+        <Section title={`재배송 (${resendLogs.length}건)`}>
+          {/* 입력 — DELIVERED 만. key 로 박스 바뀔 때 toggle/입력 state 초기화. */}
+          {send.send_status === "DELIVERED" && (
+            <ResendInputSection
+              key={send.send_id}
               send={send}
               onSuccess={() => {
-                onClose();
-                queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
-                queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
-                queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
-                queryClient.invalidateQueries({ queryKey: ["order-item-sends"] });
+                queryClient.invalidateQueries({ queryKey: ["send-resend-logs", sendId] });
+                queryClient.invalidateQueries({ queryKey: ["delivered-resend-logs"] });
+                queryClient.invalidateQueries({ queryKey: ["resendLogs"] });
               }}
             />
           )}
+          {/* 내역 리스트 */}
+          {resendLogs.length === 0 ? (
+            <p className="text-xs text-gray-400">재배송 내역이 없습니다.</p>
+          ) : (
+            <div className="space-y-2">
+              {resendLogs.map((log) => {
+                const d = log.details ?? {};
+                const resendIds = (Array.isArray(d.send_item_ids) ? d.send_item_ids : []) as number[];
+                const resendItems = resendIds
+                  .map((id) => send.items.find((it) => it.send_item_id === id))
+                  .filter((it): it is NonNullable<typeof it> => !!it);
+                const isFull =
+                  resendItems.length > 0 && resendItems.length === send.items.length;
+                return (
+                  <div key={log.log_id} className="border border-orange-100 bg-orange-50/50 rounded p-2 space-y-0.5">
+                    <div className="text-xs text-gray-500">{formatDateTime(log.created_at)}</div>
+                    {d.reason && <div className="text-xs text-gray-700">사유: {d.reason}</div>}
+                    {resendItems.length > 0 && (
+                      <div className="text-xs text-gray-700">
+                        <div>
+                          품목:{" "}
+                          {isFull
+                            ? `전체 ${resendItems.length}건`
+                            : `일부 ${resendItems.length}/${send.items.length}건`}
+                        </div>
+                        <ul className="ml-4 mt-0.5 space-y-0.5">
+                          {resendItems.map((it) => (
+                            <li key={it.send_item_id}>
+                              <span className="font-mono text-gray-500">{it.product_code}</span>{" "}
+                              <span className="text-gray-700">{it.product_name}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {d.send_method && (
+                      <div className="text-xs text-gray-700">
+                        방법: {d.send_method}
+                        {d.courier_company && <span className="text-gray-400"> · {d.courier_company}</span>}
+                      </div>
+                    )}
+                    {d.tracking_no && (
+                      <div className="text-xs text-gray-700 font-mono">운송장: {d.tracking_no}</div>
+                    )}
+                    {d.memo && <div className="text-xs text-gray-500">메모: {d.memo}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Section>
 
-          {/* 시스템 메타 */}
-          <Section title="시스템">
-            <Row label="생성일">{formatDateTime(send.created_at)}</Row>
-            <Row label="수정일">{formatDateTime(send.updated_at)}</Row>
-            {send.delivered_at && <Row label="발송 완료일">{formatDateTime(send.delivered_at)}</Row>}
-          </Section>
-        </div>
-      )}
-    </SlidingPanel>
+        {/* 시스템 메타 */}
+        <Section title="시스템">
+          <Row label="생성일">{formatDateTime(send.created_at)}</Row>
+          <Row label="수정일">{formatDateTime(send.updated_at)}</Row>
+          {send.delivered_at && <Row label="발송 완료일">{formatDateTime(send.delivered_at)}</Row>}
+        </Section>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* 모달들                                                              */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+
+      {/* 박스 강제 삭제 1차 — 일반 확인 (대상/규모 안내) */}
+      <ConfirmModal
+        open={deleteStep1Open}
+        onClose={() => setDeleteStep1Open(false)}
+        onConfirm={() => {
+          setDeleteStep1Open(false);
+          setDeleteStep2Open(true);
+        }}
+        title="박스 강제 삭제"
+        description={
+          <>
+            발송 박스 <span className="font-mono">#{send.send_id}</span> 와 발송 품목{" "}
+            <strong>{send.items.length}건</strong>이 모두 삭제됩니다.
+            <br />주문 자체는 유지됩니다.
+          </>
+        }
+        confirmLabel="계속"
+        variant="destructive"
+      />
+
+      {/* 박스 강제 삭제 2차 — 비가역성 강조 (최종 확인) */}
+      <ConfirmModal
+        open={deleteStep2Open}
+        onClose={() => setDeleteStep2Open(false)}
+        onConfirm={() => deleteMutation.mutate()}
+        title="정말 삭제하시겠습니까?"
+        description={
+          <>
+            이 작업은 <strong className="text-red-600">되돌릴 수 없습니다.</strong>
+            <br />박스 <span className="font-mono">#{send.send_id}</span> 와 품목{" "}
+            <strong>{send.items.length}건</strong>이 영구 삭제됩니다.
+          </>
+        }
+        confirmLabel="영구 삭제"
+        variant="destructive"
+        isLoading={deleteMutation.isPending}
+      />
+    </div>
   );
 }
 
@@ -619,90 +710,6 @@ function BoxContentsSection({ send, onSuccess }: BoxContentsSectionProps) {
           </tbody>
         </table>
       )}
-    </Section>
-  );
-}
-
-
-// ── PREPARING 박스 강제 삭제 섹션 ─────────────────────────────────────────────
-// PREPARING 박스만 노출. 위험 액션이라 ConfirmModal 2단계 (1차 일반 확인 → 2차 비가역성 강조).
-// 사유/메모는 받지 않음 — 운영자 직접 정리 흐름이라 입력 부담 줄이고 대신 실수 방지에 무게.
-// OrderItem 취소 시 자동 제거 흐름과 별개 — 운영자 직접 박스 단위 정리용.
-
-interface PreparingDeleteSectionProps {
-  send: SendDetailResponse;
-  onSuccess: () => void;
-}
-
-function PreparingDeleteSection({ send, onSuccess }: PreparingDeleteSectionProps) {
-  // 2단계 모달 — 1차/2차 독립 state. 1차 [삭제] 클릭 시 1차 닫고 2차 열기.
-  // 2차에서 취소 시 1차로 돌아가지 않고 그대로 닫힘 (모달 중첩 UX 단순화).
-  const [step1Open, setStep1Open] = useState(false);
-  const [step2Open, setStep2Open] = useState(false);
-
-  const mutation = useMutation({
-    mutationFn: () => sendsApi.deletePreparingSend(send.send_id).then((r) => r.data),
-    onSuccess: (res) => {
-      toast.success(res.message ?? "PREPARING 박스가 삭제되었습니다.");
-      setStep2Open(false);
-      onSuccess();
-    },
-    onError: (err) => toast.error(getErrorMessage(err)),
-  });
-
-  return (
-    <Section title="박스 강제 삭제">
-      <p className="text-xs text-gray-500 mb-2">
-        이 박스 (#{send.send_id}) 와 박스 안 발송 품목 {send.items.length}건을 모두 삭제합니다.
-        주문 자체는 유지됩니다.
-      </p>
-      <Button
-        size="sm"
-        variant="destructive"
-        onClick={() => setStep1Open(true)}
-        disabled={mutation.isPending}
-      >
-        {mutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-        박스 강제 삭제
-      </Button>
-
-      {/* 1차 — 일반 확인 (대상/규모 안내) */}
-      <ConfirmModal
-        open={step1Open}
-        onClose={() => setStep1Open(false)}
-        onConfirm={() => {
-          setStep1Open(false);
-          setStep2Open(true);
-        }}
-        title="박스 강제 삭제"
-        description={
-          <>
-            발송 박스 <span className="font-mono">#{send.send_id}</span> 와 발송 품목{" "}
-            <strong>{send.items.length}건</strong>이 모두 삭제됩니다.
-            <br />주문 자체는 유지됩니다.
-          </>
-        }
-        confirmLabel="계속"
-        variant="destructive"
-      />
-
-      {/* 2차 — 비가역성 강조 (최종 확인) */}
-      <ConfirmModal
-        open={step2Open}
-        onClose={() => setStep2Open(false)}
-        onConfirm={() => mutation.mutate()}
-        title="정말 삭제하시겠습니까?"
-        description={
-          <>
-            이 작업은 <strong className="text-red-600">되돌릴 수 없습니다.</strong>
-            <br />박스 <span className="font-mono">#{send.send_id}</span> 와 품목{" "}
-            <strong>{send.items.length}건</strong>이 영구 삭제됩니다.
-          </>
-        }
-        confirmLabel="영구 삭제"
-        variant="destructive"
-        isLoading={mutation.isPending}
-      />
     </Section>
   );
 }

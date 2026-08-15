@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { FilterBar } from "@/components/common/FilterBar";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Pagination } from "@/components/common/Pagination";
+import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { CheckCircle2 } from "lucide-react";
 import SendDetailPanel from "@/components/dispatch/SendDetailPanel";
 import DeliveredSendCard from "@/components/dispatch/DeliveredSendCard";
@@ -221,11 +222,14 @@ export default function DeliveredSendListPage() {
       </div>
 
       {/* 박스 상세 패널 — 운송장 / admin_memo 편집은 여기서 */}
-      <SendDetailPanel
-        open={detailSendId !== null}
-        onClose={() => setDetailSendId(null)}
-        sendId={detailSendId}
-      />
+      <SlidingPanel open={detailSendId !== null} onClose={() => setDetailSendId(null)}>
+        {detailSendId !== null && (
+          <SendDetailPanel
+            sendId={detailSendId}
+            onClose={() => setDetailSendId(null)}
+          />
+        )}
+      </SlidingPanel>
 
       {/* 페이지네이션 */}
       {sendsData && (
