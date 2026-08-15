@@ -1,13 +1,12 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Edit2, X } from "lucide-react";
+import { Edit2, RotateCcw, X } from "lucide-react";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { SendResendModal } from "@/components/dispatch/SendResendModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -25,7 +24,6 @@ import {
   SEND_METHOD_OPTIONS,
   COURIER_COMPANY_OPTIONS,
   SEND_METHOD_TO_COURIER,
-  RESEND_REASON_OPTIONS,
 } from "@/utils/constants";
 import type {
   SendMethod,
@@ -64,6 +62,7 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
   // 2차에서 취소 시 1차로 돌아가지 않고 그대로 닫힘 (모달 중첩 UX 단순화).
   const [deleteStep1Open, setDeleteStep1Open] = useState(false);
   const [deleteStep2Open, setDeleteStep2Open] = useState(false);
+  const [resendOpen, setResendOpen] = useState(false);
 
   // 편집 모드 — 다른 도메인 패널과 동일하게 토글 하나로 본문 전체를 전환한다.
   // 발송 메모(상태 무관)와 운송장 3필드(DELIVERED 만)를 한 번에 다루고,
@@ -305,6 +304,18 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
                 <Edit2 className="h-3 w-3" />
                 수정
               </Button>
+              {/* 재배송은 이미 나간 박스에 대한 사후 기록이라 DELIVERED 만 (백엔드도 400 으로 차단) */}
+              {send.send_status === "DELIVERED" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => setResendOpen(true)}
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  재배송 기록
+                </Button>
+              )}
               {send.send_status === "PREPARING" && (
                 <Button
                   variant="outline"
@@ -505,25 +516,11 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
           }}
         />
 
-        {/* 재배송 — 입력(추가 버튼/폼)과 내역 리스트를 한 섹션에 통합.
-            DELIVERED 박스만 입력 가능(ResendInputSection 내부 조건 아님 — 부모에서 분기).
+        {/* 재배송 내역 — 입력은 헤더 [재배송 기록] → SendResendModal.
             내역은 PREPARING 박스에서도 표시될 수 있으나 정의상 항상 0건.
             백엔드 활동 로그 API 는 created_at DESC 반환이라 그 순서 그대로 표시 (최신부터 위로).
             백엔드 정렬 변경 시 깨짐. */}
         <Section title={`재배송 (${resendLogs.length}건)`}>
-          {/* 입력 — DELIVERED 만. key 로 박스 바뀔 때 toggle/입력 state 초기화. */}
-          {send.send_status === "DELIVERED" && (
-            <ResendInputSection
-              key={send.send_id}
-              send={send}
-              onSuccess={() => {
-                queryClient.invalidateQueries({ queryKey: ["send-resend-logs", sendId] });
-                queryClient.invalidateQueries({ queryKey: ["delivered-resend-logs"] });
-                queryClient.invalidateQueries({ queryKey: ["resendLogs"] });
-              }}
-            />
-          )}
-          {/* 내역 리스트 */}
           {resendLogs.length === 0 ? (
             <p className="text-xs text-gray-400">재배송 내역이 없습니다.</p>
           ) : (
@@ -586,6 +583,18 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* 모달들                                                              */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
+
+      {/* 재배송 내역 기록 */}
+      <SendResendModal
+        open={resendOpen}
+        onClose={() => setResendOpen(false)}
+        send={send}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["send-resend-logs", sendId] });
+          queryClient.invalidateQueries({ queryKey: ["delivered-resend-logs"] });
+          queryClient.invalidateQueries({ queryKey: ["resendLogs"] });
+        }}
+      />
 
       {/* 박스 강제 삭제 1차 — 일반 확인 (대상/규모 안내) */}
       <ConfirmModal
@@ -778,273 +787,6 @@ function BoxContentsSection({ send, onSuccess }: BoxContentsSectionProps) {
         </table>
       )}
     </Section>
-  );
-}
-
-
-// ── 재배송 입력 섹션 ──────────────────────────────────────────────────────────
-// DELIVERED 박스에만 노출. 토글로 폼 펼침. 박스 안 SendItem 다중 선택 (기본 모두).
-
-interface ResendInputSectionProps {
-  send: SendDetailResponse;
-  onSuccess: () => void;
-}
-
-function ResendInputSection({ send, onSuccess }: ResendInputSectionProps) {
-  const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState("");
-  const [sendMethod, setSendMethod] = useState<SendMethod | "">("");
-  const [courier, setCourier] = useState<CourierCompany | "">("");
-  const [trackingNo, setTrackingNo] = useState("");
-  const [memo, setMemo] = useState("");
-  // SendItem 다중 선택 — 기본 모두 선택 (박스 통째 재발송이 기본 시나리오)
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(new Set());
-  // 필수 필드 에러 (UI_GUIDE §10 3종 세트: border-red + 메시지 + toast)
-  const [reasonError, setReasonError] = useState(false);
-  const [sendMethodError, setSendMethodError] = useState(false);
-  const [courierError, setCourierError] = useState(false);
-  const [itemsError, setItemsError] = useState(false);
-
-  const allItemIds = useMemo(() => send.items.map((it) => it.send_item_id), [send.items]);
-
-  // 폼 열릴 때 초기화 (모두 선택)
-  useEffect(() => {
-    if (open) {
-      setSelectedItemIds(new Set(allItemIds));
-    }
-  }, [open, allItemIds]);
-
-  // 폼 닫힐 때 에러 상태 초기화 — 다시 열었을 때 이전 빨간 상태 잔존 방지.
-  // onSuccess 경로 외에 취소 버튼 / 외부 트리거로 닫는 경우도 포함.
-  useEffect(() => {
-    if (!open) {
-      setReasonError(false);
-      setSendMethodError(false);
-      setCourierError(false);
-      setItemsError(false);
-    }
-  }, [open]);
-
-  const mutation = useMutation({
-    mutationFn: () =>
-      sendsApi
-        .resendSend(send.send_id, {
-          reason: reason.trim(),
-          send_method: sendMethod as SendMethod,
-          courier_company: courier as CourierCompany,
-          send_item_ids: Array.from(selectedItemIds),
-          tracking_no: trackingNo.trim(),
-          memo: memo.trim() || null,
-        })
-        .then((r) => r.data),
-    onSuccess: (res) => {
-      toast.success(res.message ?? "재배송 내역이 기록되었습니다.");
-      // 폼 초기화
-      setOpen(false);
-      setReason("");
-      setSendMethod("");
-      setCourier("");
-      setTrackingNo("");
-      setMemo("");
-      setReasonError(false);
-      setSendMethodError(false);
-      setCourierError(false);
-      setItemsError(false);
-      onSuccess();
-    },
-    onError: (err) => toast.error(getErrorMessage(err)),
-  });
-
-  const handleSubmit = () => {
-    // 모든 필수 누락을 한 번에 표시 (재제출 강요 방지). toast 는 첫 누락만.
-    let firstError: string | null = null;
-    if (!reason.trim()) {
-      setReasonError(true);
-      if (!firstError) firstError = "재배송 사유를 입력해주세요.";
-    }
-    if (!sendMethod) {
-      setSendMethodError(true);
-      if (!firstError) firstError = "배송 방법을 선택해주세요.";
-    }
-    if (!courier) {
-      setCourierError(true);
-      if (!firstError) firstError = "운송사를 선택해주세요.";
-    }
-    if (selectedItemIds.size === 0) {
-      setItemsError(true);
-      if (!firstError) firstError = "재배송할 품목을 1개 이상 선택해주세요.";
-    }
-    if (firstError) {
-      toast.error(firstError);
-      return;
-    }
-    mutation.mutate();
-  };
-
-  const toggleItem = (id: number, checked: boolean) => {
-    setSelectedItemIds((prev) => {
-      const next = new Set(prev);
-      if (checked) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-    // 사용자 상호작용 시 즉시 에러 해제 (다음 submit 에서 재검증)
-    setItemsError(false);
-  };
-
-  if (!open) {
-    // 부모 Section "재배송" 안에서 렌더 — 자체 wrapper 없이 버튼만
-    return (
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-        + 재배송 내역 추가
-      </Button>
-    );
-  }
-
-  // 토글 ON — 별도 파란 박스 (다른 도메인 패널의 편집 폼과 동일한 톤)
-  return (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3.5 space-y-3">
-      <div className="text-xs font-semibold text-blue-700">재배송 입력</div>
-      {/* 사유 */}
-      <div>
-        <Label className={`text-xs ${reasonError ? "text-red-500" : "text-gray-600"}`}>
-          사유 <span className="text-red-500 ml-0.5">*</span>
-        </Label>
-        <Select value={reason} onValueChange={(v) => { setReason(v); setReasonError(false); }}>
-          <SelectTrigger className={`mt-1 h-8 text-xs bg-white ${reasonError ? "border-red-500 focus:ring-red-500" : ""}`}>
-            <SelectValue placeholder="선택 또는 직접 입력" />
-          </SelectTrigger>
-          <SelectContent>
-            {RESEND_REASON_OPTIONS.map((r) => (
-              <SelectItem key={r.value} value={r.value} className="text-xs">
-                {r.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Input
-          className={`mt-1 h-8 text-xs bg-white ${reasonError ? "border-red-500 focus:ring-red-500" : ""}`}
-          placeholder="또는 직접 입력 (덮어쓰기)"
-          value={reason}
-          onChange={(e) => { setReason(e.target.value); setReasonError(false); }}
-        />
-        {reasonError && <p className="text-xs text-red-500 mt-1">재배송 사유를 입력해주세요.</p>}
-      </div>
-
-      {/* 배송 방법 / 운송사 */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label className={`text-xs ${sendMethodError ? "text-red-500" : "text-gray-600"}`}>
-            배송 방법 <span className="text-red-500 ml-0.5">*</span>
-          </Label>
-          <Select
-            value={sendMethod}
-            onValueChange={(v) => {
-              const sm = v as SendMethod;
-              setSendMethod(sm);
-              setSendMethodError(false);
-              const derived = SEND_METHOD_TO_COURIER[sm] as CourierCompany | undefined;
-              if (derived && !courier) {
-                setCourier(derived);
-                setCourierError(false);
-              }
-            }}
-          >
-            <SelectTrigger className={`mt-1 h-8 text-xs bg-white ${sendMethodError ? "border-red-500 focus:ring-red-500" : ""}`}>
-              <SelectValue placeholder="선택" />
-            </SelectTrigger>
-            <SelectContent>
-              {SEND_METHOD_OPTIONS.map((m) => (
-                <SelectItem key={m.value} value={m.value} className="text-xs">
-                  {m.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {sendMethodError && <p className="text-xs text-red-500 mt-1">배송 방법을 선택해주세요.</p>}
-        </div>
-        <div>
-          <Label className={`text-xs ${courierError ? "text-red-500" : "text-gray-600"}`}>
-            운송사 <span className="text-red-500 ml-0.5">*</span>
-          </Label>
-          <Select value={courier} onValueChange={(v) => { setCourier(v as CourierCompany); setCourierError(false); }}>
-            <SelectTrigger className={`mt-1 h-8 text-xs bg-white ${courierError ? "border-red-500 focus:ring-red-500" : ""}`}>
-              <SelectValue placeholder="선택" />
-            </SelectTrigger>
-            <SelectContent>
-              {COURIER_COMPANY_OPTIONS.map((c) => (
-                <SelectItem key={c.value} value={c.value} className="text-xs">
-                  {c.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {courierError && <p className="text-xs text-red-500 mt-1">운송사를 선택해주세요.</p>}
-        </div>
-      </div>
-
-      {/* 송장 / 메모 */}
-      <div>
-        <Label className="text-xs text-gray-600">송장 번호 (선택)</Label>
-        <Input
-          className="mt-1 h-8 text-xs font-mono bg-white"
-          placeholder="숫자만 추출되어 저장됨"
-          value={trackingNo}
-          onChange={(e) => setTrackingNo(e.target.value)}
-        />
-      </div>
-      <div>
-        <Label className="text-xs text-gray-600">메모 (선택)</Label>
-        <textarea
-          className="mt-1 w-full px-3 py-2 text-xs border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          rows={2}
-          placeholder="추가 안내"
-          value={memo}
-          onChange={(e) => setMemo(e.target.value)}
-        />
-      </div>
-
-      {/* SendItem 다중 선택 */}
-      <div>
-        <Label className={`text-xs ${itemsError ? "text-red-500" : "text-gray-600"}`}>
-          재배송 품목 <span className="text-red-500 ml-0.5">*</span> ({selectedItemIds.size}/{send.items.length})
-        </Label>
-        <div className={`mt-1 border rounded divide-y divide-gray-100 bg-white ${itemsError ? "border-red-500" : "border-gray-200"}`}>
-          {send.items.map((it) => (
-            <label
-              key={it.send_item_id}
-              className="flex items-center gap-2 px-2 py-1.5 text-xs cursor-pointer hover:bg-gray-50"
-            >
-              <Checkbox
-                checked={selectedItemIds.has(it.send_item_id)}
-                onCheckedChange={(c) => toggleItem(it.send_item_id, c === true)}
-              />
-              <span className="font-mono text-gray-600">{it.product_code}</span>
-              <span className="text-gray-400">·</span>
-              <span className="text-gray-600">{formatIssue(it.issue)}</span>
-              <span className="text-gray-400 ml-auto">× {it.send_num}</span>
-            </label>
-          ))}
-        </div>
-        {itemsError && <p className="text-xs text-red-500 mt-1">재배송할 품목을 1개 이상 선택해주세요.</p>}
-      </div>
-
-      {/* 액션 */}
-      <div className="flex justify-end gap-2 pt-1">
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => setOpen(false)}
-          disabled={mutation.isPending}
-        >
-          취소
-        </Button>
-        <Button size="sm" onClick={handleSubmit} disabled={mutation.isPending}>
-          {mutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-          기록 저장
-        </Button>
-      </div>
-    </div>
   );
 }
 
