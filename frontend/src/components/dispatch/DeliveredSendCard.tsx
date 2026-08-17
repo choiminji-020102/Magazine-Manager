@@ -96,7 +96,7 @@ export default function DeliveredSendCard({
             <InfoRow label="배송 방법" value={send.send_method ?? "-"} />
             <InfoRow label="운송사" value={send.courier_company ?? "-"} />
             <InfoRow
-              label="송장번호"
+              label="송장 번호"
               value={
                 <TrackingNoValue
                   trackingNo={send.tracking_no}
