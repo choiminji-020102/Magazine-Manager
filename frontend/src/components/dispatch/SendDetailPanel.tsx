@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Edit2, RotateCcw, X } from "lucide-react";
 import { StatusBadge } from "@/components/common/StatusBadge";
@@ -18,7 +18,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { sendsApi } from "@/api/sendsApi";
-import { sendItemsApi } from "@/api/sendItemsApi";
 import { activityLogsApi } from "@/api/activityLogsApi";
 import { formatDateTime, formatPhone, formatIssue } from "@/utils/format";
 import { toast } from "@/hooks/use-toast";
@@ -36,10 +35,8 @@ import type {
   SendDetailResponse,
 } from "@/types/send";
 
-// 메모 입력 길이 상한.
-// Send.admin_memo 는 백엔드 SendAdminMemoUpdate 가 max_length=1000 으로 강제한다.
-// SendItem.admin_memo 는 백엔드에 길이 제약이 없지만(DB 도 Text), 같은 화면의 두 메모가
-// 서로 다른 상한을 갖는 게 더 이상하므로 입력 단계에서만 같은 값으로 맞춘다.
+// 발송 메모 입력 길이 상한 — 백엔드 SendAdminMemoUpdate 가 max_length=1000 으로 강제한다.
+// 서버가 422 로 거절하기 전에 입력 단계에서 막는다.
 const MEMO_MAX_LEN = 1000;
 
 interface Props {
@@ -412,16 +409,7 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
       {/* 스크롤 영역 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {/* 박스 내용 — 이 패널을 여는 1순위 목적이 '이 박스에 뭐가 들었나' 라서 맨 위에 둔다 */}
-        <BoxContentsSection
-          key={`box-${send.send_id}`}
-          send={send}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
-            queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
-            queryClient.invalidateQueries({ queryKey: ["delivered-sends"] });
-            queryClient.invalidateQueries({ queryKey: ["order-item-sends"] });
-          }}
-        />
+        <BoxContentsSection send={send} />
 
         {/* 배송지 — 섹션 이름을 다른 도메인 패널과 맞춘다 (기존 '수령인').
             Send 의 수령인 필드는 Address 스냅샷이라 배송지 그 자체다.
@@ -752,45 +740,13 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
 }
 
 
-// ── 박스 내용 섹션 — SendItem 목록 + 품목별 admin_memo 인라인 편집 ───────────
-// 상품 셀에 product_code + product_name inline (SendItemBox 와 동일 톤).
-// admin_memo 는 truthy 시 메모 텍스트 클릭으로 편집 진입, falsy 시 "+ 메모 추가" 버튼.
-// 한 번에 하나의 SendItem 만 편집 가능 (editingItemId 단일 state).
+// ── 박스 내용 섹션 — SendItem 목록 (읽기 전용) ────────────────────────────────
+// 상품 / 발송호 / 수량 세 열. 이 패널을 여는 1순위 목적인 '이 박스에 뭐가 들었나' 만 답한다.
+//
+// 품목별 admin_memo 인라인 편집은 제거했다 (PUT /send-items/{id} 미사용 상태).
+// 메모는 발송 단위로만 다룬다 — '발송 메모' 섹션(Send.admin_memo).
 
-interface BoxContentsSectionProps {
-  send: SendDetailResponse;
-  onSuccess: () => void;
-}
-
-function BoxContentsSection({ send, onSuccess }: BoxContentsSectionProps) {
-  const [editingItemId, setEditingItemId] = useState<number | null>(null);
-  const [memoDraft, setMemoDraft] = useState("");
-
-  const mutation = useMutation({
-    mutationFn: ({ id, memo }: { id: number; memo: string | null }) =>
-      sendItemsApi.updateSendItem(id, { admin_memo: memo }).then((r) => r.data),
-    onSuccess: (res) => {
-      toast.success(res.message ?? "품목 메모가 수정되었습니다.");
-      setEditingItemId(null);
-      onSuccess();
-    },
-    onError: (err) => toast.error(getErrorMessage(err)),
-  });
-
-  const startEdit = (itemId: number, current: string | null) => {
-    setEditingItemId(itemId);
-    setMemoDraft(current ?? "");
-  };
-
-  const cancelEdit = () => {
-    setEditingItemId(null);
-    setMemoDraft("");
-  };
-
-  const saveEdit = (itemId: number) => {
-    mutation.mutate({ id: itemId, memo: memoDraft.trim() || null });
-  };
-
+function BoxContentsSection({ send }: { send: SendDetailResponse }) {
   return (
     <Section title={`박스 내용 (${send.items.length}건)`}>
       {send.items.length === 0 ? (
@@ -805,102 +761,18 @@ function BoxContentsSection({ send, onSuccess }: BoxContentsSectionProps) {
             </tr>
           </thead>
           <tbody>
-            {send.items.map((it) => {
-              const isEditing = editingItemId === it.send_item_id;
-              // 편집 모드에서만 의미 있음 — 변경 없는 저장으로 인한 불필요 API 호출 방지
-              // (패널 본체의 memoDirty / trackingDirty 와 같은 판단).
-              const isDirty =
-                isEditing && memoDraft.trim() !== (it.admin_memo ?? "").trim();
-              return (
-                <Fragment key={it.send_item_id}>
-                  {/* 데이터 행 — 상품 / 발송호 / 수량.
-                      편집 모드일 땐 메모 표시 줄을 숨기고(아래 별도 tr 의 textarea 가 대체),
-                      table border 도 다음 tr 로 미룬다 (편집 행과 데이터 행 사이엔 구분선 없음). */}
-                  <tr className={isEditing ? "align-top" : "border-b border-gray-50 align-top"}>
-                    <td className="py-1 pr-2">
-                      {/* 잘라내지 않고 흘린다 — 상품명이 '1년 정기구독 - 26년 2월호 시작 …'
-                          처럼 구독 종류·시작 호로 시작해서, truncate 를 걸면 앞머리만 남고
-                          정작 어떤 책인지가 잘려나간다. 패널은 세로 스크롤이라 높이 여유가 있다. */}
-                      <div className="text-gray-700">{it.product_name}</div>
-                      {!isEditing && (
-                        it.admin_memo ? (
-                          <button
-                            onClick={() => startEdit(it.send_item_id, it.admin_memo)}
-                            disabled={mutation.isPending}
-                            className="block w-full text-left text-[11px] text-gray-500 truncate hover:bg-gray-50 rounded px-1 -mx-1 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
-                            title={`${it.admin_memo}\n(클릭하여 편집)`}
-                          >
-                            📝 {it.admin_memo}
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => startEdit(it.send_item_id, null)}
-                            disabled={mutation.isPending}
-                            className="text-[11px] text-gray-400 hover:text-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-gray-400"
-                          >
-                            + 메모 추가
-                          </button>
-                        )
-                      )}
-                    </td>
-                    <td className="py-1 pr-2 text-gray-600">{formatIssue(it.issue)}</td>
-                    <td className="py-1 text-right font-semibold text-gray-700">{it.send_num}</td>
-                  </tr>
-                  {/* 편집 행 — 전체 폭(colSpan=3). 데이터 행 바로 아래에 펼쳐짐.
-                      한 줄 Input 이 아니라 textarea 인 이유 — SendItem.admin_memo 는 DB 가 Text 이고
-                      백엔드에 길이·형식 제약이 없어 개행이 든 메모가 저장돼 있을 수 있다.
-                      Input 은 값에서 개행을 지우므로, 그런 메모를 열기만 해도 한 줄로 뭉개진 채
-                      dirty 로 잡혀 저장 시 개행이 사라진다.
-                      같은 이유로 Enter 는 저장이 아니라 줄바꿈이다 (Esc 취소만 둔다). */}
-                  {isEditing && (
-                    <tr className="border-b border-gray-50">
-                      <td colSpan={3} className="pt-1 pb-2">
-                        <div className="space-y-1">
-                          <textarea
-                            className="w-full px-2 py-1 text-[11px] border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
-                            rows={2}
-                            maxLength={MEMO_MAX_LEN}
-                            placeholder="품목 메모"
-                            value={memoDraft}
-                            onChange={(e) => setMemoDraft(e.target.value)}
-                            disabled={mutation.isPending}
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === "Escape") cancelEdit();
-                            }}
-                          />
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] text-gray-400">
-                              {memoDraft.length} / {MEMO_MAX_LEN}
-                            </span>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 text-xs px-2"
-                                onClick={cancelEdit}
-                                disabled={mutation.isPending}
-                              >
-                                취소
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="h-7 text-xs px-2"
-                                onClick={() => saveEdit(it.send_item_id)}
-                                disabled={!isDirty || mutation.isPending}
-                              >
-                                {mutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-                                저장
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              );
-            })}
+            {send.items.map((it) => (
+              <tr key={it.send_item_id} className="border-b border-gray-50 align-top">
+                <td className="py-1 pr-2">
+                  {/* 잘라내지 않고 흘린다 — 상품명이 '1년 정기구독 - 26년 2월호 시작 …'
+                      처럼 구독 종류·시작 호로 시작해서, truncate 를 걸면 앞머리만 남고
+                      정작 어떤 책인지가 잘려나간다. 패널은 세로 스크롤이라 높이 여유가 있다. */}
+                  <div className="text-gray-700">{it.product_name}</div>
+                </td>
+                <td className="py-1 pr-2 text-gray-600">{formatIssue(it.issue)}</td>
+                <td className="py-1 text-right font-semibold text-gray-700">{it.send_num}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       )}
