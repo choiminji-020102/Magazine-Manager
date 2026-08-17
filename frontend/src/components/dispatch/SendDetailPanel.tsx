@@ -423,22 +423,13 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
         />
 
         {/* 배송지 — 섹션 이름을 다른 도메인 패널과 맞춘다 (기존 '수령인').
-            Send 의 수령인 필드는 Address 스냅샷이라 배송지 그 자체다. */}
+            Send 의 수령인 필드는 Address 스냅샷이라 배송지 그 자체다.
+            행 구성도 OrderDetailPanel·SubscriptionDetailPanel 과 동일하게 맞춘다 —
+            국가는 행으로 두지 않는다. 국내가 대부분이라 'KR' 한 줄이 늘 자리만 차지하고,
+            해외는 이 패널 헤더의 🌐 배지가 이미 알려주기 때문 (카드 계열도 같은 방식). */}
         <Section title="배송지">
           <InfoRow label="수령인" value={send.recipient_name} />
           <InfoRow label="연락처" value={formatPhone(send.recipient_phone)} />
-          <InfoRow
-            label="국가"
-            value={
-              send.country_code === "KR" ? (
-                "대한민국 (KR)"
-              ) : (
-                <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-semibold">
-                  🌐 {send.country_code}
-                </span>
-              )
-            }
-          />
           {/* 주소 표기는 OrderDetailPanel·카드 계열과 동일 — [우편번호] font-mono + 주소 전문.
               우편번호를 별도 행으로 두면 한 줄로 읽히는 주소가 두 줄로 갈라진다. */}
           <InfoRow
@@ -648,9 +639,8 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
                           </div>
                           <ul className="ml-4 mt-0.5 space-y-0.5">
                             {resendItems.map((it) => (
-                              <li key={it.send_item_id}>
-                                <span className="font-mono text-gray-500">{it.product_code}</span>{" "}
-                                <span className="text-gray-700">{it.product_name}</span>
+                              <li key={it.send_item_id} className="text-gray-700">
+                                {it.product_name}
                               </li>
                             ))}
                           </ul>
@@ -825,10 +815,10 @@ function BoxContentsSection({ send, onSuccess }: BoxContentsSectionProps) {
                       table border 도 다음 tr 로 미룬다 (편집 행과 데이터 행 사이엔 구분선 없음). */}
                   <tr className={isEditing ? "align-top" : "border-b border-gray-50 align-top"}>
                     <td className="py-1 pr-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-gray-700">{it.product_code}</span>
-                        <span className="text-gray-500 truncate">{it.product_name}</span>
-                      </div>
+                      {/* 잘라내지 않고 흘린다 — 상품명이 '1년 정기구독 - 26년 2월호 시작 …'
+                          처럼 구독 종류·시작 호로 시작해서, truncate 를 걸면 앞머리만 남고
+                          정작 어떤 책인지가 잘려나간다. 패널은 세로 스크롤이라 높이 여유가 있다. */}
+                      <div className="text-gray-700">{it.product_name}</div>
                       {!isEditing && (
                         it.admin_memo ? (
                           <button
