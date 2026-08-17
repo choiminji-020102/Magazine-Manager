@@ -435,6 +435,53 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
           <InfoRow label="배송 요청사항" value={send.customer_memo} />
         </Section>
 
+        {/* 같은 배송지 주문 — MONTHLY·VIP 그룹화가 (우편번호, 주소) 만으로 묶기 때문에
+            주소가 같으면 다른 고객의 책도 한 박스에 담긴다 (dispatch_grouping_service).
+            제목을 '묶인 주문' 이 아니라 '같은 배송지 주문' 으로 둔 이유 — 무엇을 기준으로
+            묶였는지가 제목에 드러나야 '왜 남의 주문이 여기 있지' 에 바로 답이 된다.
+            행을 누르면 그 주문 상세를 겹쳐 연다 (CustomerDetailPanel 의 주문 행과 동일). */}
+        {send.related_orders.length > 0 && (
+          <Section title={`같은 배송지 주문 (${send.related_orders.length}건)`}>
+            {/* 안내는 2건 이상일 때만 — 1건이면 묶인 게 없어 '묶였습니다' 가 사실과 다르다.
+                (실데이터 98.6% 가 1건이라 늘 띄우면 대부분 거짓말이 된다) */}
+            {send.related_orders.length > 1 && (
+              <p className="text-xs text-gray-400">
+                배송지가 같아 이 주문들의 책이 한 박스에 담겼습니다.
+              </p>
+            )}
+            <div className="space-y-2">
+              {send.related_orders.map((ro) => (
+                /* 껍질은 발송 품목 섹션과 같은 gray-50 단색 — Section 안이라 흰 배경 +
+                   테두리 카드(CustomerDetailPanel 의 OrderRow)를 쓰면 테두리가 중첩된다.
+                   그쪽은 TabsContent 에 직접 놓여 감싸는 껍질이 없는 경우다.
+                   눌리는 행이므로 hover 는 한 단계 진한 gray-100 으로 준다. */
+                <button
+                  key={ro.order_id}
+                  onClick={() => openOrderPanel(ro.order_id)}
+                  className="group w-full flex items-center gap-2 text-xs text-gray-900 text-left bg-gray-50 rounded-md px-3 py-2.5 hover:bg-gray-100 transition-colors"
+                >
+                  {/* 이름·연락처를 앞에 둔다 — #order_id 는 사람이 식별하지 못하는 내부 ID라
+                      맨 뒤 보조 자리로 내린다. 둘 다 항상 표시한다.
+                      연락처는 sans — 한글 이름과 한 줄에 이어 붙는 자리라 숫자만 고정폭이면
+                      글씨체가 튄다. 바로 위 [배송지] 섹션의 연락처도 sans 다.
+                      #ID 는 mono 유지 (프로젝트 전체 11곳이 예외 없이 mono). */}
+                  <span>{ro.customer_name}</span>
+                  <span className="text-gray-300">·</span>
+                  <span className="text-gray-500">{formatPhone(ro.customer_phone)}</span>
+                  <span className="font-mono text-gray-400 ml-auto">#{ro.order_id}</span>
+                  {/* 행 전체가 눌리지만 무엇이 열리는지 글자로 밝힌다 (기존엔 title 툴팁뿐이라
+                      hover 해야 알 수 있었다). 표기는 OrderItemCard 의 [구독 상세] 와 동일 규격.
+                      button 안이라 span 으로 두고 group-hover 로 링크 피드백을 준다. */}
+                  <span className="inline-flex items-center gap-0.5 text-blue-600 group-hover:text-blue-800 group-hover:underline flex-shrink-0">
+                    주문 상세
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </span>
+                </button>
+              ))}
+            </div>
+          </Section>
+        )}
+
         {/* 운송장 — DELIVERED 박스에서만 편집 가능 (PREPARING/CANCELLED 은 read-only).
             값이 하나도 없는 PREPARING 박스에서는 '-' 세 줄이 자리만 차지하므로 감춘다.
             (운송장은 DELIVERED 전환 시점에 채워진다 — PREPARING 은 정의상 항상 비어 있음) */}
@@ -546,80 +593,6 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
           </Section>
         )}
 
-        {/* 발송 메모(Send.admin_memo) — 상태 무관 편집 가능 (PREPARING/DELIVERED/CANCELLED).
-            운송장 뒤에 두는 이유 — 배송 수단이 핵심 정보고 메모는 그에 붙는 보조 정보다. */}
-        <Section title="발송 메모">
-          {editMode ? (
-            <>
-              <textarea
-                className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
-                rows={3}
-                maxLength={MEMO_MAX_LEN}
-                placeholder="발송 메모"
-                value={editForm.admin_memo}
-                onChange={(e) => setEditForm((f) => ({ ...f, admin_memo: e.target.value }))}
-                disabled={updateMutation.isPending}
-              />
-              {/* maxLength 가 초과 입력을 막아주므로 경고 색은 필요 없지만,
-                  상한에서 갑자기 안 써지는 이유는 알려줘야 한다 */}
-              <span className="text-[11px] text-gray-400">
-                {editForm.admin_memo.length} / {MEMO_MAX_LEN}
-              </span>
-            </>
-          ) : (
-            <p className="text-sm text-gray-700 whitespace-pre-line">
-              {send.admin_memo || <span className="text-gray-400">발송 메모가 없습니다.</span>}
-            </p>
-          )}
-        </Section>
-
-        {/* 같은 배송지 주문 — MONTHLY·VIP 그룹화가 (우편번호, 주소) 만으로 묶기 때문에
-            주소가 같으면 다른 고객의 책도 한 박스에 담긴다 (dispatch_grouping_service).
-            제목을 '묶인 주문' 이 아니라 '같은 배송지 주문' 으로 둔 이유 — 무엇을 기준으로
-            묶였는지가 제목에 드러나야 '왜 남의 주문이 여기 있지' 에 바로 답이 된다.
-            행을 누르면 그 주문 상세를 겹쳐 연다 (CustomerDetailPanel 의 주문 행과 동일). */}
-        {send.related_orders.length > 0 && (
-          <Section title={`같은 배송지 주문 (${send.related_orders.length}건)`}>
-            {/* 안내는 2건 이상일 때만 — 1건이면 묶인 게 없어 '묶였습니다' 가 사실과 다르다.
-                (실데이터 98.6% 가 1건이라 늘 띄우면 대부분 거짓말이 된다) */}
-            {send.related_orders.length > 1 && (
-              <p className="text-xs text-gray-400">
-                배송지가 같아 이 주문들의 책이 한 박스에 담겼습니다.
-              </p>
-            )}
-            <div className="space-y-2">
-              {send.related_orders.map((ro) => (
-                /* 껍질은 발송 품목 섹션과 같은 gray-50 단색 — Section 안이라 흰 배경 +
-                   테두리 카드(CustomerDetailPanel 의 OrderRow)를 쓰면 테두리가 중첩된다.
-                   그쪽은 TabsContent 에 직접 놓여 감싸는 껍질이 없는 경우다.
-                   눌리는 행이므로 hover 는 한 단계 진한 gray-100 으로 준다. */
-                <button
-                  key={ro.order_id}
-                  onClick={() => openOrderPanel(ro.order_id)}
-                  className="group w-full flex items-center gap-2 text-xs text-gray-900 text-left bg-gray-50 rounded-md px-3 py-2.5 hover:bg-gray-100 transition-colors"
-                >
-                  {/* 이름·연락처를 앞에 둔다 — #order_id 는 사람이 식별하지 못하는 내부 ID라
-                      맨 뒤 보조 자리로 내린다. 둘 다 항상 표시한다.
-                      연락처는 sans — 한글 이름과 한 줄에 이어 붙는 자리라 숫자만 고정폭이면
-                      글씨체가 튄다. 바로 위 [배송지] 섹션의 연락처도 sans 다.
-                      #ID 는 mono 유지 (프로젝트 전체 11곳이 예외 없이 mono). */}
-                  <span>{ro.customer_name}</span>
-                  <span className="text-gray-300">·</span>
-                  <span className="text-gray-500">{formatPhone(ro.customer_phone)}</span>
-                  <span className="font-mono text-gray-400 ml-auto">#{ro.order_id}</span>
-                  {/* 행 전체가 눌리지만 무엇이 열리는지 글자로 밝힌다 (기존엔 title 툴팁뿐이라
-                      hover 해야 알 수 있었다). 표기는 OrderItemCard 의 [구독 상세] 와 동일 규격.
-                      button 안이라 span 으로 두고 group-hover 로 링크 피드백을 준다. */}
-                  <span className="inline-flex items-center gap-0.5 text-blue-600 group-hover:text-blue-800 group-hover:underline flex-shrink-0">
-                    주문 상세
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </span>
-                </button>
-              ))}
-            </div>
-          </Section>
-        )}
-
         {/* 재배송 내역 — 입력은 헤더 [재배송 기록] → SendResendModal.
             재배송은 DELIVERED 에서만 가능하므로 그 외 상태에서는 내역이 있을 때만 노출한다
             (PREPARING 에 '재배송 0건' 을 띄워봐야 늘 0건이다).
@@ -677,6 +650,34 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
             )}
           </Section>
         )}
+
+        {/* 발송 메모(Send.admin_memo) — 상태 무관 편집 가능 (PREPARING/DELIVERED/CANCELLED).
+            시스템 바로 앞, 맨 아래에 두는 이유 — 자유 입력 보조 정보라 위 섹션들(무엇을·
+            어디로·어떻게 보냈나)의 흐름을 끊지 않아야 한다. 실제로 채워진 Send 도 없다. */}
+        <Section title="발송 메모">
+          {editMode ? (
+            <>
+              <textarea
+                className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                rows={3}
+                maxLength={MEMO_MAX_LEN}
+                placeholder="발송 메모"
+                value={editForm.admin_memo}
+                onChange={(e) => setEditForm((f) => ({ ...f, admin_memo: e.target.value }))}
+                disabled={updateMutation.isPending}
+              />
+              {/* maxLength 가 초과 입력을 막아주므로 경고 색은 필요 없지만,
+                  상한에서 갑자기 안 써지는 이유는 알려줘야 한다 */}
+              <span className="text-[11px] text-gray-400">
+                {editForm.admin_memo.length} / {MEMO_MAX_LEN}
+              </span>
+            </>
+          ) : (
+            <p className="text-sm text-gray-700 whitespace-pre-line">
+              {send.admin_memo || <span className="text-gray-400">발송 메모가 없습니다.</span>}
+            </p>
+          )}
+        </Section>
 
         {/* 시스템 메타 */}
         <Section title="시스템">
