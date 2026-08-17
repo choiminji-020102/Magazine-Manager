@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Edit2, RotateCcw, X } from "lucide-react";
+import { BookOpen, Calendar, ChevronRight, Edit2, RotateCcw, X } from "lucide-react";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
@@ -741,7 +741,9 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
 
 
 // ── 박스 내용 섹션 — SendItem 목록 (읽기 전용) ────────────────────────────────
-// 상품 / 발송호 / 수량 세 열. 이 패널을 여는 1순위 목적인 '이 박스에 뭐가 들었나' 만 답한다.
+// 품목마다 상품명 + 발송호 + 수량을 모두 표시한다. 박스 98.2% 가 1품목이라 표 헤더가
+// 데이터 한 줄을 설명하는 꼴이 되므로, 표가 아니라 항목 껍질 + 아이콘 지표로 그린다.
+// 이 패널을 여는 1순위 목적인 '이 박스에 뭐가 들었나' 만 답한다.
 //
 // 품목별 admin_memo 인라인 편집은 제거했다 (PUT /send-items/{id} 미사용 상태).
 // 메모는 발송 단위로만 다룬다 — '발송 메모' 섹션(Send.admin_memo).
@@ -752,29 +754,38 @@ function BoxContentsSection({ send }: { send: SendDetailResponse }) {
       {send.items.length === 0 ? (
         <p className="text-xs text-gray-400">발송 품목이 없습니다.</p>
       ) : (
-        <table className="w-full text-xs">
-          <thead className="text-gray-400 border-b border-gray-100">
-            <tr>
-              <th className="text-left py-1 pr-2 font-normal">상품</th>
-              <th className="text-left py-1 pr-2 font-normal">발송호</th>
-              <th className="text-right py-1 font-normal">수량</th>
-            </tr>
-          </thead>
-          <tbody>
-            {send.items.map((it) => (
-              <tr key={it.send_item_id} className="border-b border-gray-50 align-top">
-                <td className="py-1 pr-2">
-                  {/* 잘라내지 않고 흘린다 — 상품명이 '1년 정기구독 - 26년 2월호 시작 …'
-                      처럼 구독 종류·시작 호로 시작해서, truncate 를 걸면 앞머리만 남고
-                      정작 어떤 책인지가 잘려나간다. 패널은 세로 스크롤이라 높이 여유가 있다. */}
-                  <div className="text-gray-700">{it.product_name}</div>
-                </td>
-                <td className="py-1 pr-2 text-gray-600">{formatIssue(it.issue)}</td>
-                <td className="py-1 text-right font-semibold text-gray-700">{it.send_num}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="space-y-2">
+          {send.items.map((it) => (
+            /* 껍질은 gray-50 단색 — SubscriptionDetailPanel 발송 내역과 같은 이유로
+               '흰 배경 + gray-100 테두리 + gray-50 헤더 띠' 카드를 쓰지 않는다.
+               그건 Section 이 이미 쓰는 구조라 테두리 안에 같은 테두리,
+               회색 띠 안에 회색 띠가 되어 경계가 사라진다. */
+            <div key={it.send_item_id} className="bg-gray-50 rounded-md px-3 py-2.5">
+              {/* 상품명 왼쪽 · 지표 오른쪽 — 두 줄로 쌓으면 오른쪽 절반이 빈다.
+                  OrderItemCard 의 헤더·배송지 행과 같은 justify-between 배치. */}
+              <div className="flex items-start justify-between gap-3">
+                {/* 상품명이 제목 — 한 박스 안에서 품목을 구별해 주는 값이라 맨 앞에 둔다.
+                    잘라내지 않고 흘린다: 상품명이 '1년 정기구독 - 26년 2월호 시작 …' 처럼
+                    구독 종류·시작 호로 시작해서 truncate 를 걸면 앞머리만 남고 정작 어떤
+                    책인지가 잘려나간다. 이름이 길면 여기서만 줄바꿈되고 지표는 첫 줄에 남는다. */}
+                <div className="text-xs text-gray-900 flex-1 min-w-0">{it.product_name}</div>
+                {/* 지표 표기는 주문 상세 [품목] 탭의 품목 카드와 동일 규격 —
+                    아이콘(h-3.5 gray-400) + text-xs, 박스 없음.
+                    flex-shrink-0 — 상품명에 밀려 발송호·수량이 쪼개지지 않게 한다. */}
+                <div className="flex items-center gap-x-4 text-xs text-gray-900 flex-shrink-0">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                    {formatIssue(it.issue)}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <BookOpen className="h-3.5 w-3.5 text-gray-400" />
+                    {it.send_num}권
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </Section>
   );
