@@ -573,24 +573,47 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
           )}
         </Section>
 
-        {/* 묶인 주문 — 한 박스에 여러 주문의 책이 담기는 MONTHLY·VIP 그룹화 때문에 생긴다.
+        {/* 같은 배송지 주문 — MONTHLY·VIP 그룹화가 (우편번호, 주소) 만으로 묶기 때문에
+            주소가 같으면 다른 고객의 책도 한 박스에 담긴다 (dispatch_grouping_service).
+            제목을 '묶인 주문' 이 아니라 '같은 배송지 주문' 으로 둔 이유 — 무엇을 기준으로
+            묶였는지가 제목에 드러나야 '왜 남의 주문이 여기 있지' 에 바로 답이 된다.
             행을 누르면 그 주문 상세를 겹쳐 연다 (CustomerDetailPanel 의 주문 행과 동일). */}
         {send.related_orders.length > 0 && (
-          <Section title={`묶인 주문 (${send.related_orders.length}건)`}>
-            <div className="space-y-1">
+          <Section title={`같은 배송지 주문 (${send.related_orders.length}건)`}>
+            {/* 안내는 2건 이상일 때만 — 1건이면 묶인 게 없어 '묶였습니다' 가 사실과 다르다.
+                (실데이터 98.6% 가 1건이라 늘 띄우면 대부분 거짓말이 된다) */}
+            {send.related_orders.length > 1 && (
+              <p className="text-xs text-gray-400">
+                배송지가 같아 이 주문들의 책이 한 박스에 담겼습니다.
+              </p>
+            )}
+            <div className="space-y-2">
               {send.related_orders.map((ro) => (
+                /* 껍질은 박스 내용 섹션과 같은 gray-50 단색 — Section 안이라 흰 배경 +
+                   테두리 카드(CustomerDetailPanel 의 OrderRow)를 쓰면 테두리가 중첩된다.
+                   그쪽은 TabsContent 에 직접 놓여 감싸는 껍질이 없는 경우다.
+                   눌리는 행이므로 hover 는 한 단계 진한 gray-100 으로 준다. */
                 <button
                   key={ro.order_id}
                   onClick={() => openOrderPanel(ro.order_id)}
-                  className="w-full flex items-center gap-2 text-xs text-gray-700 text-left px-1 -mx-1 py-1 rounded hover:bg-gray-50 transition-colors"
-                  title="주문 상세 열기"
+                  className="group w-full flex items-center gap-2 text-xs text-gray-900 text-left bg-gray-50 rounded-md px-3 py-2.5 hover:bg-gray-100 transition-colors"
                 >
-                  <span className="font-mono text-gray-400">#{ro.order_id}</span>
-                  <span>·</span>
+                  {/* 이름·연락처를 앞에 둔다 — #order_id 는 사람이 식별하지 못하는 내부 ID라
+                      맨 뒤 보조 자리로 내린다. 둘 다 항상 표시한다.
+                      연락처는 sans — 한글 이름과 한 줄에 이어 붙는 자리라 숫자만 고정폭이면
+                      글씨체가 튄다. 바로 위 [배송지] 섹션의 연락처도 sans 다.
+                      #ID 는 mono 유지 (프로젝트 전체 11곳이 예외 없이 mono). */}
                   <span>{ro.customer_name}</span>
-                  <span>·</span>
-                  <span className="font-mono text-gray-500">{formatPhone(ro.customer_phone)}</span>
-                  <ChevronRight className="h-3.5 w-3.5 text-gray-300 ml-auto flex-shrink-0" />
+                  <span className="text-gray-300">·</span>
+                  <span className="text-gray-500">{formatPhone(ro.customer_phone)}</span>
+                  <span className="font-mono text-gray-400 ml-auto">#{ro.order_id}</span>
+                  {/* 행 전체가 눌리지만 무엇이 열리는지 글자로 밝힌다 (기존엔 title 툴팁뿐이라
+                      hover 해야 알 수 있었다). 표기는 OrderItemCard 의 [구독 상세] 와 동일 규격.
+                      button 안이라 span 으로 두고 group-hover 로 링크 피드백을 준다. */}
+                  <span className="inline-flex items-center gap-0.5 text-blue-600 group-hover:text-blue-800 group-hover:underline flex-shrink-0">
+                    주문 상세
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </span>
                 </button>
               ))}
             </div>
