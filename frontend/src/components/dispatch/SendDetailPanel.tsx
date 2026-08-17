@@ -6,6 +6,7 @@ import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { SendResendModal } from "@/components/dispatch/SendResendModal";
+import { TrackingNoValue } from "@/components/dispatch/TrackingNoValue";
 import OrderDetailPanel from "@/pages/order/OrderDetailPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -539,9 +540,11 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
                 <InfoRow
                   label="송장 번호"
                   value={
-                    /* font-mono 는 값이 있을 때만 — 숫자 자릿수를 맞춰 읽기 쉬우라고 쓰는 것이라
-                       빈 값 '-' 에까지 씌우면 모노스페이스 고정폭 때문에 하이픈만 길어 보인다. */
-                    send.tracking_no ? <span className="font-mono">{send.tracking_no}</span> : "-"
+                    /* 표기·CJ 조회 링크 조건은 DeliveredSendCard 와 공유 (TrackingNoValue 주석 참조) */
+                    <TrackingNoValue
+                      trackingNo={send.tracking_no}
+                      courierCompany={send.courier_company}
+                    />
                   }
                 />
                 {/* 편집 모드인데 입력이 안 나오는 이유를 그 자리에서 밝힌다 */}

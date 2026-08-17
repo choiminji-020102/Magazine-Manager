@@ -1,9 +1,9 @@
 import type { KeyboardEvent } from "react";
-import { ExternalLink } from "lucide-react";
 import { InfoRow } from "@/components/common/list-card/InfoRow";
 import { SectionHeader } from "@/components/common/list-card/SectionHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import SendItemBox from "@/components/dispatch/SendItemBox";
+import { TrackingNoValue } from "@/components/dispatch/TrackingNoValue";
 import { formatDateTime, formatShortDateTime, formatPhone } from "@/utils/format";
 import type { SendResponse, SendDetailResponse } from "@/types/send";
 import type { ActivityLogResponse } from "@/types/activityLog";
@@ -98,21 +98,10 @@ export default function DeliveredSendCard({
             <InfoRow
               label="송장번호"
               value={
-                send.tracking_no ? (
-                  <a
-                    href={`https://www.cjlogistics.com/ko/tool/parcel/tracking?gnbInvcNo=${encodeURIComponent(send.tracking_no)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    title="CJ대한통운에서 조회"
-                    className="font-mono text-gray-700 inline-flex items-center gap-1 group hover:underline"
-                  >
-                    {send.tracking_no}
-                    <ExternalLink className="h-3 w-3 text-gray-400 group-hover:text-gray-700" />
-                  </a>
-                ) : (
-                  "-"
-                )
+                <TrackingNoValue
+                  trackingNo={send.tracking_no}
+                  courierCompany={send.courier_company}
+                />
               }
             />
             <InfoRow
