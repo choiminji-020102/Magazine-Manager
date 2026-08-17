@@ -408,7 +408,7 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
 
       {/* 스크롤 영역 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {/* 박스 내용 — 이 패널을 여는 1순위 목적이 '이 박스에 뭐가 들었나' 라서 맨 위에 둔다 */}
+        {/* 발송 품목 — 이 패널을 여는 1순위 목적이 '이 박스에 뭐가 들었나' 라서 맨 위에 둔다 */}
         <BoxContentsSection send={send} />
 
         {/* 배송지 — 섹션 이름을 다른 도메인 패널과 맞춘다 (기존 '수령인').
@@ -589,7 +589,7 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
             )}
             <div className="space-y-2">
               {send.related_orders.map((ro) => (
-                /* 껍질은 박스 내용 섹션과 같은 gray-50 단색 — Section 안이라 흰 배경 +
+                /* 껍질은 발송 품목 섹션과 같은 gray-50 단색 — Section 안이라 흰 배경 +
                    테두리 카드(CustomerDetailPanel 의 OrderRow)를 쓰면 테두리가 중첩된다.
                    그쪽은 TabsContent 에 직접 놓여 감싸는 껍질이 없는 경우다.
                    눌리는 행이므로 hover 는 한 단계 진한 gray-100 으로 준다. */
@@ -763,7 +763,7 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
 }
 
 
-// ── 박스 내용 섹션 — SendItem 목록 (읽기 전용) ────────────────────────────────
+// ── 발송 품목 섹션 — SendItem 목록 (읽기 전용) ────────────────────────────────
 // 품목마다 상품명 + 발송호 + 수량을 모두 표시한다. 박스 98.2% 가 1품목이라 표 헤더가
 // 데이터 한 줄을 설명하는 꼴이 되므로, 표가 아니라 항목 껍질 + 아이콘 지표로 그린다.
 // 이 패널을 여는 1순위 목적인 '이 박스에 뭐가 들었나' 만 답한다.
@@ -773,7 +773,7 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
 
 function BoxContentsSection({ send }: { send: SendDetailResponse }) {
   return (
-    <Section title={`박스 내용 (${send.items.length}건)`}>
+    <Section title={`발송 품목 (${send.items.length}건)`}>
       {send.items.length === 0 ? (
         <p className="text-xs text-gray-400">발송 품목이 없습니다.</p>
       ) : (
