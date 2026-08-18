@@ -19,11 +19,11 @@ export interface SendItemResponse {
   issue: string;
   send_num: number;
   cost_price: number;
-  unit_weight: number | null;
-  unit_width: number | null;
-  unit_length: number | null;
-  unit_height: number | null;
-  admin_memo: string | null;
+  unit_weight?: number | null;
+  unit_width?: number | null;
+  unit_length?: number | null;
+  unit_height?: number | null;
+  admin_memo?: string | null;
   cancelled_at?: string | null;
   created_at: string;
   updated_at: string;

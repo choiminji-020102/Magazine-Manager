@@ -635,7 +635,17 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
                         </div>
                       )}
                       {d.tracking_no && (
-                        <div className="text-xs text-gray-700 font-mono">운송장: {d.tracking_no}</div>
+                        <div className="text-xs text-gray-700">
+                          {/* 재배송으로 다시 나간 번호 — 운영자가 가장 자주 조회하는 값이라
+                              발송 본체와 같은 규칙(CJ대한통운일 때만 조회 링크)을 적용한다.
+                              details 는 Record<string, any> 라 여기서 좁힌다.
+                              라벨까지 mono 로 덮이지 않도록 font-mono 는 값 쪽에만 둔다. */}
+                          운송장:{" "}
+                          <TrackingNoValue
+                            trackingNo={String(d.tracking_no)}
+                            courierCompany={d.courier_company as CourierCompany | undefined}
+                          />
+                        </div>
                       )}
                       {d.memo && <div className="text-xs text-gray-500">메모: {d.memo}</div>}
                     </div>
