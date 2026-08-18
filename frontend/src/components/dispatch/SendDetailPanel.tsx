@@ -479,7 +479,16 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
           <Section
             title="운송장"
             action={
-              canEditTracking && !trackingEdit ? (
+              /* 발송 메모 섹션과 같은 모양 — 편집 중이면 저장/취소, 아니면 [수정].
+                 편집 권한이 없는 상태(PREPARING·CANCELLED)에서는 슬롯 자체를 비운다. */
+              trackingEdit ? (
+                <SectionEditActions
+                  target="운송장"
+                  onSave={handleTrackingSave}
+                  onCancel={handleTrackingCancel}
+                  pending={trackingMutation.isPending}
+                />
+              ) : canEditTracking ? (
                 <SectionEditButton target="운송장" onClick={() => setTrackingEdit(true)} />
               ) : undefined
             }
@@ -563,11 +572,6 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
                     )}
                   </div>
                 </EditRow>
-                <SectionEditActions
-                  onSave={handleTrackingSave}
-                  onCancel={handleTrackingCancel}
-                  pending={trackingMutation.isPending}
-                />
               </>
             ) : (
               <>
@@ -662,9 +666,16 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
         <Section
           title="발송 메모"
           action={
-            !memoEdit ? (
+            memoEdit ? (
+              <SectionEditActions
+                target="발송 메모"
+                onSave={handleMemoSave}
+                onCancel={handleMemoCancel}
+                pending={memoMutation.isPending}
+              />
+            ) : (
               <SectionEditButton target="발송 메모" onClick={() => setMemoEdit(true)} />
-            ) : undefined
+            )
           }
         >
           {memoEdit ? (
@@ -683,11 +694,6 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
               <span className="text-[11px] text-gray-400">
                 {memoDraft.length} / {MEMO_MAX_LEN}
               </span>
-              <SectionEditActions
-                onSave={handleMemoSave}
-                onCancel={handleMemoCancel}
-                pending={memoMutation.isPending}
-              />
             </>
           ) : (
             <p className="text-sm text-gray-700 whitespace-pre-line">
@@ -872,25 +878,49 @@ function SectionEditButton({ target, onClick }: { target: string; onClick: () =>
   );
 }
 
-// 섹션 본문 맨 아래 저장/취소 줄 — 순서는 패널 헤더가 쓰던 [저장] [취소] 를 그대로 따른다.
+// 편집 중 헤더 슬롯 — [수정] 이 있던 자리를 [저장] [취소] 가 그대로 이어받는다
+// (OrderDetailPanel 헤더가 editMode 에서 버튼을 바꿔 다는 것과 같은 흐름).
+// Button 을 쓰지 않는 이유 — size="sm" 은 h-7(28px), 인라인 편집 관용구인
+// h-6(CustomerDetailPanel:652, SubscriptionDetailPanel:579)도 24px 이라 py-2 인
+// 헤더 띠를 32px → 40~44px 로 밀어 올린다. 편집을 켤 때마다 이 섹션 헤더만 키가
+// 커져 다른 섹션 헤더와 어긋나므로, 띠 안에서는 [수정]과 같은 규격의 텍스트 버튼을 쓴다.
+// (그 두 곳은 섹션 '본문' 안이라 h-6 버튼을 그대로 쓸 수 있었다.)
+// LoadingSpinner size="sm" 은 h-4 로 글자 줄 높이와 같아 띠를 밀지 않는다.
+// gap-4 — 배경 없는 텍스트라 버튼 배경이 경계를 만들어 주는 h-6 관용구의 gap-1
+// 로는 두 단어가 한 덩어리로 붙어 보인다.
+// 순서는 패널 헤더가 쓰던 [저장] [취소] 를 그대로 따른다.
 function SectionEditActions({
+  target,
   onSave,
   onCancel,
   pending,
 }: {
+  target: string;
   onSave: () => void;
   onCancel: () => void;
   pending: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2 pt-1">
-      <Button size="sm" onClick={onSave} disabled={pending}>
-        {pending && <LoadingSpinner size="sm" className="mr-1" />}
+    <div className="flex items-center gap-4 flex-shrink-0">
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={pending}
+        aria-label={`${target} 저장`}
+        className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+      >
+        {pending && <LoadingSpinner size="sm" />}
         저장
-      </Button>
-      <Button size="sm" variant="outline" onClick={onCancel} disabled={pending}>
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        disabled={pending}
+        aria-label={`${target} 수정 취소`}
+        className="text-xs text-gray-400 hover:text-gray-600 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+      >
         취소
-      </Button>
+      </button>
     </div>
   );
 }
