@@ -340,7 +340,7 @@ export function SendResendModal({ open, onClose, send, onSuccess }: Props) {
                   <span className="font-mono text-gray-600">{it.product_code}</span>
                   <span className="text-gray-500 truncate">{it.product_name}</span>
                   <span className="text-gray-400 ml-auto flex-shrink-0">
-                    {formatIssue(it.issue)} · × {it.send_num}
+                    {formatIssue(it.issue)} · {it.send_num}권
                   </span>
                 </label>
               ))}

@@ -488,7 +488,7 @@ export default function TransitionToDeliveredModal({
                                 {formatIssue(it.issue)}
                               </span>
                               <span className="text-gray-400 ml-auto">
-                                × {it.send_num}
+                                {it.send_num}권
                               </span>
                             </div>
                           ))}
