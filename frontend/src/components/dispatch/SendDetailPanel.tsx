@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Calendar, ChevronRight, Edit2, RotateCcw, X } from "lucide-react";
+import { BookOpen, Calendar, ChevronRight, RotateCcw, X } from "lucide-react";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
@@ -870,8 +870,10 @@ function Section({
   );
 }
 
-// 섹션 헤더의 [수정] 진입점 — 헤더 띠 안이라 Button 대신 텍스트 버튼을 쓴다.
-// 회색 띠 위에 outline 버튼을 얹으면 h-8 이 띠(py-2)보다 높아 헤더가 밀린다.
+// 섹션 헤더의 [수정] 진입점 — 규격은 OrderItemCard 헤더의 [구독 상세]·[수정]·[취소]
+// (OrderDetailPanel:1707) 를 그대로 따른다. 그쪽도 px-3.5 py-2 bg-gray-50 인 같은
+// 헤더 띠 안이고, Button 대신 plain 텍스트 버튼을 쓰는 이유도 같다 — size="sm"(h-7)
+// 이든 인라인 편집 관용구인 h-6 이든 띠보다 높아 헤더를 밀어 올린다.
 function SectionEditButton({ target, onClick }: { target: string; onClick: () => void }) {
   return (
     <button
@@ -880,9 +882,8 @@ function SectionEditButton({ target, onClick }: { target: string; onClick: () =>
       // 한 화면에 '수정' 버튼이 둘이라 이름만으로는 구분되지 않는다 —
       // 섹션명을 붙여 읽히게 한다 (PreparingSendCard 의 체크박스와 같은 방식).
       aria-label={`${target} 수정`}
-      className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0"
+      className="text-xs text-gray-500 hover:text-gray-700 hover:underline flex-shrink-0"
     >
-      <Edit2 className="h-3 w-3" />
       수정
     </button>
   );
@@ -890,14 +891,11 @@ function SectionEditButton({ target, onClick }: { target: string; onClick: () =>
 
 // 편집 중 헤더 슬롯 — [수정] 이 있던 자리를 [저장] [취소] 가 그대로 이어받는다
 // (OrderDetailPanel 헤더가 editMode 에서 버튼을 바꿔 다는 것과 같은 흐름).
-// Button 을 쓰지 않는 이유 — size="sm" 은 h-7(28px), 인라인 편집 관용구인
-// h-6(CustomerDetailPanel:652, SubscriptionDetailPanel:579)도 24px 이라 py-2 인
-// 헤더 띠를 32px → 40~44px 로 밀어 올린다. 편집을 켤 때마다 이 섹션 헤더만 키가
-// 커져 다른 섹션 헤더와 어긋나므로, 띠 안에서는 [수정]과 같은 규격의 텍스트 버튼을 쓴다.
-// (그 두 곳은 섹션 '본문' 안이라 h-6 버튼을 그대로 쓸 수 있었다.)
+// 버튼 규격·간격(gap-3)은 SectionEditButton 과 같이 OrderItemCard 헤더를 따른다.
+// 색은 그쪽 [구독 상세](주 동작 blue-600) / [수정](보조 gray-500) 를 가져왔다.
+// [취소] 에 그쪽 빨강을 쓰지 않는 이유 — 그건 '품목 취소' 라는 파괴적 동작이고
+// 여기 취소는 편집을 접는 보조 동작이다.
 // LoadingSpinner size="sm" 은 h-4 로 글자 줄 높이와 같아 띠를 밀지 않는다.
-// gap-4 — 배경 없는 텍스트라 버튼 배경이 경계를 만들어 주는 h-6 관용구의 gap-1
-// 로는 두 단어가 한 덩어리로 붙어 보인다.
 // 순서는 패널 헤더가 쓰던 [저장] [취소] 를 그대로 따른다.
 function SectionEditActions({
   target,
@@ -911,13 +909,13 @@ function SectionEditActions({
   pending: boolean;
 }) {
   return (
-    <div className="flex items-center gap-4 flex-shrink-0">
+    <div className="flex items-center gap-3 flex-shrink-0">
       <button
         type="button"
         onClick={onSave}
         disabled={pending}
         aria-label={`${target} 저장`}
-        className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline disabled:text-gray-300 disabled:no-underline disabled:cursor-not-allowed"
       >
         {pending && <LoadingSpinner size="sm" />}
         저장
@@ -927,7 +925,7 @@ function SectionEditActions({
         onClick={onCancel}
         disabled={pending}
         aria-label={`${target} 수정 취소`}
-        className="text-xs text-gray-400 hover:text-gray-600 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+        className="text-xs text-gray-500 hover:text-gray-700 hover:underline disabled:text-gray-300 disabled:no-underline disabled:cursor-not-allowed"
       >
         취소
       </button>
