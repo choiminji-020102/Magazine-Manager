@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BookOpen, Calendar, ChevronRight, Edit2, RotateCcw, X } from "lucide-react";
 import { StatusBadge } from "@/components/common/StatusBadge";
@@ -52,8 +52,7 @@ interface Props {
 // CustomerDetailPanel 등) 과 동일한 뼈대. 이 컴포넌트는 내용물만 반환하므로
 // 헤더를 sticky 가 아니라 flex 형제로 고정할 수 있고, 스크롤은 본문에만 걸린다.
 
-const EMPTY_EDIT_FORM = {
-  admin_memo: "",
+const EMPTY_TRACKING_FORM = {
   send_method: "" as SendMethod | "",
   courier_company: "" as CourierCompany | "",
   tracking_no: "",
@@ -82,16 +81,18 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
     setTimeout(() => setOrderPanelId(null), 250);
   }, []);
 
-  // 편집 모드 — 다른 도메인 패널과 동일하게 토글 하나로 본문 전체를 전환한다.
-  // 발송 메모(상태 무관)와 운송장 3필드(DELIVERED 만)를 한 번에 다루고,
-  // 저장 시 실제로 바뀐 쪽의 API 만 호출한다.
-  const [editMode, setEditMode] = useState(false);
-  const [editForm, setEditForm] = useState(EMPTY_EDIT_FORM);
+  // 편집은 섹션 단위 — 운송장과 발송 메모는 엔드포인트도 권한도 다르다
+  // (tracking 은 require_admin·DELIVERED 전용, admin-memo 는 require_manager·상태 무관).
+  // 헤더의 전역 [수정] 하나로 묶으면 PREPARING 에서 눌렀을 때 실제로 고칠 수 있는 건
+  // 메모뿐인데 운송장 입력이 열렸다가 '배송 완료에서만 가능' 안내로 닫히고, MANAGER 가
+  // 둘을 함께 고치면 메모만 저장되고 운송장은 403 이 나는 부분 성공을 떠안게 된다.
+  // 섹션 헤더에 [수정] 을 두면 버튼 1개 = API 1개 = 권한 1개라 그 경우가 생기지 않는다.
+  const [trackingEdit, setTrackingEdit] = useState(false);
+  const [trackingForm, setTrackingForm] = useState(EMPTY_TRACKING_FORM);
   // 필드별 에러 메시지 (UI_GUIDE §10 3종 세트: border-red + 메시지 + toast)
-  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
-  // 저장 중 '메모는 반영됐는데 운송장이 실패' 를 알리기 위한 플래그.
-  // state 가 아니라 ref 인 이유 — 화면을 다시 그릴 값이 아니라 onError 로 넘기는 신호다.
-  const memoSavedRef = useRef(false);
+  const [trackingErrors, setTrackingErrors] = useState<Record<string, string>>({});
+  const [memoEdit, setMemoEdit] = useState(false);
+  const [memoDraft, setMemoDraft] = useState("");
 
   const { data: send, isLoading } = useQuery({
     queryKey: ["send-detail", sendId],
@@ -113,16 +114,20 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
   });
 
   // 박스가 바뀌거나 서버 값이 갱신되면 draft 를 최신 값으로 맞춘다.
-  // 편집 중에는 덮어쓰지 않는다 (OrderDetailPanel 과 동일한 패턴).
+  // 편집 중인 쪽은 덮어쓰지 않는다 (OrderDetailPanel 과 동일한 패턴).
+  // 두 draft 를 한 effect 에서 다루되 각자의 편집 플래그로 따로 가드한다 —
+  // 운송장을 고치는 중이라고 메모 draft 까지 굳혀 둘 이유가 없고, 그 반대도 마찬가지다.
   useEffect(() => {
-    if (!send || editMode) return;
-    setEditForm({
-      admin_memo: send.admin_memo ?? "",
-      send_method: (send.send_method as SendMethod | null) ?? "",
-      courier_company: (send.courier_company as CourierCompany | null) ?? "",
-      tracking_no: send.tracking_no ?? "",
-    });
-  }, [send, editMode]);
+    if (!send) return;
+    if (!trackingEdit) {
+      setTrackingForm({
+        send_method: (send.send_method as SendMethod | null) ?? "",
+        courier_company: (send.courier_company as CourierCompany | null) ?? "",
+        tracking_no: send.tracking_no ?? "",
+      });
+    }
+    if (!memoEdit) setMemoDraft(send.admin_memo ?? "");
+  }, [send, trackingEdit, memoEdit]);
 
   // 운송장 3필드는 백엔드가 DELIVERED 에서만 수정을 허용한다
   // (send_service.update_tracking — PREPARING/CANCELLED 는 400).
@@ -130,13 +135,13 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
 
   // 서버 값도 trim 해서 비교한다 — 백엔드가 이미 정규화해 내려주지만(운송장은 숫자만,
   // 방법·운송사는 strip), 양쪽을 같은 기준으로 비교해야 헛 dirty 판정이 없다.
-  const memoDirty = !!send && editForm.admin_memo.trim() !== (send.admin_memo ?? "").trim();
+  const memoDirty = !!send && memoDraft.trim() !== (send.admin_memo ?? "").trim();
   const trackingDirty =
     !!send &&
     canEditTracking &&
-    (editForm.tracking_no.trim() !== (send.tracking_no ?? "").trim() ||
-      editForm.send_method !== ((send.send_method as SendMethod | null) ?? "") ||
-      editForm.courier_company !== ((send.courier_company as CourierCompany | null) ?? ""));
+    (trackingForm.tracking_no.trim() !== (send.tracking_no ?? "").trim() ||
+      trackingForm.send_method !== ((send.send_method as SendMethod | null) ?? "") ||
+      trackingForm.courier_company !== ((send.courier_company as CourierCompany | null) ?? ""));
 
   // 저장 응답에 담겨 오는 갱신된 Send 를 상세 캐시에 즉시 반영한다.
   // 무효화만 하면 refetch 가 도착하기 전까지 읽기 행이 옛 값을 그리고,
@@ -149,118 +154,125 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
     );
   };
 
-  const updateMutation = useMutation({
-    // 바뀐 쪽만 호출한다 — 엔드포인트가 admin-memo / tracking 으로 나뉘어 있고
-    // 운송장 API 는 DELIVERED 전용이라 무조건 호출하면 PREPARING 에서 400 이 난다.
-    // 두 요청은 순차 실행 — 앞이 실패하면 뒤는 보내지 않는다.
-    //
-    // 두 요청을 한 버튼에 묶은 이상 '앞은 성공, 뒤는 실패' 가 가능하다.
-    // (권한이 다르다 — admin-memo 는 require_manager, tracking 은 require_admin.
-    //  MANAGER 계정이 둘을 함께 고치면 메모만 저장되고 운송장은 403 이 난다.)
-    // 그래서 캐시 무효화는 onSuccess 가 아니라 onSettled 에서 한다 —
-    // 실패해도 서버에 이미 반영된 앞쪽 변경이 화면에 즉시 드러나야 한다.
+  // 캐시 무효화는 두 mutation 이 공유한다 — 어느 쪽을 고쳐도 목록 카드의 표시가 바뀐다.
+  const invalidateSendQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
+    queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
+    queryClient.invalidateQueries({ queryKey: ["delivered-sends"] });
+    // SubscriptionDetailPanel 의 발송 내역 query — orderItemId 무관 prefix 무효화
+    queryClient.invalidateQueries({ queryKey: ["order-item-sends"] });
+  };
+
+  // 운송장 3필드 — DELIVERED 전용(send_service.update_tracking 이 그 외 상태에 400),
+  // 권한은 require_admin. 섹션 [수정] 이 DELIVERED 에서만 뜨므로 상태 분기는 필요 없다.
+  const trackingMutation = useMutation({
     mutationFn: async () => {
-      const messages: string[] = [];
-      memoSavedRef.current = false;
-      if (memoDirty) {
-        const res = await sendsApi.updateAdminMemo(sendId, {
-          admin_memo: editForm.admin_memo.trim() || null,
-        });
-        messages.push(res.data.message);
-        memoSavedRef.current = true;
-        applyUpdatedSend(res.data.data);
+      if (!send) throw new Error("발송 정보를 불러오지 못했습니다.");
+      // 실제로 바뀐 필드만 담는다. 백엔드 crud 는 None 인 필드를 건너뛰므로
+      // 안 바뀐 필드를 굳이 실어 보낼 이유가 없다 (셋 다 없으면 422).
+      // 조건은 trackingDirty 와 정확히 같아야 한다 —
+      // 어긋나면 dirty 인데 payload 가 비어 422(셋 다 없음)를 맞을 수 있다.
+      const payload: SendTrackingUpdate = {};
+      if (trackingForm.tracking_no.trim() !== (send.tracking_no ?? "").trim()) {
+        payload.tracking_no = trackingForm.tracking_no.trim();
       }
-      if (trackingDirty && send) {
-        // 실제로 바뀐 필드만 담는다. 백엔드 crud 는 None 인 필드를 건너뛰므로
-        // 안 바뀐 필드를 굳이 실어 보낼 이유가 없다 (셋 다 없으면 422).
-        const payload: SendTrackingUpdate = {};
-        // 조건은 위 trackingDirty 와 정확히 같아야 한다 —
-        // 어긋나면 dirty 인데 payload 가 비어 422(셋 다 없음)를 맞을 수 있다.
-        if (editForm.tracking_no.trim() !== (send.tracking_no ?? "").trim()) {
-          payload.tracking_no = editForm.tracking_no.trim();
-        }
-        if (editForm.send_method !== ((send.send_method as SendMethod | null) ?? "")) {
-          payload.send_method = editForm.send_method as SendMethod;
-        }
-        if (editForm.courier_company !== ((send.courier_company as CourierCompany | null) ?? "")) {
-          payload.courier_company = editForm.courier_company as CourierCompany;
-        }
-        const res = await sendsApi.updateTracking(sendId, payload);
-        messages.push(res.data.message);
-        applyUpdatedSend(res.data.data);
+      if (trackingForm.send_method !== ((send.send_method as SendMethod | null) ?? "")) {
+        payload.send_method = trackingForm.send_method as SendMethod;
       }
-      return messages;
+      if (trackingForm.courier_company !== ((send.courier_company as CourierCompany | null) ?? "")) {
+        payload.courier_company = trackingForm.courier_company as CourierCompany;
+      }
+      const res = await sendsApi.updateTracking(sendId, payload);
+      applyUpdatedSend(res.data.data);
+      return res.data.message;
     },
-    onSuccess: (messages) => {
-      toast.success(messages.join(" ") || "수정되었습니다.");
-      setEditMode(false);
-      setEditErrors({});
+    onSuccess: (message) => {
+      toast.success(message ?? "운송장이 수정되었습니다.");
+      setTrackingEdit(false);
+      setTrackingErrors({});
+      invalidateSendQueries();
     },
-    onError: (err) => {
-      // 앞선 메모 저장이 이미 서버에 반영된 채 뒤가 실패했다면 그 사실을 밝힌다.
-      // 편집 모드는 열어 둔다 — 사용자가 실패한 쪽만 고쳐 다시 저장할 수 있어야 한다.
-      // (아래 onSettled 의 무효화로 memoDirty 는 false 가 되므로 메모가 재전송되지는 않는다.)
-      const message = getErrorMessage(err);
-      toast.error(
-        memoSavedRef.current ? `${message} (발송 메모는 저장되었습니다.)` : message,
-      );
-    },
-    onSettled: () => {
-      memoSavedRef.current = false;
-      queryClient.invalidateQueries({ queryKey: ["send-detail", sendId] });
-      queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
-      queryClient.invalidateQueries({ queryKey: ["delivered-sends"] });
-      // SubscriptionDetailPanel 의 발송 내역 query — orderItemId 무관 prefix 무효화
-      queryClient.invalidateQueries({ queryKey: ["order-item-sends"] });
-    },
+    // 요청이 하나뿐이라 실패하면 서버에 반영된 것도 없다 —
+    // 편집 모드를 열어 둔 채 알리기만 하면 사용자가 고쳐서 다시 저장할 수 있다.
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
-  const handleSave = () => {
+  // 발송 메모 — 상태 무관(PREPARING/DELIVERED/CANCELLED), 권한은 require_manager.
+  const memoMutation = useMutation({
+    mutationFn: async () => {
+      const res = await sendsApi.updateAdminMemo(sendId, {
+        admin_memo: memoDraft.trim() || null,
+      });
+      applyUpdatedSend(res.data.data);
+      return res.data.message;
+    },
+    onSuccess: (message) => {
+      toast.success(message ?? "발송 메모가 수정되었습니다.");
+      setMemoEdit(false);
+      invalidateSendQueries();
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+
+  const handleTrackingSave = () => {
     if (!send) return;
 
     // 모든 위반을 한 번에 표시 (재제출 강요 방지). toast 는 첫 항목만.
+    // 운송장 3필드는 값을 지울 수 없다 — 백엔드 crud 가 None 인 필드를 건너뛰므로
+    // 비운 채로 저장하면 아무 일도 일어나지 않는다. 조용히 무시되느니 막고 알린다.
     const errors: Record<string, string> = {};
-    if (canEditTracking) {
-      // 운송장 3필드는 값을 지울 수 없다 — 백엔드 crud 가 None 인 필드를 건너뛰므로
-      // 비운 채로 저장하면 아무 일도 일어나지 않는다. 조용히 무시되느니 막고 알린다.
-      if (send.tracking_no && !editForm.tracking_no.trim()) {
-        errors.tracking_no = "송장 번호는 지울 수 없습니다. 다른 번호로 수정해주세요.";
-      }
-      if (send.send_method && !editForm.send_method) {
-        errors.send_method = "배송 방법은 지울 수 없습니다. 다른 값으로 수정해주세요.";
-      }
-      if (send.courier_company && !editForm.courier_company) {
-        errors.courier_company = "운송사는 지울 수 없습니다. 다른 값으로 수정해주세요.";
-      }
-      // 백엔드는 입력에서 숫자만 추출해 저장하고, 추출 결과가 비면 422 를 낸다.
-      if (editForm.tracking_no.trim() && !/\d/.test(editForm.tracking_no)) {
-        errors.tracking_no = "송장 번호에 숫자가 없습니다. 번호를 확인해주세요.";
-      }
+    if (send.tracking_no && !trackingForm.tracking_no.trim()) {
+      errors.tracking_no = "송장 번호는 지울 수 없습니다. 다른 번호로 수정해주세요.";
+    }
+    if (send.send_method && !trackingForm.send_method) {
+      errors.send_method = "배송 방법은 지울 수 없습니다. 다른 값으로 수정해주세요.";
+    }
+    if (send.courier_company && !trackingForm.courier_company) {
+      errors.courier_company = "운송사는 지울 수 없습니다. 다른 값으로 수정해주세요.";
+    }
+    // 백엔드는 입력에서 숫자만 추출해 저장하고, 추출 결과가 비면 422 를 낸다.
+    if (trackingForm.tracking_no.trim() && !/\d/.test(trackingForm.tracking_no)) {
+      errors.tracking_no = "송장 번호에 숫자가 없습니다. 번호를 확인해주세요.";
     }
     if (Object.keys(errors).length > 0) {
-      setEditErrors(errors);
+      setTrackingErrors(errors);
       toast.error(Object.values(errors)[0]);
       return;
     }
 
-    if (!memoDirty && !trackingDirty) {
+    if (!trackingDirty) {
       toast.error("변경된 항목이 없습니다.");
       return;
     }
-    updateMutation.mutate();
+    trackingMutation.mutate();
   };
 
-  const handleCancelEdit = () => {
+  const handleTrackingCancel = () => {
     if (!send) return;
-    updateMutation.reset();
-    setEditMode(false);
-    setEditErrors({});
-    setEditForm({
-      admin_memo: send.admin_memo ?? "",
+    trackingMutation.reset();
+    setTrackingEdit(false);
+    setTrackingErrors({});
+    setTrackingForm({
       send_method: (send.send_method as SendMethod | null) ?? "",
       courier_company: (send.courier_company as CourierCompany | null) ?? "",
       tracking_no: send.tracking_no ?? "",
     });
+  };
+
+  const handleMemoSave = () => {
+    if (!send) return;
+    if (!memoDirty) {
+      toast.error("변경된 항목이 없습니다.");
+      return;
+    }
+    memoMutation.mutate();
+  };
+
+  const handleMemoCancel = () => {
+    if (!send) return;
+    memoMutation.reset();
+    setMemoEdit(false);
+    setMemoDraft(send.admin_memo ?? "");
   };
 
   // PREPARING 박스 강제 삭제 — 운영자 직접 박스 단위 정리용.
@@ -312,12 +324,15 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
 
   const isOverseas = send.country_code !== "KR";
   const hasTracking = !!(send.send_method || send.courier_company || send.tracking_no);
+  // 헤더에 남은 액션은 상태 조건부 둘뿐 — 둘 다 해당 없으면(CANCELLED) 줄을 그리지 않는다.
+  const hasHeaderActions =
+    send.send_status === "DELIVERED" || send.send_status === "PREPARING";
 
   return (
     <div className="flex flex-col h-full">
       {/* 패널 헤더 */}
       <div className="px-5 py-4 border-b border-gray-200 bg-white">
-        <div className="flex items-start justify-between mb-3">
+        <div className={`flex items-start justify-between ${hasHeaderActions ? "mb-3" : ""}`}>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 mb-1">
               <StatusBadge type="send_status" value={send.send_status} />
@@ -347,63 +362,36 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
           </button>
         </div>
 
-        {/* 액션 버튼 */}
-        <div className="flex items-center gap-2">
-          {editMode ? (
-            <>
-              <Button size="sm" onClick={handleSave} disabled={updateMutation.isPending}>
-                {updateMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-                저장
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleCancelEdit}
-                disabled={updateMutation.isPending}
-              >
-                취소
-              </Button>
-            </>
-          ) : (
-            <>
-              {/* 발송 메모는 상태 무관 편집 가능이라 [수정] 은 항상 노출.
-                  운송장 3필드는 편집 모드 안에서 DELIVERED 일 때만 입력으로 바뀐다. */}
+        {/* 헤더 액션은 박스 단위 행위만 — 필드 편집은 각 섹션 헤더의 [수정] 이 맡는다.
+            둘 다 상태 조건부라 CANCELLED 박스에서는 이 줄 자체가 사라진다. */}
+        {hasHeaderActions && (
+          <div className="flex items-center gap-2">
+            {/* 재배송은 이미 나간 박스에 대한 사후 기록이라 DELIVERED 만 (백엔드도 400 으로 차단) */}
+            {send.send_status === "DELIVERED" && (
               <Button
                 variant="outline"
                 size="sm"
                 className="gap-1"
-                onClick={() => setEditMode(true)}
+                onClick={() => setResendOpen(true)}
               >
-                <Edit2 className="h-3 w-3" />
-                수정
+                <RotateCcw className="h-3 w-3" />
+                재배송 기록
               </Button>
-              {/* 재배송은 이미 나간 박스에 대한 사후 기록이라 DELIVERED 만 (백엔드도 400 으로 차단) */}
-              {send.send_status === "DELIVERED" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1"
-                  onClick={() => setResendOpen(true)}
-                >
-                  <RotateCcw className="h-3 w-3" />
-                  재배송 기록
-                </Button>
-              )}
-              {send.send_status === "PREPARING" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setDeleteStep1Open(true)}
-                  disabled={deleteMutation.isPending}
-                  className="text-red-600 border-red-200 hover:bg-red-50"
-                >
-                  {deleteMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
-                  박스 삭제
-                </Button>
-              )}
-            </>
-          )}
-        </div>
+            )}
+            {send.send_status === "PREPARING" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDeleteStep1Open(true)}
+                disabled={deleteMutation.isPending}
+                className="text-red-600 border-red-200 hover:bg-red-50"
+              >
+                {deleteMutation.isPending && <LoadingSpinner size="sm" className="mr-1" />}
+                박스 삭제
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 스크롤 영역 */}
@@ -482,31 +470,40 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
           </Section>
         )}
 
-        {/* 운송장 — DELIVERED 박스에서만 편집 가능 (PREPARING/CANCELLED 은 read-only).
-            값이 하나도 없는 PREPARING 박스에서는 '-' 세 줄이 자리만 차지하므로 감춘다.
-            (운송장은 DELIVERED 전환 시점에 채워진다 — PREPARING 은 정의상 항상 비어 있음) */}
-        {(hasTracking || editMode) && (
-          <Section title="운송장">
-            {editMode && canEditTracking ? (
+        {/* 운송장 — 편집은 DELIVERED 만 (백엔드 send_service.update_tracking 이 그 외 상태에 400).
+            DELIVERED 는 세 필드가 모두 비어 있어도 섹션을 띄운다 — 감추면 비어 들어온 박스를
+            고칠 진입점이 사라진다.
+            PREPARING·CANCELLED 는 값이 있을 때만 read-only 로 띄운다. PREPARING 은 정의상
+            항상 비어 있어(운송장은 DELIVERED 전환 시점에 채워진다) '-' 세 줄이 자리만 찬다. */}
+        {(hasTracking || canEditTracking) && (
+          <Section
+            title="운송장"
+            action={
+              canEditTracking && !trackingEdit ? (
+                <SectionEditButton target="운송장" onClick={() => setTrackingEdit(true)} />
+              ) : undefined
+            }
+          >
+            {trackingEdit ? (
               <>
                 <EditRow label="배송 방법">
                   <div className="flex-1">
                     <Select
-                      value={editForm.send_method}
+                      value={trackingForm.send_method}
                       onValueChange={(v) => {
                         const sm = v as SendMethod;
-                        setEditForm((f) => ({
+                        setTrackingForm((f) => ({
                           ...f,
                           send_method: sm,
                           // 운영자가 운송사를 이미 지정한 상태라면 덮지 않는다
                           courier_company:
                             f.courier_company || SEND_METHOD_TO_COURIER[sm],
                         }));
-                        setEditErrors((e) => ({ ...e, send_method: "", courier_company: "" }));
+                        setTrackingErrors((e) => ({ ...e, send_method: "", courier_company: "" }));
                       }}
                     >
                       <SelectTrigger
-                        className={`h-7 text-xs ${editErrors.send_method ? "border-red-500" : ""}`}
+                        className={`h-7 text-xs ${trackingErrors.send_method ? "border-red-500" : ""}`}
                       >
                         <SelectValue placeholder="선택" />
                       </SelectTrigger>
@@ -518,22 +515,22 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
                         ))}
                       </SelectContent>
                     </Select>
-                    {editErrors.send_method && (
-                      <p className="text-xs text-red-500 mt-1">{editErrors.send_method}</p>
+                    {trackingErrors.send_method && (
+                      <p className="text-xs text-red-500 mt-1">{trackingErrors.send_method}</p>
                     )}
                   </div>
                 </EditRow>
                 <EditRow label="운송사">
                   <div className="flex-1">
                     <Select
-                      value={editForm.courier_company}
+                      value={trackingForm.courier_company}
                       onValueChange={(v) => {
-                        setEditForm((f) => ({ ...f, courier_company: v as CourierCompany }));
-                        setEditErrors((e) => ({ ...e, courier_company: "" }));
+                        setTrackingForm((f) => ({ ...f, courier_company: v as CourierCompany }));
+                        setTrackingErrors((e) => ({ ...e, courier_company: "" }));
                       }}
                     >
                       <SelectTrigger
-                        className={`h-7 text-xs ${editErrors.courier_company ? "border-red-500" : ""}`}
+                        className={`h-7 text-xs ${trackingErrors.courier_company ? "border-red-500" : ""}`}
                       >
                         <SelectValue placeholder="선택" />
                       </SelectTrigger>
@@ -545,27 +542,32 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
                         ))}
                       </SelectContent>
                     </Select>
-                    {editErrors.courier_company && (
-                      <p className="text-xs text-red-500 mt-1">{editErrors.courier_company}</p>
+                    {trackingErrors.courier_company && (
+                      <p className="text-xs text-red-500 mt-1">{trackingErrors.courier_company}</p>
                     )}
                   </div>
                 </EditRow>
                 <EditRow label="송장 번호">
                   <div className="flex-1">
                     <Input
-                      className={`h-7 text-xs font-mono ${editErrors.tracking_no ? "border-red-500" : ""}`}
+                      className={`h-7 text-xs font-mono ${trackingErrors.tracking_no ? "border-red-500" : ""}`}
                       placeholder="숫자만 추출되어 저장됨"
-                      value={editForm.tracking_no}
+                      value={trackingForm.tracking_no}
                       onChange={(e) => {
-                        setEditForm((f) => ({ ...f, tracking_no: e.target.value }));
-                        setEditErrors((er) => ({ ...er, tracking_no: "" }));
+                        setTrackingForm((f) => ({ ...f, tracking_no: e.target.value }));
+                        setTrackingErrors((er) => ({ ...er, tracking_no: "" }));
                       }}
                     />
-                    {editErrors.tracking_no && (
-                      <p className="text-xs text-red-500 mt-1">{editErrors.tracking_no}</p>
+                    {trackingErrors.tracking_no && (
+                      <p className="text-xs text-red-500 mt-1">{trackingErrors.tracking_no}</p>
                     )}
                   </div>
                 </EditRow>
+                <SectionEditActions
+                  onSave={handleTrackingSave}
+                  onCancel={handleTrackingCancel}
+                  pending={trackingMutation.isPending}
+                />
               </>
             ) : (
               <>
@@ -581,12 +583,6 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
                     />
                   }
                 />
-                {/* 편집 모드인데 입력이 안 나오는 이유를 그 자리에서 밝힌다 */}
-                {editMode && (
-                  <p className="text-xs text-gray-400">
-                    운송장은 배송 완료 상태에서만 수정할 수 있습니다.
-                  </p>
-                )}
               </>
             )}
           </Section>
@@ -653,23 +649,35 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
         {/* 발송 메모(Send.admin_memo) — 상태 무관 편집 가능 (PREPARING/DELIVERED/CANCELLED).
             시스템 바로 앞, 맨 아래에 두는 이유 — 자유 입력 보조 정보라 위 섹션들(무엇을·
             어디로·어떻게 보냈나)의 흐름을 끊지 않아야 한다. 실제로 채워진 Send 도 없다. */}
-        <Section title="발송 메모">
-          {editMode ? (
+        <Section
+          title="발송 메모"
+          action={
+            !memoEdit ? (
+              <SectionEditButton target="발송 메모" onClick={() => setMemoEdit(true)} />
+            ) : undefined
+          }
+        >
+          {memoEdit ? (
             <>
               <textarea
                 className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
                 rows={3}
                 maxLength={MEMO_MAX_LEN}
                 placeholder="발송 메모"
-                value={editForm.admin_memo}
-                onChange={(e) => setEditForm((f) => ({ ...f, admin_memo: e.target.value }))}
-                disabled={updateMutation.isPending}
+                value={memoDraft}
+                onChange={(e) => setMemoDraft(e.target.value)}
+                disabled={memoMutation.isPending}
               />
               {/* maxLength 가 초과 입력을 막아주므로 경고 색은 필요 없지만,
                   상한에서 갑자기 안 써지는 이유는 알려줘야 한다 */}
               <span className="text-[11px] text-gray-400">
-                {editForm.admin_memo.length} / {MEMO_MAX_LEN}
+                {memoDraft.length} / {MEMO_MAX_LEN}
               </span>
+              <SectionEditActions
+                onSave={handleMemoSave}
+                onCancel={handleMemoCancel}
+                pending={memoMutation.isPending}
+              />
             </>
           ) : (
             <p className="text-sm text-gray-700 whitespace-pre-line">
@@ -814,14 +822,65 @@ function BoxContentsSection({ send }: { send: SendDetailResponse }) {
   );
 }
 
-// 섹션 컴포넌트
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+// 섹션 컴포넌트 — action 은 헤더 띠 오른쪽 슬롯
+// (OrderDetailPanel·SubscriptionDetailPanel 의 Section 과 같은 시그니처).
+function Section({
+  title,
+  children,
+  action,
+}: {
+  title: string;
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
   return (
     <div className="border border-gray-100 rounded-lg overflow-hidden">
-      <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100">
+      <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{title}</h3>
+        {action}
       </div>
       <div className="px-3.5 py-3 space-y-2.5">{children}</div>
+    </div>
+  );
+}
+
+// 섹션 헤더의 [수정] 진입점 — 헤더 띠 안이라 Button 대신 텍스트 버튼을 쓴다.
+// 회색 띠 위에 outline 버튼을 얹으면 h-8 이 띠(py-2)보다 높아 헤더가 밀린다.
+function SectionEditButton({ target, onClick }: { target: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      // 한 화면에 '수정' 버튼이 둘이라 이름만으로는 구분되지 않는다 —
+      // 섹션명을 붙여 읽히게 한다 (PreparingSendCard 의 체크박스와 같은 방식).
+      aria-label={`${target} 수정`}
+      className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0"
+    >
+      <Edit2 className="h-3 w-3" />
+      수정
+    </button>
+  );
+}
+
+// 섹션 본문 맨 아래 저장/취소 줄 — 순서는 패널 헤더가 쓰던 [저장] [취소] 를 그대로 따른다.
+function SectionEditActions({
+  onSave,
+  onCancel,
+  pending,
+}: {
+  onSave: () => void;
+  onCancel: () => void;
+  pending: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2 pt-1">
+      <Button size="sm" onClick={onSave} disabled={pending}>
+        {pending && <LoadingSpinner size="sm" className="mr-1" />}
+        저장
+      </Button>
+      <Button size="sm" variant="outline" onClick={onCancel} disabled={pending}>
+        취소
+      </Button>
     </div>
   );
 }
