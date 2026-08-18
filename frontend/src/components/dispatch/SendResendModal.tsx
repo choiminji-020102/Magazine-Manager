@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
+import { TrackingNoValue } from "@/components/dispatch/TrackingNoValue";
 import {
   Select,
   SelectContent,
@@ -57,6 +58,9 @@ export function SendResendModal({ open, onClose, send, onSuccess }: Props) {
   const [itemsError, setItemsError] = useState(false);
 
   const allItemIds = useMemo(() => send.items.map((it) => it.send_item_id), [send.items]);
+  // 사유가 프리셋 목록 안의 값인지 — Select 에 넘길 value 를 가릴 때 쓴다.
+  // 목록 밖 문자열(직접 입력)을 그대로 넘기면 드롭다운이 빈 칸이 된다 (렌더부 주석 참조).
+  const reasonIsPreset = RESEND_REASON_OPTIONS.some((o) => o.value === reason);
 
   // 모달 열릴 때 품목 전체 선택 — 오픈 시점 스냅샷만 필요하다.
   // deps 에 allItemIds 를 넣으면 모달이 열려 있는 동안 items 가 갱신될 때
@@ -149,12 +153,24 @@ export function SendResendModal({ open, onClose, send, onSuccess }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>재배송 내역 기록</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-1 max-h-[70vh] overflow-y-auto">
+        {/* 스크롤 영역 — 다이얼로그에 max-h 를 걸고 본문만 늘어나게 하는 프로젝트 표준
+            (TransitionToDeliveredModal·엑셀 다이얼로그와 동일: DialogContent 에
+            max-h + flex flex-col, 본문에 flex-1 min-h-0 overflow-y-auto).
+            본문에 직접 max-h 를 주면 헤더·푸터·패딩이 계산에서 빠져 실제 높이가 넘친다.
+            gap 은 주지 않는다 — 자식이 헤더·본문·푸터 셋뿐이라 DialogHeader 의 mb-4,
+            DialogFooter 의 mt-6 만으로 간격이 맞는다 (gap 을 더하면 이중 간격).
+
+            px-1 -mx-1 은 포커스 링 자리 확보용 — overflow-y-auto 는 가로도 함께
+            잘라내는데(CSS 상 한 축만 visible 로 둘 수 없음) 이 모달은 인풋·textarea 가
+            스크롤 컨테이너의 직계 자식이라 w-full 이 컨테이너 끝에 딱 붙는다.
+            focus ring 2px(ring-offset-0) 이 밖에 그려져 좌우가 잘리므로 4px 만 벌리고
+            음수 마진으로 되돌려 레이아웃은 그대로 둔다. */}
+        <div className="flex-1 min-h-0 space-y-4 py-1 px-1 -mx-1 overflow-y-auto">
           {/* 대상 박스 요약 — 모달은 패널과 화면이 분리되므로 어느 박스인지 다시 밝힌다 */}
           <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 space-y-1">
             <div className="flex justify-between gap-3">
@@ -177,11 +193,10 @@ export function SendResendModal({ open, onClose, send, onSuccess }: Props) {
               <span>기존 발송</span>
               <span className="font-medium text-right">
                 {send.send_method ?? "-"} · {send.courier_company ?? "-"} ·{" "}
-                {send.tracking_no ? (
-                  <span className="font-mono">{send.tracking_no}</span>
-                ) : (
-                  "-"
-                )}
+                <TrackingNoValue
+                  trackingNo={send.tracking_no}
+                  courierCompany={send.courier_company}
+                />
               </span>
             </div>
           </div>
@@ -191,8 +206,15 @@ export function SendResendModal({ open, onClose, send, onSuccess }: Props) {
             <Label className={reasonError ? "text-red-500" : undefined}>
               사유 <span className="text-red-500 ml-0.5">*</span>
             </Label>
+            {/* Select 의 value 는 옵션에 있는 값일 때만 넘긴다. Radix 의
+                shouldShowPlaceholder 는 value 가 "" 이거나 undefined 일 때만 참이라
+                (@radix-ui/react-select), 목록에 없는 문자열을 넘기면 placeholder 도
+                아니고 선택된 항목의 글자도 아닌 아무것도 그리지 못해 트리거가 통째로
+                빈 칸이 된다. 필수 항목인데 비어 보이니 운영자가 드롭다운에서 하나를
+                고르게 되고 방금 입력한 사유가 덮어써진다.
+                "" 를 넘기면 안내 문구가 남고, 값은 아래 직접 입력 칸이 그대로 보여준다. */}
             <Select
-              value={reason}
+              value={reasonIsPreset ? reason : ""}
               onValueChange={(v) => {
                 setReason(v);
                 setReasonError(false);
@@ -331,14 +353,18 @@ export function SendResendModal({ open, onClose, send, onSuccess }: Props) {
               {send.items.map((it) => (
                 <label
                   key={it.send_item_id}
-                  className="flex items-center gap-2 px-2 py-1.5 text-xs cursor-pointer hover:bg-gray-50"
+                  className="flex items-start gap-2 px-2 py-1.5 text-xs cursor-pointer hover:bg-gray-50"
                 >
                   <Checkbox
                     checked={selectedItemIds.has(it.send_item_id)}
                     onCheckedChange={(c) => toggleItem(it.send_item_id, c === true)}
                   />
-                  <span className="font-mono text-gray-600">{it.product_code}</span>
-                  <span className="text-gray-500 truncate">{it.product_name}</span>
+                  <span className="font-mono text-gray-600 flex-shrink-0">{it.product_code}</span>
+                  {/* truncate 를 쓰지 않는다 — 상품명의 판별 부분이 뒤에 있어
+                      ([기본판]/[큰글자판], [저학년 1~3학년]/[고학년 4~6학년]) 한 줄로 자르면
+                      정확히 그 자리가 날아간다. 어느 책을 다시 보낼지 골라 체크하는 화면이라
+                      두 줄이 되더라도 이름은 전부 보여야 한다 (items-start 로 위 정렬). */}
+                  <span className="text-gray-500">{it.product_name}</span>
                   <span className="text-gray-400 ml-auto flex-shrink-0">
                     {formatIssue(it.issue)} · {it.send_num}권
                   </span>
