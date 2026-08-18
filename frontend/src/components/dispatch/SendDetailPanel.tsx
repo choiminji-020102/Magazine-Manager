@@ -327,6 +327,9 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
   // 헤더에 남은 액션은 상태 조건부 둘뿐 — 둘 다 해당 없으면(CANCELLED) 줄을 그리지 않는다.
   const hasHeaderActions =
     send.send_status === "DELIVERED" || send.send_status === "PREPARING";
+  // 2건 이상이면 다른 고객의 주문과 한 박스에 묶인 것. 아래 [같은 배송지 주문] 섹션의
+  // 제목과 안내 문구가 이 하나로 함께 갈린다 — 따로 쓰면 한쪽만 고쳐져 어긋난다.
+  const isGroupedBox = send.related_orders.length > 1;
 
   return (
     <div className="flex flex-col h-full">
@@ -425,14 +428,21 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
 
         {/* 같은 배송지 주문 — MONTHLY·VIP 그룹화가 (우편번호, 주소) 만으로 묶기 때문에
             주소가 같으면 다른 고객의 책도 한 박스에 담긴다 (dispatch_grouping_service).
-            제목을 '묶인 주문' 이 아니라 '같은 배송지 주문' 으로 둔 이유 — 무엇을 기준으로
-            묶였는지가 제목에 드러나야 '왜 남의 주문이 여기 있지' 에 바로 답이 된다.
-            행을 누르면 그 주문 상세를 겹쳐 연다 (CustomerDetailPanel 의 주문 행과 동일). */}
+            행을 누르면 그 주문 상세를 겹쳐 연다 (CustomerDetailPanel 의 주문 행과 동일).
+
+            제목이 건수에 따라 갈린다. 1건이면 묶인 게 없으니 그냥 '주문' — 그 박스의
+            주문자를 밝히고 주문 상세로 넘어가는 통로일 뿐인데 '같은 배송지 주문' 이라고
+            하면 있지도 않은 묶음을 가리키게 된다 (실데이터 98.6% 가 1건이다).
+            2건 이상일 때만 무엇을 기준으로 묶였는지를 제목에 드러내 '왜 남의 주문이
+            여기 있지' 에 바로 답하게 한다. */}
         {send.related_orders.length > 0 && (
-          <Section title={`같은 배송지 주문 (${send.related_orders.length}건)`}>
-            {/* 안내는 2건 이상일 때만 — 1건이면 묶인 게 없어 '묶였습니다' 가 사실과 다르다.
-                (실데이터 98.6% 가 1건이라 늘 띄우면 대부분 거짓말이 된다) */}
-            {send.related_orders.length > 1 && (
+          <Section
+            title={
+              isGroupedBox ? `같은 배송지 주문 (${send.related_orders.length}건)` : "주문"
+            }
+          >
+            {/* 1건이면 묶인 게 없어 '묶였습니다' 가 사실과 다르므로 안내도 함께 감춘다 */}
+            {isGroupedBox && (
               <p className="text-xs text-gray-400">
                 배송지가 같아 이 주문들의 책이 한 박스에 담겼습니다.
               </p>
