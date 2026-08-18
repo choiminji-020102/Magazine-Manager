@@ -233,10 +233,10 @@ export function SendResendModal({ open, onClose, send, onSuccess }: Props) {
                   const sm = v as SendMethod;
                   setSendMethod(sm);
                   setSendMethodError(false);
-                  // 운영자가 운송사를 이미 지정한 상태라면 덮지 않는다
-                  const derived = SEND_METHOD_TO_COURIER[sm] as CourierCompany | undefined;
-                  if (derived && !courier) {
-                    setCourier(derived);
+                  // 운영자가 운송사를 이미 지정한 상태라면 덮지 않는다.
+                  // 매핑은 SendMethod 전 값을 덮는 total Record 라 undefined 검사 불필요.
+                  if (!courier) {
+                    setCourier(SEND_METHOD_TO_COURIER[sm]);
                     setCourierError(false);
                   }
                 }}

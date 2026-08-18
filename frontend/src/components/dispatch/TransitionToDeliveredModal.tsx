@@ -147,11 +147,12 @@ export default function TransitionToDeliveredModal({
     }
   };
 
-  // send_method 변경 → courier_company 자동 도출 → handleCourierChange 위임
-  const handleSendMethodChange = (next: string) => {
-    setSendMethod(next as SendMethod);
-    const derived = SEND_METHOD_TO_COURIER[next] as CourierCompany | undefined;
-    if (derived) handleCourierChange(derived);
+  // send_method 변경 → courier_company 자동 도출 → handleCourierChange 위임.
+  // Radix Select 가 넘기는 string 은 호출부에서 한 번만 좁힌다 (경계에서 캐스팅).
+  const handleSendMethodChange = (next: SendMethod) => {
+    setSendMethod(next);
+    // 매핑은 SendMethod 전 값을 덮는 total Record 라 undefined 검사 불필요.
+    handleCourierChange(SEND_METHOD_TO_COURIER[next]);
   };
 
   // 박스 안 SendItem 정보 — 모달 열린 상태에서 박스마다 detail 병렬 조회 (운영자 박스 식별용).
@@ -390,7 +391,7 @@ export default function TransitionToDeliveredModal({
             <Label className="text-xs text-gray-500">
               배송 방법 <span className="text-red-500 ml-0.5">*</span>
             </Label>
-            <Select value={sendMethod} onValueChange={handleSendMethodChange}>
+            <Select value={sendMethod} onValueChange={(v) => handleSendMethodChange(v as SendMethod)}>
               <SelectTrigger className="mt-1 h-9 text-sm">
                 <SelectValue placeholder="선택해주세요" />
               </SelectTrigger>

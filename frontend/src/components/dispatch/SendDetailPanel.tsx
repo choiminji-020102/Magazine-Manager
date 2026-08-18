@@ -500,8 +500,7 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
                           send_method: sm,
                           // 운영자가 운송사를 이미 지정한 상태라면 덮지 않는다
                           courier_company:
-                            f.courier_company ||
-                            ((SEND_METHOD_TO_COURIER[sm] as CourierCompany | undefined) ?? ""),
+                            f.courier_company || SEND_METHOD_TO_COURIER[sm],
                         }));
                         setEditErrors((e) => ({ ...e, send_method: "", courier_company: "" }));
                       }}

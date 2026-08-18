@@ -1,3 +1,5 @@
+import type { SendMethod, CourierCompany } from "@/types/send";
+
 // ── 주문 상태 ──────────────────────────────────────────────────────────────────
 
 export const ORDER_STATUS_LABEL: Record<string, string> = {
@@ -165,7 +167,10 @@ export const SEND_METHOD_LABEL: Record<string, string> = {
   찾아가기: "찾아가기",
 };
 
-export const SEND_METHOD_OPTIONS = [
+// value 에 타입을 붙여 SEND_METHOD_TO_COURIER 의 키와 드리프트하지 못하게 막는다 —
+// 무타입이면 여기에 SendMethod 에 없는 값이 늘어나도 tsc 가 잡지 못하고,
+// 매핑 조회가 런타임에 undefined 로 떨어진다.
+export const SEND_METHOD_OPTIONS: { value: SendMethod; label: string }[] = [
   { value: "기출유우편", label: "기출유우편" },
   { value: "기출유택배", label: "기출유택배" },
   { value: "일반우편", label: "일반우편" },
@@ -179,13 +184,13 @@ export const COURIER_COMPANY_LABEL: Record<string, string> = {
   자체배송: "자체배송",
 };
 
-export const COURIER_COMPANY_OPTIONS = [
+export const COURIER_COMPANY_OPTIONS: { value: CourierCompany; label: string }[] = [
   { value: "CJ대한통운", label: "CJ대한통운" },
   { value: "자체배송", label: "자체배송" },
 ];
 
 // send_method → courier_company 자동 도출 매핑 (운영자가 수정 가능, 완전 독립이지만 기본값 제공)
-export const SEND_METHOD_TO_COURIER: Record<string, string> = {
+export const SEND_METHOD_TO_COURIER: Record<SendMethod, CourierCompany> = {
   기출유우편: "자체배송",
   기출유택배: "CJ대한통운",
   일반우편: "자체배송",
