@@ -53,7 +53,7 @@ function ItemBox({ item }: { item: Cafe24MappedOrderItem }) {
   const boxClass = !matched
     ? "border-red-200 bg-red-50"
     : isClaim
-    ? "border-gray-200 bg-gray-50 opacity-70"
+    ? "border-gray-200 bg-gray-50 opacity-60"
     : isBlocking
     ? "border-amber-200 bg-amber-50"
     : "border-gray-100 bg-white";

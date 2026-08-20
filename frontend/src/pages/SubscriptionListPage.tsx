@@ -524,7 +524,7 @@ function SubscriptionListTab() {
             onRowClick={handleRowClick}
             activeRowId={selectedItem?.order_item_id}
             tableFixed
-            rowClassName={(row) => row.cancelled_at ? "opacity-50" : undefined}
+            rowClassName={(row) => row.cancelled_at ? "opacity-60" : undefined}
           />
         </div>
       </div>
