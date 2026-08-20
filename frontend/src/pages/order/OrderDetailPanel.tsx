@@ -584,9 +584,10 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     enabled: productDropdownOpen && (productSearchDebounced.length >= 1 || !!productKindFilter),
   });
 
-  // 상품 코드에서 시작 호 추출 (MW+202604 → 202604, KT-202607 → 202607)
+  // 상품 코드에서 시작 호 추출 (W0+202604 → 202604, W0~202604 → 202604, W0-202607 → 202607)
+  // 구분자 3종은 백엔드 core/utils.py 의 parse_subscribe_start_issue 와 동일 (+ 정기구독 / ~ 연장구독 / - 단품)
   const extractIssueFromCode = (code: string): string => {
-    const match = code.match(/[+-](\d{6})$/);
+    const match = code.match(/[+~-](\d{6})$/);
     return match ? match[1] : "";
   };
 
