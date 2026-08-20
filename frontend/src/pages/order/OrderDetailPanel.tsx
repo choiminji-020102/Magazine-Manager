@@ -1694,8 +1694,9 @@ function OrderItemCard({
   const isYearly = item.product_kind === "YEARLY";
   const isCancelled = !!item.cancelled_at;
 
+  // 취소 품목 흐림 처리는 목록의 OrderItemBox·OrderListCard 와 동일 규격 (opacity-60 bg-gray-50)
   return (
-    <div className={`border border-gray-100 rounded-lg overflow-hidden ${isCancelled ? "bg-gray-50/60" : "bg-white"}`}>
+    <div className={`border border-gray-100 rounded-lg overflow-hidden ${isCancelled ? "opacity-60 bg-gray-50" : "bg-white"}`}>
       {/* 헤더: 상품 배지 + 상품명 + 구독 상세/수정/취소 버튼 */}
       <div className="flex items-center justify-between px-3.5 py-2 bg-gray-50 border-b border-gray-100">
         <div className="flex items-center gap-2 min-w-0">
