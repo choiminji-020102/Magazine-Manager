@@ -247,6 +247,29 @@ def transition_send_to_delivered(
     return send
 
 
+# 카페24 배송상태 전환 API는 멱등하지 않다 — 이미 배송중(In transit)인 주문에 같은
+# status="shipping" 을 다시 보내면 422 로 거부한다. 우리 입장에서는 원하는 상태에 이미
+# 도달한 것이므로 성공으로 봐야 한다. 그러지 않으면 한 번 어긋난 건(카페24는 배송중,
+# 우리는 PREPARING)이 재시도할 때마다 같은 422 를 맞아 영원히 DELIVERED 로 넘어가지
+# 못한다. → docs/troubleshooting/cafe24-shipment-status-deadlock.md
+_CAFE24_ALREADY_IN_TRANSIT = "current order status: in transit"
+
+
+def _is_already_in_requested_state(failed_item: dict) -> bool:
+    """카페24가 "이미 그 상태라서" 거부한 건인지 판정.
+
+    failed_item 은 cafe24_admin_service._call_shipments_tolerant 가 돌려주는 실패 항목.
+    메시지 문구에만 의존하지 않도록, 우리가 요청한 status(more_info.status)까지 함께 본다.
+    카페24가 문구를 바꾸면 False 가 되어 '실패'로 남으므로 안전측으로 기운다.
+    """
+    if failed_item.get("code") != 422:
+        return False
+    more_info = failed_item.get("more_info") or {}
+    if more_info.get("status") != "shipping":
+        return False
+    return _CAFE24_ALREADY_IN_TRANSIT in (failed_item.get("message") or "").lower()
+
+
 async def transition_sends_to_delivered_batch(
     db: Session,
     sends_input: List[Tuple[int, str]],
@@ -391,6 +414,50 @@ async def transition_sends_to_delivered_batch(
         cafe24_failed_send_ids.add(send_id)
         cafe24_failure_reasons.setdefault(send_id, []).append(reason)
 
+    # ── YEARLY 사전 상태 조회 → 보류 Send 확정 ────────────────────────────────
+    # **반드시 MONTHLY POST 보다 먼저 수행한다.** VIP Send 는 정기+단품이 한 박스에 섞일 수
+    # 있어서(§"한 Send = 한 종류" 가정 금지), MONTHLY 를 먼저 보내버리면 뒤늦게 YEARLY 때문에
+    # 그 Send 가 보류될 때 카페24 쪽만 앞서가는 불일치가 남는다. 그 전송은 되돌릴 수 없다.
+    #
+    # 보류 사유:
+    #   - shipped(N40): 이미 배송완료. 카페24 PUT 은 역행을 막지 않아(shipping → standby 가
+    #     실제로 성공하는 것을 확인함) 그대로 보내면 배송완료가 배송중으로 되돌아간다.
+    #     정책상 DELIVERED 로 넘기지 않고 PREPARING 으로 남겨 관리자가 직접 확인하게 한다.
+    #   - 상태 조회 실패: 모르는 채로 보내면 위와 같은 후퇴가 일어날 수 있다.
+    #     "모르면 건드리지 않는다".
+    blocked_send_ids: set = set()
+    if yearly_requests:
+        yearly_statuses = await cafe24_admin_service.fetch_shipment_statuses(
+            db=db,
+            client=client,
+            order_ids=[r["order_id"] for r in yearly_requests if r.get("order_id")],
+        )
+        for req in yearly_requests:
+            current = yearly_statuses.get(req["shipping_code"])
+            if current == "shipped":
+                reason = (
+                    "카페24에서 이미 배송완료 처리된 주문입니다. 우리 시스템을 거치지 않고"
+                    " 상태가 바뀐 건이므로 자동으로 발송 완료 처리하지 않았습니다 —"
+                    " 카페24 관리자 화면에서 실제 발송 여부를 확인해주세요."
+                )
+            elif current is None:
+                reason = (
+                    "카페24에서 현재 배송 상태를 확인하지 못했습니다. 상태를 모르는 채로"
+                    " 전환하면 이미 완료된 배송이 되돌아갈 수 있어 처리를 보류했습니다."
+                    " 잠시 후 다시 시도해주세요."
+                )
+            else:
+                continue
+            for send_id in yearly_send_ids_by_shipping_code.get(req["shipping_code"], set()):
+                blocked_send_ids.add(send_id)
+                _record_cafe24_failure(send_id, reason)
+
+    # 보류가 확정된 Send 는 MONTHLY 요청에서도 통째로 뺀다. Send.send_status 는 하나뿐이라
+    # 일부 품목만 카페24에 반영해봐야 Send 는 PREPARING 으로 남고 불일치만 생긴다.
+    # monthly_groups 에서 지우면 payload 구성과 아래 커버리지 점검에서 함께 제외된다.
+    for blocked_group_key in [gk for gk in monthly_groups if gk[1] in blocked_send_ids]:
+        del monthly_groups[blocked_group_key]
+
     # MONTHLY POST: N20 → N30 (shipping). order_id 필수.
     # 그룹 키가 이미 (ext_oid, send_id) 단위라 그룹 하나 = 박스 하나 = 운송장 하나.
     if monthly_groups:
@@ -405,7 +472,7 @@ async def transition_sends_to_delivered_batch(
                 "status": "shipping",
                 "order_item_code": item_codes,
             })
-        shipments, monthly_failed_batches = await cafe24_admin_service.post_shipments_tolerant(
+        shipments, monthly_failed_items = await cafe24_admin_service.post_shipments_tolerant(
             db=db, client=client, requests_payload=monthly_payload
         )
         # 응답 매칭: order_id가 이 배치 안에서 유일하면(분할 없는 압도적 다수 케이스) 기존에
@@ -456,15 +523,26 @@ async def transition_sends_to_delivered_batch(
             resolved_group_keys.add(group_key)
         db.flush()
 
-        for fb in monthly_failed_batches:
-            for item in fb["items"]:
-                # 실패 배치는 우리가 직접 만든 요청 payload이므로 order_item_code로 항상 확실하게 역매칭 가능
-                item_codes = item.get("order_item_code") or []
-                group_key = item_code_to_group_key.get(item_codes[0]) if item_codes else None
-                if group_key is None:
+        for fi in monthly_failed_items:
+            # 실패 항목의 payload는 우리가 직접 만든 것이므로 order_item_code로 항상 확실하게 역매칭 가능
+            item_codes = fi["item"].get("order_item_code") or []
+            group_key = item_code_to_group_key.get(item_codes[0]) if item_codes else None
+            if group_key is None:
+                continue
+            _, failed_send_id = group_key
+            if _is_already_in_requested_state(fi):
+                # 카페24에는 이미 반영돼 있다. 다만 부분 실패 응답에는 성공분 shipments가
+                # 오지 않으므로(2026-08-25 관측), shipping_code를 more_info에서 얻을 수 있을
+                # 때만 성공 처리한다. 모르는 채로 넘기면 oi.cafe24_shipping_code가 빈 채 남고,
+                # idempotency 가드(§1)가 다음 재시도에서 같은 주문을 또 POST해 카페24에
+                # 중복 배송 레코드를 만든다. 그 위험을 감수하느니 실패로 남기는 편이 안전하다.
+                already_code = (fi.get("more_info") or {}).get("shipping_code")
+                if already_code:
+                    for oi in monthly_order_items_map.get(group_key, []):
+                        oi.cafe24_shipping_code = already_code
+                    resolved_group_keys.add(group_key)
                     continue
-                _, failed_send_id = group_key
-                _record_cafe24_failure(failed_send_id, fb["reason"])
+            _record_cafe24_failure(failed_send_id, fi["reason"])
 
         # 커버리지 점검: 카페24에 보낸 모든 그룹은 "성공(resolved_group_keys)" 또는 "명시적
         # 실패(cafe24_failed_send_ids, 위 실패배치 처리에서 이미 기록됨)" 둘 중 하나로 반드시
@@ -499,14 +577,31 @@ async def transition_sends_to_delivered_batch(
 
     # YEARLY PUT: N21 → N30 (shipping). shipping_code 필수, order_id 불필요.
     if yearly_requests:
-        _yearly_shipments, yearly_failed_batches = await cafe24_admin_service.put_shipments_tolerant(
-            db=db, client=client, requests_payload=yearly_requests
-        )
-        for fb in yearly_failed_batches:
-            for item in fb["items"]:
-                affected = yearly_send_ids_by_shipping_code.get(item["shipping_code"], set())
-                for send_id in affected:
-                    _record_cafe24_failure(send_id, fb["reason"])
+        # 보류가 확정된 Send(위 사전 조회 단계에서 결정됨)에 속한 요청은 **전부** 뺀다.
+        # 판정은 품목(shipping_code) 단위로 하되 전송 여부는 Send 단위로 묶어 결정한다.
+        sendable_yearly: List[dict] = [
+            req for req in yearly_requests
+            if not (
+                yearly_send_ids_by_shipping_code.get(req["shipping_code"], set())
+                & blocked_send_ids
+            )
+        ]
+
+        yearly_failed_items: List[dict] = []
+        if sendable_yearly:
+            _yearly_shipments, yearly_failed_items = await cafe24_admin_service.put_shipments_tolerant(
+                db=db, client=client, requests_payload=sendable_yearly
+            )
+        for fi in yearly_failed_items:
+            if _is_already_in_requested_state(fi):
+                # 이미 카페24에서 배송중이다 = 우리가 요청한 상태에 이미 도달해 있다.
+                # 실패로 기록하지 않으면 이 Send는 succeeded_sends에 남아 DELIVERED로 전환된다.
+                # YEARLY는 MONTHLY와 달리 shipping_code를 응답에서 받아둘 필요가 없다
+                # (주문 가져오기 시점에 이미 oi.cafe24_shipping_code가 채워져 있음).
+                continue
+            affected = yearly_send_ids_by_shipping_code.get(fi["item"]["shipping_code"], set())
+            for send_id in affected:
+                _record_cafe24_failure(send_id, fi["reason"])
 
     # MONTHLY/YEARLY 양쪽에서 모인 실패 사유를 send_id당 하나의 failed 항목으로 병합
     # (VIP처럼 한 Send에 MONTHLY 실패 + YEARLY 실패가 동시에 있으면 사유를 이어붙임)

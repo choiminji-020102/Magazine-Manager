@@ -174,16 +174,50 @@ async def call_cafe24(
 
 # ── Shipments API ─────────────────────────────────────────────────────────────
 
+def _extract_errors(r: httpx.Response) -> List[Dict]:
+    """응답 본문에서 카페24 errors 배열을 꺼낸다. 파싱 불가하면 빈 리스트.
+
+    카페24는 배치 일부가 실패했을 때 HTTP 200 + errors 로 주기도 하고 HTTP 422 + errors 로
+    주기도 한다(둘 다 실제 관측). 그래서 HTTP 에러여도 본문을 열어봐야 "어느 항목이 왜
+    실패했는지"를 알 수 있다. 각 error 의 more_info 에 order_id / shipping_code 가 들어 있어
+    요청 항목과 역매칭할 수 있다.
+
+    부분 실패 응답에 성공분 shipments 가 함께 오지는 '않는' 것으로 관측됐다(2026-08-25).
+    따라서 성패 판정은 shipments 배열이 아니라 errors 를 기준으로 해야 한다 —
+    errors 에 없는 요청 항목은 성공으로 본다.
+    """
+    body = _parse_json_object(r)
+    if body is None:
+        return []
+    errors = body.get("errors")
+    return errors if isinstance(errors, list) else []
+
+
+def _parse_json_object(r: httpx.Response) -> Optional[dict]:
+    """응답 본문을 dict 로 파싱. JSON 이 아니거나 dict 가 아니면 None."""
+    try:
+        body = r.json()
+    except Exception:
+        return None
+    return body if isinstance(body, dict) else None
+
+
 async def _call_shipments_batch_once(
     *,
     method: str,
     db: Session,
     client: httpx.AsyncClient,
     batch: List[Dict],
-) -> Tuple[Optional[List[Dict]], Optional[str], Optional[int]]:
+) -> Tuple[Optional[List[Dict]], Optional[str], Optional[int], List[Dict]]:
     """batch(최대 100건) 1회 호출 — 429는 1회 재시도까지 포함.
-    성공: (shipments, None, None). 실패: (None, 사유 문구, http 상태코드).
-    _call_shipments(기존, 실패 시 raise)와 _call_shipments_tolerant(신규, 실패해도 계속 진행) 둘 다
+
+    반환: (shipments, reason, status_code, errors)
+      - 성공:        (shipments, None, None, [])
+      - 실패:        (None, 사유 문구, http 상태코드, errors)
+                     errors 는 항목별 판정용. 얻지 못했으면 빈 리스트이며, 이때는
+                     소비자가 종래처럼 "배치 전체 실패"로 처리해야 한다.
+
+    _call_shipments(기존, 실패 시 raise)와 _call_shipments_tolerant(부분 성공 허용) 둘 다
     이 함수를 공유해서 카페24 호출/재시도 로직이 두 곳에 따로 구현되지 않도록 함.
     """
     url = f"{BASE_URL}/shipments"
@@ -199,16 +233,27 @@ async def _call_shipments_batch_once(
         r = await call_cafe24(method=method, url=url, db=db, client=client, json_body=req_body)
 
     if r.status_code == 429:
-        return None, "Cafe24 Shipments API Rate Limit 초과 — 잠시 후 다시 시도해주세요.", http_status.HTTP_429_TOO_MANY_REQUESTS
+        return None, "Cafe24 Shipments API Rate Limit 초과 — 잠시 후 다시 시도해주세요.", http_status.HTTP_429_TOO_MANY_REQUESTS, []
     if r.is_error:
-        return None, f"Cafe24 Shipments API 오류 ({r.status_code}): {r.text[:200]}", http_status.HTTP_502_BAD_GATEWAY
+        # 응답 본문을 자르지 않고 전부 전달. errors 도 함께 넘겨 항목별 판정이 가능하게 한다.
+        return (
+            None,
+            f"Cafe24 Shipments API 오류 ({r.status_code}): {r.text}",
+            http_status.HTTP_502_BAD_GATEWAY,
+            _extract_errors(r),
+        )
 
     result = r.json()
     errors = result.get("errors") or []
     if errors:
-        return None, f"Cafe24 Shipments API partial error: {errors}", http_status.HTTP_400_BAD_REQUEST
+        return (
+            None,
+            f"Cafe24 Shipments API partial error: {r.text}",
+            http_status.HTTP_400_BAD_REQUEST,
+            errors,
+        )
 
-    return result.get("shipments") or [], None, None
+    return result.get("shipments") or [], None, None, []
 
 
 async def _call_shipments(
@@ -231,10 +276,12 @@ async def _call_shipments(
 
     for i in range(0, len(requests_payload), batch_size):
         batch = requests_payload[i:i + batch_size]
-        shipments, reason, status_code = await _call_shipments_batch_once(
+        shipments, reason, status_code, _errors = await _call_shipments_batch_once(
             method=method, db=db, client=client, batch=batch
         )
         if reason:
+            # 기존 소비자(주문 가져오기 등)는 "실패하면 예외로 전체 중단"을 기대하므로
+            # errors 를 항목별로 풀지 않고 종래대로 즉시 raise 한다.
             raise HTTPException(status_code=status_code, detail=reason)
         all_shipments.extend(shipments or [])
 
@@ -242,6 +289,64 @@ async def _call_shipments(
             await asyncio.sleep(0.5)
 
     return all_shipments
+
+
+def _match_errors_to_requests(
+    batch: List[Dict], errors: List[Dict], reason: str
+) -> Optional[List[Dict]]:
+    """카페24 errors 를 요청 항목에 1:1 로 붙인다. 붙이지 못하면 None.
+
+    반환 형식: [{"item": 원본 요청 항목, "reason": str, "code": int|None,
+                 "message": str|None, "more_info": dict|None}, ...]
+
+    매칭 키는 more_info 의 shipping_code(YEARLY PUT) → order_id(MONTHLY POST) 순.
+    order_id 는 한 배치 안에서 중복될 수 있어(박스 분할 시 같은 주문이 여러 요청으로 나뉨)
+    중복된 값은 매칭 키로 쓰지 않는다.
+
+    **errors 전부를 매칭하지 못하면 None 을 반환한다.** 일부만 붙이고 나머지를 성공으로
+    넘기면, 매칭 못 한 오류에 해당하는 요청이 성공으로 오판된다. 판정 근거가 불완전할 때는
+    "배치 전체 실패"라는 안전한 종래 동작으로 떨어지는 편이 낫다.
+    """
+    if not errors:
+        return None
+
+    by_shipping_code: Dict[str, Dict] = {}
+    by_order_id: Dict[str, Dict] = {}
+    dup_order_ids: set = set()
+
+    for item in batch:
+        code = item.get("shipping_code")
+        if code:
+            by_shipping_code[code] = item
+        oid = item.get("order_id")
+        if oid:
+            if oid in by_order_id:
+                dup_order_ids.add(oid)
+            else:
+                by_order_id[oid] = item
+
+    matched: List[Dict] = []
+    for err in errors:
+        if not isinstance(err, dict):
+            return None
+        more_info = err.get("more_info") or {}
+        item = by_shipping_code.get(more_info.get("shipping_code"))
+        if item is None:
+            oid = more_info.get("order_id")
+            if oid in dup_order_ids:
+                return None  # 어느 요청의 오류인지 특정 불가
+            item = by_order_id.get(oid)
+        if item is None:
+            return None  # 이 오류를 어떤 요청에도 붙이지 못함
+        matched.append({
+            "item": item,
+            "reason": reason,
+            "code": err.get("code"),
+            "message": err.get("message"),
+            "more_info": more_info,
+        })
+
+    return matched
 
 
 async def _call_shipments_tolerant(
@@ -252,28 +357,106 @@ async def _call_shipments_tolerant(
     requests_payload: List[Dict],
 ) -> Tuple[List[Dict], List[Dict]]:
     """_call_shipments와 동일하게 100건씩 호출하지만, 배치 하나가 실패해도 예외를 던지지 않고
-    나머지 배치를 계속 진행함. 반환: (성공한 shipments 응답 리스트, 실패 배치 목록).
-    실패 배치 목록 항목 형식: {"items": 원본 payload 항목들, "reason": str}
+    나머지 배치를 계속 진행함. 반환: (성공한 shipments 응답 리스트, 실패 '항목' 목록).
+
+    실패 항목 형식: {"item": 원본 payload 항목, "reason": str,
+                     "code": int|None, "message": str|None, "more_info": dict|None}
+
+    카페24가 errors 를 줬고 그 전부를 요청 항목에 매칭할 수 있으면 **실패한 항목만** 담는다.
+    (errors 에 없는 항목은 성공으로 간주 — 성공분 shipments 는 응답에 오지 않는다.)
+    매칭에 실패했거나 errors 자체를 못 얻은 경우에는 배치의 모든 항목을 실패로 담아
+    종래의 "배치 전체 실패"와 동일하게 동작한다.
+
     발송완료 처리처럼 "일부 성공은 그대로 반영하고 실패분만 알려줘야" 하는 소비자용.
     """
     batch_size = 100
     all_shipments: List[Dict] = []
-    failed_batches: List[Dict] = []
+    failed_items: List[Dict] = []
 
     for i in range(0, len(requests_payload), batch_size):
         batch = requests_payload[i:i + batch_size]
-        shipments, reason, _status_code = await _call_shipments_batch_once(
+        shipments, reason, _status_code, errors = await _call_shipments_batch_once(
             method=method, db=db, client=client, batch=batch
         )
         if reason:
-            failed_batches.append({"items": batch, "reason": reason})
+            matched = _match_errors_to_requests(batch, errors, reason)
+            if matched is None:
+                logger.warning(
+                    "Shipments %s: errors 를 요청 항목에 매칭하지 못해 배치 %d건 전체를 "
+                    "실패 처리함 — reason=%s",
+                    method, len(batch), reason,
+                )
+                failed_items.extend(
+                    {"item": it, "reason": reason, "code": None, "message": None, "more_info": None}
+                    for it in batch
+                )
+            else:
+                failed_items.extend(matched)
         else:
             all_shipments.extend(shipments or [])
 
         if i + batch_size < len(requests_payload):
             await asyncio.sleep(0.5)
 
-    return all_shipments, failed_batches
+    return all_shipments, failed_items
+
+
+async def fetch_shipment_statuses(
+    *,
+    db: Session,
+    client: httpx.AsyncClient,
+    order_ids: List[str],
+) -> Dict[str, Optional[str]]:
+    """주문별 배송 레코드를 조회해 {shipping_code: status} 를 만든다.
+
+    status 는 카페24가 items[] 안에 담아주는 값 — "standby"(배송대기) / "shipping"(배송중) /
+    "shipped"(배송완료). shipment 최상위가 아니라 items[] 안에 있다는 점에 주의.
+
+    한 shipment 의 items 상태가 섞여 있으면 **"shipped" 를 우선** 반환한다. 배송완료가
+    하나라도 섞인 박스에 상태 전환을 보내지 않기 위한 보수적 선택이다.
+
+    조회에 실패한 주문의 shipping_code 는 값이 채워지지 않는다(호출자가 None 으로 간주).
+    "모르면 건드리지 않는다"를 호출자가 판단할 수 있게 하기 위함 — 여기서 임의로
+    기본값을 넣지 않는다.
+    """
+    statuses: Dict[str, Optional[str]] = {}
+
+    for idx, order_id in enumerate(dict.fromkeys(order_ids)):  # 순서 유지 중복 제거
+        url = f"{BASE_URL}/orders/{order_id}/shipments"
+        try:
+            r = await call_cafe24(method="GET", url=url, db=db, client=client)
+        except HTTPException:
+            # 토큰 만료·재연결 필요 같은 인증 문제는 개별 주문의 문제가 아니라 작업 전체를
+            # 멈춰야 할 사안이다. 여기서 삼키면 전 건이 "상태를 확인하지 못했습니다 —
+            # 잠시 후 다시 시도해주세요"로 실패해, 실제로는 카페24 재연결이 필요한 상황에
+            # 관리자에게 틀린 안내가 나간다.
+            raise
+        except Exception:
+            logger.warning("배송상태 조회 실패 (order_id=%s) — 호출 예외", order_id, exc_info=True)
+            continue
+        if r.is_error:
+            logger.warning(
+                "배송상태 조회 실패 (order_id=%s) — HTTP %s: %s",
+                order_id, r.status_code, r.text,
+            )
+            continue
+
+        body = _parse_json_object(r)
+        for shipment in (body.get("shipments") or []) if body else []:
+            code = shipment.get("shipping_code")
+            if not code:
+                continue
+            item_statuses = [
+                i.get("status") for i in (shipment.get("items") or []) if i.get("status")
+            ]
+            if not item_statuses:
+                continue
+            statuses[code] = "shipped" if "shipped" in item_statuses else item_statuses[0]
+
+        if idx + 1 < len(set(order_ids)):
+            await asyncio.sleep(0.2)  # Bucket 소진 방지
+
+    return statuses
 
 
 async def post_shipments(
@@ -320,7 +503,10 @@ async def post_shipments_tolerant(
     client: httpx.AsyncClient,
     requests_payload: List[Dict],
 ) -> Tuple[List[Dict], List[Dict]]:
-    """post_shipments의 부분성공 허용 버전. 반환: (성공 shipments, 실패 배치 목록)."""
+    """post_shipments의 부분성공 허용 버전. 반환: (성공 shipments, 실패 항목 목록).
+
+    실패 항목 형식은 _call_shipments_tolerant 참조 — 배치가 아니라 요청 '항목' 단위다.
+    """
     return await _call_shipments_tolerant(method="POST", db=db, client=client, requests_payload=requests_payload)
 
 
@@ -330,5 +516,8 @@ async def put_shipments_tolerant(
     client: httpx.AsyncClient,
     requests_payload: List[Dict],
 ) -> Tuple[List[Dict], List[Dict]]:
-    """put_shipments의 부분성공 허용 버전. 반환: (성공 shipments, 실패 배치 목록)."""
+    """put_shipments의 부분성공 허용 버전. 반환: (성공 shipments, 실패 항목 목록).
+
+    실패 항목 형식은 _call_shipments_tolerant 참조 — 배치가 아니라 요청 '항목' 단위다.
+    """
     return await _call_shipments_tolerant(method="PUT", db=db, client=client, requests_payload=requests_payload)
