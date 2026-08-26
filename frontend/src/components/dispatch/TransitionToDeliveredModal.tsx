@@ -376,7 +376,11 @@ export default function TransitionToDeliveredModal({
                           {CATEGORY_LABEL[f.category]}
                         </span>
                       </div>
-                      <div className="break-all">{f.reason}</div>
+                      {/* 카페24 원본 응답이 통째로 실려 오는 경우가 있어 2줄로 접는다.
+                          전문은 마우스를 올리면 기본 툴팁으로 볼 수 있다. */}
+                      <div className="break-all line-clamp-2" title={f.reason}>
+                        {f.reason}
+                      </div>
                     </div>
                   </div>
                 ))}
