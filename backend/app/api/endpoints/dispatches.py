@@ -28,6 +28,10 @@ from app.services import activity_log_service, dispatch_grouping_service, order_
 
 router = APIRouter(tags=["발송 처리"])
 
+# 활동 로그 details 에 남길 실패 사유 최대 길이. 카페24 원본 응답 전문이 그대로 쌓이면
+# 활동 로그 목록 조회가 정렬 단계에서 죽는다(MySQL sort buffer). 화면 응답은 자르지 않는다.
+LOG_REASON_MAX_LENGTH = 200
+
 require_admin = require_roles(["SUPER_ADMIN", "ADMIN"])
 require_manager = require_roles(["SUPER_ADMIN", "ADMIN", "MANAGER"])
 
@@ -276,6 +280,22 @@ async def transition_to_delivered_endpoint(
     if not attempted_nothing:
         db.commit()
 
+        # 활동 로그에는 실패 사유를 잘라서 남긴다. 카페24 원본 응답(수십 건의 errors 배열)이
+        # 통째로 들어가면 details 가 한 건에 수백 KB 까지 불어나고, 목록 조회가 MySQL
+        # sort buffer 한계에 걸려 통째로 죽는다(1038 Out of sort memory — 실제 발생 이력).
+        # 화면에는 아래 응답(failed)으로 전문을 그대로 돌려주므로 진단 정보는 잃지 않는다.
+        log_failed = [
+            {
+                **f,
+                "reason": (
+                    f["reason"][:LOG_REASON_MAX_LENGTH] + " …(이하 생략)"
+                    if len(f.get("reason") or "") > LOG_REASON_MAX_LENGTH
+                    else f.get("reason")
+                ),
+            }
+            for f in failed
+        ]
+
         activity_log_service.create_log(
             db=db,
             action=ActivityAction.DISPATCH,
@@ -292,7 +312,7 @@ async def transition_to_delivered_endpoint(
                 "sends": [{"send_id": s.send_id, "tracking_no": s.tracking_no} for s in req.sends],
                 "transitioned_count": transitioned_count,
                 "cafe24_synced_count": cafe24_synced_count,
-                "failed": failed,
+                "failed": log_failed,
             },
         )
 
