@@ -306,3 +306,45 @@ def test_unknown_status_also_blocks_the_send():
 
     assert sendable == []
     assert blocked == {100}
+
+
+# ── 실패 응답에 성공분 shipments 가 실려 오면 버리지 않는다 ────────────────────
+
+def test_partial_failure_keeps_shipments_when_present(monkeypatch):
+    """부분 실패 응답에 shipments 가 함께 오면 그대로 넘겨야 한다.
+
+    MONTHLY 는 이 배열에서 shipping_code 를 받아 OrderItem 에 저장한다. 실패라고 통째로
+    버리면 성공한 건의 shipping_code 를 잃고, 재시도 시 같은 주문을 다시 POST 해
+    카페24에 중복 배송 레코드가 생긴다.
+
+    (설계 문서 §5-3 의 404 예시에는 shipments 가 함께 오는 것으로 기록돼 있고,
+     2026-08-25 관측한 422 응답에는 없었다 — 오류 종류에 따라 다를 수 있어 양쪽 다 견딘다.)
+    """
+    payload = [
+        _yearly_req("20260101-0000002", "D-20260101-0000002-00"),
+        _yearly_req("20260101-0000004", "D-20260101-0000004-00"),
+    ]
+    body = {
+        "shipments": [{"order_id": "20260101-0000002", "shipping_code": "D-20260101-0000002-00"}],
+        "errors": [_in_transit_error("20260101-0000004", "D-20260101-0000004-00")],
+    }
+    _patch_cafe24(monkeypatch, _response(200, body))
+
+    shipments, failed_items = _run_tolerant(payload)
+
+    assert len(shipments) == 1, "성공분 shipments 를 버리면 안 된다"
+    assert shipments[0]["shipping_code"] == "D-20260101-0000002-00"
+    assert len(failed_items) == 1
+    assert failed_items[0]["item"]["shipping_code"] == "D-20260101-0000004-00"
+
+
+def test_missing_shipments_in_failure_is_fine(monkeypatch):
+    """shipments 가 아예 없는 실패 응답(2026-08-25 관측 형태)도 정상 처리된다."""
+    payload = [_yearly_req("20260101-0000002", "D-20260101-0000002-00")]
+    body = {"errors": [_in_transit_error("20260101-0000002", "D-20260101-0000002-00")]}
+    _patch_cafe24(monkeypatch, _response(422, body))
+
+    shipments, failed_items = _run_tolerant(payload)
+
+    assert shipments == []
+    assert len(failed_items) == 1
