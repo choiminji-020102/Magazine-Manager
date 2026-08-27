@@ -716,6 +716,10 @@ def add_paid_to_preparing_yearly(
 ) -> int:
     """[정기 신규 결제 추가] — incremental. 기존 PREPARING Send 박스는 건드리지 않음.
 
+    ⚠️ **현재 미사용** — 화면에서 진입할 수 없다(프론트 모달이 어디에도 연결돼 있지 않음).
+    과거에는 쓰였고 지금은 [발송 생성](regenerate_preparing_sends) 하나로 운영한다.
+    상세는 dispatches.add_to_preparing_yearly_endpoint 독스트링 참조.
+
     정기(YEARLY)는 1 OrderItem = 1 박스(Send) 매핑이므로 같은 배송지 묶음 재계산 불필요.
     신규 PAID OrderItem 만 추가로 박스 생성.
 

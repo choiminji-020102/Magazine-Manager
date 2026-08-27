@@ -1,3 +1,8 @@
+// ⚠️ 현재 미사용 — 이 컴포넌트를 import 하는 곳이 없어 화면에 렌더링되지 않는다.
+// 과거에는 발송 후보 화면에서 [정기 신규 결제 추가]로 쓰였고(백엔드 활동 로그에 실행 이력
+// 4건 남아 있음), 지금은 [발송 생성] 하나로 운영한다. 백엔드
+// (POST /dispatches/add-to-preparing-yearly)는 동작하는 상태로 남아 있으므로,
+// 다시 쓰려면 PreparingSendListPage 에 버튼과 함께 연결하기만 하면 된다.
 import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { ConfirmModal } from "@/components/common/ConfirmModal";

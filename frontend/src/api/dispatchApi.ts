@@ -32,6 +32,8 @@ export const dispatchApi = {
   },
 
   // POST /dispatches/add-to-preparing-yearly - [정기 신규 결제 추가]: incremental, 기존 박스 보존
+  // ⚠️ 현재 미사용 — 호출하는 화면이 없다(AddToPreparingYearlyModal 이 어디에도 연결 안 됨).
+  //    과거에는 쓰였고 지금은 [발송 생성] 하나로 운영. 백엔드는 그대로 살아 있음.
   addToPreparingYearly: (data: AddToPreparingYearlyRequest) => {
     return api.post<ResponseModel<AddToPreparingYearlyResponse>>(
       "/dispatches/add-to-preparing-yearly",

@@ -190,6 +190,12 @@ def add_to_preparing_yearly_endpoint(
 ):
     """[정기 신규 결제 추가] — incremental. 기존 PREPARING 박스 건드리지 않음.
 
+    ⚠️ **현재 미사용** — 과거에는 쓰였으나(활동 로그에 실행 이력 4건 남아 있음) 지금은
+    화면에서 진입할 수 없다. 프론트에 `AddToPreparingYearlyModal.tsx` 가 남아 있지만
+    어디에서도 import 하지 않아 렌더링되지 않는다. 지금은 [발송 생성](regenerate) 하나로
+    운영한다. 엔드포인트·서비스·스키마는 동작하는 상태로 남겨둔 것이며, 다시 쓰려면
+    모달을 발송 후보 페이지에 연결하기만 하면 된다.
+
     정기(YEARLY)는 1 OrderItem = 1 박스 매핑이므로 묶음 재계산 불필요.
     신규 PAID OrderItem 만 추가 박스 생성 → 기존 박스/메모/ID 완전 보존.
 
