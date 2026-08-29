@@ -348,3 +348,84 @@ def test_missing_shipments_in_failure_is_fine(monkeypatch):
 
     assert shipments == []
     assert len(failed_items) == 1
+
+
+# ── 429(Bucket 초과) 재시도 ───────────────────────────────────────────────────
+
+def _429(retry_after: str = "3") -> httpx.Response:
+    return httpx.Response(
+        429,
+        headers={"X-Cafe24-Call-Remain": retry_after, "X-Cafe24-Time-Remain": "0"},
+        content=b"{}",
+        request=httpx.Request("PUT", "https://example.test/shipments"),
+    )
+
+
+def _patch_sequence(monkeypatch, responses):
+    """호출 순서대로 응답을 돌려주고, sleep 은 즉시 통과시킨다."""
+    calls = {"n": 0, "slept": []}
+
+    async def _fake(**kwargs):
+        r = responses[min(calls["n"], len(responses) - 1)]
+        calls["n"] += 1
+        return r
+
+    async def _no_sleep(sec):
+        calls["slept"].append(sec)
+
+    monkeypatch.setattr(cafe24_admin_service, "call_cafe24", _fake)
+    monkeypatch.setattr(cafe24_admin_service.asyncio, "sleep", _no_sleep)
+    return calls
+
+
+def test_429_waits_and_retries_once(monkeypatch):
+    """429 를 만나면 헤더가 알려준 만큼 기다렸다 한 번 더 시도한다.
+
+    Shipments Bucket(40)은 POST·PUT·조회가 함께 소진하므로, 발송 건수가 늘면
+    어느 단계에서든 429 가 날 수 있다. 재시도가 없으면 그 건은 그대로 실패한다.
+    """
+    ok = _response(200, {"shipments": [{"shipping_code": "D-20260101-0000002-00"}]})
+    calls = _patch_sequence(monkeypatch, [_429("3"), ok])   # 첫 호출 429 → 재시도 성공
+
+    shipments, failed_items = _run_tolerant(
+        [_yearly_req("20260101-0000002", "D-20260101-0000002-00")]
+    )
+
+    assert calls["n"] == 2, "429 뒤 정확히 한 번만 재시도해야 한다"
+    assert calls["slept"] == [3], "헤더가 알려준 만큼(최소 2초) 대기해야 한다"
+    assert failed_items == []
+    assert len(shipments) == 1
+
+
+def test_429_twice_gives_up_with_rate_limit_reason(monkeypatch):
+    """재시도해도 429 면 포기하고 Rate Limit 사유로 실패시킨다 (무한 재시도 금지)."""
+    calls = _patch_sequence(monkeypatch, [_429("2"), _429("2")])
+
+    _shipments, failed_items = _run_tolerant(
+        [_yearly_req("20260101-0000002", "D-20260101-0000002-00")]
+    )
+
+    assert calls["n"] == 2, "두 번까지만 시도한다"
+    assert len(failed_items) == 1
+    assert "Rate Limit" in failed_items[0]["reason"]
+    assert failed_items[0]["code"] is None, "429 는 errors 가 없어 건별 판정 불가 → 폴백"
+
+
+def test_429_wait_is_at_least_two_seconds(monkeypatch):
+    """헤더가 0 이거나 비어 있어도 최소 2초는 기다린다."""
+    ok = _response(200, {"shipments": []})
+    calls = _patch_sequence(monkeypatch, [_429("0"), ok])
+
+    _run_tolerant([_yearly_req("20260101-0000002", "D-20260101-0000002-00")])
+
+    assert calls["slept"] == [2]
+
+
+def test_429_header_with_decimal_is_handled(monkeypatch):
+    """헤더가 소수("1.5")로 와도 int 변환에서 터지지 않는다."""
+    ok = _response(200, {"shipments": []})
+    calls = _patch_sequence(monkeypatch, [_429("1.5"), ok])
+
+    _run_tolerant([_yearly_req("20260101-0000002", "D-20260101-0000002-00")])
+
+    assert calls["slept"] == [2], "1.5 → 1 이지만 최소값 2 가 적용된다"

@@ -174,6 +174,50 @@ async def call_cafe24(
 
 # ── Shipments API ─────────────────────────────────────────────────────────────
 
+def _header_int(r: httpx.Response, name: str) -> int:
+    """Rate Limit 헤더를 초 단위 정수로. 값이 없거나 이상하면 0.
+
+    카페24가 소수("1.5")로 줄 가능성까지 감안해 float 를 거쳐 변환한다.
+    """
+    try:
+        return int(float(r.headers.get(name) or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+async def _call_with_429_retry(
+    *,
+    method: str,
+    url: str,
+    db: Session,
+    client: httpx.AsyncClient,
+    params: Optional[dict] = None,
+    json_body: Optional[dict] = None,
+) -> httpx.Response:
+    """카페24 호출 + 429(Bucket 초과) 1회 재시도.
+
+    Shipments 관련 호출은 Bucket 40 을 **POST·PUT·조회가 함께** 소진한다(§1). 발송완료
+    처리는 사전 조회(GET) → POST → PUT 순으로 연달아 호출하므로, 어느 단계든 429 를
+    만날 수 있다. 그래서 재시도 로직을 한 곳에 두고 모든 호출이 공유한다.
+
+    대기 시간은 X-Cafe24-Call-Remain / X-Cafe24-Time-Remain 중 큰 값(최소 2초).
+    호출 횟수 초과인지 처리 시간 초과인지 불문하고 동일 처리한다(§1 권장 전략).
+    재시도해도 429 면 그대로 반환 — 판단은 호출자 몫이다.
+    """
+    r = await call_cafe24(method=method, url=url, db=db, client=client,
+                          params=params, json_body=json_body)
+    if r.status_code != 429:
+        return r
+
+    wait = max(_header_int(r, "X-Cafe24-Call-Remain"),
+               _header_int(r, "X-Cafe24-Time-Remain"), 2)
+    logger.warning("Cafe24 429 (%s %s) — %d초 대기 후 1회 재시도", method, url, wait)
+    await asyncio.sleep(wait)
+    return await call_cafe24(method=method, url=url, db=db, client=client,
+                             params=params, json_body=json_body)
+
+
+
 def _extract_errors(r: httpx.Response) -> List[Dict]:
     """응답 본문에서 카페24 errors 배열을 꺼낸다. 파싱 불가하면 빈 리스트.
 
@@ -245,14 +289,7 @@ async def _call_shipments_batch_once(
     url = f"{BASE_URL}/shipments"
     req_body = {"shop_no": 1, "requests": batch}
 
-    r = await call_cafe24(method=method, url=url, db=db, client=client, json_body=req_body)
-
-    if r.status_code == 429:
-        call_remain = int(r.headers.get("X-Cafe24-Call-Remain", "0"))
-        time_remain = int(r.headers.get("X-Cafe24-Time-Remain", "0"))
-        wait = max(call_remain, time_remain, 2)  # 호출 횟수/처리 시간 제한 중 큰 값, 최소 2초
-        await asyncio.sleep(wait)
-        r = await call_cafe24(method=method, url=url, db=db, client=client, json_body=req_body)
+    r = await _call_with_429_retry(method=method, url=url, db=db, client=client, json_body=req_body)
 
     if r.status_code == 429:
         return None, "Cafe24 Shipments API Rate Limit 초과 — 잠시 후 다시 시도해주세요.", http_status.HTTP_429_TOO_MANY_REQUESTS, []
@@ -448,6 +485,9 @@ async def fetch_shipment_statuses(
     한 shipment 의 items 상태가 섞여 있으면 **"shipped" 를 우선** 반환한다. 배송완료가
     하나라도 섞인 박스에 상태 전환을 보내지 않기 위한 보수적 선택이다.
 
+    429(Bucket 초과)는 _call_with_429_retry 가 헤더가 알려준 만큼 기다렸다 1회 재시도한다.
+    그래도 실패하면 아래 is_error 로 떨어져 그 주문만 건너뛴다.
+
     조회에 실패한 주문의 shipping_code 는 값이 채워지지 않는다(호출자가 None 으로 간주).
     "모르면 건드리지 않는다"를 호출자가 판단할 수 있게 하기 위함 — 여기서 임의로
     기본값을 넣지 않는다.
@@ -458,7 +498,7 @@ async def fetch_shipment_statuses(
     for idx, order_id in enumerate(unique_order_ids):
         url = f"{BASE_URL}/orders/{order_id}/shipments"
         try:
-            r = await call_cafe24(method="GET", url=url, db=db, client=client)
+            r = await _call_with_429_retry(method="GET", url=url, db=db, client=client)
         except HTTPException:
             # 토큰 만료·재연결 필요 같은 인증 문제는 개별 주문의 문제가 아니라 작업 전체를
             # 멈춰야 할 사안이다. 여기서 삼키면 전 건이 "상태를 확인하지 못했습니다 —
@@ -488,7 +528,10 @@ async def fetch_shipment_statuses(
             statuses[code] = "shipped" if "shipped" in item_statuses else item_statuses[0]
 
         if idx + 1 < len(unique_order_ids):
-            await asyncio.sleep(0.2)  # Bucket 소진 방지 (마지막 건 뒤에는 쉬지 않음)
+            # Bucket 회복이 초당 2회라 0.5초 간격이면 순소비가 0 — 건수가 늘어도 소진되지
+            # 않는다. 0.2초(초당 5회)로 두면 약 13초 만에 Bucket 40 이 비고, 뒤이어 나가는
+            # POST/PUT 까지 429 를 맞는다. 마지막 건 뒤에는 쉬지 않는다.
+            await asyncio.sleep(0.5)
 
     return statuses
 
