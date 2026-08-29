@@ -286,9 +286,19 @@ async def transition_sends_to_delivered_batch(
     예외를 던지는 대신 failed 목록에 담기고, 나머지는 계속 진행되어 정상 반영됨.
     failed 항목 형식: {"send_id": int, "recipient_name": str, "recipient_phone": str,
                        "reason": str, "category": "validation" | "cafe24"}
-    - "validation": 카페24를 아예 시도하기도 전에 걸림 (존재 안 함 / 이미 처리됨)
+    - "validation": 카페24를 아예 시도하기도 전에 걸림
+                (DB에 send_id 존재 안 함 / send_status 가 PREPARING 이 아님 = 이미 처리됨).
+                목록을 띄워둔 사이 다른 관리자가 삭제·처리한 경우로, 이 시점엔 카페24를
+                호출하지 않았으므로 바깥 상태는 전혀 건드리지 않았다.
     - "cafe24": 우리 시스템 검증은 통과했지만 카페24 API 호출이 실패함
                 (이 경우도 해당 Send의 우리 시스템 반영은 함께 취소됨 — 부분 성공 없음)
+
+    ⚠️ "부분 성공 없음"은 **Send 하나 안에서**의 얘기다. 층위를 구분할 것:
+      - 배치(여러 Send): 부분 성공 **허용** — 실패한 Send만 failed 에 담기고 나머지는 반영됨
+      - Send 하나:       부분 성공 **없음** — 카페24가 실패하면 그 Send 는 통째로 미반영
+    Send.send_status 가 하나뿐이라 "품목 3개 중 2개만 완료" 같은 상태를 담을 자리가 없기
+    때문이다. 그래서 어차피 넘길 수 없는 Send 라면 같은 Send 의 다른 품목도 카페24로
+    보내지 않는다(아래 blocked_send_ids) — 보내면 카페24만 앞서가고 되돌릴 수 없다.
 
     한 Send에 카페24 대상 주문이 여러 건 섞여 있을 수 있음(같은 주소면 다른 고객 주문도
     한 Send로 묶임 — group_monthly_for_send 참고). 이 경우 Send는 그 안의 카페24 대상
@@ -348,12 +358,41 @@ async def transition_sends_to_delivered_batch(
     for si in all_send_items:
         items_by_send_id.setdefault(si.send_id, []).append(si)
 
-    # 1단계: Cafe24 정보 수집 (DB flush 전 — last_send_issue가 아직 null인 시점)
-    # monthly_groups 키는 (ext_oid, send_id) — 같은 주문이라도 박스(Send)가 다르면 별도 그룹.
-    # 카페24 주문 하나의 MONTHLY 품목이 여러 박스로 나뉘는 경우(품목 개별 배송지 변경, VIP
-    # 슬롯 일부만 매칭 등 — CAFE24_STATUS_SYNC_PLAN.md §5-1-2 케이스 H·I)가 실제로 있어서,
-    # ext_oid만으로 묶으면 박스마다 다른 운송장 정보가 하나로 뭉개짐(§7). 그룹 하나 = 박스
-    # 하나 = 운송장 하나로 만들면 "대표 Send 고르기" 로직 자체가 필요 없어짐.
+    # 1단계: Cafe24 로 보낼 정보 수집. 종류별로 API 가 달라 따로 모은다.
+    #   MONTHLY → POST /shipments (배송 레코드 신규 생성) → monthly_groups
+    #   YEARLY  → PUT  /shipments (이미 있는 레코드의 상태 전환) → yearly_requests
+    #
+    # ⚠️ 반드시 **DB flush 전**에 수집해야 한다. 아래 YEARLY 조건이 last_send_issue IS NULL
+    # (= 첫 발송)에 의존하는데, 3단계의 transition_send_to_delivered 가 그 값을 채우므로
+    # flush 후에 검사하면 항상 False 가 되어 카페24로 아무것도 보내지 않게 된다.
+    #
+    # [MONTHLY] 그룹 키가 (ext_oid, send_id) 인 이유 — 같은 주문이라도 박스가 다르면 별도 그룹.
+    # 카페24 주문 하나의 MONTHLY 품목이 여러 박스로 나뉘는 경우가 실제로 있기 때문이다.
+    # (품목 개별 배송지 변경, VIP 슬롯 일부만 매칭 등 — CAFE24_STATUS_SYNC_PLAN.md §5-1-2)
+    # ext_oid 만으로 묶으면 박스마다 다른 운송장 정보가 하나로 뭉개진다. 그룹 하나 = 박스
+    # 하나 = 운송장 하나로 두면 "대표 Send 고르기" 로직 자체가 필요 없어진다.
+    #
+    # [YEARLY] 첫 발송에만 카페24로 보낸다 (§3-2). 둘째 호부터는 관리자가 첫 발송 뒤 이미
+    # 배송완료(N40)로 넘겨둔 상태라 우리가 건드릴 것이 없다. shipping_code 는 주문 가져오기
+    # 때 standby 로 등록하며 이미 받아둔 값이라(§3-1) 여기서는 그대로 쓰면 된다.
+    #
+    # ※ shipping_code 는 품목 단위도 주문 단위도 아닌 **배송 레코드(발송 묶음) 단위** 다.
+    #   코드 형식이 D-{주문번호}-{순번} 이고 POST 요청에 order_id 가 필수라,
+    #   **주문 안에서는 나뉠 수 있지만 주문을 넘어 합쳐지지는 않는다.**
+    #     - 나뉘는 예: 정기·단품이 섞인 주문은 카페24에 배송 레코드를 만드는 시점이 달라
+    #       코드가 갈린다 — 정기는 주문 가져오기 때 standby 로(§3-1) -00, 단품은 발송완료
+    #       처리 때 shipping 으로(§3-2) -01. (우리 시스템의 [발송 생성]과는 무관)
+    #     - 못 합치는 예: 다른 주문 품목이 같은 VIP 박스에 묶여도 코드는 각각 (§5-1-1 케이스 E·F)
+    #   그래서 아래 두 자료구조가 서로 반대 방향을 감당한다 —
+    #   yearly_send_ids_by_shipping_code(코드 1 → Send N), blocked_send_ids(Send 1 → 코드 N).
+    #
+    # yearly_send_ids_by_shipping_code 의 값이 **집합** 인 이유 — 코드 하나가 여러 Send 를
+    # 가리킬 수 있다. 정기 탭에서 한 Send 는 shipping_code 를 하나만 갖지만, 같은 주문의
+    # YEARLY 2종은 import 때 POST 1회로 묶여 **같은 코드를 공유** 하고(§5-1-1 케이스 B)
+    # 정기 탭은 1 OrderItem = 1 Send 라 그 둘이 서로 다른 박스로 갈리기 때문이다.
+    # (실례: D-20260101-0000003-00 → 202608호에 Send 19201·19202 두 개)
+    # 단일 값으로 두면 한쪽이 덮여, 실패 시 한 박스만 실패 기록되고 다른 박스는 그대로
+    # DELIVERED 로 넘어간다. 아래 중복 제거(seen)도 같은 이유 — 코드가 같으면 PUT 은 한 번.
     monthly_groups: dict = {}           # (ext_oid, send_id) → [order_item_code]
     monthly_order_items_map: dict = {}  # (ext_oid, send_id) → [OrderItem] (shipping_code 저장용)
     order_id_to_group_keys: dict = {}   # ext_oid → [group_key, ...] — 응답 매칭 1순위(기존에 검증된 order_id 매칭 유지용)
