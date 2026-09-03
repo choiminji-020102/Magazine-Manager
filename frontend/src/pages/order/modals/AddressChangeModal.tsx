@@ -196,13 +196,15 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
         toast.error(result?.message ?? "배송지를 변경할 수 없습니다.");
         return;
       }
-      // 발송 후보에 이미 담긴 건은 예전 주소 그대로다 — 재생성해야 반영되므로 가장 강하게 알린다
+      // 발송 후보에 이미 담긴 건은 예전 주소 그대로다 — 이번 호부터 바꾸려면 재생성이 필요하고,
+      // 다음 호부터 적용할 생각이면 그대로 둬도 다음 호 [발송 생성] 때 반영된다.
       if (result.preparing_issues.length > 0) {
         const preparing = result.preparing_issues.map(formatIssue).join(", ");
         toast.warning(
-          "발송 후보를 다시 만들어주세요",
-          `배송지는 바뀌었지만, ${preparing}가 이미 발송 후보에 담겨 있어 예전 주소 그대로입니다. ` +
-            `발송 후보 화면에서 [발송 생성]을 다시 누르지 않으면 예전 주소로 배송됩니다.`
+          "발송 후보는 예전 주소 그대로입니다",
+          `배송지는 바뀌었지만, ${preparing}가 이미 발송 후보에 담겨 있습니다. ` +
+            `이번 호부터 새 주소로 보내려면 발송 후보 화면에서 [발송 생성]을 다시 눌러 바뀐 배송지를 반영한 뒤 발송해 주세요. ` +
+            `다음 호부터 적용하려면 지금 다시 누르지 않으셔도 됩니다. 다음 호 [발송 생성] 때 새 주소로 반영됩니다.`
         );
       } else if (result.already_shipped_issues.length > 0) {
         const issues = result.already_shipped_issues.map(formatIssue).join(", ");
@@ -366,7 +368,9 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
           <p className="text-xs text-gray-400">
             ※ 이미 발송 완료된 회차는 예전 주소 그대로이고, 남은 회차만 새 주소로 바뀝니다. (구독이 끝나 남은 회차가 없으면 변경 불가)
             <br />
-            ※ 이미 <span className="text-amber-600 font-medium">발송 후보에 담긴 건은 [발송 생성]을 다시</span> 눌러야 새 주소로 바뀝니다.
+            ※ 이미 발송 후보에 담긴 건은 예전 주소 그대로입니다. <span className="text-amber-600 font-medium">이번 호부터 바꾸려면 [발송 생성]을 다시</span> 눌러 주세요.
+            <br />
+            ※ 다음 호부터 적용하려면 지금 다시 누르지 않으셔도 됩니다. 다음 호 [발송 생성] 때 반영됩니다.
           </p>
         </div>
 

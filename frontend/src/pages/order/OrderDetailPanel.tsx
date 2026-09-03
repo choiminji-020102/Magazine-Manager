@@ -227,7 +227,8 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
 
     if ((order?.sends ?? []).some((s) => s.send_status === "PREPARING")) {
       text +=
-        " 이미 발송 후보에 담긴 건은 예전 주소 그대로이니, 발송 후보 화면에서 [발송 생성]을 다시 눌러주세요.";
+        " 발송 후보에 담긴 건도 마찬가지이니, 이번 호부터 새 주소로 보내려면" +
+        " 발송 후보 화면에서 [발송 생성]을 다시 눌러 주세요.";
     }
 
     if (hasEnabledVipSlot && selectedVipSlot !== defaultVipSlot) {
@@ -408,12 +409,14 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
         } else {
           toast.success("배송지가 변경되었습니다. (모든 품목 일괄 변경)");
         }
-        // 발송 후보에 이미 담긴 건은 예전 주소 그대로 — 재생성해야 반영된다
+        // 발송 후보에 이미 담긴 건은 예전 주소 그대로 — 이번 호부터 바꾸려면 재생성이 필요하고,
+        // 다음 호부터 적용할 생각이면 그대로 둬도 다음 호 [발송 생성] 때 반영된다.
         if (!allSkipped && hasPreparingSend) {
           toast.warning(
-            "발송 후보를 다시 만들어주세요",
-            "이 주문은 이미 발송 후보에 담겨 있어 예전 주소 그대로입니다. " +
-              "발송 후보 화면에서 [발송 생성]을 다시 누르지 않으면 예전 주소로 배송됩니다."
+            "발송 후보는 예전 주소 그대로입니다",
+            "이번 호부터 새 주소로 보내려면 발송 후보 화면에서 [발송 생성]을 다시 눌러 " +
+              "바뀐 배송지를 반영한 뒤 발송해 주세요. " +
+              "다음 호부터 적용하려면 지금 다시 누르지 않으셔도 됩니다. 다음 호 [발송 생성] 때 새 주소로 반영됩니다."
           );
         }
       }
@@ -1242,7 +1245,9 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             <p className="text-xs text-gray-400">
               ※ 발송 완료된 품목은 예전 주소 그대로이고, 발송이 남은 품목만 새 주소로 바뀝니다.
               <br />
-              ※ 이미 <span className="text-amber-600 font-medium">발송 후보에 담긴 건은 [발송 생성]을 다시</span> 눌러야 새 주소로 바뀝니다.
+              ※ 이미 발송 후보에 담긴 건은 예전 주소 그대로입니다. <span className="text-amber-600 font-medium">이번 호부터 바꾸려면 [발송 생성]을 다시</span> 눌러 주세요.
+              <br />
+              ※ 다음 호부터 적용하려면 지금 다시 누르지 않으셔도 됩니다. 다음 호 [발송 생성] 때 반영됩니다.
             </p>
           </div>
           <DialogFooter>
