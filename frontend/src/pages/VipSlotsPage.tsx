@@ -53,7 +53,7 @@ export default function VipSlotsPage() {
 
       <div className="flex-1 min-h-0 flex overflow-hidden">
         {/* 왼쪽: 그룹 목록 */}
-        <div className="w-72 flex-shrink-0 border-r border-gray-200 flex flex-col bg-gray-50">
+        <div className="w-96 flex-shrink-0 border-r border-gray-200 flex flex-col bg-gray-50">
           <div className="grid grid-cols-[1fr_2.5rem_2.5rem] items-center gap-3 px-4 py-2.5 border-b border-gray-200">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">그룹</span>
             <span className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">건수</span>
@@ -140,7 +140,10 @@ function SlotListItem({
         <span className="font-mono text-xs bg-white border border-gray-200 px-2 py-0.5 rounded text-gray-500 flex-shrink-0">
           vip{slot.slot_number}
         </span>
-        <span className={`flex-1 min-w-0 truncate text-[13px] ${slot.label ? "text-gray-700" : "text-gray-400"}`}>
+        <span
+          title={slot.label ?? undefined}
+          className={`flex-1 min-w-0 truncate text-[13px] ${slot.label ? "text-gray-700" : "text-gray-400"}`}
+        >
           {slot.label ?? "미설정"}
         </span>
       </div>
