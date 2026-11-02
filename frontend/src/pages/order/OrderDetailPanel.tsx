@@ -40,6 +40,7 @@ import { AddressList } from "@/components/common/AddressList";
 import {
   NewAddressForm,
   EMPTY_NEW_ADDRESS,
+  toNewAddressValue,
   EMPTY_NEW_ADDRESS_ERRORS,
   validateNewAddress,
   type NewAddressValue,
@@ -733,11 +734,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
               size="sm"
               className="gap-1"
               onClick={() => {
-                setNewAddr({
-                  ...EMPTY_NEW_ADDRESS,
-                  recipient_name: order.address?.recipient_name ?? "",
-                  recipient_phone: order.address?.recipient_phone ?? "",
-                });
+                setNewAddr(toNewAddressValue(order.address));
                 setAddressChangeOpen(true);
               }}
             >
@@ -1200,7 +1197,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                 }`}
                 onClick={() => setAddressMode("new")}
               >
-                신규 입력
+                수정
               </button>
             </div>
 

@@ -27,6 +27,21 @@ export const EMPTY_NEW_ADDRESS: NewAddressValue = {
   admin_memo: "",
 };
 
+// 기존 배송지를 입력 폼 기본값으로 변환 — 배송지 변경 시 바꿀 항목만 고치도록 현재 값을 채워 둔다.
+// (Address 는 불변이라 저장 시에는 새 배송지가 생성되어 교체된다)
+export function toNewAddressValue(
+  address?: { [K in keyof NewAddressValue]?: string | null } | null
+): NewAddressValue {
+  return {
+    recipient_name: address?.recipient_name ?? "",
+    recipient_phone: address?.recipient_phone ?? "",
+    postal_code: address?.postal_code ?? "",
+    recipient_address: address?.recipient_address ?? "",
+    customer_memo: address?.customer_memo ?? "",
+    admin_memo: address?.admin_memo ?? "",
+  };
+}
+
 export const EMPTY_NEW_ADDRESS_ERRORS: NewAddressErrors = {
   name: false,
   phone: false,

@@ -11,8 +11,8 @@ import { Button } from "@/components/ui/button";
 import { AddressList } from "@/components/common/AddressList";
 import {
   NewAddressForm,
-  EMPTY_NEW_ADDRESS,
   EMPTY_NEW_ADDRESS_ERRORS,
+  toNewAddressValue,
   validateNewAddress,
   type NewAddressValue,
   type NewAddressErrors,
@@ -42,11 +42,7 @@ interface Props {
 }
 
 function buildPrefilledNewAddress(item: OrderItemResponse): NewAddressValue {
-  return {
-    ...EMPTY_NEW_ADDRESS,
-    recipient_name: item.address?.recipient_name ?? "",
-    recipient_phone: item.address?.recipient_phone ?? "",
-  };
+  return toNewAddressValue(item.address);
 }
 
 export function AddressChangeModal({ open, onClose, item, customerId, onSuccess }: Props) {
@@ -58,6 +54,15 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
   // VIP 그룹은 배송지(Address) 단위 설정이라 배송지를 바꾸면 따라오지 않는다.
   // 이 모달에서 함께 지정해 VIP 발송 대상에서 조용히 빠지는 것을 막는다.
   const [selectedVipSlot, setSelectedVipSlot] = useState<number | null>(null);
+
+  // 모달은 닫힌 채로 계속 마운트되어 있어 품목이 바뀌어도 useState 초기값이 갱신되지 않는다.
+  // 열 때마다 현재 품목 기준으로 다시 채워, 이전 품목의 주소가 남는 것을 막는다.
+  // item 객체 대신 order_item_id 만 의존성에 둔다 — refetch 로 참조만 바뀌어도 입력 중인 값이 덮이지 않도록.
+  useEffect(() => {
+    if (!open) return;
+    setNewAddr(buildPrefilledNewAddress(item));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, item.order_item_id]);
 
   // 고객 배송지 목록
   const { data: addrRes } = useQuery({
@@ -323,7 +328,7 @@ export function AddressChangeModal({ open, onClose, item, customerId, onSuccess 
               }`}
               onClick={() => setMode("new")}
             >
-              신규 입력
+              수정
             </button>
           </div>
 
