@@ -50,6 +50,7 @@ export default function OrderListPage() {
   const [status, setStatus] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [recipientSearch, setRecipientSearch] = useState("");
+  const [addressSearch, setAddressSearch] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [externalOrderId, setExternalOrderId] = useState("");
@@ -64,6 +65,7 @@ export default function OrderListPage() {
 
   const debouncedCustomerSearch = useDebounce(customerSearch, 300);
   const debouncedRecipientSearch = useDebounce(recipientSearch, 300);
+  const debouncedAddressSearch = useDebounce(addressSearch, 300);
   const debouncedExternalOrderId = useDebounce(externalOrderId, 300);
   const debouncedAdminMemo = useDebounce(adminMemo, 300);
 
@@ -78,6 +80,7 @@ export default function OrderListPage() {
       status,
       debouncedCustomerSearch,
       debouncedRecipientSearch,
+      debouncedAddressSearch,
       startDate,
       endDate,
       debouncedExternalOrderId,
@@ -95,6 +98,7 @@ export default function OrderListPage() {
           order_status: status || null,
           customer_search: debouncedCustomerSearch || null,
           recipient_search: debouncedRecipientSearch || null,
+          address_search: debouncedAddressSearch || null,
           start_date: startDate || null,
           end_date: endDate || null,
           external_order_id: debouncedExternalOrderId || null,
@@ -177,6 +181,12 @@ export default function OrderListPage() {
               placeholder="수령인 이름/뒤4자리"
               value={recipientSearch}
               onChange={(e) => { setRecipientSearch(e.target.value); setPage(1); }}
+            />
+            <Input
+              className="w-52"
+              placeholder="주소 / 우편번호 검색"
+              value={addressSearch}
+              onChange={(e) => { setAddressSearch(e.target.value); setPage(1); }}
             />
             <Input
               className="w-32"
@@ -272,9 +282,9 @@ export default function OrderListPage() {
             갓피플/오프라인 주문 등록
           </Button>
         }
-        hasActiveFilters={!!(channel || status || customerSearch || recipientSearch || startDate || endDate || externalOrderId || paymentMethod || adminMemo)}
+        hasActiveFilters={!!(channel || status || customerSearch || recipientSearch || addressSearch || startDate || endDate || externalOrderId || paymentMethod || adminMemo)}
         onReset={() => {
-          setChannel(""); setStatus(""); setCustomerSearch(""); setRecipientSearch("");
+          setChannel(""); setStatus(""); setCustomerSearch(""); setRecipientSearch(""); setAddressSearch("");
           setStartDate(""); setEndDate(""); setExternalOrderId(""); setPaymentMethod(""); setAdminMemo("");
           setSortBy("created_at"); setSortOrder("desc");
           setPage(1);
@@ -282,6 +292,7 @@ export default function OrderListPage() {
         chips={[
           ...(customerSearch ? [{ label: `주문자: ${customerSearch}`, onRemove: () => { setCustomerSearch(""); setPage(1); } }] : []),
           ...(recipientSearch ? [{ label: `수령인: ${recipientSearch}`, onRemove: () => { setRecipientSearch(""); setPage(1); } }] : []),
+          ...(addressSearch ? [{ label: `주소: ${addressSearch}`, onRemove: () => { setAddressSearch(""); setPage(1); } }] : []),
           ...(adminMemo ? [{ label: `메모: ${adminMemo}`, onRemove: () => { setAdminMemo(""); setPage(1); } }] : []),
           ...(channel ? [{ label: `채널: ${CHANNEL_OPTIONS.find(o => o.value === channel)?.label}`, onRemove: () => { setChannel(""); setPage(1); } }] : []),
           ...(status ? [{ label: `상태: ${STATUS_OPTIONS.find(o => o.value === status)?.label}`, onRemove: () => { setStatus(""); setPage(1); } }] : []),
