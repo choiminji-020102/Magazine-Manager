@@ -32,8 +32,10 @@ import type {
 
 // ── 헬퍼 ────────────────────────────────────────────────────────────────────
 
+// 기본 조회 기간: 이번 달 1일 ~ 오늘 (KST)
 function getDefaultDates() {
-  return { start: todayKstDate(-3), end: todayKstDate() };
+  const end = todayKstDate();
+  return { start: `${end.slice(0, 7)}-01`, end };
 }
 
 // ── 품목 박스 ───────────────────────────────────────────────────────────────
