@@ -50,19 +50,12 @@ const CHANNEL_OPTIONS = [
   { value: "OFFLINE", label: "오프라인" },
 ];
 
-const ACTIVE_OPTIONS = [
-  { value: "", label: "전체 상태" },
-  { value: "true", label: "활성" },
-  { value: "false", label: "비활성" },
-];
-
 export default function CustomerListPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [phone4, setPhone4] = useState("");
   const [channel, setChannel] = useState("");
-  const [activeFilter, setActiveFilter] = useState("");
   const [adminMemo, setAdminMemo] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -114,16 +107,15 @@ export default function CustomerListPage() {
   const limit = 20;
 
   const { data, isLoading } = useQuery({
-    queryKey: ["customers", page, limit, debouncedSearch, debouncedPhone4, channel, activeFilter, debouncedAdminMemo, sortBy, sortOrder, showDeleted],
+    queryKey: ["customers", page, limit, debouncedSearch, debouncedPhone4, channel, debouncedAdminMemo, sortBy, sortOrder, showDeleted],
     queryFn: () =>
       customersApi
         .getCustomers({
           page,
           limit,
-          search: debouncedSearch || null,
+          customer_name: debouncedSearch || null,
           phone_num4: debouncedPhone4 || null,
           create_channel: (channel || null) as CustomerChannel | null,
-          is_active: activeFilter === "" ? null : activeFilter === "true",
           is_deleted: showDeleted,
           admin_memo: debouncedAdminMemo || null,
           sort_by: sortBy,
@@ -228,17 +220,23 @@ export default function CustomerListPage() {
         basic={
           <>
             <Input
-              className="w-28"
+              className="w-48"
+              placeholder="이름 검색"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            />
+            <Input
+              className="w-36"
               placeholder="연락처 뒤 4자리"
               maxLength={4}
               value={phone4}
               onChange={(e) => { setPhone4(e.target.value.replace(/\D/g, "")); setPage(1); }}
             />
             <Input
-              className="w-48"
-              placeholder="이름 / 이메일 검색"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              className="w-36"
+              placeholder="관리자 메모"
+              value={adminMemo}
+              onChange={(e) => { setAdminMemo(e.target.value); setPage(1); }}
             />
             <Select value={channel} onValueChange={(v) => { setChannel(v === "_all" ? "" : v); setPage(1); }}>
               <SelectTrigger className="w-32">
@@ -250,26 +248,6 @@ export default function CustomerListPage() {
                 ))}
               </SelectContent>
             </Select>
-          </>
-        }
-        advanced={
-          <>
-            <Select value={activeFilter} onValueChange={(v) => { setActiveFilter(v === "_all" ? "" : v); setPage(1); }}>
-              <SelectTrigger className="w-28">
-                <SelectValue placeholder="전체 상태" />
-              </SelectTrigger>
-              <SelectContent>
-                {ACTIVE_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value || "_all"}>{o.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              className="w-36"
-              placeholder="관리자 메모"
-              value={adminMemo}
-              onChange={(e) => { setAdminMemo(e.target.value); setPage(1); }}
-            />
             <button
               onClick={() => { setShowDeleted((v) => !v); setPage(1); }}
               className={`text-xs px-2.5 py-1.5 rounded border transition-colors whitespace-nowrap ${
@@ -282,19 +260,18 @@ export default function CustomerListPage() {
             </button>
           </>
         }
-        advancedActiveCount={[activeFilter, adminMemo, showDeleted ? "deleted" : ""].filter(Boolean).length}
-        hasActiveFilters={!!(phone4 || search || channel || activeFilter || adminMemo || showDeleted)}
+        singleRow
+        hasActiveFilters={!!(phone4 || search || channel || adminMemo || showDeleted)}
         onReset={() => {
-          setPhone4(""); setSearch(""); setChannel(""); setActiveFilter(""); setAdminMemo("");
+          setPhone4(""); setSearch(""); setChannel(""); setAdminMemo("");
           setShowDeleted(false);
           setPage(1);
         }}
         chips={[
+          ...(search ? [{ label: `이름: ${search}`, onRemove: () => { setSearch(""); setPage(1); } }] : []),
           ...(phone4 ? [{ label: `뒤 4자리: ${phone4}`, onRemove: () => { setPhone4(""); setPage(1); } }] : []),
-          ...(search ? [{ label: `검색: ${search}`, onRemove: () => { setSearch(""); setPage(1); } }] : []),
-          ...(channel ? [{ label: `채널: ${CHANNEL_OPTIONS.find(o => o.value === channel)?.label}`, onRemove: () => { setChannel(""); setPage(1); } }] : []),
-          ...(activeFilter ? [{ label: `상태: ${ACTIVE_OPTIONS.find(o => o.value === activeFilter)?.label}`, onRemove: () => { setActiveFilter(""); setPage(1); } }] : []),
           ...(adminMemo ? [{ label: `메모: ${adminMemo}`, onRemove: () => { setAdminMemo(""); setPage(1); } }] : []),
+          ...(channel ? [{ label: `채널: ${CHANNEL_OPTIONS.find(o => o.value === channel)?.label}`, onRemove: () => { setChannel(""); setPage(1); } }] : []),
           ...(showDeleted ? [{ label: "삭제된 고객만", onRemove: () => { setShowDeleted(false); setPage(1); } }] : []),
         ]}
       />

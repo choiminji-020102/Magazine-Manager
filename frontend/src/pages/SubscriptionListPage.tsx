@@ -267,12 +267,6 @@ function SubscriptionListTab() {
   });
 
   const activeChips = [
-    ...(productKind
-      ? [{ key: "productKind", label: `종류: ${PRODUCT_KIND_LABEL[productKind] ?? productKind}`, onRemove: () => { setProductKind(""); setPage(1); } }]
-      : []),
-    ...(cancelledFilter
-      ? [{ key: "cancelled", label: cancelledFilter === "true" ? "취소" : "활성", onRemove: () => { setCancelledFilter(""); setPage(1); } }]
-      : []),
     ...(debouncedCustomerSearch
       ? [{ key: "customer", label: `주문자: ${debouncedCustomerSearch}`, onRemove: () => { setCustomerSearch(""); setPage(1); } }]
       : []),
@@ -284,6 +278,12 @@ function SubscriptionListTab() {
       : []),
     ...(endIssueTo
       ? [{ key: "issueTo", label: `종료호 ≤ ${formatIssue(endIssueTo)}`, onRemove: () => { setEndIssueTo(""); setPage(1); } }]
+      : []),
+    ...(productKind
+      ? [{ key: "productKind", label: `종류: ${PRODUCT_KIND_LABEL[productKind] ?? productKind}`, onRemove: () => { setProductKind(""); setPage(1); } }]
+      : []),
+    ...(cancelledFilter
+      ? [{ key: "cancelled", label: cancelledFilter === "true" ? "취소" : "활성", onRemove: () => { setCancelledFilter(""); setPage(1); } }]
       : []),
   ];
 
@@ -444,6 +444,37 @@ function SubscriptionListTab() {
       <FilterBar
         basic={
           <>
+            <Input
+              className="w-44"
+              placeholder="주문자 이름 / 연락처"
+              value={customerSearch}
+              onChange={(e) => { setCustomerSearch(e.target.value); setPage(1); }}
+            />
+
+            <Input
+              className="w-44"
+              placeholder="수령인 이름 / 연락처"
+              value={recipientSearch}
+              onChange={(e) => { setRecipientSearch(e.target.value); setPage(1); }}
+            />
+
+            <span className="text-xs text-gray-500 whitespace-nowrap">종료호</span>
+            <Input
+              className="w-28"
+              placeholder="202601"
+              value={endIssueFrom}
+              onChange={(e) => { setEndIssueFrom(e.target.value); setPage(1); }}
+              maxLength={6}
+            />
+            <span className="text-xs text-gray-400">~</span>
+            <Input
+              className="w-28"
+              placeholder="202612"
+              value={endIssueTo}
+              onChange={(e) => { setEndIssueTo(e.target.value); setPage(1); }}
+              maxLength={6}
+            />
+
             <Select
               value={productKind || "_all"}
               onValueChange={(v) => { setProductKind(v === "_all" ? "" : v); setPage(1); }}
@@ -471,43 +502,9 @@ function SubscriptionListTab() {
                 ))}
               </SelectContent>
             </Select>
-
-            <Input
-              className="w-44"
-              placeholder="주문자 이름 / 연락처"
-              value={customerSearch}
-              onChange={(e) => { setCustomerSearch(e.target.value); setPage(1); }}
-            />
-
-            <Input
-              className="w-44"
-              placeholder="수령인 이름 / 연락처"
-              value={recipientSearch}
-              onChange={(e) => { setRecipientSearch(e.target.value); setPage(1); }}
-            />
           </>
         }
-        advanced={
-          <>
-            <span className="text-xs text-gray-500 whitespace-nowrap">종료호</span>
-            <Input
-              className="w-28"
-              placeholder="202601"
-              value={endIssueFrom}
-              onChange={(e) => { setEndIssueFrom(e.target.value); setPage(1); }}
-              maxLength={6}
-            />
-            <span className="text-xs text-gray-400">~</span>
-            <Input
-              className="w-28"
-              placeholder="202612"
-              value={endIssueTo}
-              onChange={(e) => { setEndIssueTo(e.target.value); setPage(1); }}
-              maxLength={6}
-            />
-          </>
-        }
-        advancedActiveCount={(endIssueFrom ? 1 : 0) + (endIssueTo ? 1 : 0)}
+        singleRow
         chips={activeChips}
         hasActiveFilters={activeChips.length > 0}
         onReset={resetFilters}

@@ -271,6 +271,19 @@ export default function ProductListPage() {
       <FilterBar
         basic={
           <>
+            <Input
+              className="w-52"
+              placeholder="상품명 / 코드 검색"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            />
+            <Input
+              className="w-36"
+              placeholder="시작호 (YYYYMM)"
+              maxLength={6}
+              value={startIssue}
+              onChange={(e) => { setStartIssue(e.target.value.replace(/\D/g, "")); setPage(1); }}
+            />
             <Select value={kind} onValueChange={(v) => { setKind(v === "_all" ? "" : v); setPage(1); }}>
               <SelectTrigger className="w-32">
                 <SelectValue placeholder="전체 종류" />
@@ -291,34 +304,19 @@ export default function ProductListPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Input
-              className="w-52"
-              placeholder="상품명 / 코드 검색"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            />
           </>
         }
-        advanced={
-          <Input
-            className="w-36"
-            placeholder="시작호 (YYYYMM)"
-            maxLength={6}
-            value={startIssue}
-            onChange={(e) => { setStartIssue(e.target.value.replace(/\D/g, "")); setPage(1); }}
-          />
-        }
-        advancedActiveCount={startIssue ? 1 : 0}
+        singleRow
         hasActiveFilters={!!(kind || activeFilter || search || startIssue)}
         onReset={() => {
           setKind(""); setActiveFilter(""); setSearch(""); setStartIssue("");
           setPage(1);
         }}
         chips={[
-          ...(kind ? [{ label: `종류: ${KIND_OPTIONS.find(o => o.value === kind)?.label}`, onRemove: () => { setKind(""); setPage(1); } }] : []),
-          ...(activeFilter ? [{ label: `상태: ${ACTIVE_OPTIONS.find(o => o.value === activeFilter)?.label}`, onRemove: () => { setActiveFilter(""); setPage(1); } }] : []),
           ...(search ? [{ label: `검색: ${search}`, onRemove: () => { setSearch(""); setPage(1); } }] : []),
           ...(startIssue ? [{ label: `시작호: ${startIssue}`, onRemove: () => { setStartIssue(""); setPage(1); } }] : []),
+          ...(kind ? [{ label: `종류: ${KIND_OPTIONS.find(o => o.value === kind)?.label}`, onRemove: () => { setKind(""); setPage(1); } }] : []),
+          ...(activeFilter ? [{ label: `상태: ${ACTIVE_OPTIONS.find(o => o.value === activeFilter)?.label}`, onRemove: () => { setActiveFilter(""); setPage(1); } }] : []),
         ]}
       />
 

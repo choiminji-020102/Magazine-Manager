@@ -166,6 +166,28 @@ export default function OrderListPage() {
       <FilterBar
         basic={
           <>
+            <Input
+              className="w-44"
+              placeholder="주문자 이름/뒤4자리"
+              value={customerSearch}
+              onChange={(e) => { setCustomerSearch(e.target.value); setPage(1); }}
+            />
+            <Input
+              className="w-40"
+              placeholder="수령인 이름/뒤4자리"
+              value={recipientSearch}
+              onChange={(e) => { setRecipientSearch(e.target.value); setPage(1); }}
+            />
+            <Input
+              className="w-32"
+              placeholder="관리자 메모"
+              value={adminMemo}
+              onChange={(e) => { setAdminMemo(e.target.value); setPage(1); }}
+            />
+          </>
+        }
+        advanced={
+          <>
             <Select value={channel} onValueChange={(v) => { setChannel(v === "_all" ? "" : v); setPage(1); }}>
               <SelectTrigger className="w-32">
                 <SelectValue placeholder="전체 채널" />
@@ -200,28 +222,6 @@ export default function OrderListPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Input
-              className="w-44"
-              placeholder="주문자 이름/뒤4자리"
-              value={customerSearch}
-              onChange={(e) => { setCustomerSearch(e.target.value); setPage(1); }}
-            />
-            <Input
-              className="w-40"
-              placeholder="수령인 이름/뒤4자리"
-              value={recipientSearch}
-              onChange={(e) => { setRecipientSearch(e.target.value); setPage(1); }}
-            />
-            <Input
-              className="w-32"
-              placeholder="관리자 메모"
-              value={adminMemo}
-              onChange={(e) => { setAdminMemo(e.target.value); setPage(1); }}
-            />
-          </>
-        }
-        advanced={
-          <>
             <Input
               type="date"
               className="w-36"
@@ -280,14 +280,14 @@ export default function OrderListPage() {
           setPage(1);
         }}
         chips={[
-          ...(channel ? [{ label: `채널: ${CHANNEL_OPTIONS.find(o => o.value === channel)?.label}`, onRemove: () => { setChannel(""); setPage(1); } }] : []),
-          ...(status ? [{ label: `상태: ${STATUS_OPTIONS.find(o => o.value === status)?.label}`, onRemove: () => { setStatus(""); setPage(1); } }] : []),
           ...(customerSearch ? [{ label: `주문자: ${customerSearch}`, onRemove: () => { setCustomerSearch(""); setPage(1); } }] : []),
           ...(recipientSearch ? [{ label: `수령인: ${recipientSearch}`, onRemove: () => { setRecipientSearch(""); setPage(1); } }] : []),
+          ...(adminMemo ? [{ label: `메모: ${adminMemo}`, onRemove: () => { setAdminMemo(""); setPage(1); } }] : []),
+          ...(channel ? [{ label: `채널: ${CHANNEL_OPTIONS.find(o => o.value === channel)?.label}`, onRemove: () => { setChannel(""); setPage(1); } }] : []),
+          ...(status ? [{ label: `상태: ${STATUS_OPTIONS.find(o => o.value === status)?.label}`, onRemove: () => { setStatus(""); setPage(1); } }] : []),
+          ...(paymentMethod ? [{ label: `결제: ${PAYMENT_METHOD_LABEL[paymentMethod] ?? paymentMethod}`, onRemove: () => { setPaymentMethod(""); setPage(1); } }] : []),
           ...(startDate || endDate ? [{ label: `기간: ${startDate || ""}~${endDate || ""}`, onRemove: () => { setStartDate(""); setEndDate(""); setPage(1); } }] : []),
           ...(externalOrderId ? [{ label: `외부번호: ${externalOrderId}`, onRemove: () => { setExternalOrderId(""); setPage(1); } }] : []),
-          ...(paymentMethod ? [{ label: `결제: ${PAYMENT_METHOD_LABEL[paymentMethod] ?? paymentMethod}`, onRemove: () => { setPaymentMethod(""); setPage(1); } }] : []),
-          ...(adminMemo ? [{ label: `메모: ${adminMemo}`, onRemove: () => { setAdminMemo(""); setPage(1); } }] : []),
         ]}
       />
 
