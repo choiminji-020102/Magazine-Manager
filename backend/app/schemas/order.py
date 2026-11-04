@@ -228,6 +228,7 @@ class OrderListQuery(BaseModel):
     external_order_id: Optional[str] = None     # 외부 주문 ID 검색
     customer_search: Optional[str] = None       # 주문자 이름/연락처
     recipient_search: Optional[str] = None      # 수령인 이름/연락처
+    address_search: Optional[str] = None        # 배송지 주소/우편번호
     payment_method: Optional[PaymentMethod] = None
     admin_memo: Optional[str] = None
     sort_by: str = "created_at"                 # created_at | order_at | payment_at | updated_at
@@ -245,6 +246,7 @@ class OrderListQuery(BaseModel):
         external_order_id: Optional[str] = Query(None),
         customer_search: Optional[str] = Query(None),
         recipient_search: Optional[str] = Query(None),
+        address_search: Optional[str] = Query(None),
         payment_method: Optional[PaymentMethod] = Query(None),
         admin_memo: Optional[str] = Query(None),
         sort_by: str = Query("created_at"),
@@ -260,6 +262,7 @@ class OrderListQuery(BaseModel):
             external_order_id=external_order_id,
             customer_search=customer_search,
             recipient_search=recipient_search,
+            address_search=address_search,
             payment_method=payment_method,
             admin_memo=admin_memo,
             sort_by=sort_by,

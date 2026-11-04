@@ -22,6 +22,7 @@ def list_orders(
     limit: int = 20,
     customer_search: Optional[str] = None,
     recipient_search: Optional[str] = None,
+    address_search: Optional[str] = None,
     external_order_id: Optional[str] = None,
     order_channel: Optional[str] = None,
     order_status: Optional[str] = None,
@@ -72,6 +73,16 @@ def list_orders(
             query = query.filter(Address.recipient_phone.like(f"%{q}%"))
         else:
             query = query.filter(Address.recipient_name.like(f"%{q}%"))
+
+    # ── 배송지 검색 (주소 또는 우편번호) ──────────────────────────────────────
+    if address_search:
+        q = address_search.strip()
+        query = query.filter(
+            or_(
+                Address.recipient_address.like(f"%{q}%"),
+                Address.postal_code.like(f"%{q}%"),
+            )
+        )
 
     # ── 기타 필터 ─────────────────────────────────────────────────────────────
     if external_order_id:

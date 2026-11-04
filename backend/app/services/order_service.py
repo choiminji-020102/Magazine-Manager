@@ -28,6 +28,7 @@ def get_orders(db: Session, query: OrderListQuery) -> Tuple[List[OrderListRespon
         limit=query.limit,
         customer_search=query.customer_search,
         recipient_search=query.recipient_search,
+        address_search=query.address_search,
         external_order_id=query.external_order_id,
         order_channel=query.order_channel,
         order_status=query.order_status,

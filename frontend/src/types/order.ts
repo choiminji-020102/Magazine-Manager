@@ -17,6 +17,7 @@ export interface OrderListQuery {
   external_order_id?: string | null;
   customer_search?: string | null;    // 고객 이름/연락처
   recipient_search?: string | null;   // 수령인 이름/연락처
+  address_search?: string | null;     // 배송지 주소/우편번호
   payment_method?: PaymentMethod | null;
   admin_memo?: string | null;
   sort_by?: string;
