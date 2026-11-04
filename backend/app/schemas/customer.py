@@ -69,6 +69,7 @@ class CustomerListQuery(BaseModel):
     is_deleted: bool = False
     phone_num4: Optional[str] = Field(None, max_length=4)
     search: Optional[str] = None              # 고객명 또는 이메일
+    customer_name: Optional[str] = None       # 고객명만 검색
     admin_memo: Optional[str] = None
     sort_by: str = "created_at"               # created_at | updated_at | customer_name | last_order_at
     sort_order: str = "desc"

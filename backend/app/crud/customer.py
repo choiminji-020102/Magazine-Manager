@@ -22,6 +22,7 @@ def list_customers(
     is_deleted: bool = False,
     phone_num4: Optional[str] = None,
     search: Optional[str] = None,
+    customer_name: Optional[str] = None,
     admin_memo: Optional[str] = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
@@ -72,6 +73,8 @@ def list_customers(
                 Customer.customer_email.like(f"%{search}%"),
             )
         )
+    if customer_name:
+        query = query.filter(Customer.customer_name.like(f"%{customer_name}%"))
     if admin_memo:
         query = query.filter(Customer.admin_memo.like(f"%{admin_memo}%"))
 

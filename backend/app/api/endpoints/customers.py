@@ -35,6 +35,7 @@ def get_customers(
     is_deleted: bool = False,
     phone_num4: Optional[str] = Query(None, max_length=4),
     search: Optional[str] = None,
+    customer_name: Optional[str] = None,
     admin_memo: Optional[str] = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
@@ -45,7 +46,7 @@ def get_customers(
     query = CustomerListQuery(
         page=page, limit=limit,
         create_channel=create_channel, is_active=is_active, is_deleted=is_deleted,
-        phone_num4=phone_num4, search=search, admin_memo=admin_memo,
+        phone_num4=phone_num4, search=search, customer_name=customer_name, admin_memo=admin_memo,
         sort_by=sort_by, sort_order=sort_order,
     )
     items, total = customer_service.get_customers(db=db, query=query)

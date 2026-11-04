@@ -6,6 +6,7 @@ export interface CustomerListQuery {
   page: number;
   limit: number;
   search?: string | null;
+  customer_name?: string | null;
   create_channel?: CustomerChannel | null;
   is_active?: boolean | null;
   is_deleted?: boolean;

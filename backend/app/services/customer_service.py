@@ -20,6 +20,7 @@ def get_customers(db: Session, query: CustomerListQuery) -> Tuple[List[CustomerL
         is_deleted=query.is_deleted,
         phone_num4=query.phone_num4,
         search=query.search,
+        customer_name=query.customer_name,
         admin_memo=query.admin_memo,
         sort_by=query.sort_by,
         sort_order=query.sort_order,
