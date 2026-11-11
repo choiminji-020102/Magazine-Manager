@@ -24,7 +24,7 @@ import { dispatchApi } from "@/api/dispatchApi";
 import { vipSlotsApi } from "@/api/vipSlotsApi";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
-import type { DispatchScope, PaidNotPreparedCountResponse } from "@/types/dispatch";
+import type { DispatchScope, SendListScope, PaidNotPreparedCountResponse } from "@/types/dispatch";
 import type { SendListQuery, SendResponse } from "@/types/send";
 
 const LIMIT = 20;
@@ -32,7 +32,7 @@ const LIMIT = 20;
 const SELECT_ALL_FETCH_LIMIT = 100;
 
 // scope 가 vipN 이면 그룹 번호 반환, 그 외 null
-function vipSlotOf(scope: DispatchScope): number | null {
+function vipSlotOf(scope: SendListScope): number | null {
   if (scope.startsWith("vip")) {
     const n = Number(scope.slice(3));
     if (n >= 1 && n <= 6) return n;
@@ -42,7 +42,7 @@ function vipSlotOf(scope: DispatchScope): number | null {
 
 export default function PreparingSendListPage() {
   const queryClient = useQueryClient();
-  const [scope, setScope] = useState<DispatchScope>("monthly");
+  const [scope, setScope] = useState<SendListScope>("all");
   const [issueInput, setIssueInput] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
@@ -96,13 +96,13 @@ export default function PreparingSendListPage() {
   });
   const activeVipSlots = useMemo(() => vipSlots.filter((s) => s.is_enabled), [vipSlots]);
 
-  // 현재 scope 가 vipN 인데 그 그룹이 비활성으로 바뀌었으면 monthly 로 fallback (탭 자체가 사라지므로).
+  // 현재 scope 가 vipN 인데 그 그룹이 비활성으로 바뀌었으면 전체 탭으로 fallback (탭 자체가 사라지므로).
   useEffect(() => {
     if (vipSlot === null) return;
     if (vipSlots.length === 0) return; // 그룹 데이터 로드 전엔 판단 보류
     const slotMeta = vipSlots.find((s) => s.slot_number === vipSlot);
     if (!slotMeta || !slotMeta.is_enabled) {
-      setScope("monthly");
+      setScope("all");
       setSelectedItems(new Map());
       setPage(1);
       setIssueInput("");
@@ -114,11 +114,12 @@ export default function PreparingSendListPage() {
   // 발송 박스 목록 (PREPARING).
   // VIP 탭: vip_slot_number 필터 (product_kind 무관, 정기+단품 혼합 가능)
   // monthly/yearly: product_kind 필터 (KR 강제는 백엔드 그룹핑 단계에서 보장)
+  // 전체 탭: product_kind·vip_slot_number 모두 null → 백엔드가 필터 없이 모든 PREPARING 박스 반환
   // 페이지네이션(page/limit)을 제외한 필터 조건 — 메인 목록 쿼리와 "필터 결과 전체 선택" 순회 조회가 공유
   const baseParams: Omit<SendListQuery, "page" | "limit"> = useMemo(
     () => ({
       send_status: "PREPARING",
-      product_kind: isVip ? null : scope === "monthly" ? "MONTHLY" : "YEARLY",
+      product_kind: isVip || scope === "all" ? null : scope === "monthly" ? "MONTHLY" : "YEARLY",
       vip_slot_number: vipSlot,
       issue: issueValid ? issueInput : null,
       recipient_name: recipientName || null,
@@ -156,7 +157,11 @@ export default function PreparingSendListPage() {
     refetchInterval: 30 * 1000,
   });
 
-  const counts = useMemo(() => extractCounts(countData, scope), [countData, scope]);
+  // 전체 탭은 조회 전용이라 카운트 안내를 쓰지 않는다 (정기 카운트는 신뢰 불가라 합산도 부적절)
+  const counts = useMemo(
+    () => (scope === "all" ? { count: 0, preparing: 0 } : extractCounts(countData, scope)),
+    [countData, scope],
+  );
 
   // 정기(yearly): 카운트 신뢰 불가(첫 발송 이후엔 갱신 안 됨) → 고정 안내 문구로 대체
   // 단품/VIP: 카운트는 정확하지만 "건" 단위가 품목 수인지 박스 수인지 모호 → 존재 여부만 표시
@@ -170,7 +175,7 @@ export default function PreparingSendListPage() {
   // 탭 전환 시 페이지·선택 초기화
   const handleTabChange = (next: string) => {
     selectionGenerationRef.current += 1;
-    setScope(next as DispatchScope);
+    setScope(next as SendListScope);
     setPage(1);
     setSelectedItems(new Map());
     setIssueInput("");
@@ -250,10 +255,11 @@ export default function PreparingSendListPage() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      {/* 탭 — 단품 / 정기 + 활성 VIP 그룹만 동적 렌더링 */}
+      {/* 탭 — 전체(조회 전용) / 단품 / 정기 + 활성 VIP 그룹만 동적 렌더링 */}
       <Tabs value={scope} onValueChange={handleTabChange}>
         <div className="px-5 py-3 bg-white border-b border-gray-200">
           <TabsList>
+            <TabsTrigger value="all" disabled={filterLocked}>전체</TabsTrigger>
             <TabsTrigger value="monthly" disabled={filterLocked}>단품</TabsTrigger>
             <TabsTrigger value="yearly" disabled={filterLocked}>정기</TabsTrigger>
             {activeVipSlots.map((s) => (
@@ -270,18 +276,26 @@ export default function PreparingSendListPage() {
         left={
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-500">총 {total}건</span>
-            <span className="text-gray-300">·</span>
-            <span className={`text-sm ${noticeBanner.active ? "text-orange-600" : "text-gray-400"}`}>
-              {noticeBanner.text}
-            </span>
+            {scope !== "all" && (
+              <>
+                <span className="text-gray-300">·</span>
+                <span className={`text-sm ${noticeBanner.active ? "text-orange-600" : "text-gray-400"}`}>
+                  {noticeBanner.text}
+                </span>
+              </>
+            )}
           </div>
         }
         actions={
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => setRegenerateOpen(true)}>
-              <RefreshCw className="h-3.5 w-3.5 mr-1" />
-              발송 생성
-            </Button>
+            {/* 전체 탭은 조회 전용 — 발송 생성·엑셀은 단품·정기·VIP 중 한 범위(scope)를 전제로 하고,
+                발송 완료 처리는 선택한 박스 전체에 발송 방법·택배사를 하나만 적용해 종류가 섞이면 잘못 기록된다 */}
+            {scope !== "all" && (
+              <Button size="sm" variant="outline" onClick={() => setRegenerateOpen(true)}>
+                <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                발송 생성
+              </Button>
+            )}
             {scope === "monthly" && (
               <Button size="sm" variant="success" onClick={() => setExcelOpen("monthly")}>
                 <FileDown className="h-3.5 w-3.5" />
@@ -306,13 +320,15 @@ export default function PreparingSendListPage() {
                 일반우편 엑셀
               </Button>
             )}
-            <Button
-              size="sm"
-              disabled={selectedItems.size === 0}
-              onClick={() => setTransitionOpen(true)}
-            >
-              발송 완료 처리 ({selectedItems.size}건)
-            </Button>
+            {scope !== "all" && (
+              <Button
+                size="sm"
+                disabled={selectedItems.size === 0}
+                onClick={() => setTransitionOpen(true)}
+              >
+                발송 완료 처리 ({selectedItems.size}건)
+              </Button>
+            )}
           </div>
         }
       />
@@ -352,55 +368,57 @@ export default function PreparingSendListPage() {
           </>
         }
         actions={
-          <div className="flex items-center gap-2.5 text-xs text-gray-600">
-            {/* 주 동작: 전체 선택 — 실사용 빈도가 훨씬 높아 기본으로 승격. 네트워크 순회(수 초)가
-                걸리는 "동작"이라 체크박스가 아니라 버튼으로 (기존 뮤테이션 버튼과 동일한
-                로딩 스피너+비활성화+라벨 전환 패턴). */}
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={isSelectingAll || total === 0}
-              onClick={selectAllFiltered}
-            >
-              {isSelectingAll && <LoadingSpinner size="sm" className="mr-1" />}
-              {isSelectingAll ? "불러오는 중…" : `전체 선택 (총 ${total.toLocaleString()}건)`}
-            </Button>
+          scope === "all" ? undefined : (
+            <div className="flex items-center gap-2.5 text-xs text-gray-600">
+              {/* 주 동작: 전체 선택 — 실사용 빈도가 훨씬 높아 기본으로 승격. 네트워크 순회(수 초)가
+                  걸리는 "동작"이라 체크박스가 아니라 버튼으로 (기존 뮤테이션 버튼과 동일한
+                  로딩 스피너+비활성화+라벨 전환 패턴). */}
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isSelectingAll || total === 0}
+                onClick={selectAllFiltered}
+              >
+                {isSelectingAll && <LoadingSpinner size="sm" className="mr-1" />}
+                {isSelectingAll ? "불러오는 중…" : `전체 선택 (총 ${total.toLocaleString()}건)`}
+              </Button>
 
-            {/* 보조 동작: 이 페이지만 선택 — 로컬 즉시 토글이라 체크박스 문법이 맞는 드문 케이스 */}
-            <div className="flex items-center gap-1.5">
-              <input
-                type="checkbox"
-                id="select-all-page"
-                className="h-4 w-4"
-                checked={allSelected}
-                ref={(el) => { if (el) el.indeterminate = !allSelected && selectedOnPageCount > 0; }}
-                disabled={sends.length === 0 || filterLocked}
-                onChange={toggleAllOnPage}
-              />
-              <label htmlFor="select-all-page" className="cursor-pointer select-none text-gray-500">
-                이 페이지만 선택
-              </label>
+              {/* 보조 동작: 이 페이지만 선택 — 로컬 즉시 토글이라 체크박스 문법이 맞는 드문 케이스 */}
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  id="select-all-page"
+                  className="h-4 w-4"
+                  checked={allSelected}
+                  ref={(el) => { if (el) el.indeterminate = !allSelected && selectedOnPageCount > 0; }}
+                  disabled={sends.length === 0 || filterLocked}
+                  onChange={toggleAllOnPage}
+                />
+                <label htmlFor="select-all-page" className="cursor-pointer select-none text-gray-500">
+                  이 페이지만 선택
+                </label>
+              </div>
+
+              {/* 선택 현황 — 개수의 유일한 표시처(단일 소스). FilterBar의 활성 필터 칩과 동일한 스타일로 통일 */}
+              {selectedItems.size > 0 && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium border border-blue-200">
+                  {selectedItems.size.toLocaleString()}건 선택됨
+                  <button
+                    type="button"
+                    className="hover:text-blue-900 flex-shrink-0 disabled:text-blue-300 disabled:cursor-not-allowed"
+                    disabled={filterLocked}
+                    onClick={() => {
+                      selectionGenerationRef.current += 1;
+                      setSelectedItems(new Map());
+                    }}
+                    aria-label="선택 해제"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
             </div>
-
-            {/* 선택 현황 — 개수의 유일한 표시처(단일 소스). FilterBar의 활성 필터 칩과 동일한 스타일로 통일 */}
-            {selectedItems.size > 0 && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium border border-blue-200">
-                {selectedItems.size.toLocaleString()}건 선택됨
-                <button
-                  type="button"
-                  className="hover:text-blue-900 flex-shrink-0 disabled:text-blue-300 disabled:cursor-not-allowed"
-                  disabled={filterLocked}
-                  onClick={() => {
-                    selectionGenerationRef.current += 1;
-                    setSelectedItems(new Map());
-                  }}
-                  aria-label="선택 해제"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            )}
-          </div>
+          )
         }
         hasActiveFilters={!!(issueInput || recipientName || recipientPhone)}
         onReset={() => { setIssueInput(""); setRecipientName(""); setRecipientPhone(""); setPage(1); }}
@@ -436,18 +454,20 @@ export default function PreparingSendListPage() {
 
       {/* 발송 생성 모달 — 단품/정기/VIP 모두 전체 재계산(해당 scope+issue의 PREPARING만 삭제 후 재생성).
           호 입력은 모달 안에서 직접 받음 (페이지 상단 '발송 호 필터'와 무관). */}
-      <RegeneratePreparingConfirmModal
-        open={regenerateOpen}
-        onClose={() => setRegenerateOpen(false)}
-        scope={scope}
-        slotLabel={activeVipSlots.find((s) => s.slot_number === vipSlotOf(scope))?.label ?? null}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
-          queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
-          selectionGenerationRef.current += 1;
-          setSelectedItems(new Map());
-        }}
-      />
+      {scope !== "all" && (
+        <RegeneratePreparingConfirmModal
+          open={regenerateOpen}
+          onClose={() => setRegenerateOpen(false)}
+          scope={scope}
+          slotLabel={activeVipSlots.find((s) => s.slot_number === vipSlotOf(scope))?.label ?? null}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["preparing-sends"] });
+            queryClient.invalidateQueries({ queryKey: ["paid-not-prepared-count"] });
+            selectionGenerationRef.current += 1;
+            setSelectedItems(new Map());
+          }}
+        />
+      )}
 
       {/* 엑셀 다운로드 다이얼로그 — 호 입력은 다이얼로그 안에서 직접 받음 */}
       <MonthlyExcelDialog
@@ -504,6 +524,7 @@ export default function PreparingSendListPage() {
                 send={s}
                 detail={s}
                 detailError={false}
+                selectable={scope !== "all"}
                 checked={selectedItems.has(s.send_id)}
                 onToggleCheck={() => toggleOne(s)}
                 onCardClick={() => openDetailPanel(s.send_id)}

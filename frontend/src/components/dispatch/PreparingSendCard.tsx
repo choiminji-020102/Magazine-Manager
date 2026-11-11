@@ -10,6 +10,8 @@ interface Props {
   send: SendResponse;
   detail: SendDetailResponse | undefined;
   detailError: boolean;
+  // false 면 체크박스 열을 빼고 조회 전용 카드로 그린다 (전체 탭). 기본 true.
+  selectable?: boolean;
   checked: boolean;
   onToggleCheck: () => void;
   onCardClick: () => void;
@@ -19,6 +21,7 @@ export default function PreparingSendCard({
   send,
   detail,
   detailError,
+  selectable = true,
   checked,
   onToggleCheck,
   onCardClick,
@@ -44,25 +47,31 @@ export default function PreparingSendCard({
         checked ? "border-blue-400 bg-blue-50/30" : "border-gray-200"
       }`}
     >
-      <div className="grid grid-cols-[50px_280px_1fr_1fr] grid-rows-[auto_1fr]">
+      <div
+        className={`grid grid-rows-[auto_1fr] ${
+          selectable ? "grid-cols-[50px_280px_1fr_1fr]" : "grid-cols-[280px_1fr_1fr]"
+        }`}
+      >
         {/* 좌측 체크박스 (col 1, row 1-2) — div onClick 으로 영역 클릭 흡수, input onChange 가 토글 처리.
             grid 위치는 OrderListCard 와 동일하게 명시적으로 지정 — auto-placement 가 묶인 주문/품목 순서로
             인해 배송지를 col 4 row 1 로 잘못 보내는 문제 방지. */}
-        <div
-          className="col-start-1 row-start-1 row-span-2 flex items-center justify-center border-r border-gray-100"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <input
-            type="checkbox"
-            checked={checked}
-            onChange={onToggleCheck}
-            className="h-4 w-4"
-            aria-label={`발송 ${send.send_id} 선택`}
-          />
-        </div>
+        {selectable && (
+          <div
+            className="col-start-1 row-start-1 row-span-2 flex items-center justify-center border-r border-gray-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={onToggleCheck}
+              className="h-4 w-4"
+              aria-label={`발송 ${send.send_id} 선택`}
+            />
+          </div>
+        )}
 
         {/* 발송 (col 2, row 1-2) — OrderListCard "주문" 섹션과 동일한 시각 무게 */}
-        <section className="col-start-2 row-start-1 row-span-2 border-r border-gray-100 text-xs">
+        <section className={`${selectable ? "col-start-2" : "col-start-1"} row-start-1 row-span-2 border-r border-gray-100 text-xs`}>
           <SectionHeader title="발송">
             <StatusBadge type="send_status" value={send.send_status} />
           </SectionHeader>
@@ -95,7 +104,7 @@ export default function PreparingSendCard({
         {/* 배송지 (col 3, row 1-2) — OrderListCard "배송지" 패턴과 동일하게 수령인 정보 통합.
             customer 가 아닌 recipient_xxx 필드 사용 (Send 는 수령자만 존재).
             country_code 배지는 SectionHeader 우측에 표시 */}
-        <section className="col-start-3 row-start-1 row-span-2 border-r border-gray-100 text-xs">
+        <section className={`${selectable ? "col-start-3" : "col-start-2"} row-start-1 row-span-2 border-r border-gray-100 text-xs`}>
           <SectionHeader title="배송지">
             {isOverseas && (
               <span className="px-1 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-semibold">
@@ -131,7 +140,7 @@ export default function PreparingSendCard({
         </section>
 
         {/* 품목 (col 4, row 1-2) */}
-        <section className="col-start-4 row-start-1 row-span-2 text-xs">
+        <section className={`${selectable ? "col-start-4" : "col-start-3"} row-start-1 row-span-2 text-xs`}>
           <SectionHeader title="품목">
             <span className="text-gray-400 text-xs font-normal normal-case tracking-normal">
               ({items.length}건)
