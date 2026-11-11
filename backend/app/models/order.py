@@ -59,7 +59,7 @@ class Order(Base):
 
     @property
     def sends(self):
-        # OrderItem→SendItem→Send 경유로 이 주문에 묶인 모든 Send (distinct, send_id 정렬).
+        # OrderItem→SendItem→Send 경유로 이 주문에 묶인 모든 Send (distinct, send_id 내림차순=최신순).
         # 새 흐름에서 한 Send가 여러 Order에 묶일 수 있어 derived로 채움.
         seen: set[int] = set()
         result: list = []
@@ -72,7 +72,7 @@ class Order(Base):
                     continue
                 seen.add(send.send_id)
                 result.append(send)
-        result.sort(key=lambda s: s.send_id)
+        result.sort(key=lambda s: s.send_id, reverse=True)
         return result
 
     __table_args__ = (
