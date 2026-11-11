@@ -14,12 +14,12 @@ import DeliveredSendCard from "@/components/dispatch/DeliveredSendCard";
 import { sendsApi } from "@/api/sendsApi";
 import { vipSlotsApi } from "@/api/vipSlotsApi";
 import { activityLogsApi } from "@/api/activityLogsApi";
-import type { DispatchScope } from "@/types/dispatch";
+import type { SendListScope } from "@/types/dispatch";
 import type { ActivityLogResponse } from "@/types/activityLog";
 
 const LIMIT = 20;
 
-function vipSlotOf(scope: DispatchScope): number | null {
+function vipSlotOf(scope: SendListScope): number | null {
   if (scope.startsWith("vip")) {
     const n = Number(scope.slice(3));
     if (n >= 1 && n <= 6) return n;
@@ -29,7 +29,7 @@ function vipSlotOf(scope: DispatchScope): number | null {
 
 export default function DeliveredSendListPage() {
   const queryClient = useQueryClient();
-  const [scope, setScope] = useState<DispatchScope>("monthly");
+  const [scope, setScope] = useState<SendListScope>("all");
   const [issueInput, setIssueInput] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
@@ -64,12 +64,12 @@ export default function DeliveredSendListPage() {
   });
   const activeVipSlots = useMemo(() => vipSlots.filter((s) => s.is_enabled), [vipSlots]);
 
-  // 비활성 vip 탭에 머무르면 monthly fallback
+  // 비활성 vip 탭에 머무르면 전체 탭으로 fallback
   useEffect(() => {
     if (vipSlot === null || vipSlots.length === 0) return;
     const slotMeta = vipSlots.find((s) => s.slot_number === vipSlot);
     if (!slotMeta || !slotMeta.is_enabled) {
-      setScope("monthly");
+      setScope("all");
       setPage(1);
       setIssueInput("");
       setRecipientName("");
@@ -86,7 +86,8 @@ export default function DeliveredSendListPage() {
           page,
           limit: LIMIT,
           send_status: "DELIVERED",
-          product_kind: isVip ? null : scope === "monthly" ? "MONTHLY" : "YEARLY",
+          // 전체 탭은 product_kind·vip_slot_number 모두 null → 필터 없이 모든 DELIVERED 박스
+          product_kind: isVip || scope === "all" ? null : scope === "monthly" ? "MONTHLY" : "YEARLY",
           vip_slot_number: vipSlot,
           issue: issueValid ? issueInput : null,
           recipient_name: recipientName || null,
@@ -143,7 +144,7 @@ export default function DeliveredSendListPage() {
   }, [resendLogs]);
 
   const handleTabChange = (next: string) => {
-    setScope(next as DispatchScope);
+    setScope(next as SendListScope);
     setPage(1);
     setIssueInput("");
     setRecipientName("");
@@ -156,6 +157,7 @@ export default function DeliveredSendListPage() {
       <Tabs value={scope} onValueChange={handleTabChange}>
         <div className="px-5 py-3 bg-white border-b border-gray-200">
           <TabsList>
+            <TabsTrigger value="all">전체</TabsTrigger>
             <TabsTrigger value="monthly">단품</TabsTrigger>
             <TabsTrigger value="yearly">정기</TabsTrigger>
             {activeVipSlots.map((s) => (

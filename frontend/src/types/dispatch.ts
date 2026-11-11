@@ -7,6 +7,10 @@ import type { SendMethod, CourierCompany } from "./send";
 // 8개 — monthly/yearly + vip1..vip6. 프론트 탭/스코프 분기 단일 진실 소스.
 export type DispatchScope = "monthly" | "yearly" | "vip1" | "vip2" | "vip3" | "vip4" | "vip5" | "vip6";
 
+// 발송 후보/발송 완료 목록 화면 전용 탭 값 — 맨 앞 "전체"(단품·정기·VIP 구분 없이 전부) 추가.
+// "all" 은 목록 조회에만 쓰는 화면 값이라 발송 생성 등 API 요청 타입(DispatchScope)에는 넣지 않는다.
+export type SendListScope = "all" | DispatchScope;
+
 // ── 발송 현황 요약 (GET /dispatches/summary) ──────────────────────────────────
 
 export interface DispatchProductStat {
