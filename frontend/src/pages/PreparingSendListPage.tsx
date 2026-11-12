@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useDebounce } from "@/hooks/useDebounce";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,8 @@ export default function PreparingSendListPage() {
   const [issueInput, setIssueInput] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
+  const [addressSearch, setAddressSearch] = useState("");
+  const debouncedAddressSearch = useDebounce(addressSearch, 300);
   const [page, setPage] = useState(1);
   // send_id → 선택된 항목의 전체 데이터. "필터 결과 전체 선택"으로 다른 페이지의 항목이
   // 선택될 수 있어, 현재 페이지에 로드된 sends 배열만으로는 선택 항목 전체를 복원할 수 없음
@@ -108,6 +111,7 @@ export default function PreparingSendListPage() {
       setIssueInput("");
       setRecipientName("");
       setRecipientPhone("");
+      setAddressSearch("");
     }
   }, [vipSlot, vipSlots]);
 
@@ -124,14 +128,15 @@ export default function PreparingSendListPage() {
       issue: issueValid ? issueInput : null,
       recipient_name: recipientName || null,
       recipient_phone: recipientPhone || null,
+      address_search: debouncedAddressSearch || null,
       sort_by: "created_at",
       sort_order: "desc",
     }),
-    [isVip, scope, vipSlot, issueValid, issueInput, recipientName, recipientPhone],
+    [isVip, scope, vipSlot, issueValid, issueInput, recipientName, recipientPhone, debouncedAddressSearch],
   );
 
   const { data: sendsData, isLoading } = useQuery({
-    queryKey: ["preparing-sends", scope, issueInput, recipientName, recipientPhone, page],
+    queryKey: ["preparing-sends", scope, issueInput, recipientName, recipientPhone, debouncedAddressSearch, page],
     queryFn: () =>
       sendsApi.getSends({ ...baseParams, page, limit: LIMIT }).then((r) => r.data),
   });
@@ -181,6 +186,7 @@ export default function PreparingSendListPage() {
     setIssueInput("");
     setRecipientName("");
     setRecipientPhone("");
+    setAddressSearch("");
   };
 
   // 체크박스 헬퍼
@@ -362,6 +368,13 @@ export default function PreparingSendListPage() {
               disabled={filterLocked}
               onChange={(e) => { setRecipientPhone(e.target.value.replace(/\D/g, "")); setPage(1); }}
             />
+            <Input
+              className="w-52"
+              placeholder="주소 / 우편번호 검색"
+              value={addressSearch}
+              disabled={filterLocked}
+              onChange={(e) => { setAddressSearch(e.target.value); setPage(1); }}
+            />
             {filterLocked && (
               <span className="text-xs text-amber-600">전체 선택 중: 필터/탭 변경 불가</span>
             )}
@@ -420,12 +433,13 @@ export default function PreparingSendListPage() {
             </div>
           )
         }
-        hasActiveFilters={!!(issueInput || recipientName || recipientPhone)}
-        onReset={() => { setIssueInput(""); setRecipientName(""); setRecipientPhone(""); setPage(1); }}
+        hasActiveFilters={!!(issueInput || recipientName || recipientPhone || addressSearch)}
+        onReset={() => { setIssueInput(""); setRecipientName(""); setRecipientPhone(""); setAddressSearch(""); setPage(1); }}
         chips={[
           ...(issueInput && issueValid ? [{ label: `호: ${issueInput}`, onRemove: () => { setIssueInput(""); setPage(1); } }] : []),
           ...(recipientName ? [{ label: `이름: ${recipientName}`, onRemove: () => { setRecipientName(""); setPage(1); } }] : []),
           ...(recipientPhone ? [{ label: `연락처: ${recipientPhone}`, onRemove: () => { setRecipientPhone(""); setPage(1); } }] : []),
+          ...(addressSearch ? [{ label: `주소: ${addressSearch}`, onRemove: () => { setAddressSearch(""); setPage(1); } }] : []),
         ]}
       />
 

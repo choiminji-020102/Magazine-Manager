@@ -116,6 +116,7 @@ export interface SendListQuery {
   recipient_name?: string | null;
   recipient_phone?: string | null;
   postal_code?: string | null;
+  address_search?: string | null;         // 배송지 주소/우편번호 부분 일치
   issue?: string | null;
   product_kind?: "YEARLY" | "MONTHLY" | null;
   vip_slot_number?: number | null;        // 1~6, Address.vipN=true 필터

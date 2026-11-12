@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useDebounce } from "@/hooks/useDebounce";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
@@ -33,6 +34,8 @@ export default function DeliveredSendListPage() {
   const [issueInput, setIssueInput] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
+  const [addressSearch, setAddressSearch] = useState("");
+  const debouncedAddressSearch = useDebounce(addressSearch, 300);
   const [page, setPage] = useState(1);
 
   // 박스 상세 패널 — 운송장/메모 편집은 패널에서 처리 (PR-C2 에서 신설).
@@ -74,12 +77,13 @@ export default function DeliveredSendListPage() {
       setIssueInput("");
       setRecipientName("");
       setRecipientPhone("");
+      setAddressSearch("");
     }
   }, [vipSlot, vipSlots]);
 
   // DELIVERED 박스 목록
   const { data: sendsData, isLoading } = useQuery({
-    queryKey: ["delivered-sends", scope, issueInput, recipientName, recipientPhone, page],
+    queryKey: ["delivered-sends", scope, issueInput, recipientName, recipientPhone, debouncedAddressSearch, page],
     queryFn: () =>
       sendsApi
         .getSends({
@@ -92,6 +96,7 @@ export default function DeliveredSendListPage() {
           issue: issueValid ? issueInput : null,
           recipient_name: recipientName || null,
           recipient_phone: recipientPhone || null,
+          address_search: debouncedAddressSearch || null,
           sort_by: "delivered_at",
           sort_order: "desc",
         })
@@ -149,6 +154,7 @@ export default function DeliveredSendListPage() {
     setIssueInput("");
     setRecipientName("");
     setRecipientPhone("");
+    setAddressSearch("");
   };
 
   return (
@@ -198,14 +204,21 @@ export default function DeliveredSendListPage() {
               value={recipientPhone}
               onChange={(e) => { setRecipientPhone(e.target.value.replace(/\D/g, "")); setPage(1); }}
             />
+            <Input
+              className="w-52"
+              placeholder="주소 / 우편번호 검색"
+              value={addressSearch}
+              onChange={(e) => { setAddressSearch(e.target.value); setPage(1); }}
+            />
           </>
         }
-        hasActiveFilters={!!(issueInput || recipientName || recipientPhone)}
-        onReset={() => { setIssueInput(""); setRecipientName(""); setRecipientPhone(""); setPage(1); }}
+        hasActiveFilters={!!(issueInput || recipientName || recipientPhone || addressSearch)}
+        onReset={() => { setIssueInput(""); setRecipientName(""); setRecipientPhone(""); setAddressSearch(""); setPage(1); }}
         chips={[
           ...(issueInput && issueValid ? [{ label: `호: ${issueInput}`, onRemove: () => { setIssueInput(""); setPage(1); } }] : []),
           ...(recipientName ? [{ label: `이름: ${recipientName}`, onRemove: () => { setRecipientName(""); setPage(1); } }] : []),
           ...(recipientPhone ? [{ label: `연락처: ${recipientPhone}`, onRemove: () => { setRecipientPhone(""); setPage(1); } }] : []),
+          ...(addressSearch ? [{ label: `주소: ${addressSearch}`, onRemove: () => { setAddressSearch(""); setPage(1); } }] : []),
         ]}
       />
 
