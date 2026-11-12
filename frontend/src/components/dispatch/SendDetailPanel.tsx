@@ -706,9 +706,12 @@ export default function SendDetailPanel({ sendId, onClose }: Props) {
               </span>
             </>
           ) : (
-            <p className="text-sm text-gray-700 whitespace-pre-line">
-              {send.admin_memo || <span className="text-gray-400">발송 메모가 없습니다.</span>}
-            </p>
+            send.admin_memo ? (
+              <p className="text-sm text-gray-700 whitespace-pre-line">{send.admin_memo}</p>
+            ) : (
+              // 빈 상태 문구는 다른 섹션(재배송·발송 품목)과 같은 text-xs
+              <p className="text-xs text-gray-400">발송 메모가 없습니다.</p>
+            )
           )}
         </Section>
 
