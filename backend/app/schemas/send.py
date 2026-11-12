@@ -228,6 +228,7 @@ class SendListQuery(BaseModel):
     recipient_name: Optional[str] = None        # 수령인 이름
     recipient_phone: Optional[str] = None       # 수령인 연락처
     postal_code: Optional[str] = None
+    address_search: Optional[str] = None        # 배송지 주소/우편번호 부분 일치 검색
     issue: Optional[str] = None                 # SendItem.issue 기준 필터 (YYYYMM)
     product_kind: Optional[str] = None          # YEARLY | MONTHLY (SendItem → OrderItem 조인)
     vip_slot_number: Optional[int] = Field(     # SendItem→OrderItem→Address.vipN=true 필터
@@ -252,6 +253,7 @@ class SendListQuery(BaseModel):
         recipient_name: Optional[str] = Query(None),
         recipient_phone: Optional[str] = Query(None),
         postal_code: Optional[str] = Query(None),
+        address_search: Optional[str] = Query(None),
         issue: Optional[str] = Query(None),
         product_kind: Optional[str] = Query(None),
         vip_slot_number: Optional[int] = Query(None, ge=1, le=6),
@@ -271,6 +273,7 @@ class SendListQuery(BaseModel):
             recipient_name=recipient_name,
             recipient_phone=recipient_phone,
             postal_code=postal_code,
+            address_search=address_search,
             issue=issue,
             product_kind=product_kind,
             vip_slot_number=vip_slot_number,

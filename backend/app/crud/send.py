@@ -104,6 +104,16 @@ def list_sends(db: Session, query: SendListQuery) -> Tuple[List[Send], int]:
         q = q.filter(Send.recipient_phone.like(f"%{query.recipient_phone}%"))
     if query.postal_code:
         q = q.filter(Send.postal_code == query.postal_code)
+    if query.address_search:
+        # 배송지 주소 또는 우편번호 부분 일치 — Send 스냅샷 컬럼 기준 (조인 불필요)
+        keyword = query.address_search.strip()
+        if keyword:
+            q = q.filter(
+                or_(
+                    Send.recipient_address.like(f"%{keyword}%"),
+                    Send.postal_code.like(f"%{keyword}%"),
+                )
+            )
     if query.issue:
         q = q.join(SendItem, Send.send_id == SendItem.send_id).filter(
             SendItem.issue == query.issue
