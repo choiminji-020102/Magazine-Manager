@@ -17,6 +17,7 @@ import RegeneratePreparingConfirmModal from "@/components/dispatch/RegeneratePre
 import TransitionToDeliveredModal from "@/components/dispatch/TransitionToDeliveredModal";
 import SendDetailPanel from "@/components/dispatch/SendDetailPanel";
 import PreparingSendCard from "@/components/dispatch/PreparingSendCard";
+import IssueFilterSelect from "@/components/dispatch/IssueFilterSelect";
 import MonthlyExcelDialog from "@/components/dispatch-excel/MonthlyExcelDialog";
 import YearlyExcelDialog from "@/components/dispatch-excel/YearlyExcelDialog";
 import VipExcelDialog from "@/components/dispatch-excel/VipExcelDialog";
@@ -25,6 +26,7 @@ import { dispatchApi } from "@/api/dispatchApi";
 import { vipSlotsApi } from "@/api/vipSlotsApi";
 import { toast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/utils/errorHandler";
+import { formatIssue } from "@/utils/format";
 import type { DispatchScope, SendListScope, PaidNotPreparedCountResponse } from "@/types/dispatch";
 import type { SendListQuery, SendResponse } from "@/types/send";
 
@@ -87,7 +89,6 @@ export default function PreparingSendListPage() {
     setTimeout(() => setDetailSendId(null), 250);
   }, []);
 
-  const issueValid = /^\d{6}$/.test(issueInput);
   const vipSlot = vipSlotOf(scope);
   const isVip = vipSlot !== null;
 
@@ -125,14 +126,14 @@ export default function PreparingSendListPage() {
       send_status: "PREPARING",
       product_kind: isVip || scope === "all" ? null : scope === "monthly" ? "MONTHLY" : "YEARLY",
       vip_slot_number: vipSlot,
-      issue: issueValid ? issueInput : null,
+      issue: issueInput || null,
       recipient_name: recipientName || null,
       recipient_phone: recipientPhone || null,
       address_search: debouncedAddressSearch || null,
       sort_by: "created_at",
       sort_order: "desc",
     }),
-    [isVip, scope, vipSlot, issueValid, issueInput, recipientName, recipientPhone, debouncedAddressSearch],
+    [isVip, scope, vipSlot, issueInput, recipientName, recipientPhone, debouncedAddressSearch],
   );
 
   const { data: sendsData, isLoading } = useQuery({
@@ -339,21 +340,15 @@ export default function PreparingSendListPage() {
         }
       />
 
-      {/* 필터 — 호·수령인 필터링만 담당. 발송 생성/엑셀 다운로드 시 호는 각 모달·다이얼로그 안에서 별도 입력 */}
+      {/* 필터 — 호·수령인·배송지 주소 필터링만 담당. 발송 생성/엑셀 다운로드 시 호는 각 모달·다이얼로그 안에서 별도 입력 */}
       <FilterBar
         basic={
           <>
-            <Input
-              className="w-32 font-mono"
-              placeholder="발송 호 (YYYYMM)"
+            <IssueFilterSelect
               value={issueInput}
-              maxLength={6}
               disabled={filterLocked}
-              onChange={(e) => { setIssueInput(e.target.value.replace(/\D/g, "")); setPage(1); }}
+              onChange={(v) => { setIssueInput(v); setPage(1); }}
             />
-            {issueInput && !issueValid && (
-              <span className="text-xs text-red-500">6자리 입력</span>
-            )}
             <Input
               className="w-32"
               placeholder="수령인 이름"
@@ -436,7 +431,7 @@ export default function PreparingSendListPage() {
         hasActiveFilters={!!(issueInput || recipientName || recipientPhone || addressSearch)}
         onReset={() => { setIssueInput(""); setRecipientName(""); setRecipientPhone(""); setAddressSearch(""); setPage(1); }}
         chips={[
-          ...(issueInput && issueValid ? [{ label: `호: ${issueInput}`, onRemove: () => { setIssueInput(""); setPage(1); } }] : []),
+          ...(issueInput ? [{ label: `호: ${formatIssue(issueInput)}`, onRemove: () => { setIssueInput(""); setPage(1); } }] : []),
           ...(recipientName ? [{ label: `이름: ${recipientName}`, onRemove: () => { setRecipientName(""); setPage(1); } }] : []),
           ...(recipientPhone ? [{ label: `연락처: ${recipientPhone}`, onRemove: () => { setRecipientPhone(""); setPage(1); } }] : []),
           ...(addressSearch ? [{ label: `주소: ${addressSearch}`, onRemove: () => { setAddressSearch(""); setPage(1); } }] : []),

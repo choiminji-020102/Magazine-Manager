@@ -12,10 +12,12 @@ import { SlidingPanel } from "@/components/common/SlidingPanel";
 import { CheckCircle2 } from "lucide-react";
 import SendDetailPanel from "@/components/dispatch/SendDetailPanel";
 import DeliveredSendCard from "@/components/dispatch/DeliveredSendCard";
+import IssueFilterSelect from "@/components/dispatch/IssueFilterSelect";
 import { sendsApi } from "@/api/sendsApi";
 import { vipSlotsApi } from "@/api/vipSlotsApi";
 import { activityLogsApi } from "@/api/activityLogsApi";
 import type { SendListScope } from "@/types/dispatch";
+import { formatIssue } from "@/utils/format";
 import type { ActivityLogResponse } from "@/types/activityLog";
 
 const LIMIT = 20;
@@ -55,7 +57,6 @@ export default function DeliveredSendListPage() {
     setTimeout(() => setDetailSendId(null), 250);
   }, []);
 
-  const issueValid = /^\d{6}$/.test(issueInput);
   const vipSlot = vipSlotOf(scope);
   const isVip = vipSlot !== null;
 
@@ -93,7 +94,7 @@ export default function DeliveredSendListPage() {
           // 전체 탭은 product_kind·vip_slot_number 모두 null → 필터 없이 모든 DELIVERED 박스
           product_kind: isVip || scope === "all" ? null : scope === "monthly" ? "MONTHLY" : "YEARLY",
           vip_slot_number: vipSlot,
-          issue: issueValid ? issueInput : null,
+          issue: issueInput || null,
           recipient_name: recipientName || null,
           recipient_phone: recipientPhone || null,
           address_search: debouncedAddressSearch || null,
@@ -182,16 +183,10 @@ export default function DeliveredSendListPage() {
       <FilterBar
         basic={
           <>
-            <Input
-              className="w-32 font-mono"
-              placeholder="발송 호 (YYYYMM)"
+            <IssueFilterSelect
               value={issueInput}
-              maxLength={6}
-              onChange={(e) => { setIssueInput(e.target.value.replace(/\D/g, "")); setPage(1); }}
+              onChange={(v) => { setIssueInput(v); setPage(1); }}
             />
-            {issueInput && !issueValid && (
-              <span className="text-xs text-red-500">6자리 입력</span>
-            )}
             <Input
               className="w-32"
               placeholder="수령인 이름"
@@ -215,7 +210,7 @@ export default function DeliveredSendListPage() {
         hasActiveFilters={!!(issueInput || recipientName || recipientPhone || addressSearch)}
         onReset={() => { setIssueInput(""); setRecipientName(""); setRecipientPhone(""); setAddressSearch(""); setPage(1); }}
         chips={[
-          ...(issueInput && issueValid ? [{ label: `호: ${issueInput}`, onRemove: () => { setIssueInput(""); setPage(1); } }] : []),
+          ...(issueInput ? [{ label: `호: ${formatIssue(issueInput)}`, onRemove: () => { setIssueInput(""); setPage(1); } }] : []),
           ...(recipientName ? [{ label: `이름: ${recipientName}`, onRemove: () => { setRecipientName(""); setPage(1); } }] : []),
           ...(recipientPhone ? [{ label: `연락처: ${recipientPhone}`, onRemove: () => { setRecipientPhone(""); setPage(1); } }] : []),
           ...(addressSearch ? [{ label: `주소: ${addressSearch}`, onRemove: () => { setAddressSearch(""); setPage(1); } }] : []),
